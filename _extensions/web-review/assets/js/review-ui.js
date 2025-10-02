@@ -359,28 +359,46 @@ class WebReview {
     if (element) {
       const originalHtml = element.innerHTML;
 
-      // Create change record
-      const changeId = `change-${Date.now()}`;
-      this.changes.set(changeId, {
-        id: changeId,
-        elementId: elementId,
-        type: 'text-edit',
-        original: originalHtml,
-        modified: newHtml,
-        timestamp: new Date().toISOString(),
-        status: 'pending'
-      });
+      // Check if content has actually changed
+      if (newHtml !== originalHtml) {
+        // Check if there's already a pending change for this element
+        let existingChangeId = null;
+        this.changes.forEach((change, id) => {
+          if (change.elementId === elementId && change.status === 'pending') {
+            existingChangeId = id;
+          }
+        });
 
-      // Apply change visually
-      if (this.config.mode === 'review') {
-        element.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
-        element.dataset.hasChanges = 'true';
-      } else {
-        element.innerHTML = newHtml;
+        if (existingChangeId) {
+          // Update existing change
+          const existingChange = this.changes.get(existingChangeId);
+          existingChange.modified = newHtml;
+          existingChange.timestamp = new Date().toISOString();
+        } else {
+          // Create new change record
+          const changeId = `change-${Date.now()}`;
+          this.changes.set(changeId, {
+            id: changeId,
+            elementId: elementId,
+            type: 'text-edit',
+            original: originalHtml,
+            modified: newHtml,
+            timestamp: new Date().toISOString(),
+            status: 'pending'
+          });
+        }
+
+        // Apply change visually
+        if (this.config.mode === 'review') {
+          element.style.backgroundColor = 'rgba(16, 185, 129, 0.1)';
+          element.dataset.hasChanges = 'true';
+        } else {
+          element.innerHTML = newHtml;
+        }
+
+        this.updateChangesUI();
+        this.saveToStorage();
       }
-
-      this.updateChangesUI();
-      this.saveToStorage();
     }
 
     dialog.remove();
@@ -426,7 +444,7 @@ class WebReview {
   updateChangesUI() {
     const changesList = document.getElementById('changes-list');
     changesList.innerHTML = '';
-    
+
     this.changes.forEach(change => {
       const changeEl = document.createElement('div');
       changeEl.className = 'change-item';
@@ -440,8 +458,12 @@ class WebReview {
         </div>
         ${this.config.mode === 'author' ? `
           <div class="change-actions">
-            <button onclick="webReview.acceptChange('${change.id}')">Accept</button>
-            <button onclick="webReview.rejectChange('${change.id}')">Reject</button>
+            ${change.status === 'pending' ? `
+              <button onclick="webReview.acceptChange('${change.id}')">Accept</button>
+              <button onclick="webReview.rejectChange('${change.id}')">Reject</button>
+            ` : `
+              <button onclick="webReview.removeChange('${change.id}')">Remove</button>
+            `}
           </div>
         ` : ''}
       `;
@@ -473,7 +495,20 @@ class WebReview {
       const element = document.querySelector(`[data-review-id="${change.elementId}"]`);
       if (element) {
         element.style.backgroundColor = '';
+        element.dataset.hasChanges = 'false';
       }
+      this.updateChangesUI();
+      this.saveToStorage();
+    }
+  }
+
+  removeChange(changeId) {
+    const change = this.changes.get(changeId);
+    if (change && (change.status === 'accepted' || change.status === 'rejected')) {
+      // Remove the change from the map
+      this.changes.delete(changeId);
+
+      // Update UI and storage
       this.updateChangesUI();
       this.saveToStorage();
     }
@@ -528,18 +563,35 @@ class WebReview {
     }
   }
   
-  saveReview() {
+  async saveReview() {
     this.saveToStorage();
-    
-    // Trigger download of review data
-    const reviewData = {
-      comments: Array.from(this.comments.values()),
-      changes: Array.from(this.changes.values()),
-      timestamp: new Date().toISOString(),
-      config: this.config
+
+    // Get clean review data using exportReview method
+    const reviewData = await this.exportReview();
+
+    // Create a clean export with only essential data
+    const cleanExport = {
+      comments: reviewData.comments.map(comment => ({
+        id: comment.id,
+        text: comment.text,
+        author: comment.author,
+        timestamp: comment.timestamp,
+        resolved: comment.resolved,
+        replies: comment.replies || []
+      })),
+      changes: reviewData.changes.map(change => ({
+        id: change.id,
+        elementId: change.elementId,
+        type: change.type,
+        original: change.original,
+        modified: change.modified,
+        timestamp: change.timestamp,
+        status: change.status
+      })),
+      timestamp: reviewData.timestamp
     };
-    
-    const blob = new Blob([JSON.stringify(reviewData, null, 2)], {
+
+    const blob = new Blob([JSON.stringify(cleanExport, null, 2)], {
       type: 'application/json'
     });
     const url = URL.createObjectURL(blob);

@@ -226,6 +226,7 @@
   border: 1px solid #e5e7eb;
   border-radius: 8px;
   overflow: hidden;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
 }
 
 .diff-header {
@@ -248,6 +249,7 @@
   font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.4;
+  min-height: 1.4em;
 }
 
 .diff-line-number {
@@ -258,12 +260,21 @@
   text-align: right;
   color: #6b7280;
   user-select: none;
+  flex-shrink: 0;
+}
+
+.diff-line-prefix {
+  padding: 4px 4px 4px 8px;
+  user-select: none;
+  flex-shrink: 0;
 }
 
 .diff-line-content {
   padding: 4px 8px;
   flex: 1;
   white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .diff-line.added {
@@ -274,12 +285,30 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+.diff-line.unchanged {
+  background: white;
+}
+
+.diff-line.empty {
+  background: #fafafa;
+}
+
 .diff-line.added .diff-line-content {
   color: #047857;
 }
 
 .diff-line.removed .diff-line-content {
   color: #dc2626;
+}
+
+.diff-line.added .diff-line-prefix {
+  color: #047857;
+  font-weight: bold;
+}
+
+.diff-line.removed .diff-line-prefix {
+  color: #dc2626;
+  font-weight: bold;
 }
 
 /* Change tracking */
