@@ -1,0 +1,81 @@
+---
+title: "Sample Document for Web Review Testing"
+format: 
+  html:
+    filters:
+      - _extensions/web-review/web-review.lua
+web-review:
+  enabled: true
+  mode: "review"
+  features:
+    comments: true
+    editing: true
+    versioning: true
+    diff-view: true
+  ui:
+    theme: "default"
+    sidebar-position: "right"
+    diff-style: "side-by-side"
+  storage:
+    embed-sources: true
+    auto-save: true
+---
+
+# Introduction
+
+This is a sample document created to test the Web Review extension for Quarto. This document demonstrates various features that can be reviewed and commented on.
+
+## Text Paragraphs
+
+Here is a paragraph that reviewers can comment on. They can select specific text portions and add contextual comments. This paragraph contains multiple sentences to demonstrate text selection capabilities.
+
+The review system should allow for:
+
+- Adding comments to selected text
+- Suggesting changes to paragraphs
+- Tracking all modifications
+- Exporting review data
+
+## Code Blocks
+
+Reviewers can also comment on code blocks and suggest improvements:
+
+```javascript
+function calculateTotal(items) {
+    let total = 0;
+    for (let item of items) {
+        total += item.price * item.quantity;
+    }
+    return total;
+}
+```
+
+This function could be optimized or might need error handling for edge cases.
+
+## Mathematical Expressions
+
+The extension should handle mathematical content as well:
+
+$$E = mc^2$$
+
+This famous equation demonstrates how mathematical expressions are handled in the review process.
+
+## Lists and Structure
+
+1. First item that can be reviewed
+2. Second item with potential for improvement
+3. Third item demonstrating list functionality
+
+### Subsection Example
+
+This subsection demonstrates hierarchical content structure. Reviewers should be able to comment on headers, modify text, and suggest structural changes.
+
+## Images and Figures
+
+While this example doesn't include images, the extension is designed to handle figure comments and annotations as well.
+
+## Conclusion
+
+This document serves as a comprehensive test case for the Web Review extension. It includes various content types that typically appear in academic and technical documents created with Quarto.
+
+The extension should preserve the original document structure while adding collaborative review capabilities.

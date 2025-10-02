@@ -1,0 +1,14 @@
+---
+title: "Minimal Test"
+format: 
+  html:
+    filters:
+      - _extensions/web-review/web-review.lua
+web-review:
+  enabled: true
+  mode: "review"
+---
+
+# Test
+
+This is a test.

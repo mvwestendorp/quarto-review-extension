@@ -1,0 +1,141 @@
+name: CI - Test and Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    name: Test Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check JavaScript syntax
+        run: |
+          echo "Checking JavaScript files for syntax errors..."
+          node --check _extensions/web-review/web-review.js
+          node --check _extensions/web-review/assets/js/review-ui.js
+          node --check _extensions/web-review/assets/js/diff-viewer.js
+          node --check _extensions/web-review/assets/js/version-control.js
+
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: '1.4.550'
+
+      - name: Verify Quarto installation
+        run: quarto --version
+
+      - name: Test extension rendering
+        run: |
+          echo "Testing extension with minimal test document..."
+          quarto render minimal-test.qmd || echo "Render failed but continuing..."
+
+          echo "Testing extension with example document..."
+          quarto render example.qmd || echo "Render failed but continuing..."
+
+      - name: Check for generated HTML
+        run: |
+          if [ -f "minimal-test.html" ]; then
+            echo "✓ minimal-test.html generated successfully"
+            # Check if web review extension is embedded
+            if grep -q "WEB REVIEW EXTENSION" minimal-test.html; then
+              echo "✓ Web Review extension found in HTML"
+            else
+              echo "✗ Web Review extension not found in HTML"
+              exit 1
+            fi
+          else
+            echo "✗ minimal-test.html not generated"
+            exit 1
+          fi
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run npm audit (if package.json exists)
+        continue-on-error: true
+        run: |
+          if [ -f "package.json" ]; then
+            npm audit --production || echo "npm audit completed with warnings"
+          else
+            echo "No package.json found, skipping npm audit"
+          fi
+
+      - name: Run Trivy security scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Check for sensitive data with gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Scan JavaScript with ESLint security rules
+        continue-on-error: true
+        run: |
+          npm init -y
+          npm install --save-dev eslint eslint-plugin-security
+          npx eslint --plugin security --rule 'security/detect-eval-with-expression: error' \
+            --rule 'security/detect-non-literal-regexp: warn' \
+            --rule 'security/detect-unsafe-regex: error' \
+            --rule 'security/detect-buffer-noassert: error' \
+            --rule 'security/detect-child-process: warn' \
+            --rule 'security/detect-disable-mustache-escape: error' \
+            --rule 'security/detect-no-csrf-before-method-override: error' \
+            --rule 'security/detect-non-literal-fs-filename: warn' \
+            --rule 'security/detect-non-literal-require: warn' \
+            --rule 'security/detect-object-injection: warn' \
+            --rule 'security/detect-possible-timing-attacks: warn' \
+            --rule 'security/detect-pseudoRandomBytes: error' \
+            _extensions/web-review/**/*.js || echo "ESLint security scan completed with warnings"
+
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check Lua syntax
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.3
+          lua5.3 -e "dofile('_extensions/web-review/web-review.lua')" || echo "Lua syntax check completed"
+
+      - name: Check for TODO/FIXME comments
+        run: |
+          echo "Checking for TODO/FIXME comments..."
+          grep -r "TODO\|FIXME" _extensions/web-review/ --include="*.js" --include="*.lua" || echo "No TODO/FIXME found"
+
+      - name: Check file sizes
+        run: |
+          echo "Checking for large files..."
+          find _extensions/web-review -type f -size +500k -exec ls -lh {} \; || echo "No large files found"

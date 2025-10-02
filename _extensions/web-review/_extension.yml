@@ -1,0 +1,36 @@
+title: Web Review
+author: Quarto Web Review Extension
+version: 1.0.0
+quarto-required: ">=1.2.0"
+description: |
+  A comprehensive web-based review system for Quarto documents that enables
+  collaborative commenting, text editing, and version tracking through an 
+  interactive web interface.
+
+contributes:
+  filters:
+    - web-review.lua
+
+format:
+  html:
+    css: 
+      - assets/css/review-ui.css
+    include-after-body:
+      - assets/js/review-init.html
+
+metadata:
+  web-review:
+    enabled: true
+    mode: "review"  # review, author, read-only
+    features:
+      comments: true
+      editing: true
+      versioning: true
+      diff-view: true
+    ui:
+      theme: "default"
+      sidebar-position: "right"
+      diff-style: "side-by-side"  # side-by-side, inline
+    storage:
+      embed-sources: true
+      auto-save: true
