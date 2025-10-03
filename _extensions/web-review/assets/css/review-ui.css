@@ -540,3 +540,21 @@
     outline: none !important;
   }
 }
+
+/* Wysimark editor container fixes */
+.web-review-wysimark-container {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Remove indentation from Wysimark lists when editing */
+.web-review-wysimark-container ul,
+.web-review-wysimark-container ol {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+}
+
+.web-review-wysimark-container li {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}

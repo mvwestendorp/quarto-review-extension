@@ -7,6 +7,7 @@ format:
 web-review:
   enabled: true
   mode: "review"
+  debug: true
 ---
 
 # Enhanced Web Review with User Features

@@ -1,34 +1,17 @@
+// Debug mode - checks for data-web-review-debug attribute on body element
+const DEBUG = document.body.hasAttribute('data-web-review-debug');
+
 /**
  * Debug logging function - only logs when DEBUG mode is enabled
- * Checks for data-web-review-debug attribute on body element at call time
  * @param {...any} args - Arguments to log
  */
 function debug(...args) {
-  if (document.body && document.body.hasAttribute('data-web-review-debug')) {
+  if (DEBUG) {
     console.log('[Web Review]', ...args);
   }
 }
 
 debug("WEB REVIEW EXTENSION LOADED!");
-
-// Load Wysimark from CDN if not already loaded
-(function loadWysimark() {
-  if (typeof createWysimark !== 'undefined') {
-    debug('Wysimark already loaded');
-    return;
-  }
-
-  const script = document.createElement('script');
-  script.src = 'https://unpkg.com/wysimark-standalone@1.0.0/dist/javascript/index.cjs.js';
-  script.onload = () => {
-    debug('Wysimark loaded successfully from CDN');
-  };
-  script.onerror = (error) => {
-    console.error('Failed to load Wysimark from CDN:', error);
-  };
-  document.head.appendChild(script);
-  debug('Loading Wysimark from CDN...');
-})();
 
 // Helper function to convert HTML to Markdown - defined early for use in CriticMarkupManager
 function convertHtmlToMarkdown(html) {
@@ -54,8 +37,7 @@ function convertHtmlToMarkdown(html) {
       if (node.classList && node.classList.contains('inline-heading')) {
         const level = node.dataset.headingLevel || 'h2';
         const textContent = Array.from(node.childNodes).map(processNode).join('');
-        const prefixes = { h1: '# ', h2: '## ', h3: '### ', h4: '#### ', h5: '##### ', h6: '###### ' };
-        const prefix = prefixes[level] || '## ';
+        const prefix = level === 'h1' ? '# ' : level === 'h2' ? '## ' : '### ';
         // Use newlines to create proper block-level markdown
         return `\n\n${prefix}${textContent}\n\n`;
       }
@@ -1377,8 +1359,6 @@ document.addEventListener('DOMContentLoaded', function() {
   document.addEventListener('click', function(e) {
     const target = e.target;
 
-    debug('Click detected on:', target.tagName, target.className, target.textContent?.substring(0, 50));
-
     // Don't interfere with extension UI clicks - check FIRST before any other logic
     if (target.closest('#web-review-popup') ||
         target.closest('#web-review-container') ||
@@ -1390,18 +1370,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Only allow editing of original Quarto content
     if (!isOriginalContent(target)) {
       debug('Target not original content, not allowing edit');
-      debug('Target element details:', {
-        tagName: target.tagName,
-        classList: Array.from(target.classList),
-        id: target.id,
-        parentElement: target.parentElement?.tagName
-      });
       return;
     }
 
     // Find the nearest editable parent element (for cases where user clicks on bold text, etc.)
     let editableElement = target;
-    while (editableElement && !['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'UL', 'OL', 'DIV'].includes(editableElement.tagName)) {
+    while (editableElement && !['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'DIV'].includes(editableElement.tagName)) {
       editableElement = editableElement.parentElement;
       // Stop if we've gone too far up (past reasonable content)
       if (!editableElement || editableElement === document.body ||
@@ -1412,24 +1386,11 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     }
 
-    // If we found an LI, climb up to the UL/OL parent to edit the whole list
-    if (editableElement && editableElement.tagName === 'LI') {
-      const listParent = editableElement.closest('ul, ol');
-      if (listParent) {
-        editableElement = listParent;
-        debug('Clicked on LI, editing parent list instead:', listParent.tagName);
-        debug('List parent element:', listParent.outerHTML.substring(0, 200));
-      }
-    }
-
     // Double-check that the found element is also valid content
     if (editableElement && !isOriginalContent(editableElement)) {
       debug('Found element is not original content, aborting');
-      debug('Element that failed isOriginalContent check:', editableElement);
       return;
     }
-
-    debug('Valid editable element found:', editableElement.tagName, editableElement.className);
 
     // Additional check: Reject DIV elements that contain code blocks or multiple block elements
     if (editableElement && editableElement.tagName === 'DIV') {
@@ -1615,7 +1576,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Use stored content for editing and comparison
     let originalText, originalHTML, originalMarkdown;
     let currentText, currentHTML, currentMarkdown;
-    let beforeEditHTML; // HTML state before opening editor (to restore if no changes)
 
     if (element.dataset.originalText && element.dataset.originalMarkdown) {
       // Element has been edited before - get ORIGINAL for comparison, CURRENT for editing
@@ -1627,9 +1587,6 @@ document.addEventListener('DOMContentLoaded', function() {
       currentText = element.dataset.newText;
       currentMarkdown = element.dataset.newMarkdown;
       currentHTML = convertMarkdownToHtml(currentMarkdown);
-
-      // Store the current HTML state (with diff) to restore if no changes
-      beforeEditHTML = element.innerHTML;
       debug('Using original for comparison, current for editing (2nd+ edit)');
     } else {
       // First time editing - current content IS the original
@@ -1640,35 +1597,23 @@ document.addEventListener('DOMContentLoaded', function() {
       currentText = originalText;
       currentHTML = originalHTML;
       currentMarkdown = originalMarkdown;
-      beforeEditHTML = originalHTML;
       debug('First time editing - using current as original');
-      debug('Element type:', element.tagName);
-      debug('Original markdown:', originalMarkdown);
     }
     
     const originalStyles = window.getComputedStyle(element);
     
     element.classList.add('web-review-editing');
-
+    
     // Store original styles for restoration
     element.dataset.originalBackground = element.style.background || '';
     element.dataset.originalBorder = element.style.border || '';
     element.dataset.originalPadding = element.style.padding || '';
-    element.dataset.originalMargin = element.style.margin || '';
-    element.dataset.originalPaddingLeft = element.style.paddingLeft || '';
-    element.dataset.originalMarginLeft = element.style.marginLeft || '';
-
+    
     // Apply editing styles that preserve the original appearance
     element.style.outline = '2px solid #007acc';
     element.style.background = 'rgba(240, 248, 255, 0.8)';
     element.style.borderRadius = '4px';
     element.style.position = 'relative';
-
-    // Remove default list indentation when editing UL/OL
-    if (element.tagName === 'UL' || element.tagName === 'OL') {
-      element.style.paddingLeft = '0';
-      element.style.marginLeft = '0';
-    }
     
     // Create editing container with reset styles to prevent inheritance
     const editContainer = document.createElement('div');
@@ -1751,35 +1696,21 @@ document.addEventListener('DOMContentLoaded', function() {
     element.innerHTML = '';
     element.appendChild(editContainer);
 
-    // Initialize Wysimark editor (with retry for CDN loading)
-    function initializeWysimark(retryCount = 0) {
-      if (typeof createWysimark !== 'undefined') {
-        try {
-          wysimarkInstance = createWysimark(wysimarkContainer, {
-            initialMarkdown: currentMarkdown,
-            placeholder: 'Edit your content here...',
-            minHeight: '200px',
-            onChange: (markdown) => {
-              // Sync with textarea for source mode toggle
-              textarea.value = markdown;
-            }
-          });
-          console.log('Wysimark editor initialized successfully');
-        } catch (error) {
-          console.error('Wysimark initialization error:', error);
-          wysimarkContainer.innerHTML = '<p style="color: red;">Error initializing editor: ' + error.message + '</p>';
+    // Initialize Wysimark editor
+    if (typeof createWysimark !== 'undefined') {
+      wysimarkInstance = createWysimark(wysimarkContainer, {
+        initialMarkdown: currentMarkdown,
+        placeholder: 'Edit your content here...',
+        minHeight: '200px',
+        onChange: (markdown) => {
+          // Sync with textarea for source mode toggle
+          textarea.value = markdown;
         }
-      } else if (retryCount < 20) {
-        // Wysimark not loaded yet, wait and retry (max 20 retries = 10 seconds)
-        wysimarkContainer.innerHTML = '<p style="color: #666; text-align: center; padding: 40px;">Loading editor...</p>';
-        setTimeout(() => initializeWysimark(retryCount + 1), 500);
-      } else {
-        console.error('Wysimark failed to load after multiple retries');
-        wysimarkContainer.innerHTML = '<p style="color: red;">Error: Wysimark editor failed to load. Please refresh the page.</p>';
-      }
+      });
+    } else {
+      console.error('Wysimark not loaded. Editor will not function.');
+      wysimarkContainer.innerHTML = '<p style="color: red;">Error: Wysimark editor not loaded. Please refresh the page.</p>';
     }
-
-    initializeWysimark();
 
     // Mode toggle functions (Wysimark handles all formatting internally)
     function switchToVisualMode() {
@@ -1815,6 +1746,821 @@ document.addEventListener('DOMContentLoaded', function() {
     sourceModeBtn.addEventListener('click', switchToSourceMode);
 
     saveBtn.addEventListener('click', function() {
+      const selection = window.getSelection();
+
+      switch(command) {
+        case 'bold':
+          document.execCommand('bold', false, null);
+          break;
+        case 'italic':
+          document.execCommand('italic', false, null);
+          break;
+        case 'code':
+          // Wrap in code tag
+          if (selection.toString()) {
+            const code = document.createElement('code');
+            code.textContent = selection.toString();
+            selection.deleteContents();
+            selection.getRangeAt(0).insertNode(code);
+          }
+          break;
+        case 'h1':
+        case 'h2':
+        case 'h3':
+          // Treat headers as inline formatting with a special class
+          // They will be split into blocks when saved
+
+          // Check if cursor is in a block-level heading (not selection, just cursor position)
+          if (!selection.toString()) {
+            const range = selection.getRangeAt(0);
+            let parentElement = range.commonAncestorContainer;
+            if (parentElement.nodeType === Node.TEXT_NODE) {
+              parentElement = parentElement.parentElement;
+            }
+
+            // Check if we're in a block-level heading element
+            const blockHeading = parentElement.closest('h1, h2, h3, h4, h5, h6');
+            if (blockHeading && blockHeading.parentElement === visualEditor) {
+              const currentLevel = blockHeading.tagName.toLowerCase();
+              if (currentLevel === command) {
+                // Same level - remove heading (unwrap to plain text in parent)
+                const parent = blockHeading.parentElement;
+                // Move all children out of the heading
+                while (blockHeading.firstChild) {
+                  parent.insertBefore(blockHeading.firstChild, blockHeading);
+                }
+                parent.removeChild(blockHeading);
+                parent.normalize();
+              } else {
+                // Different level - change heading level
+                const newHeading = document.createElement(command);
+                // Get the text content and strip any markdown prefixes that might have leaked through
+                let content = blockHeading.textContent;
+                // Strip markdown heading prefixes if present
+                content = content.replace(/^#{1,6}\s+/, '');
+                newHeading.textContent = content;
+                blockHeading.replaceWith(newHeading);
+              }
+              // Update toolbar state after heading change
+              updateToolbarState();
+              return; // Done
+            }
+
+            // Check if we're in an inline-heading span
+            const headingSpan = parentElement.closest('.inline-heading');
+            if (headingSpan) {
+              const currentLevel = headingSpan.dataset.headingLevel;
+              if (currentLevel === command) {
+                // Same level - remove heading
+                const parent = headingSpan.parentElement;
+                while (headingSpan.firstChild) {
+                  parent.insertBefore(headingSpan.firstChild, headingSpan);
+                }
+                parent.removeChild(headingSpan);
+                parent.normalize();
+              } else {
+                // Different level - change the level
+                headingSpan.className = `inline-heading inline-${command}`;
+                headingSpan.dataset.headingLevel = command;
+                const fontSize = command === 'h1' ? '1.8em' : command === 'h2' ? '1.5em' : '1.3em';
+                headingSpan.style.fontSize = fontSize;
+              }
+              return; // Done
+            }
+
+            // No heading context - set pending mode so next typed text becomes a heading
+            pendingHeadingLevel = command;
+            return;
+          }
+
+          if (selection.toString()) {
+            const range = selection.getRangeAt(0);
+            const selectedText = selection.toString();
+
+            // Check if the selection is already a heading
+            let parentElement = range.commonAncestorContainer;
+            if (parentElement.nodeType === Node.TEXT_NODE) {
+              parentElement = parentElement.parentElement;
+            }
+
+            // Check if we're inside a heading span
+            let headingSpan = parentElement;
+            while (headingSpan && headingSpan !== visualEditor &&
+                   !headingSpan.classList?.contains('inline-heading')) {
+              headingSpan = headingSpan.parentElement;
+            }
+
+            if (headingSpan && headingSpan.classList?.contains('inline-heading')) {
+              // Already a heading - check if same level
+              const currentLevel = headingSpan.dataset.headingLevel;
+
+              if (currentLevel === command) {
+                // Same level - remove heading (toggle off)
+                const parent = headingSpan.parentElement;
+                while (headingSpan.firstChild) {
+                  parent.insertBefore(headingSpan.firstChild, headingSpan);
+                }
+                parent.removeChild(headingSpan);
+                // Normalize the parent to merge adjacent text nodes
+                parent.normalize();
+              } else {
+                // Different level - change the level
+                headingSpan.className = `inline-heading inline-${command}`;
+                headingSpan.dataset.headingLevel = command;
+                const fontSize = command === 'h1' ? '1.8em' : command === 'h2' ? '1.5em' : '1.3em';
+                headingSpan.style.fontSize = fontSize;
+              }
+            } else {
+              // Apply heading - wrap in a styled span
+              const newHeadingSpan = document.createElement('span');
+              newHeadingSpan.className = `inline-heading inline-${command}`;
+              newHeadingSpan.dataset.headingLevel = command;
+
+              // Style it to look like a heading
+              const fontSize = command === 'h1' ? '1.8em' : command === 'h2' ? '1.5em' : '1.3em';
+              newHeadingSpan.style.fontSize = fontSize;
+              newHeadingSpan.style.fontWeight = 'bold';
+              newHeadingSpan.style.display = 'inline-block';
+              newHeadingSpan.style.background = 'rgba(173, 216, 230, 0.2)';
+              newHeadingSpan.style.padding = '2px 4px';
+              newHeadingSpan.style.borderRadius = '3px';
+
+              // Extract and insert the selected content more carefully
+              try {
+                const fragment = range.extractContents();
+                newHeadingSpan.appendChild(fragment);
+                range.insertNode(newHeadingSpan);
+              } catch (e) {
+                // Fallback: if surroundContents fails, manually wrap
+                newHeadingSpan.textContent = selectedText;
+                range.deleteContents();
+                range.insertNode(newHeadingSpan);
+              }
+
+              // Set selection after the inserted span
+              const newRange = document.createRange();
+              newRange.setStartAfter(newHeadingSpan);
+              newRange.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(newRange);
+            }
+          }
+          break;
+        case 'p':
+          // Insert new paragraph or convert heading to paragraph
+
+          // Check if cursor is in a block-level heading (no selection)
+          if (!selection.toString()) {
+            const range = selection.getRangeAt(0);
+            let parentElement = range.commonAncestorContainer;
+            if (parentElement.nodeType === Node.TEXT_NODE) {
+              parentElement = parentElement.parentElement;
+            }
+
+            // Check if we're in a block-level heading element
+            const blockHeading = parentElement.closest('h1, h2, h3, h4, h5, h6');
+            if (blockHeading && blockHeading.parentElement === visualEditor) {
+              // Insert a new paragraph after the heading
+              const newP = document.createElement('p');
+              newP.innerHTML = '<br>'; // Empty paragraph with br for cursor placement
+
+              if (blockHeading.nextSibling) {
+                blockHeading.parentElement.insertBefore(newP, blockHeading.nextSibling);
+              } else {
+                blockHeading.parentElement.appendChild(newP);
+              }
+
+              // Move cursor to the new paragraph
+              const newRange = document.createRange();
+              newRange.setStart(newP, 0);
+              newRange.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(newRange);
+
+              // Update toolbar state to reflect we're now in a paragraph, not a heading
+              updateToolbarState();
+              return;
+            }
+
+            // Check if we're in an inline-heading span
+            const headingSpan = parentElement.closest('.inline-heading');
+            if (headingSpan) {
+              // Remove inline heading formatting
+              const parent = headingSpan.parentElement;
+              while (headingSpan.firstChild) {
+                parent.insertBefore(headingSpan.firstChild, headingSpan);
+              }
+              parent.removeChild(headingSpan);
+              parent.normalize();
+              return;
+            }
+
+            // Not in a heading - do nothing (already a paragraph)
+            return;
+          }
+
+          // Handle selection - remove heading formatting from selection
+          if (selection.toString()) {
+            const range = selection.getRangeAt(0);
+            let parentElement = range.commonAncestorContainer;
+            if (parentElement.nodeType === Node.TEXT_NODE) {
+              parentElement = parentElement.parentElement;
+            }
+
+            let headingSpan = parentElement;
+            while (headingSpan && headingSpan !== visualEditor &&
+                   !headingSpan.classList?.contains('inline-heading')) {
+              headingSpan = headingSpan.parentElement;
+            }
+
+            if (headingSpan && headingSpan.classList?.contains('inline-heading')) {
+              const parent = headingSpan.parentElement;
+              while (headingSpan.firstChild) {
+                parent.insertBefore(headingSpan.firstChild, headingSpan);
+              }
+              parent.removeChild(headingSpan);
+            }
+          }
+          break;
+        case 'ul':
+          document.execCommand('insertUnorderedList', false, null);
+          break;
+        case 'ol':
+          document.execCommand('insertOrderedList', false, null);
+          break;
+      }
+    }
+    
+    function insertVisualLink() {
+      if (!isVisualMode) {
+        return insertSourceLink();
+      }
+      
+      const url = prompt('Enter URL:', 'https://');
+      if (url) {
+        const text = prompt('Enter link text:', 'link text') || url;
+        visualEditor.focus();
+        document.execCommand('createLink', false, url);
+        
+        // If no text was selected, replace with custom text
+        const selection = window.getSelection();
+        if (selection.toString() === url && text !== url) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          const link = document.createElement('a');
+          link.href = url;
+          link.textContent = text;
+          range.insertNode(link);
+        }
+      }
+    }
+    
+    function addListItem() {
+      if (!isVisualMode) {
+        return; // Only works in visual mode
+      }
+
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const cursor = range.startContainer;
+
+        // Find if we're inside a list item
+        let listItem = cursor.nodeType === Node.TEXT_NODE ? cursor.parentElement : cursor;
+        while (listItem && listItem.tagName !== 'LI' && listItem !== visualEditor) {
+          listItem = listItem.parentElement;
+        }
+
+        if (listItem && listItem.tagName === 'LI') {
+          // We're in a list - add a new list item
+          const newLi = document.createElement('li');
+          newLi.textContent = 'New item';
+
+          // Insert after current list item
+          listItem.parentElement.insertBefore(newLi, listItem.nextSibling);
+
+          // Focus on the new list item
+          const newRange = document.createRange();
+          newRange.selectNodeContents(newLi);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          // Not in a list - create a new unordered list
+          visualEditor.focus();
+          document.execCommand('insertHTML', false, '<ul><li>New list item</li></ul>');
+        }
+      }
+    }
+
+    function removeListFormatting() {
+      if (!isVisualMode) {
+        return; // Only works in visual mode
+      }
+
+      visualEditor.focus();
+      const selection = window.getSelection();
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        let cursor = range.startContainer;
+
+        // Handle text nodes
+        if (cursor.nodeType === Node.TEXT_NODE) {
+          cursor = cursor.parentElement;
+        }
+
+        // First check if we have lists in the visual editor itself
+        const listsInEditor = visualEditor.querySelectorAll('ul, ol');
+        const listItemsInEditor = visualEditor.querySelectorAll('li');
+
+        // If we have list items in the editor, handle them
+        if (listItemsInEditor.length > 0) {
+          // Find if we're inside a list item in the editor
+          let listItem = cursor;
+          while (listItem && listItem.tagName !== 'LI' && listItem !== visualEditor) {
+            listItem = listItem.parentElement;
+          }
+
+          if (listItem && listItem.tagName === 'LI') {
+            // Get the parent list (ul or ol)
+            const parentList = listItem.parentElement;
+
+            // Create a plain paragraph
+            const paragraph = document.createElement('p');
+            paragraph.innerHTML = listItem.innerHTML;
+
+            // If this is the only item in the list, replace the entire list
+            if (parentList.children.length === 1) {
+              parentList.replaceWith(paragraph);
+            } else {
+              // Multiple items - convert this one to paragraph and insert after the list
+              if (parentList.parentElement) {
+                parentList.parentElement.insertBefore(paragraph, parentList.nextSibling);
+              } else {
+                visualEditor.appendChild(paragraph);
+              }
+              listItem.remove();
+
+              // If that was the last item, remove the empty list
+              if (parentList.children.length === 0) {
+                parentList.remove();
+              }
+            }
+
+            // Set cursor in the new paragraph
+            const newRange = document.createRange();
+            newRange.selectNodeContents(paragraph);
+            newRange.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+            return;
+          }
+        }
+
+        // Check if we have entire lists to convert
+        if (listsInEditor.length > 0) {
+          const list = listsInEditor[0]; // Convert the first list found
+
+          // Convert entire list to paragraphs
+          const paragraphs = [];
+          Array.from(list.children).forEach(li => {
+            const p = document.createElement('p');
+            p.innerHTML = li.innerHTML;
+            paragraphs.push(p);
+          });
+
+          // Replace list with paragraphs
+          paragraphs.forEach(p => {
+            list.parentElement.insertBefore(p, list);
+          });
+          list.remove();
+
+          // Focus first paragraph
+          if (paragraphs.length > 0) {
+            const newRange = document.createRange();
+            newRange.selectNodeContents(paragraphs[0]);
+            newRange.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+          }
+          return;
+        }
+
+        // If the element being edited is itself a list item (check the page element)
+        // We need to get the original element being edited
+        const editingElement = document.querySelector('.web-review-editing');
+        if (editingElement && editingElement.tagName === 'LI') {
+          // The element being edited is a list item - just clear its list marker in the markdown
+          // Convert the entire content to a paragraph in the editor
+          const content = visualEditor.innerHTML;
+          visualEditor.innerHTML = `<p>${content}</p>`;
+
+          // Set cursor
+          const newRange = document.createRange();
+          const p = visualEditor.querySelector('p');
+          if (p) {
+            newRange.selectNodeContents(p);
+            newRange.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+          }
+          return;
+        }
+
+        // Not in a list context
+        console.log('Not in a list context');
+      }
+    }
+    
+    function formatSource(command) {
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+      const selectedText = text.substring(start, end);
+
+      // For heading commands, handle line-level operations
+      if (['h1', 'h2', 'h3', 'p'].includes(command)) {
+        // Find the start and end of the current line
+        const beforeCursor = text.substring(0, start);
+        const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+        const afterCursor = text.substring(end);
+        const lineEnd = afterCursor.indexOf('\n');
+        const lineEndPos = lineEnd === -1 ? text.length : end + lineEnd;
+
+        const currentLine = text.substring(lineStart, lineEndPos);
+
+        // Check if line already has a heading prefix
+        const headingMatch = currentLine.match(/^(#{1,6})\s+(.*)$/);
+
+        let newLine;
+        if (command === 'p') {
+          // Remove heading prefix if present
+          if (headingMatch) {
+            newLine = headingMatch[2];
+          } else {
+            newLine = currentLine;
+          }
+        } else {
+          // Add/change heading prefix
+          const prefix = command === 'h1' ? '# ' : command === 'h2' ? '## ' : '### ';
+
+          if (headingMatch) {
+            // Line already has heading - check if same level
+            if (headingMatch[1] === prefix.trim()) {
+              // Same level - remove heading (toggle off)
+              newLine = headingMatch[2];
+            } else {
+              // Different level - change it
+              newLine = prefix + headingMatch[2];
+            }
+          } else {
+            // No heading - add prefix
+            newLine = prefix + currentLine;
+          }
+        }
+
+        // Replace the line
+        textarea.value = text.substring(0, lineStart) + newLine + text.substring(lineEndPos);
+        textarea.focus();
+
+        // Set cursor at end of the line
+        const newCursorPos = lineStart + newLine.length;
+        textarea.setSelectionRange(newCursorPos, newCursorPos);
+        return;
+      }
+
+      // For other formatting, use simple replacement
+      let replacement = '';
+      switch(command) {
+        case 'bold':
+          replacement = '**' + selectedText + '**';
+          break;
+        case 'italic':
+          replacement = '*' + selectedText + '*';
+          break;
+        case 'code':
+          replacement = '`' + selectedText + '`';
+          break;
+        case 'ul':
+          replacement = '- ' + selectedText;
+          break;
+        case 'ol':
+          replacement = '1. ' + selectedText;
+          break;
+        default:
+          replacement = selectedText;
+      }
+
+      textarea.value = text.substring(0, start) + replacement + text.substring(end);
+      textarea.focus();
+      textarea.setSelectionRange(start, start + replacement.length);
+    }
+    
+    function insertSourceLink() {
+      const url = prompt('Enter URL:', 'https://');
+      if (url) {
+        const text = prompt('Enter link text:', 'link text');
+        if (text) {
+          const start = textarea.selectionStart;
+          const replacement = `[${text}](${url})`;
+          textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(textarea.selectionEnd);
+          textarea.focus();
+          textarea.setSelectionRange(start + replacement.length, start + replacement.length);
+        }
+      }
+    }
+    
+    function switchToVisualMode() {
+      isVisualMode = true;
+      if (wysimarkInstance) {
+        const sourceMarkdown = textarea.value;
+        wysimarkInstance.setMarkdown(sourceMarkdown);
+        wysimarkContainer.style.display = 'block';
+        textarea.style.display = 'none';
+      }
+
+      visualModeBtn.classList.add('active');
+      sourceModeBtn.classList.remove('active');
+      helpText.textContent = 'Visual markdown editing (powered by Wysimark)';
+    }
+
+    function switchToSourceMode() {
+      isVisualMode = false;
+      if (wysimarkInstance) {
+        const visualMarkdown = wysimarkInstance.getMarkdown();
+        textarea.value = visualMarkdown;
+        wysimarkContainer.style.display = 'none';
+        textarea.style.display = 'block';
+      }
+
+      visualModeBtn.classList.remove('active');
+      sourceModeBtn.classList.add('active');
+      helpText.textContent = 'Markdown source editing';
+      textarea.focus();
+    }
+    
+    visualModeBtn.addEventListener('click', switchToVisualMode);
+    sourceModeBtn.addEventListener('click', switchToSourceMode);
+    
+    // Update toolbar button states based on current formatting
+    function updateToolbarState() {
+      if (!isVisualMode) {
+        // In source mode, detect formatting from markdown at cursor
+        const cursorPos = textarea.selectionStart;
+        const text = textarea.value;
+
+        // Find the line containing the cursor
+        const beforeCursor = text.substring(0, cursorPos);
+        const lineStart = beforeCursor.lastIndexOf('\n') + 1;
+        const afterCursor = text.substring(cursorPos);
+        const lineEnd = afterCursor.indexOf('\n');
+        const lineEndPos = lineEnd === -1 ? text.length : cursorPos + lineEnd;
+        const currentLine = text.substring(lineStart, lineEndPos);
+
+        // Clear all states first
+        toolbarButtonElements.forEach(btn => btn.classList.remove('active'));
+
+        // Check for heading at start of line
+        const headingMatch = currentLine.match(/^(#{1,6})\s+/);
+        if (headingMatch) {
+          const level = headingMatch[1].length;
+          if (level === 1) toolbarButtonElements[4].classList.add('active'); // H1
+          if (level === 2) toolbarButtonElements[5].classList.add('active'); // H2
+          if (level === 3) toolbarButtonElements[6].classList.add('active'); // H3
+        }
+
+        // Check for inline formatting around cursor
+        const charBefore = text[cursorPos - 1] || '';
+        const charAfter = text[cursorPos] || '';
+
+        // Simple detection - check if we're between formatting markers
+        // This is basic and could be enhanced
+        const nearbyText = text.substring(Math.max(0, cursorPos - 20), Math.min(text.length, cursorPos + 20));
+
+        return;
+      }
+
+      // Check formatting state in visual editor
+      try {
+        const commands = ['bold', 'italic'];
+        commands.forEach((command, index) => {
+          const isActive = document.queryCommandState(command);
+          toolbarButtonElements[index].classList.toggle('active', isActive);
+        });
+        
+        // Check for code formatting (custom logic)
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          let parentElement = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+            ? range.commonAncestorContainer.parentElement
+            : range.commonAncestorContainer;
+
+          // Make sure we're checking within the visual editor context
+          if (!visualEditor.contains(parentElement)) {
+            // Selection is outside visual editor, clear all states
+            toolbarButtonElements.forEach((btn, idx) => {
+              if (idx >= 2) btn.classList.remove('active');
+            });
+            return;
+          }
+
+          const isInCode = parentElement.closest('code') !== null;
+          toolbarButtonElements[2].classList.toggle('active', isInCode); // Code button
+
+          // Check for inline heading formatting
+          const headingSpan = parentElement.closest('.inline-heading');
+          // Also check for block-level heading elements (check if parent IS a heading or is inside one)
+          let blockHeading = null;
+          if (['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(parentElement.tagName)) {
+            blockHeading = parentElement;
+          } else {
+            blockHeading = parentElement.closest('h1, h2, h3, h4, h5, h6');
+          }
+
+          if (headingSpan) {
+            const level = headingSpan.dataset.headingLevel;
+            // H1 button is at index 4, H2 at 5, H3 at 6
+            toolbarButtonElements[4].classList.toggle('active', level === 'h1');
+            toolbarButtonElements[5].classList.toggle('active', level === 'h2');
+            toolbarButtonElements[6].classList.toggle('active', level === 'h3');
+          } else if (blockHeading) {
+            const level = blockHeading.tagName.toLowerCase();
+            // H1 button is at index 4, H2 at 5, H3 at 6
+            toolbarButtonElements[4].classList.toggle('active', level === 'h1');
+            toolbarButtonElements[5].classList.toggle('active', level === 'h2');
+            toolbarButtonElements[6].classList.toggle('active', level === 'h3');
+          } else {
+            // Clear heading button states if not in a heading
+            toolbarButtonElements[4].classList.remove('active');
+            toolbarButtonElements[5].classList.remove('active');
+            toolbarButtonElements[6].classList.remove('active');
+          }
+        }
+      } catch (e) {
+        // Ignore errors when checking command state
+      }
+    }
+    
+    // Update toolbar state when selection changes in visual editor
+    visualEditor.addEventListener('mouseup', updateToolbarState);
+    visualEditor.addEventListener('keyup', updateToolbarState);
+    visualEditor.addEventListener('focus', updateToolbarState);
+
+    // Update toolbar state when cursor moves in source mode
+    textarea.addEventListener('mouseup', updateToolbarState);
+    textarea.addEventListener('keyup', updateToolbarState);
+    textarea.addEventListener('focus', updateToolbarState);
+
+    // Clear pending heading mode on click (if user clicks away without typing)
+    visualEditor.addEventListener('mousedown', function(e) {
+      if (pendingHeadingLevel) {
+        pendingHeadingLevel = null;
+        updateToolbarState();
+      }
+    });
+
+    // Clear pending heading mode on Escape key
+    visualEditor.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && pendingHeadingLevel) {
+        e.preventDefault();
+        pendingHeadingLevel = null;
+        updateToolbarState();
+      }
+    });
+
+    // Handle typing after clicking heading button
+    visualEditor.addEventListener('beforeinput', function(e) {
+      // Clear pending heading on certain inputs (space, enter, etc.) without creating heading
+      if (pendingHeadingLevel && e.inputType === 'insertText' && (e.data === ' ' || e.data === '\n')) {
+        pendingHeadingLevel = null;
+        updateToolbarState();
+        return; // Allow normal space/enter
+      }
+
+      // Auto-escape # character at beginning of line in visual mode to prevent accidental markdown headings
+      if (e.inputType === 'insertText' && e.data === '#' && !pendingHeadingLevel) {
+        // Check if we're at the beginning of a block element
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          let container = range.startContainer;
+
+          // Check if cursor is at the start of the text content
+          const offset = range.startOffset;
+
+          // If we're in a text node, check if we're at position 0
+          // If we're in an element, check if it's empty or we're at the start
+          let atStart = false;
+          if (container.nodeType === Node.TEXT_NODE) {
+            atStart = offset === 0;
+          } else if (container.nodeType === Node.ELEMENT_NODE) {
+            atStart = offset === 0 || container.textContent.trim() === '';
+          }
+
+          if (atStart) {
+            e.preventDefault();
+
+            // Insert \# instead
+            const textNode = document.createTextNode('\\#');
+            range.deleteContents();
+            range.insertNode(textNode);
+
+            // Move cursor after the inserted text
+            const newRange = document.createRange();
+            newRange.setStartAfter(textNode);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+            return;
+          }
+        }
+      }
+
+      if (pendingHeadingLevel && e.inputType === 'insertText' && e.data) {
+        // User is typing after clicking a heading button
+        e.preventDefault();
+
+        const headingSpan = document.createElement('span');
+        headingSpan.className = `inline-heading inline-${pendingHeadingLevel}`;
+        headingSpan.dataset.headingLevel = pendingHeadingLevel;
+
+        const fontSize = pendingHeadingLevel === 'h1' ? '1.8em' : pendingHeadingLevel === 'h2' ? '1.5em' : '1.3em';
+        headingSpan.style.fontSize = fontSize;
+        headingSpan.style.fontWeight = 'bold';
+        headingSpan.style.display = 'inline-block';
+        headingSpan.style.background = 'rgba(173, 216, 230, 0.2)';
+        headingSpan.style.padding = '2px 4px';
+        headingSpan.style.borderRadius = '3px';
+        headingSpan.textContent = e.data; // The character being typed
+
+        // Insert at cursor position
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(headingSpan);
+
+          // Move cursor inside the heading span, after the typed character
+          const newRange = document.createRange();
+          newRange.setStart(headingSpan.firstChild, headingSpan.textContent.length);
+          newRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        }
+
+        // Clear pending mode but keep tracking we're in a heading now
+        pendingHeadingLevel = null;
+        updateToolbarState();
+      }
+    });
+
+    // Handle Enter key to create new paragraphs after headers
+    visualEditor.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        const selection = window.getSelection();
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          let node = range.startContainer;
+
+          // Find the current block element
+          if (node.nodeType === Node.TEXT_NODE) {
+            node = node.parentElement;
+          }
+
+          let blockElement = node;
+          while (blockElement &&
+                 blockElement !== visualEditor &&
+                 !['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'LI'].includes(blockElement.tagName)) {
+            blockElement = blockElement.parentElement;
+          }
+
+          // If we're in a header, convert next line to paragraph
+          if (blockElement && ['H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(blockElement.tagName)) {
+            e.preventDefault();
+
+            // Insert a new paragraph after the header
+            const newP = document.createElement('p');
+            newP.innerHTML = '<br>'; // Empty paragraph with a br for cursor placement
+
+            if (blockElement.nextSibling) {
+              blockElement.parentElement.insertBefore(newP, blockElement.nextSibling);
+            } else {
+              blockElement.parentElement.appendChild(newP);
+            }
+
+            // Move cursor to the new paragraph
+            const newRange = document.createRange();
+            newRange.setStart(newP, 0);
+            newRange.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
+          }
+          // For paragraphs and list items, let default behavior handle it
+        }
+      }
+    });
+
+    saveBtn.addEventListener('click', function() {
       // Get current content based on mode
       let newMarkdown;
       if (isVisualMode && wysimarkInstance) {
@@ -1843,44 +2589,47 @@ document.addEventListener('DOMContentLoaded', function() {
         // showInlineDiff now handles adding to sidebar
         showInlineDiff(element, cleanOriginalText, cleanNewText, originalMarkdown, newMarkdown, originalHtml, newHtml);
       } else {
-        // No actual content changes - restore to state before editing (preserves diff if it existed)
-        element.innerHTML = beforeEditHTML;
+        // No actual content changes - restore original content exactly as it was
+        element.innerHTML = originalHTML;
         element.classList.remove('web-review-editing');
         element.style.outline = '';
         element.style.background = '';
-
-        // Restore list padding/margin if this was a list
-        if (element.tagName === 'UL' || element.tagName === 'OL') {
-          element.style.paddingLeft = element.dataset.originalPaddingLeft || '';
-          element.style.marginLeft = element.dataset.originalMarginLeft || '';
-        }
       }
     });
     
     cancelBtn.addEventListener('click', function() {
       element.classList.remove('web-review-editing');
-
-      // Restore to state before editing (preserves diff if it existed)
-      element.innerHTML = beforeEditHTML;
+      
+      // Restore proper content based on element state
+      if (element.classList.contains('web-review-modified')) {
+        // Element was previously modified - restore to the modified diff view
+        const storedOriginal = element.dataset.originalText;
+        const storedNew = element.dataset.newText;
+        const storedOriginalMd = element.dataset.originalMarkdown;
+        const storedNewMd = element.dataset.newMarkdown;
+        
+        if (storedOriginal && storedNew) {
+          showInlineDiff(element, storedOriginal, storedNew, storedOriginalMd, storedNewMd);
+        } else {
+          element.innerHTML = originalHTML;
+        }
+      } else {
+        // Element was not previously modified - restore original HTML
+        element.innerHTML = originalHTML;
+      }
       
       // Restore original styles
       element.style.outline = '';
       element.style.background = element.dataset.originalBackground;
       element.style.border = element.dataset.originalBorder;
       element.style.padding = element.dataset.originalPadding;
-      element.style.margin = element.dataset.originalMargin;
-      element.style.paddingLeft = element.dataset.originalPaddingLeft;
-      element.style.marginLeft = element.dataset.originalMarginLeft;
       element.style.borderRadius = '';
       element.style.position = '';
-
+      
       // Clean up data attributes
       delete element.dataset.originalBackground;
       delete element.dataset.originalBorder;
       delete element.dataset.originalPadding;
-      delete element.dataset.originalMargin;
-      delete element.dataset.originalPaddingLeft;
-      delete element.dataset.originalMarginLeft;
     });
   }
   
@@ -1894,12 +2643,6 @@ document.addEventListener('DOMContentLoaded', function() {
       case 'H4': return '#### ' + text;
       case 'H5': return '##### ' + text;
       case 'H6': return '###### ' + text;
-      case 'UL':
-        // Convert unordered list to markdown
-        return convertHtmlToMarkdown(element.outerHTML);
-      case 'OL':
-        // Convert ordered list to markdown
-        return convertHtmlToMarkdown(element.outerHTML);
       case 'LI':
         // For list items, return just the content WITHOUT list markers
         // The list structure is part of the parent, not the LI content
@@ -1909,7 +2652,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           return text;
         }
-      default:
+      default: 
         // Preserve existing formatting if element already has HTML structure
         if (element.innerHTML !== element.textContent) {
           return convertHtmlToMarkdown(element.innerHTML);
@@ -1921,9 +2664,6 @@ document.addEventListener('DOMContentLoaded', function() {
   function convertMarkdownToHtml(markdown) {
     // Enhanced markdown to HTML conversion with proper list support
     let html = markdown;
-
-    // Unescape markdown escape sequences from Wysimark
-    html = html.replace(/\\([()\/\[\]{}\-_*`])/g, '$1');
 
     // Process inline formatting (bold, italic, code)
     // Do this before line processing to preserve formatting within lists
@@ -1964,13 +2704,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         processedLines.push(`<li>${processInlineFormatting(numberMatch[2])}</li>`);
       } else {
-        // Don't close list for empty lines - keep it open for blank lines between items
-        if (line.trim() === '' && inList) {
-          // Skip empty lines within lists
-          continue;
-        }
-
-        // Close any open list only for non-empty, non-list lines
+        // Close any open list
         if (inList) {
           processedLines.push(`</${listType}>`);
           inList = false;
@@ -1979,14 +2713,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Process other markdown
         if (line.trim()) {
-          // Headers (check from most specific to least specific)
-          if (line.match(/^###### /)) {
-            line = line.replace(/^###### (.*)/, (_, content) => '<h6>' + processInlineFormatting(content) + '</h6>');
-          } else if (line.match(/^##### /)) {
-            line = line.replace(/^##### (.*)/, (_, content) => '<h5>' + processInlineFormatting(content) + '</h5>');
-          } else if (line.match(/^#### /)) {
-            line = line.replace(/^#### (.*)/, (_, content) => '<h4>' + processInlineFormatting(content) + '</h4>');
-          } else if (line.match(/^### /)) {
+          // Headers
+          if (line.match(/^### /)) {
             line = line.replace(/^### (.*)/, (_, content) => '<h3>' + processInlineFormatting(content) + '</h3>');
           } else if (line.match(/^## /)) {
             line = line.replace(/^## (.*)/, (_, content) => '<h2>' + processInlineFormatting(content) + '</h2>');
@@ -2047,41 +2775,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       };
     }
-
+    
     // Create element identifier
     const elementId = getElementIdentifier(element);
-
-    // Check if there's already a pending change for this element
-    const existingChangeIndex = window.webReviewChanges.textChanges.findIndex(
-      change => change.elementId === elementId && change.status === 'pending'
-    );
-
-    if (existingChangeIndex !== -1) {
-      // Update existing pending change (keep original, update new)
-      const existingChange = window.webReviewChanges.textChanges[existingChangeIndex];
-      existingChange.newMarkdown = newMarkdown;
-      existingChange.timestamp = new Date().toISOString();
-      existingChange.user = userManager.getCurrentUser();
-      existingChange.userColor = userManager.getUserColor(userManager.getCurrentUser());
-      debug('Updated existing change for element:', elementId);
-    } else {
-      // Create new change
-      window.webReviewChanges.textChanges.push({
-        id: 'change-' + Date.now(),
-        elementId: elementId,
-        originalMarkdown: originalMarkdown,
-        newMarkdown: newMarkdown,
-        timestamp: new Date().toISOString(),
-        status: 'pending',
-        user: userManager.getCurrentUser(),
-        userColor: userManager.getUserColor(userManager.getCurrentUser())
-      });
-      debug('Created new change for element:', elementId);
-    }
-
+    
+    // Store the change with user attribution
+    window.webReviewChanges.textChanges.push({
+      id: 'change-' + Date.now(),
+      elementId: elementId,
+      originalMarkdown: originalMarkdown,
+      newMarkdown: newMarkdown,
+      timestamp: new Date().toISOString(),
+      status: 'pending',
+      user: userManager.getCurrentUser(),
+      userColor: userManager.getUserColor(userManager.getCurrentUser())
+    });
+    
     // Save to localStorage
     localStorage.setItem('webReviewChanges', JSON.stringify(window.webReviewChanges));
-
+    
     debug('Saved change for element:', elementId, 'by user:', userManager.getCurrentUser());
   }
   
@@ -2104,25 +2816,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Check if the new markdown contains multiple blocks
     const blocks = newMarkdown.split(/\n\n+/).filter(block => block.trim());
-
-    // For lists, check if blocks contain non-list content (headings, paragraphs, etc.)
-    let hasMultipleBlocks = blocks.length > 1;
-    if ((element.tagName === 'UL' || element.tagName === 'OL') && blocks.length > 1) {
-      // Check if all blocks are list items (start with - or number.)
-      const allListItems = blocks.every(block =>
-        block.match(/^[-*+]\s/) || block.match(/^\d+\.\s/)
-      );
-      // If all blocks are list items, it's still single-block (just list with blank lines)
-      hasMultipleBlocks = !allListItems;
-    }
-
-    debug('showInlineDiff called:', {
-      elementTag: element.tagName,
-      hasMultipleBlocks,
-      newMarkdown: newMarkdown,
-      blocks: blocks,
-      blockCount: blocks.length
-    });
+    const hasMultipleBlocks = blocks.length > 1;
 
     // Check if inline diff is enabled
     if (window.showInlineDiffVisualization) {
@@ -2131,8 +2825,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
       if (hasMultipleBlocks) {
         // Multi-block content: need to replace the element with a container
-        debug('Multi-block path: creating container DIV');
-        debug('diffHtml:', diffHtml);
         const container = document.createElement('div');
         container.setAttribute('data-web-review-diff', 'true');
         container.innerHTML = diffHtml;
@@ -2148,24 +2840,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Replace the element with the container
         element.replaceWith(container);
         element = container;
-      } else if (element.tagName === 'UL' || element.tagName === 'OL') {
-        // For lists, replace innerHTML directly to preserve the list element itself
-        // Extract just the list items from the diff HTML (which includes the ul/ol wrapper)
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = diffHtml;
-        const innerList = tempDiv.querySelector('ul, ol');
-        const listItemsHtml = innerList ? innerList.innerHTML : diffHtml;
-
-        debug('List diff - diffHtml:', diffHtml.substring(0, 300));
-        debug('List diff - innerList found:', !!innerList, innerList?.tagName);
-        debug('List diff - extracted listItemsHtml:', listItemsHtml.substring(0, 300));
-        debug('List diff - element before:', element.outerHTML.substring(0, 300));
-
-        element.setAttribute('data-web-review-diff', 'true');
-        element.innerHTML = listItemsHtml;
-
-        debug('List diff - element after:', element.outerHTML.substring(0, 300));
-        debug('List diff - element children count:', element.children.length);
       } else {
         // Single block: wrap in a span as before
         const wrapper = document.createElement('span');
@@ -2195,14 +2869,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Replace the element with the container
         element.replaceWith(container);
         element = container;
-      } else if (element.tagName === 'UL' || element.tagName === 'OL') {
-        // For lists, extract just the list items from the HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = newHtmlContent;
-        const innerList = tempDiv.querySelector('ul, ol');
-        const listItemsHtml = innerList ? innerList.innerHTML : newHtmlContent;
-
-        element.innerHTML = listItemsHtml;
       } else {
         element.innerHTML = newHtmlContent;
       }
@@ -2213,12 +2879,6 @@ document.addEventListener('DOMContentLoaded', function() {
     element.classList.add('web-review-modified');
     element.style.outline = '';
     element.style.background = '';
-
-    // Restore list padding/margin if this was a list
-    if (element.tagName === 'UL' || element.tagName === 'OL') {
-      element.style.paddingLeft = element.dataset.originalPaddingLeft || '';
-      element.style.marginLeft = element.dataset.originalMarginLeft || '';
-    }
 
     // Store the change data on the element for sidebar access
     element.dataset.originalText = originalText;
@@ -2283,113 +2943,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function createListDiff(originalHtml, newHtml) {
-    // Extract list items from both versions
-    const originalDiv = document.createElement('div');
-    originalDiv.innerHTML = originalHtml;
-    const originalList = originalDiv.querySelector('ul, ol');
-    const originalItems = originalList ? Array.from(originalList.querySelectorAll('li')) : [];
-
-    const newDiv = document.createElement('div');
-    newDiv.innerHTML = newHtml;
-    const newList = newDiv.querySelector('ul, ol');
-    const newItems = newList ? Array.from(newList.querySelectorAll('li')) : [];
-    const listType = newList ? newList.tagName.toLowerCase() : 'ul';
-
-    // Compare items by their text content to find matching pairs
-    const maxItems = Math.max(originalItems.length, newItems.length);
-    let resultHtml = `<${listType}>`;
-
-    for (let i = 0; i < maxItems; i++) {
-      const originalItem = originalItems[i];
-      const newItem = newItems[i];
-
-      if (originalItem && newItem) {
-        // Both items exist - check if content changed
-        const originalHtml = originalItem.innerHTML.trim();
-        const newHtml = newItem.innerHTML.trim();
-
-        if (originalHtml === newHtml) {
-          // No change
-          resultHtml += `<li>${newItem.innerHTML}</li>`;
-        } else {
-          // Changed - use the inline diff visualization for this item
-          const itemDiff = createInlineDiffVisualization(originalHtml, newHtml, '', '');
-          resultHtml += `<li>${itemDiff}</li>`;
-        }
-      } else if (newItem) {
-        // New item added
-        resultHtml += `<li style="background-color: rgba(16, 185, 129, 0.2); color: #047857;">${newItem.innerHTML}</li>`;
-      } else if (originalItem) {
-        // Item removed
-        resultHtml += `<li style="background-color: rgba(239, 68, 68, 0.2); text-decoration: line-through; color: #dc2626;">${originalItem.innerHTML}</li>`;
-      }
-    }
-
-    resultHtml += `</${listType}>`;
-    return resultHtml;
-  }
-
   function createInlineDiffVisualization(originalHtml, newHtml, originalMarkdown, newMarkdown) {
     // Check if the HTML contains multiple block elements
     const newDiv = document.createElement('div');
     newDiv.innerHTML = newHtml;
     const blockElements = newDiv.querySelectorAll('h1, h2, h3, h4, h5, h6, p, ul, ol, li');
 
-    // If there are multiple block elements, check if it's ONLY a list
+    // If there are multiple block elements, show them separately
     if (blockElements.length > 1) {
-      const list = newDiv.querySelector('ul, ol');
-      const isList = list !== null;
-
-      if (isList) {
-        // Check if ALL content is within the list (no other siblings)
-        const listOnly = newDiv.children.length === 1 && newDiv.children[0] === list;
-
-        if (listOnly) {
-          // It's only a list (possibly with blank lines between items) - do list diff
-          return createListDiff(originalHtml, newHtml);
-        }
-      }
-
-      // Multiple different block types (list + heading, etc.)
-      // Compare blocks and highlight added/removed elements
-      debug('Multiple different block types detected, doing block-level diff');
-
-      const originalDiv = document.createElement('div');
-      originalDiv.innerHTML = originalHtml;
-      const originalBlocks = Array.from(originalDiv.children);
-
-      const newBlocks = Array.from(newDiv.children);
-
-      let resultHtml = '';
-
-      // Simple approach: compare by count
-      const maxBlocks = Math.max(originalBlocks.length, newBlocks.length);
-
-      for (let i = 0; i < maxBlocks; i++) {
-        const origBlock = originalBlocks[i];
-        const newBlock = newBlocks[i];
-
-        if (origBlock && newBlock) {
-          // Both exist - check if same type
-          if (origBlock.tagName === newBlock.tagName) {
-            // Same type - show new version (might have changed)
-            resultHtml += newBlock.outerHTML;
-          } else {
-            // Different type - show as removed + added
-            resultHtml += `<div style="background-color: rgba(239, 68, 68, 0.2); padding: 8px; margin: 4px 0; border-left: 3px solid #dc2626;">${origBlock.outerHTML}</div>`;
-            resultHtml += `<div style="background-color: rgba(16, 185, 129, 0.2); padding: 8px; margin: 4px 0; border-left: 3px solid #047857;">${newBlock.outerHTML}</div>`;
-          }
-        } else if (newBlock) {
-          // Added block
-          resultHtml += `<div style="background-color: rgba(16, 185, 129, 0.2); padding: 8px; margin: 4px 0; border-left: 3px solid #047857;">${newBlock.outerHTML}</div>`;
-        } else if (origBlock) {
-          // Removed block
-          resultHtml += `<div style="background-color: rgba(239, 68, 68, 0.2); padding: 8px; margin: 4px 0; border-left: 3px solid #dc2626; text-decoration: line-through;">${origBlock.outerHTML}</div>`;
-        }
-      }
-
-      return resultHtml;
+      // Show the new HTML with all its formatting
+      return newHtml;
     }
 
     // Extract plain text from HTML, normalizing whitespace
@@ -3644,12 +4207,13 @@ document.addEventListener('DOMContentLoaded', function() {
       const existingChangeDiv = document.querySelector(`.review-item[data-element-id="${element.dataset.changeId}"][data-status="pending"]`);
       if (existingChangeDiv) {
         // Update existing change instead of creating a duplicate
-        debug('Updating existing sidebar change:', element.dataset.changeId);
         existingChangeDiv.dataset.originalMarkdown = originalMarkdown;
         existingChangeDiv.dataset.newMarkdown = newMarkdown;
 
-        // Update the display - DON'T update original, only update new
+        // Update the display
+        const originalDiv = existingChangeDiv.querySelector('[style*="#f8d7da"] div[style*="line-height"]');
         const newDiv = existingChangeDiv.querySelector('[style*="#d4edda"] div[style*="line-height"]');
+        if (originalDiv) originalDiv.innerHTML = originalHtml;
         if (newDiv) newDiv.innerHTML = newHtml;
 
         // Update timestamp
@@ -3659,11 +4223,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         return; // Exit early, don't create a new change div
-      } else {
-        debug('No existing sidebar change found for:', element.dataset.changeId);
       }
-    } else {
-      debug('No changeId on element, creating new change');
     }
 
     const changeDiv = document.createElement('div');

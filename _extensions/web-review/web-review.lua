@@ -54,8 +54,21 @@ function Pandoc(doc)
       debug_log("No input files available")
     end
 
+    -- Add debug attribute to body if debug mode is enabled
+    local debug_script = ""
+    if DEBUG_MODE then
+      debug_script = [[
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    document.body.setAttribute('data-web-review-debug', 'true');
+    console.log('[Web Review] Debug mode enabled');
+  });
+</script>
+]]
+    end
+
     -- Create web review HTML block with UI, styles, and embedded content
-    local web_review_html = pandoc.RawBlock("html", [[
+    local web_review_html = pandoc.RawBlock("html", debug_script .. [[
 <!-- WEB REVIEW EXTENSION -->
 <style>
 @keyframes web-review-pulse {
