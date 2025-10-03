@@ -126,18 +126,42 @@ function splitInlineHeadings(container) {
 }
 
 /**
+ * Converts jsdiff output to CriticMarkup format
+ * @param {Array} diffResult - Output from Diff.diffWords() or Diff.diffLines()
+ * @returns {string} Text with CriticMarkup annotations
+ */
+function convertToCriticMarkup(diffResult) {
+  return diffResult.map(part => {
+    // Skip whitespace-only additions/deletions
+    if ((part.added || part.removed) && part.value.trim().length === 0) {
+      return part.value;
+    }
+
+    if (part.added) {
+      return `{++${part.value}++}`;
+    } else if (part.removed) {
+      return `{--${part.value}--}`;
+    }
+    return part.value;
+  }).join('');
+}
+
+/**
  * Manages CriticMarkup annotations, tracking comments and changes for export to QMD format.
  * Provides functionality to add, store, and export collaborative edits using CriticMarkup syntax.
  */
 class CriticMarkupManager {
   /**
-   * Initializes the CriticMarkup manager with empty comment and change arrays.
+   * Initializes the CriticMarkup manager with empty comment and element state tracking.
    * Attempts to extract the original QMD content from the document.
    */
   constructor() {
     this.comments = [];
-    this.changes = [];
-    this.originalQMD = this.extractOriginalQMD();
+    this.elementStates = {}; // New: stores original vs reviewed state per element
+    this.changes = []; // Deprecated: kept for migration only
+    this.originalQMD = null; // Will be loaded from storage or extracted
+    this.loadFromStorage();
+    this.migrateFromOldFormat();
   }
 
   /**
@@ -188,42 +212,72 @@ class CriticMarkupManager {
   }
 
   /**
-   * Adds a change annotation tracking the difference between original and new text.
+   * Updates or creates element state tracking original vs reviewed markdown.
+   * Multiple edits to the same element update the reviewed version while keeping the original.
    * @param {string} elementPath - DOM path identifying the element
-   * @param {string} originalText - The original text before editing
-   * @param {string} newText - The new text after editing
-   * @param {string} author - The change author's name
-   * @param {number|null} startOffset - Character offset for the start of change
-   * @param {number|null} endOffset - Character offset for the end of change
-   * @returns {Object} The created change data object
+   * @param {string} originalMarkdown - The original markdown (stored on first edit)
+   * @param {string} reviewedMarkdown - The current reviewed markdown
+   * @param {string} author - The reviewer's name
+   * @returns {Object} The element state object
    */
-  addChange(elementPath, originalText, newText, author, startOffset = null, endOffset = null) {
-    // Clean the text content to remove any UI elements
-    const cleanOriginal = this.cleanTextContent(originalText);
-    const cleanNew = this.cleanTextContent(newText);
+  updateElementState(elementPath, originalMarkdown, reviewedMarkdown, author) {
+    debug('updateElementState called with:');
+    debug('  originalMarkdown:', originalMarkdown);
+    debug('  reviewedMarkdown:', reviewedMarkdown);
 
-    debug('Adding change to CriticMarkup:', {
-      originalText: cleanOriginal.substring(0, 50),
-      newText: cleanNew.substring(0, 50),
-      elementPath
+    // Clean both versions
+    const cleanOriginal = this.cleanTextContent(originalMarkdown);
+    const cleanReviewed = this.cleanTextContent(reviewedMarkdown);
+
+    debug('After cleaning:');
+    debug('  cleanOriginal:', cleanOriginal);
+    debug('  cleanReviewed:', cleanReviewed);
+
+    debug('Updating element state:', {
+      path: elementPath,
+      original: cleanOriginal.substring(0, 50),
+      reviewed: cleanReviewed.substring(0, 50)
     });
 
-    const changeData = {
-      type: 'change',
-      elementPath: elementPath,
-      originalText: cleanOriginal,
-      newText: cleanNew,
-      author: author,
-      startOffset: startOffset,
-      endOffset: endOffset,
-      timestamp: new Date().toISOString(),
-      criticMarkup: `{--${cleanOriginal}--}{++${cleanNew}++} <!-- by ${author} -->`
-    };
+    // Check if this element already has state
+    if (!this.elementStates[elementPath]) {
+      // First edit - create initial state with original as base (git-like initial commit)
+      debug('Creating new element state with initial commit');
+      this.elementStates[elementPath] = {
+        originalMarkdown: cleanOriginal,  // Immutable original
+        commits: [
+          {
+            timestamp: new Date().toISOString(),
+            author: author,
+            reviewedMarkdown: cleanReviewed,
+            message: 'Initial edit'
+          }
+        ],
+        status: 'pending'
+      };
+    } else {
+      // Subsequent edit - add new commit to history (git-like)
+      debug('Adding new commit to existing element state');
+      this.elementStates[elementPath].commits.push({
+        timestamp: new Date().toISOString(),
+        author: author,
+        reviewedMarkdown: cleanReviewed,
+        message: 'Edit by ' + author
+      });
+    }
 
-    this.changes.push(changeData);
     this.saveToStorage();
-    debug('Total changes stored:', this.changes.length);
-    return changeData;
+    debug('Element states count:', Object.keys(this.elementStates).length);
+    debug('Commits for this element:', this.elementStates[elementPath].commits.length);
+    return this.elementStates[elementPath];
+  }
+
+  /**
+   * DEPRECATED: Old method kept for backwards compatibility
+   * Use updateElementState instead
+   */
+  addChange(elementPath, originalText, newText, author, startOffset = null, endOffset = null) {
+    return this.updateElementState(elementPath, originalText, newText, author);
   }
 
   /**
@@ -254,6 +308,10 @@ class CriticMarkupManager {
 
     // Remove Quarto anchor links from headings [](#anchor-id)
     cleaned = cleaned.replace(/\[]\(#[a-z0-9-]+\)/gi, '');
+
+    // Normalize list formatting: remove extra blank lines between list items added by Wysimark
+    // Replace double newlines followed by list markers with single newlines
+    cleaned = cleaned.replace(/\n\n([-*+] )/g, '\n$1');
 
     return cleaned;
   }
@@ -539,31 +597,162 @@ class CriticMarkupManager {
   }
 
   /**
-   * Saves comments and changes to browser localStorage.
+   * Saves comments and element states to browser localStorage.
    */
   saveToStorage() {
     localStorage.setItem('webReviewCriticMarkup', JSON.stringify({
       comments: this.comments,
-      changes: this.changes,
+      elementStates: this.elementStates,
+      changes: this.changes, // Kept for migration
+      originalQMD: this.originalQMD, // Store immutable original QMD
       lastModified: new Date().toISOString()
     }));
   }
 
   /**
-   * Loads comments and changes from browser localStorage.
+   * Loads comments and element states from browser localStorage.
    */
   loadFromStorage() {
     const stored = localStorage.getItem('webReviewCriticMarkup');
     if (stored) {
       const data = JSON.parse(stored);
       this.comments = data.comments || [];
-      this.changes = data.changes || [];
+      this.elementStates = data.elementStates || {};
+      this.changes = data.changes || []; // For migration
+      this.originalQMD = data.originalQMD || null; // Load stored original QMD
+    }
+
+    // If no original QMD in storage, extract it from the page and save it
+    if (!this.originalQMD) {
+      this.originalQMD = this.extractOriginalQMD();
+      debug('Extracted and storing original QMD for first time, length:', this.originalQMD?.length);
+      this.saveToStorage();
+    } else {
+      debug('Loaded original QMD from storage, length:', this.originalQMD?.length);
     }
   }
 
   /**
-   * Exports all comments and changes as CriticMarkup annotations in the QMD content.
-   * Processes annotations in reverse order and handles overlapping comments within changes.
+   * Migrates old formats to new git-like commit format.
+   * Handles:
+   * 1. Old changes array -> elementStates with commits
+   * 2. Old elementStates without commits -> elementStates with commits
+   */
+  migrateFromOldFormat() {
+    let migrated = false;
+
+    // Migration 1: Old changes array to elementStates with commits
+    if (this.changes && this.changes.length > 0 && Object.keys(this.elementStates).length === 0) {
+      debug('Migrating from old changes format to elementStates with commits...');
+
+      const statesByPath = {};
+      this.changes.forEach(change => {
+        const path = change.elementPath;
+        statesByPath[path] = {
+          originalMarkdown: change.originalText,
+          commits: [
+            {
+              timestamp: change.timestamp,
+              author: change.author,
+              reviewedMarkdown: change.newText,
+              message: 'Migrated from old format'
+            }
+          ],
+          status: 'pending'
+        };
+      });
+
+      this.elementStates = statesByPath;
+      this.changes = [];
+      migrated = true;
+    }
+
+    // Migration 2: Old elementStates without commits to new format with commits
+    Object.entries(this.elementStates).forEach(([path, state]) => {
+      if (!state.commits && state.reviewedMarkdown) {
+        debug('Migrating element state to commit format:', path);
+        state.commits = [
+          {
+            timestamp: state.timestamp || new Date().toISOString(),
+            author: state.author || 'Unknown',
+            reviewedMarkdown: state.reviewedMarkdown,
+            message: 'Migrated from old format'
+          }
+        ];
+        // Clean up old fields
+        delete state.reviewedMarkdown;
+        delete state.author;
+        delete state.timestamp;
+        migrated = true;
+      }
+    });
+
+    if (migrated) {
+      this.saveToStorage();
+      debug('Migration complete. Total elements:', Object.keys(this.elementStates).length);
+    }
+  }
+
+  /**
+   * Restores element states to the DOM on page load by marking them as modified.
+   * Stores data attributes so the edit flow can access the commit history.
+   * Note: Visual changes are not applied until user opens the element for editing.
+   */
+  restoreElementStates() {
+    debug('Restoring element states...', Object.keys(this.elementStates).length, 'elements');
+
+    Object.entries(this.elementStates).forEach(([path, state]) => {
+      // Find the element in the DOM
+      const element = this.findElementByPath(path);
+      if (!element) {
+        debug('Could not find element for path:', path);
+        return;
+      }
+
+      // Get the latest commit
+      const latestCommit = state.commits && state.commits.length > 0
+        ? state.commits[state.commits.length - 1]
+        : null;
+
+      if (!latestCommit) {
+        debug('No commits found for element:', path);
+        return;
+      }
+
+      // Mark element as modified and store state in data attributes
+      element.classList.add('web-review-modified');
+      element.dataset.originalMarkdown = state.originalMarkdown;
+      element.dataset.newMarkdown = latestCommit.reviewedMarkdown;
+      element.dataset.reviewStatus = 'pending';
+
+      // Add a visual indicator (subtle outline) to show this element has changes
+      element.style.outline = '1px dashed #28a745';
+      element.style.outlineOffset = '2px';
+      element.title = `Modified by ${latestCommit.author} (${state.commits.length} commit${state.commits.length > 1 ? 's' : ''})`;
+
+      debug('Restored state for element:', path, 'with', state.commits.length, 'commits');
+    });
+
+    debug('Element state restoration complete');
+  }
+
+  /**
+   * Finds an element in the DOM by its path.
+   * @param {string} path - The element path generated by generateElementPath
+   * @returns {Element|null} The found element or null
+   */
+  findElementByPath(path) {
+    try {
+      return document.querySelector(path);
+    } catch (e) {
+      debug('Error finding element by path:', path, e);
+      return null;
+    }
+  }
+
+  /**
+   * Exports all comments and element states as CriticMarkup annotations in the QMD content.
+   * Uses jsdiff for reliable diffing and processes changes per-element.
    * @returns {string} The QMD content with CriticMarkup annotations applied
    */
   exportToCriticMarkup() {
@@ -577,11 +766,180 @@ class CriticMarkupManager {
     // Clean the QMD content to remove Quarto-generated artifacts
     qmdContent = this.cleanTextContent(qmdContent);
 
-    debug('Exporting CriticMarkup - comments:', this.comments.length, 'changes:', this.changes.length);
+    debug('Exporting CriticMarkup - comments:', this.comments.length, 'element states:', Object.keys(this.elementStates).length);
     debug('Original QMD content length:', qmdContent.length);
 
-    // Collect all annotations (comments and changes) with their positions
+    // Debug: check where Hover effects line actually is in the cleaned QMD
+    const hoverIndex = qmdContent.indexOf('- **Hover effects**');
+    debug('Hover effects line found at position in cleaned QMD:', hoverIndex);
+    if (hoverIndex !== -1) {
+      debug('Full hover line in QMD:', qmdContent.substring(hoverIndex, hoverIndex + 60));
+    }
+    debug('QMD sample at 520-580:', qmdContent.substring(520, 580));
+
+    // Collect all annotations (comments and element states) with their positions
     const annotations = [];
+
+    //Process element states using jsdiff
+    Object.entries(this.elementStates).forEach(([path, state]) => {
+      const original = state.originalMarkdown;
+
+      // Get the latest commit's reviewed markdown (git-like: current HEAD)
+      const reviewed = state.commits && state.commits.length > 0
+        ? state.commits[state.commits.length - 1].reviewedMarkdown
+        : state.reviewedMarkdown; // Fallback for old format
+
+      // Skip if no actual change
+      if (original === reviewed) {
+        debug('Skipping element - no change:', path);
+        return;
+      }
+
+      debug('Using commit', state.commits?.length || 0, 'of', state.commits?.length || 0);
+
+      debug('Processing element state:', path);
+      debug('Original has newlines:', original.includes('\n'));
+      debug('Reviewed has newlines:', reviewed.includes('\n'));
+      debug('Original length:', original.length);
+      debug('Reviewed length:', reviewed.length);
+
+      // Handle multi-line content (like lists)
+      if (original.includes('\n') && reviewed.includes('\n')) {
+        debug('Taking multi-line path');
+        // Use line-level diff first
+        const lineDiff = Diff.diffLines(original, reviewed);
+        debug('Line diff result:', lineDiff);
+
+        // Process each changed line
+        lineDiff.forEach((part, idx) => {
+          debug('Processing diff part:', idx, part);
+          if (part.added || part.removed) {
+            // For changed lines, try to find them in QMD and do word-level diff
+            const lines = part.value.split('\n').filter(l => l.trim());
+            debug('Lines to process:', lines);
+
+            lines.forEach(line => {
+              const trimmedLine = line.trim();
+              if (!trimmedLine) return;
+
+              debug('Looking for line in QMD:', trimmedLine);
+              // Try to find this line in QMD
+              let index = qmdContent.indexOf(trimmedLine);
+              debug('indexOf result:', index);
+
+              // Try with list markers
+              if (index === -1) {
+                const withMarkers = ['- ', '* ', '+ '].map(m => m + trimmedLine);
+                for (const marked of withMarkers) {
+                  index = qmdContent.indexOf(marked);
+                  if (index !== -1) {
+                    index = index + marked.indexOf(trimmedLine);
+                    break;
+                  }
+                }
+              }
+
+              if (index !== -1 && !part.added) {
+                // Found the original line - we need to diff it against the new version
+                // Find corresponding line in reviewed
+                const reviewedLines = reviewed.split('\n');
+                const matchingReviewed = reviewedLines.find(rl =>
+                  rl.includes(trimmedLine.substring(0, Math.min(20, trimmedLine.length)))
+                );
+
+                debug('Found line at index:', index);
+                debug('TrimmedLine (from localStorage original):', trimmedLine);
+                debug('MatchingReviewed (from localStorage reviewed):', matchingReviewed);
+
+                if (matchingReviewed) {
+                  // Use localStorage as source of truth:
+                  // - trimmedLine is what we believe is the original
+                  // - matchingReviewed is what it should become
+                  // - Replace trimmedLine.length chars in QMD with the CriticMarkup
+
+                  const wordDiff = Diff.diffWords(trimmedLine, matchingReviewed.trim());
+                  const criticMarkup = convertToCriticMarkup(wordDiff);
+
+                  debug('Word diff for line:', wordDiff);
+                  debug('CriticMarkup for line:', criticMarkup);
+                  debug('Will replace', trimmedLine.length, 'chars at position', index);
+
+                  annotations.push({
+                    type: 'change',
+                    index: index,
+                    length: trimmedLine.length,
+                    text: trimmedLine,
+                    markup: criticMarkup,
+                    author: state.author
+                  });
+                }
+              }
+            });
+          }
+        });
+      } else {
+        debug('Taking single-line path');
+        // Single-line content - use word-level diff
+        // Try to find either original or reviewed in QMD
+        let index = qmdContent.indexOf(original);
+        let foundInQMD = original;
+
+        if (index === -1) {
+          // Original not found, try reviewed
+          index = qmdContent.indexOf(reviewed);
+          foundInQMD = reviewed;
+        }
+
+        if (index !== -1) {
+          // Check what's actually at this position in QMD - might be different from both original and reviewed
+          // due to QMD file being edited outside the app
+          let actualQmdText = qmdContent.substring(index, index + Math.max(original.length, reviewed.length) + 20);
+
+          // Find where this line/segment ends (newline or end of content)
+          let endIndex = actualQmdText.indexOf('\n');
+          if (endIndex === -1) endIndex = actualQmdText.length;
+          actualQmdText = actualQmdText.substring(0, endIndex);
+
+          debug('=== Single-line diff debug ===');
+          debug('Original from state:', original);
+          debug('Reviewed from state:', reviewed);
+          debug('Actually found in QMD:', actualQmdText);
+
+          // Determine what to replace: if QMD has reviewed version, replace all of it
+          let lengthToReplace;
+          if (actualQmdText === reviewed || actualQmdText.startsWith(reviewed)) {
+            lengthToReplace = reviewed.length;
+            debug('QMD contains reviewed version - replacing entire reviewed text');
+          } else if (actualQmdText === original || actualQmdText.startsWith(original)) {
+            lengthToReplace = original.length;
+            debug('QMD contains original version - replacing original text');
+          } else {
+            lengthToReplace = actualQmdText.length;
+            debug('QMD contains different text - replacing what we found');
+          }
+
+          const wordDiff = Diff.diffWords(original, reviewed);
+          const criticMarkup = convertToCriticMarkup(wordDiff);
+
+          debug('Word diff result:', wordDiff);
+          debug('CriticMarkup output:', criticMarkup);
+          debug('Length to replace:', lengthToReplace);
+
+          annotations.push({
+            type: 'change',
+            index: index,
+            length: lengthToReplace,
+            text: actualQmdText,
+            markup: criticMarkup,
+            author: state.author
+          });
+        } else {
+          debug('Could not find original or reviewed text in QMD');
+          debug('Original:', original.substring(0, 50));
+          debug('Reviewed:', reviewed.substring(0, 50));
+        }
+      }
+    });
 
     // Add comments with positions
     this.comments.forEach(comment => {
@@ -612,202 +970,6 @@ class CriticMarkupManager {
           author: comment.author,
           comment: comment.comment
         });
-      }
-    });
-
-    // Add changes with positions
-    this.changes.forEach(change => {
-      const originalText = change.originalText.trim();
-      const newText = change.newText.trim();
-
-      debug('Processing change:', originalText.substring(0, 30), '->', newText.substring(0, 30));
-
-      if (!originalText || !newText || originalText === newText) {
-        debug('Skipping change - empty or identical');
-        return;
-      }
-
-      // For multi-line changes, process each line separately
-      // This prevents entire lists from being marked when only one item changed
-      if (originalText.includes('\n') && newText.includes('\n')) {
-        const originalLines = originalText.split('\n');
-        const modifiedLines = newText.split('\n');
-
-        // Use LCS to match lines
-        const lcs = this.computeLCS(originalLines, modifiedLines);
-
-        let origIndex = 0;
-        let modIndex = 0;
-        let lcsIndex = 0;
-
-        while (origIndex < originalLines.length || modIndex < modifiedLines.length) {
-          if (lcsIndex < lcs.length &&
-              origIndex < originalLines.length &&
-              modIndex < modifiedLines.length &&
-              originalLines[origIndex] === lcs[lcsIndex] &&
-              modifiedLines[modIndex] === lcs[lcsIndex]) {
-            // Line unchanged - skip it
-            origIndex++;
-            modIndex++;
-            lcsIndex++;
-          } else {
-            // Collect changed lines
-            const deletedLines = [];
-            while (origIndex < originalLines.length &&
-                   (lcsIndex >= lcs.length || originalLines[origIndex] !== lcs[lcsIndex])) {
-              deletedLines.push(originalLines[origIndex]);
-              origIndex++;
-            }
-
-            const addedLines = [];
-            while (modIndex < modifiedLines.length &&
-                   (lcsIndex >= lcs.length || modifiedLines[modIndex] !== lcs[lcsIndex])) {
-              addedLines.push(modifiedLines[modIndex]);
-              modIndex++;
-            }
-
-            // If exactly one line changed, process it
-            if (deletedLines.length === 1 && addedLines.length === 1) {
-              // Process this single changed line as a separate annotation
-              const lineOrigText = deletedLines[0];
-              const lineNewText = addedLines[0];
-
-              // Find this line in the QMD and create annotation for it
-              const lineIndex = qmdContent.indexOf(lineOrigText);
-              if (lineIndex !== -1) {
-                const lineDiffOps = this.findWordDifferences(lineOrigText, lineNewText);
-
-                let lineCriticMarkup = '';
-                lineDiffOps.forEach(op => {
-                  if (op.type === 'unchanged') {
-                    lineCriticMarkup += op.text;
-                  } else if (op.type === 'delete' && op.text.trim().length > 0) {
-                    lineCriticMarkup += `{--${op.text}--}`;
-                  } else if (op.type === 'add' && op.text.trim().length > 0) {
-                    lineCriticMarkup += `{++${op.text}++}`;
-                  } else {
-                    lineCriticMarkup += op.text;
-                  }
-                });
-
-                annotations.push({
-                  type: 'change',
-                  index: lineIndex,
-                  length: lineOrigText.length,
-                  text: lineOrigText,
-                  markup: lineCriticMarkup,
-                  author: change.author,
-                  diffOps: lineDiffOps
-                });
-              }
-            }
-          }
-        }
-
-        // Skip the rest of the processing for multi-line changes
-        return;
-      }
-
-      // Find position in content - try exact match first
-      let index = qmdContent.indexOf(originalText);
-
-      // If not found, try with list prefixes (-, *, +, or numbered)
-      // List items are stored without the marker, but QMD has the marker
-      if (index === -1) {
-        // Try with unordered list markers
-        const listPrefixes = ['- ', '* ', '+ '];
-        for (const prefix of listPrefixes) {
-          const withPrefix = prefix + originalText;
-          index = qmdContent.indexOf(withPrefix);
-          if (index !== -1) {
-            // Found with prefix - adjust index to point to content after prefix
-            index = index + prefix.length;
-            break;
-          }
-        }
-      }
-
-      // If still not found, try with numbered list (1. 2. etc.)
-      if (index === -1) {
-        const escapedText = originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const numberedListPattern = new RegExp(`(\\d+\\. )(${escapedText})`);
-        const match = qmdContent.match(numberedListPattern);
-        if (match) {
-          // Found with numbered prefix - get index after the number and dot
-          index = qmdContent.indexOf(match[0]) + match[1].length;
-        }
-      }
-
-      // If not found, try normalizing both strings and searching again
-      if (index === -1) {
-        // Normalize spaces and line breaks in both strings
-        const normalizedOriginal = originalText.replace(/\s+/g, ' ').trim();
-        const normalizedQmd = qmdContent.replace(/\s+/g, ' ');
-        index = normalizedQmd.indexOf(normalizedOriginal);
-
-        if (index !== -1) {
-          // Convert the normalized index back to the original qmdContent index
-          // by finding the actual position in the original string
-          let charCount = 0;
-          let normalizedCount = 0;
-          for (let i = 0; i < qmdContent.length; i++) {
-            if (normalizedCount === index) {
-              index = i;
-              break;
-            }
-            if (qmdContent[i].match(/\s/)) {
-              if (qmdContent[i+1] && !qmdContent[i+1].match(/\s/)) {
-                normalizedCount++;
-              }
-            } else {
-              normalizedCount++;
-            }
-          }
-        }
-      }
-
-      debug('Found change at index:', index);
-      if (index !== -1) {
-        // Use word-level diff to create granular CriticMarkup
-        const diffOps = this.findTextDifferences(originalText, newText);
-
-        // Build CriticMarkup from diff operations
-        // Filter out operations that are only whitespace for delete/add
-        let criticMarkup = '';
-        diffOps.forEach(op => {
-          if (op.type === 'unchanged') {
-            criticMarkup += op.text;
-          } else if (op.type === 'delete') {
-            // Only add delete marker if there's non-whitespace content
-            if (op.text.trim().length > 0) {
-              criticMarkup += `{--${op.text}--}`;
-            } else {
-              // Whitespace-only deletion - just include as unchanged
-              criticMarkup += op.text;
-            }
-          } else if (op.type === 'add') {
-            // Only add addition marker if there's non-whitespace content
-            if (op.text.trim().length > 0) {
-              criticMarkup += `{++${op.text}++}`;
-            } else {
-              // Whitespace-only addition - just include as unchanged
-              criticMarkup += op.text;
-            }
-          }
-        });
-
-        annotations.push({
-          type: 'change',
-          index: index,
-          length: originalText.length,
-          text: originalText,
-          markup: criticMarkup,
-          author: change.author,
-          diffOps: diffOps  // Store for comment merging
-        });
-        debug('Added granular change annotation');
-      } else {
-        debug('Could not find original text in QMD content');
       }
     });
 
@@ -1192,6 +1354,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Load existing CriticMarkup data
   criticMarkupManager.loadFromStorage();
+
+  // Note: We'll restore element states after convertMarkdownToHtml is defined (see below)
   
   const toggle = document.getElementById('web-review-toggle');
   const sidebar = document.getElementById('web-review-sidebar');
@@ -1413,6 +1577,42 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  // Clear storage button
+  const clearStorageBtn = document.getElementById('clear-storage-btn');
+  if (clearStorageBtn) {
+    clearStorageBtn.addEventListener('click', function() {
+      if (confirm('Are you sure you want to clear all changes and comments? This cannot be undone.')) {
+        debug('Clearing localStorage...');
+        localStorage.removeItem('webReviewCriticMarkup');
+
+        // Reset in-memory state
+        criticMarkupManager.comments = [];
+        criticMarkupManager.elementStates = {};
+        criticMarkupManager.changes = [];
+
+        // Remove visual indicators from DOM
+        document.querySelectorAll('.web-review-modified').forEach(el => {
+          el.classList.remove('web-review-modified');
+          el.style.outline = '';
+          el.style.outlineOffset = '';
+          el.title = '';
+          delete el.dataset.originalMarkdown;
+          delete el.dataset.newMarkdown;
+          delete el.dataset.reviewStatus;
+        });
+
+        // Clear sidebar
+        const contentDiv = document.getElementById('web-review-content');
+        if (contentDiv) {
+          contentDiv.innerHTML = '<p id="empty-state" style="color: #666; margin: 0;">Select text to add comments or suggestions.</p>';
+        }
+
+        alert('All changes and comments have been cleared.');
+        debug('Storage cleared successfully');
+      }
+    });
+  }
+
   // Inline diff toggle functionality
   const inlineDiffToggle = document.getElementById('toggle-inline-diff');
   if (inlineDiffToggle) {
@@ -1431,15 +1631,33 @@ document.addEventListener('DOMContentLoaded', function() {
         if (this.checked) {
           // Show diff visualization - pass markdown for accurate spacing
           const diffHtml = createInlineDiffVisualization(originalHtml || originalText, newHtml || newText, originalMarkdown, newMarkdown);
-          const wrapper = document.createElement('span');
-          wrapper.setAttribute('data-web-review-diff', 'true');
-          wrapper.innerHTML = diffHtml;
-          element.innerHTML = '';
-          element.appendChild(wrapper);
+
+          // For lists, extract just the list items
+          if (element.tagName === 'UL' || element.tagName === 'OL') {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = diffHtml;
+            const innerList = tempDiv.querySelector('ul, ol');
+            element.innerHTML = innerList ? innerList.innerHTML : diffHtml;
+          } else {
+            const wrapper = document.createElement('span');
+            wrapper.setAttribute('data-web-review-diff', 'true');
+            wrapper.innerHTML = diffHtml;
+            element.innerHTML = '';
+            element.appendChild(wrapper);
+          }
         } else {
           // Show just the new content
           const newHtmlContent = newHtml || convertMarkdownToHtml(newMarkdown);
-          element.innerHTML = newHtmlContent;
+
+          // For lists, extract just the list items to avoid nested lists
+          if (element.tagName === 'UL' || element.tagName === 'OL') {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = newHtmlContent;
+            const innerList = tempDiv.querySelector('ul, ol');
+            element.innerHTML = innerList ? innerList.innerHTML : newHtmlContent;
+          } else {
+            element.innerHTML = newHtmlContent;
+          }
         }
       });
     });
@@ -2229,7 +2447,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let html = markdown;
 
     // Unescape markdown escape sequences from Wysimark
-    html = html.replace(/\\([()\/\[\]{}\-_*`])/g, '$1');
+    html = html.replace(/\\([.()\/\[\]{}\-_*`])/g, '$1');
 
     // Process inline formatting (bold, italic, code)
     // Do this before line processing to preserve formatting within lists
@@ -2340,7 +2558,67 @@ document.addEventListener('DOMContentLoaded', function() {
     
     return text;
   }
-  
+
+  // Global setting for inline diff visualization - set BEFORE restoring
+  window.showInlineDiffVisualization = true;
+
+  // Now that convertMarkdownToHtml is defined, restore element states from storage
+  // This applies all commits to show changes on page load
+  (function restoreStoredChanges() {
+    debug('Restoring element states from commits...');
+
+    Object.entries(criticMarkupManager.elementStates).forEach(([path, state]) => {
+      const element = criticMarkupManager.findElementByPath(path);
+      if (!element) {
+        debug('Could not find element for path:', path);
+        return;
+      }
+
+      // Get the latest commit
+      const latestCommit = state.commits && state.commits.length > 0
+        ? state.commits[state.commits.length - 1]
+        : null;
+
+      if (!latestCommit) {
+        debug('No commits found for element:', path);
+        return;
+      }
+
+      // Convert to HTML and text
+      const originalHtml = convertMarkdownToHtml(state.originalMarkdown);
+      const reviewedHtml = convertMarkdownToHtml(latestCommit.reviewedMarkdown);
+      const originalText = convertMarkdownToText(state.originalMarkdown);
+      const newText = convertMarkdownToText(latestCommit.reviewedMarkdown);
+
+      // Store data attributes BEFORE applying changes
+      element.dataset.originalMarkdown = state.originalMarkdown;
+      element.dataset.newMarkdown = latestCommit.reviewedMarkdown;
+      element.dataset.originalHtml = originalHtml;
+      element.dataset.newHtml = reviewedHtml;
+      element.dataset.originalText = originalText;
+      element.dataset.newText = newText;
+      element.dataset.reviewStatus = 'pending';
+
+      // Show inline diff using the same function that's used during editing
+      showInlineDiff(
+        element,
+        originalText,
+        newText,
+        state.originalMarkdown,
+        latestCommit.reviewedMarkdown,
+        originalHtml,
+        reviewedHtml
+      );
+
+      // Mark as modified
+      element.classList.add('web-review-modified');
+
+      debug('Restored:', path, '-', state.commits.length, 'commits');
+    });
+
+    debug('Restore complete');
+  })();
+
   function saveElementChange(element, originalMarkdown, newMarkdown) {
     // Get or create document changes storage
     if (!window.webReviewChanges) {
@@ -2400,9 +2678,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     return tagName + '[' + index + ']:"' + text + '"';
   }
-
-  // Global setting for inline diff visualization
-  window.showInlineDiffVisualization = true;
 
   function showInlineDiff(element, originalText, newText, originalMarkdown, newMarkdown, originalHtml, newHtml) {
     // Store existing comment data before updating
@@ -2748,6 +3023,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 // List - use list diff
                 const listDiff = createListDiff(origBlock.outerHTML, newBlock.outerHTML);
                 resultHtml += listDiff;
+              } else if (['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(newBlock.tagName)) {
+                // Text block (paragraph or heading) - use word-level diff
+                const origText = origBlock.textContent || '';
+                const newText = newBlock.textContent || '';
+                const wordDiff = Diff.diffWords(origText, newText);
+
+                let diffHtml = '<' + newBlock.tagName.toLowerCase() + '>';
+                wordDiff.forEach(function(part) {
+                  if (part.added) {
+                    diffHtml += '<span style="background-color: rgba(16, 185, 129, 0.3); color: #047857; font-weight: 500;">' + part.value + '</span>';
+                  } else if (part.removed) {
+                    diffHtml += '<span style="background-color: rgba(239, 68, 68, 0.3); color: #dc2626; text-decoration: line-through;">' + part.value + '</span>';
+                  } else {
+                    diffHtml += part.value;
+                  }
+                });
+                diffHtml += '</' + newBlock.tagName.toLowerCase() + '>';
+                resultHtml += diffHtml;
               } else {
                 // Other block types - show with change indicator
                 resultHtml += `<div style="border-left: 3px solid #3b82f6; padding-left: 8px;">${newBlock.outerHTML}</div>`;

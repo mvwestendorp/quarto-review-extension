@@ -383,7 +383,19 @@ function Pandoc(doc)
         cursor: pointer;
         font-size: 12px;
         font-weight: bold;
+        margin-bottom: 8px;
       " title="Download QMD file with CriticMarkup annotations">📥 Download QMD with Annotations</button>
+      <button id="clear-storage-btn" style="
+        width: 100%;
+        padding: 8px 12px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+      " title="Clear all stored changes and comments">🗑️ Clear All Changes</button>
     </div>
   </div>
 
@@ -417,6 +429,9 @@ function Pandoc(doc)
     ">✏️ Edit Text</button>
   </div>
 </div>
+
+<!-- jsdiff library for text differencing -->
+<script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
 
 <script src="_extensions/web-review/web-review.js"></script>
 
