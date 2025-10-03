@@ -2167,13 +2167,41 @@ document.addEventListener('DOMContentLoaded', function() {
         debug('List diff - element after:', element.outerHTML.substring(0, 300));
         debug('List diff - element children count:', element.children.length);
       } else {
-        // Single block: wrap in a span as before
-        const wrapper = document.createElement('span');
-        wrapper.setAttribute('data-web-review-diff', 'true');
-        wrapper.innerHTML = diffHtml;
+        // Single block: check if element type changed
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = diffHtml;
+        const firstChild = tempDiv.firstElementChild;
 
-        element.innerHTML = '';
-        element.appendChild(wrapper);
+        // If diff contains a different block type (e.g., p changed to h3), replace element
+        if (firstChild && firstChild.tagName !== element.tagName &&
+            ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P'].includes(firstChild.tagName)) {
+          debug('Block type changed from', element.tagName, 'to', firstChild.tagName, '- replacing element');
+
+          // Create new element with correct type
+          const newElement = document.createElement(firstChild.tagName);
+          newElement.setAttribute('data-web-review-diff', 'true');
+          newElement.innerHTML = firstChild.innerHTML;
+
+          // Copy classes and attributes
+          Array.from(element.attributes).forEach(attr => {
+            if (!attr.name.startsWith('data-') && attr.name !== 'class') {
+              newElement.setAttribute(attr.name, attr.value);
+            }
+          });
+          newElement.className = element.className.replace('web-review-editing', 'web-review-modified');
+
+          // Replace element
+          element.replaceWith(newElement);
+          element = newElement;
+        } else {
+          // Same type or inline diff - wrap in a span as before
+          const wrapper = document.createElement('span');
+          wrapper.setAttribute('data-web-review-diff', 'true');
+          wrapper.innerHTML = diffHtml;
+
+          element.innerHTML = '';
+          element.appendChild(wrapper);
+        }
       }
     } else {
       // Just show the new content without diff visualization
@@ -2204,7 +2232,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
         element.innerHTML = listItemsHtml;
       } else {
-        element.innerHTML = newHtmlContent;
+        // Check if element type changed (e.g., p to heading)
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = newHtmlContent;
+        const firstChild = tempDiv.firstElementChild;
+
+        if (firstChild && firstChild.tagName !== element.tagName &&
+            ['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P'].includes(firstChild.tagName)) {
+          debug('Block type changed (no diff) from', element.tagName, 'to', firstChild.tagName);
+
+          // Replace with correct element type
+          const newElement = document.createElement(firstChild.tagName);
+          newElement.innerHTML = firstChild.innerHTML;
+
+          // Copy classes and attributes
+          Array.from(element.attributes).forEach(attr => {
+            if (!attr.name.startsWith('data-') && attr.name !== 'class') {
+              newElement.setAttribute(attr.name, attr.value);
+            }
+          });
+          newElement.className = element.className.replace('web-review-editing', 'web-review-modified');
+
+          element.replaceWith(newElement);
+          element = newElement;
+        } else {
+          element.innerHTML = newHtmlContent;
+        }
       }
     }
 
@@ -2314,7 +2367,10 @@ document.addEventListener('DOMContentLoaded', function() {
           resultHtml += `<li>${newItem.innerHTML}</li>`;
         } else {
           // Changed - use the inline diff visualization for this item
-          const itemDiff = createInlineDiffVisualization(originalHtml, newHtml, '', '');
+          // Extract text for markdown context (helps with formatting preservation)
+          const originalItemText = originalItem.textContent.trim();
+          const newItemText = newItem.textContent.trim();
+          const itemDiff = createInlineDiffVisualization(originalHtml, newHtml, originalItemText, newItemText);
           resultHtml += `<li>${itemDiff}</li>`;
         }
       } else if (newItem) {
@@ -2363,7 +2419,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       let resultHtml = '';
 
-      // Simple approach: compare by count
+      // Compare blocks intelligently
       const maxBlocks = Math.max(originalBlocks.length, newBlocks.length);
 
       for (let i = 0; i < maxBlocks; i++) {
@@ -2373,15 +2429,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (origBlock && newBlock) {
           // Both exist - check if same type
           if (origBlock.tagName === newBlock.tagName) {
-            // Same type - show new version (might have changed)
-            resultHtml += newBlock.outerHTML;
+            // Same type - check if content changed
+            const origContent = origBlock.innerHTML.trim();
+            const newContent = newBlock.innerHTML.trim();
+
+            if (origContent === newContent) {
+              // No change - use new block as-is
+              resultHtml += newBlock.outerHTML;
+            } else {
+              // Content changed - create diff for this block
+              if (newBlock.tagName === 'UL' || newBlock.tagName === 'OL') {
+                // List - use list diff
+                const listDiff = createListDiff(origBlock.outerHTML, newBlock.outerHTML);
+                resultHtml += listDiff;
+              } else {
+                // Other block types - show with change indicator
+                resultHtml += `<div style="border-left: 3px solid #3b82f6; padding-left: 8px;">${newBlock.outerHTML}</div>`;
+              }
+            }
           } else {
             // Different type - show as removed + added
             resultHtml += `<div style="background-color: rgba(239, 68, 68, 0.2); padding: 8px; margin: 4px 0; border-left: 3px solid #dc2626;">${origBlock.outerHTML}</div>`;
             resultHtml += `<div style="background-color: rgba(16, 185, 129, 0.2); padding: 8px; margin: 4px 0; border-left: 3px solid #047857;">${newBlock.outerHTML}</div>`;
           }
         } else if (newBlock) {
-          // Added block
+          // Added block - highlight it
           resultHtml += `<div style="background-color: rgba(16, 185, 129, 0.2); padding: 8px; margin: 4px 0; border-left: 3px solid #047857;">${newBlock.outerHTML}</div>`;
         } else if (origBlock) {
           // Removed block
