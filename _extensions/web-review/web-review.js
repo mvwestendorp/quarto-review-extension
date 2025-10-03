@@ -64,17 +64,18 @@ function convertHtmlToMarkdown(html) {
 
       switch(tagName) {
         case 'h1':
-          return '# ' + textContent;
+          // Remove Quarto anchor links from headings
+          return '# ' + textContent.replace(/\[]\(#[a-z0-9-]+\)/gi, '');
         case 'h2':
-          return '## ' + textContent;
+          return '## ' + textContent.replace(/\[]\(#[a-z0-9-]+\)/gi, '');
         case 'h3':
-          return '### ' + textContent;
+          return '### ' + textContent.replace(/\[]\(#[a-z0-9-]+\)/gi, '');
         case 'h4':
-          return '#### ' + textContent;
+          return '#### ' + textContent.replace(/\[]\(#[a-z0-9-]+\)/gi, '');
         case 'h5':
-          return '##### ' + textContent;
+          return '##### ' + textContent.replace(/\[]\(#[a-z0-9-]+\)/gi, '');
         case 'h6':
-          return '###### ' + textContent;
+          return '###### ' + textContent.replace(/\[]\(#[a-z0-9-]+\)/gi, '');
         case 'strong':
         case 'b':
           return '**' + textContent + '**';
@@ -236,18 +237,131 @@ class CriticMarkupManager {
     // Using DOM-based content extraction to avoid markdown corruption
     debug('cleanTextContent called - using data attribute isolation');
 
-    // Return text as-is to avoid corrupting markdown formatting
-    // Content isolation is handled by the generateBasicQMD method using data attributes
-    return text.trim();
+    let cleaned = text.trim();
+
+    // Remove unnecessary escape sequences (only keep escaping for special markdown chars that need it)
+    // Common over-escaping from Wysimark: \. \( \) \/ etc.
+    cleaned = cleaned.replace(/\\([.()\/\[\]])/g, '$1');
+
+    // Fix broken bold formatting from Wysimark editor
+    // Pattern: **word**** ****word** should become **word word**
+    // This restores the original single bold phrase that got broken during editing
+    cleaned = cleaned.replace(/\*\*(\w+)\*{4}\s+\*{4}(\w+)\*\*/g, '**$1 $2**');
+
+    // More general case: any sequence of 4+ asterisks with spaces should be collapsed
+    // e.g., "text**** ****more" -> "text more" (removing broken markers entirely)
+    cleaned = cleaned.replace(/\*{4}\s+\*{4}/g, ' ');
+
+    // Remove Quarto anchor links from headings [](#anchor-id)
+    cleaned = cleaned.replace(/\[]\(#[a-z0-9-]+\)/gi, '');
+
+    return cleaned;
   }
 
   /**
-   * Computes word-level differences between original and modified text using LCS algorithm.
+   * Computes line-level differences for multi-line text (like lists)
    * @param {string} original - The original text
    * @param {string} modified - The modified text
    * @returns {Array<Object>} Array of diff operations (unchanged, delete, add)
    */
-  findTextDifferences(original, modified) {
+  findLineDifferences(original, modified) {
+    const originalLines = original.split('\n');
+    const modifiedLines = modified.split('\n');
+
+    // Use LCS on lines to properly match them
+    const lcs = this.computeLCS(originalLines, modifiedLines);
+
+    const operations = [];
+    let origIndex = 0;
+    let modIndex = 0;
+    let lcsIndex = 0;
+
+    while (origIndex < originalLines.length || modIndex < modifiedLines.length) {
+      if (lcsIndex < lcs.length &&
+          origIndex < originalLines.length &&
+          modIndex < modifiedLines.length &&
+          originalLines[origIndex] === lcs[lcsIndex] &&
+          modifiedLines[modIndex] === lcs[lcsIndex]) {
+        // Line is common - keep as is
+        operations.push({
+          type: 'unchanged',
+          text: originalLines[origIndex]
+        });
+        if (origIndex < originalLines.length - 1 || modIndex < modifiedLines.length - 1) {
+          operations.push({ type: 'unchanged', text: '\n' });
+        }
+        origIndex++;
+        modIndex++;
+        lcsIndex++;
+      } else {
+        // Collect deleted lines
+        const deletedLines = [];
+        while (origIndex < originalLines.length &&
+               (lcsIndex >= lcs.length || originalLines[origIndex] !== lcs[lcsIndex])) {
+          deletedLines.push(originalLines[origIndex]);
+          origIndex++;
+        }
+
+        // Collect added lines
+        const addedLines = [];
+        while (modIndex < modifiedLines.length &&
+               (lcsIndex >= lcs.length || modifiedLines[modIndex] !== lcs[lcsIndex])) {
+          addedLines.push(modifiedLines[modIndex]);
+          modIndex++;
+        }
+
+        // Check if we have exactly one deleted and one added line
+        // Or if one is a prefix/suffix of the other, treat as modification
+        let usedWordDiff = false;
+        if (deletedLines.length === 1 && addedLines.length === 1) {
+          // Always do word-level diff for single line changes
+          const lineDiff = this.findWordDifferences(deletedLines[0], addedLines[0]);
+          operations.push(...lineDiff);
+          usedWordDiff = true;
+        } else if (deletedLines.length === 0 && addedLines.length === 1) {
+          // Pure addition
+          operations.push({ type: 'add', text: addedLines[0] });
+        } else if (deletedLines.length === 1 && addedLines.length === 0) {
+          // Pure deletion
+          operations.push({ type: 'delete', text: deletedLines[0] });
+        } else {
+          // Multiple lines changed - treat as block delete/add
+          if (deletedLines.length > 0) {
+            deletedLines.forEach((line, idx) => {
+              operations.push({ type: 'delete', text: line });
+              if (idx < deletedLines.length - 1 || addedLines.length > 0) {
+                operations.push({ type: 'delete', text: '\n' });
+              }
+            });
+          }
+          if (addedLines.length > 0) {
+            addedLines.forEach((line, idx) => {
+              operations.push({ type: 'add', text: line });
+              if (idx < addedLines.length - 1) {
+                operations.push({ type: 'add', text: '\n' });
+              }
+            });
+          }
+        }
+
+        // Add newline after the changed section if there are more lines
+        if ((origIndex < originalLines.length || modIndex < modifiedLines.length) &&
+            (deletedLines.length > 0 || addedLines.length > 0 || usedWordDiff)) {
+          operations.push({ type: 'unchanged', text: '\n' });
+        }
+      }
+    }
+
+    return operations;
+  }
+
+  /**
+   * Computes word-level differences for a single line
+   * @param {string} original - The original text
+   * @param {string} modified - The modified text
+   * @returns {Array<Object>} Array of diff operations (unchanged, delete, add)
+   */
+  findWordDifferences(original, modified) {
     // Word-level diff using LCS algorithm
     // Split on word boundaries while preserving spaces
     const originalTokens = original.split(/(\s+)/);
@@ -293,23 +407,61 @@ class CriticMarkupManager {
           modIndex++;
         }
 
-        // Add operations
-        if (deleted.length > 0) {
+        // Add operations only if they have actual content (not just empty strings)
+        const deletedText = deleted.join('');
+        const addedText = added.join('');
+
+        if (deletedText.length > 0) {
           operations.push({
             type: 'delete',
-            text: deleted.join('')
+            text: deletedText
           });
         }
-        if (added.length > 0) {
+        if (addedText.length > 0) {
           operations.push({
             type: 'add',
-            text: added.join('')
+            text: addedText
           });
         }
       }
     }
 
     return operations;
+  }
+
+  /**
+   * Computes word-level differences between original and modified text using LCS algorithm.
+   * @param {string} original - The original text
+   * @param {string} modified - The modified text
+   * @returns {Array<Object>} Array of diff operations (unchanged, delete, add)
+   */
+  findTextDifferences(original, modified) {
+    // For multi-line content (like lists), process line-by-line to avoid
+    // creating empty change markers for unchanged lines
+    if (original.includes('\n') && modified.includes('\n')) {
+      return this.findLineDifferences(original, modified);
+    }
+
+    // Word-level diff using LCS algorithm - delegate to findWordDifferences
+    const operations = this.findWordDifferences(original, modified);
+
+    // Consolidate consecutive operations of the same type
+    const consolidated = [];
+    for (let i = 0; i < operations.length; i++) {
+      const op = operations[i];
+
+      // Check if we can merge with the previous operation
+      if (consolidated.length > 0 &&
+          consolidated[consolidated.length - 1].type === op.type) {
+        // Merge with previous operation
+        consolidated[consolidated.length - 1].text += op.text;
+      } else {
+        // Add as new operation
+        consolidated.push({...op});
+      }
+    }
+
+    return consolidated;
   }
 
   computeLCS(arr1, arr2) {
@@ -422,6 +574,9 @@ class CriticMarkupManager {
       qmdContent = this.generateBasicQMD();
     }
 
+    // Clean the QMD content to remove Quarto-generated artifacts
+    qmdContent = this.cleanTextContent(qmdContent);
+
     debug('Exporting CriticMarkup - comments:', this.comments.length, 'changes:', this.changes.length);
     debug('Original QMD content length:', qmdContent.length);
 
@@ -472,22 +627,172 @@ class CriticMarkupManager {
         return;
       }
 
-      // Find position in content
-      const index = qmdContent.indexOf(originalText);
+      // For multi-line changes, process each line separately
+      // This prevents entire lists from being marked when only one item changed
+      if (originalText.includes('\n') && newText.includes('\n')) {
+        const originalLines = originalText.split('\n');
+        const modifiedLines = newText.split('\n');
+
+        // Use LCS to match lines
+        const lcs = this.computeLCS(originalLines, modifiedLines);
+
+        let origIndex = 0;
+        let modIndex = 0;
+        let lcsIndex = 0;
+
+        while (origIndex < originalLines.length || modIndex < modifiedLines.length) {
+          if (lcsIndex < lcs.length &&
+              origIndex < originalLines.length &&
+              modIndex < modifiedLines.length &&
+              originalLines[origIndex] === lcs[lcsIndex] &&
+              modifiedLines[modIndex] === lcs[lcsIndex]) {
+            // Line unchanged - skip it
+            origIndex++;
+            modIndex++;
+            lcsIndex++;
+          } else {
+            // Collect changed lines
+            const deletedLines = [];
+            while (origIndex < originalLines.length &&
+                   (lcsIndex >= lcs.length || originalLines[origIndex] !== lcs[lcsIndex])) {
+              deletedLines.push(originalLines[origIndex]);
+              origIndex++;
+            }
+
+            const addedLines = [];
+            while (modIndex < modifiedLines.length &&
+                   (lcsIndex >= lcs.length || modifiedLines[modIndex] !== lcs[lcsIndex])) {
+              addedLines.push(modifiedLines[modIndex]);
+              modIndex++;
+            }
+
+            // If exactly one line changed, process it
+            if (deletedLines.length === 1 && addedLines.length === 1) {
+              // Process this single changed line as a separate annotation
+              const lineOrigText = deletedLines[0];
+              const lineNewText = addedLines[0];
+
+              // Find this line in the QMD and create annotation for it
+              const lineIndex = qmdContent.indexOf(lineOrigText);
+              if (lineIndex !== -1) {
+                const lineDiffOps = this.findWordDifferences(lineOrigText, lineNewText);
+
+                let lineCriticMarkup = '';
+                lineDiffOps.forEach(op => {
+                  if (op.type === 'unchanged') {
+                    lineCriticMarkup += op.text;
+                  } else if (op.type === 'delete' && op.text.trim().length > 0) {
+                    lineCriticMarkup += `{--${op.text}--}`;
+                  } else if (op.type === 'add' && op.text.trim().length > 0) {
+                    lineCriticMarkup += `{++${op.text}++}`;
+                  } else {
+                    lineCriticMarkup += op.text;
+                  }
+                });
+
+                annotations.push({
+                  type: 'change',
+                  index: lineIndex,
+                  length: lineOrigText.length,
+                  text: lineOrigText,
+                  markup: lineCriticMarkup,
+                  author: change.author,
+                  diffOps: lineDiffOps
+                });
+              }
+            }
+          }
+        }
+
+        // Skip the rest of the processing for multi-line changes
+        return;
+      }
+
+      // Find position in content - try exact match first
+      let index = qmdContent.indexOf(originalText);
+
+      // If not found, try with list prefixes (-, *, +, or numbered)
+      // List items are stored without the marker, but QMD has the marker
+      if (index === -1) {
+        // Try with unordered list markers
+        const listPrefixes = ['- ', '* ', '+ '];
+        for (const prefix of listPrefixes) {
+          const withPrefix = prefix + originalText;
+          index = qmdContent.indexOf(withPrefix);
+          if (index !== -1) {
+            // Found with prefix - adjust index to point to content after prefix
+            index = index + prefix.length;
+            break;
+          }
+        }
+      }
+
+      // If still not found, try with numbered list (1. 2. etc.)
+      if (index === -1) {
+        const escapedText = originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const numberedListPattern = new RegExp(`(\\d+\\. )(${escapedText})`);
+        const match = qmdContent.match(numberedListPattern);
+        if (match) {
+          // Found with numbered prefix - get index after the number and dot
+          index = qmdContent.indexOf(match[0]) + match[1].length;
+        }
+      }
+
+      // If not found, try normalizing both strings and searching again
+      if (index === -1) {
+        // Normalize spaces and line breaks in both strings
+        const normalizedOriginal = originalText.replace(/\s+/g, ' ').trim();
+        const normalizedQmd = qmdContent.replace(/\s+/g, ' ');
+        index = normalizedQmd.indexOf(normalizedOriginal);
+
+        if (index !== -1) {
+          // Convert the normalized index back to the original qmdContent index
+          // by finding the actual position in the original string
+          let charCount = 0;
+          let normalizedCount = 0;
+          for (let i = 0; i < qmdContent.length; i++) {
+            if (normalizedCount === index) {
+              index = i;
+              break;
+            }
+            if (qmdContent[i].match(/\s/)) {
+              if (qmdContent[i+1] && !qmdContent[i+1].match(/\s/)) {
+                normalizedCount++;
+              }
+            } else {
+              normalizedCount++;
+            }
+          }
+        }
+      }
+
       debug('Found change at index:', index);
       if (index !== -1) {
         // Use word-level diff to create granular CriticMarkup
         const diffOps = this.findTextDifferences(originalText, newText);
 
         // Build CriticMarkup from diff operations
+        // Filter out operations that are only whitespace for delete/add
         let criticMarkup = '';
         diffOps.forEach(op => {
           if (op.type === 'unchanged') {
             criticMarkup += op.text;
           } else if (op.type === 'delete') {
-            criticMarkup += `{--${op.text}--}`;
+            // Only add delete marker if there's non-whitespace content
+            if (op.text.trim().length > 0) {
+              criticMarkup += `{--${op.text}--}`;
+            } else {
+              // Whitespace-only deletion - just include as unchanged
+              criticMarkup += op.text;
+            }
           } else if (op.type === 'add') {
-            criticMarkup += `{++${op.text}++}`;
+            // Only add addition marker if there's non-whitespace content
+            if (op.text.trim().length > 0) {
+              criticMarkup += `{++${op.text}++}`;
+            } else {
+              // Whitespace-only addition - just include as unchanged
+              criticMarkup += op.text;
+            }
           }
         });
 
@@ -635,7 +940,8 @@ class CriticMarkupManager {
           // If element has been modified, ALWAYS use original markdown for export base
           // The CriticMarkup annotations will show the changes
           if (element.dataset.originalMarkdown) {
-            return element.dataset.originalMarkdown;
+            // Clean the original markdown to remove Wysimark artifacts
+            return criticMarkupManager.cleanTextContent(element.dataset.originalMarkdown);
           }
 
           // Get innerHTML, but exclude diff wrapper if present
