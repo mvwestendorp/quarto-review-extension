@@ -58,7 +58,6 @@ function Pandoc(doc)
     local git_repo_metadata = ""
     local git_enabled = "false"
     local git_provider = "github"
-    local git_client_id = ""
 
     if doc.meta["web-review"] and doc.meta["web-review"]["git"] then
       local git_config = doc.meta["web-review"]["git"]
@@ -71,11 +70,6 @@ function Pandoc(doc)
       -- Get provider
       if git_config["provider"] then
         git_provider = pandoc.utils.stringify(git_config["provider"])
-      end
-
-      -- Get client ID
-      if git_config["client-id"] then
-        git_client_id = pandoc.utils.stringify(git_config["client-id"])
       end
 
       -- Get repository metadata
@@ -501,8 +495,7 @@ function Pandoc(doc)
 <script src="_extensions/web-review/web-review.js"></script>
 
 <!-- Git integration scripts (loaded conditionally) -->
-<script src="_extensions/web-review/assets/js/oauth-device-flow.js"></script>
-<script src="_extensions/web-review/assets/js/github-provider.js"></script>
+<script src="_extensions/web-review/assets/js/github-pat-provider.js"></script>
 <script src="_extensions/web-review/assets/js/git-integration.js"></script>
 <script src="_extensions/web-review/assets/js/oauth-ui.js"></script>
 
@@ -524,8 +517,7 @@ function Pandoc(doc)
 window.WebReviewConfig = {
   git: {
     enabled: ]] .. git_enabled .. [[,
-    provider: "]] .. git_provider .. [[",
-    clientId: "]] .. git_client_id .. [["
+    provider: "]] .. git_provider .. [["
   }
 };
 
@@ -533,76 +525,70 @@ window.WebReviewConfig = {
 document.addEventListener('DOMContentLoaded', function() {
   const gitConfig = window.WebReviewConfig?.git;
 
-  if (gitConfig?.enabled && gitConfig?.clientId) {
-    // Show the Submit to Git button
-    const gitButton = document.getElementById('submit-to-git-btn');
-    if (gitButton) {
-      gitButton.style.display = 'block';
+  if (!gitConfig?.enabled) return;
 
-      // Initialize OAuth provider
-      const oauthProvider = new GitHubOAuthProvider(gitConfig.clientId);
-      const gitIntegration = new GitIntegration(oauthProvider);
-      const oauthUI = new OAuthUI();
+  const gitButton = document.getElementById('submit-to-git-btn');
+  if (!gitButton) return;
 
-      // Wire up the button
-      gitButton.addEventListener('click', async function() {
-        try {
-          // Check if authenticated
-          if (!oauthProvider.isAuthenticated()) {
-            // Start OAuth flow
-            const deviceInfo = await oauthProvider.initiateAuth();
-            oauthUI.showDeviceCodeInstructions(deviceInfo, () => {
-              oauthProvider.cancelAuth();
-            });
+  // Show button if git is enabled
+  gitButton.style.display = 'block';
 
-            const token = await oauthProvider.pollForToken(deviceInfo.deviceCode, deviceInfo.interval);
-            const userInfo = await oauthProvider.getUserInfo();
-            oauthUI.showAuthSuccess(userInfo);
-          }
+  const provider = new GitHubPATProvider();
+  const gitIntegration = new GitIntegration(provider);
+  const oauthUI = new OAuthUI();
 
-          // Configure repository
-          const repoData = document.getElementById('embedded-sources');
-          if (repoData) {
-            const data = JSON.parse(repoData.textContent);
-            if (data.repository) {
-              gitIntegration.configure(data.repository);
-            }
-          }
+  gitButton.addEventListener('click', async function() {
+    try {
+      // Check if we have a stored PAT
+      if (!provider.isAuthenticated()) {
+        // Prompt user for PAT
+        const token = await oauthUI.showPATInput(gitConfig.provider);
+        if (!token) return; // User cancelled
 
-          // Get review data
-          const reviewData = window.webReviewManager?.exportData();
-          if (!reviewData || (!reviewData.comments?.length && !reviewData.changes?.length)) {
-            alert('No changes to submit. Make some edits or add comments first!');
-            return;
-          }
+        // Store PAT
+        provider.setAccessToken(token);
+      }
 
-          const userInfo = await oauthProvider.getUserInfo();
-
-          // Submit review
-          oauthUI.showSubmissionProgress({ step: 1, message: 'Creating review branch...', progress: 10 });
-
-          const result = await gitIntegration.submitReview({
-            reviewer: userInfo.login,
-            title: 'Review from ' + (userInfo.name || userInfo.login),
-            changes: new Map(reviewData.changes || []),
-            comments: reviewData.comments || [],
-            sources: {}
-          });
-
-          oauthUI.showSubmissionSuccess({
-            pullRequest: result.pullRequest,
-            branch: result.branch
-          });
-
-        } catch (error) {
-          console.error('Git submission error:', error);
-          oauthUI.showAuthError('Failed to submit review: ' + error.message, () => {
-            gitButton.click();
-          });
+      // Configure repository
+      const repoData = document.getElementById('embedded-sources');
+      if (repoData) {
+        const data = JSON.parse(repoData.textContent);
+        if (data.repository) {
+          gitIntegration.configure(data.repository);
         }
+      }
+
+      // Get review data
+      const reviewData = window.webReviewManager?.exportData();
+      if (!reviewData || (!reviewData.comments?.length && !reviewData.changes?.length)) {
+        alert('No changes to submit. Make some edits or add comments first!');
+        return;
+      }
+
+      const userInfo = await provider.getUserInfo();
+
+      // Submit review
+      oauthUI.showSubmissionProgress({ step: 1, message: 'Creating review branch...', progress: 10 });
+
+      const result = await gitIntegration.submitReview({
+        reviewer: userInfo.login,
+        title: 'Review from ' + (userInfo.name || userInfo.login),
+        changes: new Map(reviewData.changes || []),
+        comments: reviewData.comments || [],
+        sources: {}
       });
+
+      oauthUI.showSubmissionSuccess({
+        pullRequest: result.pullRequest,
+        branch: result.branch
+      });
+
+    } catch (error) {
+      console.error('Git submission error:', error);
+      oauthUI.showAuthError('Failed to submit review: ' + error.message);
     }
-  }
+  });
+}
 });
 </script>
 

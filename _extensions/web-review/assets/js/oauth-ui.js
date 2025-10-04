@@ -398,6 +398,123 @@ class OAuthUI {
       }, 300);
     }
   }
+
+  /**
+   * Show PAT input dialog
+   * @param {string} provider - Git provider name (github, gitlab, etc.)
+   * @returns {Promise<string|null>} - Returns PAT or null if cancelled
+   */
+  showPATInput(provider = 'GitHub') {
+    return new Promise((resolve) => {
+      const modal = this.createModal('oauth-pat-input', `Connect to ${provider}`);
+
+      const tokenUrl = {
+        'github': 'https://github.com/settings/tokens/new?scopes=repo&description=Quarto%20Web%20Review',
+        'gitlab': 'https://gitlab.com/-/profile/personal_access_tokens?scopes=api',
+        'gitea': '#' // Will need instance URL
+      }[provider.toLowerCase()] || '#';
+
+      const content = document.createElement('div');
+      content.className = 'oauth-pat-content';
+      content.innerHTML = `
+        <div style="margin-bottom: 20px;">
+          <p style="margin: 0 0 15px 0; color: #586069;">
+            To submit your review, you'll need a Personal Access Token (PAT) from ${provider}.
+          </p>
+          <ol style="margin: 0 0 15px 0; padding-left: 20px; color: #586069;">
+            <li>Click the button below to create a new token</li>
+            <li>Copy the generated token</li>
+            <li>Paste it in the field below</li>
+          </ol>
+          <a href="${tokenUrl}" target="_blank" class="oauth-create-token-btn" style="
+            display: inline-block;
+            padding: 8px 16px;
+            background: #0366d6;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            margin-bottom: 15px;
+          ">
+            Create Token on ${provider}
+          </a>
+        </div>
+        <div style="margin-bottom: 15px;">
+          <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #24292e;">
+            Personal Access Token:
+          </label>
+          <input
+            type="password"
+            id="pat-input"
+            placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+            style="
+              width: 100%;
+              padding: 8px 12px;
+              border: 1px solid #d1d5da;
+              border-radius: 6px;
+              font-family: monospace;
+              font-size: 14px;
+            "
+          />
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+          <button id="pat-cancel-btn" style="
+            padding: 8px 16px;
+            background: #fafbfc;
+            color: #24292e;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+          ">Cancel</button>
+          <button id="pat-submit-btn" style="
+            padding: 8px 16px;
+            background: #2ea44f;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+          ">Connect</button>
+        </div>
+      `;
+
+      modal.querySelector('.oauth-modal-body').appendChild(content);
+      this.showModal(modal);
+
+      const input = document.getElementById('pat-input');
+      const submitBtn = document.getElementById('pat-submit-btn');
+      const cancelBtn = document.getElementById('pat-cancel-btn');
+
+      // Focus input
+      setTimeout(() => input.focus(), 100);
+
+      // Handle submit
+      const handleSubmit = () => {
+        const token = input.value.trim();
+        if (token) {
+          this.closeModal();
+          resolve(token);
+        } else {
+          input.style.borderColor = '#d73a49';
+          input.focus();
+        }
+      };
+
+      // Handle cancel
+      const handleCancel = () => {
+        this.closeModal();
+        resolve(null);
+      };
+
+      submitBtn.onclick = handleSubmit;
+      cancelBtn.onclick = handleCancel;
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') handleSubmit();
+        if (e.key === 'Escape') handleCancel();
+      };
+    });
+  }
 }
 
 // Export for use in other modules
