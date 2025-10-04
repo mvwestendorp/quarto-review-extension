@@ -34,3 +34,7 @@ metadata:
     storage:
       embed-sources: true
       auto-save: true
+    git:
+      enabled: false  # Enable Git integration
+      provider: "github"  # github, gitlab, gitea, azuredevops
+      client-id: ""  # OAuth client ID (required if enabled)

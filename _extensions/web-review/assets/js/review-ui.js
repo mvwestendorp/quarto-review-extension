@@ -35,12 +35,15 @@ class WebReview {
     this.init();
   }
   
-  init() {
+  async init() {
     this.setupUI();
     this.setupEventListeners();
     this.initializeComponents();
     this.loadStoredData();
-    
+
+    // Initialize Git integration if enabled
+    await this.initGitIntegration();
+
     console.log('Web Review Extension initialized', this.config);
   }
   
@@ -148,7 +151,12 @@ class WebReview {
     });
     
     document.getElementById('save-review')?.addEventListener('click', () => {
-      this.saveReview();
+      // Check if Git integration is enabled
+      if (this.config.git?.enabled && this.gitIntegration) {
+        this.submitReviewToGit();
+      } else {
+        this.saveReview();
+      }
     });
     
     // Document events
@@ -698,28 +706,289 @@ class WebReview {
   switchMode(newMode) {
     if (['review', 'author', 'read-only'].includes(newMode)) {
       this.config.mode = newMode;
-      
+
       // Update body classes
       document.body.className = document.body.className.replace(/web-review-\w+/g, '');
       document.body.classList.add(`web-review-${newMode}`);
-      
+
       // Update mode indicator
       const indicator = document.querySelector('.review-mode-indicator');
       if (indicator) {
         indicator.className = `review-mode-indicator ${newMode}-mode`;
         indicator.innerHTML = `<span>Review Mode: ${newMode.charAt(0).toUpperCase() + newMode.slice(1)}</span>`;
       }
-      
+
       // Update UI based on mode
       this.updateUIForMode(newMode);
-      
+
       // Update toolbar visibility
       this.updateToolbarForMode(newMode);
-      
+
       // Re-render comments and changes
       this.updateCommentsUI();
       this.updateChangesUI();
     }
+  }
+
+  /**
+   * Initialize Git integration
+   */
+  async initGitIntegration() {
+    if (!this.config.git || !this.config.git.enabled) {
+      return;
+    }
+
+    // Initialize OAuth UI
+    this.oauthUI = new OAuthUI();
+
+    // Check if already authenticated
+    const provider = this.config.git.provider || 'github';
+    const clientId = this.config.git.clientId;
+
+    if (!clientId) {
+      console.warn('Git integration enabled but no client ID provided');
+      return;
+    }
+
+    // Create OAuth provider
+    if (provider === 'github') {
+      this.oauthProvider = new GitHubOAuthProvider(clientId);
+    }
+
+    // Initialize Git integration manager
+    this.gitIntegration = new GitIntegration(this.oauthProvider);
+
+    // Update button to show Git option
+    this.updateSaveButtonForGit();
+
+    // Check for authentication
+    if (this.oauthProvider.isAuthenticated()) {
+      try {
+        const userInfo = await this.oauthProvider.getUserInfo();
+        this.updateGitStatus(userInfo);
+      } catch (error) {
+        console.error('Failed to get user info:', error);
+      }
+    }
+
+    // Listen for OAuth events
+    document.addEventListener('oauth:auth-success', (e) => {
+      this.handleOAuthSuccess(e.detail);
+    });
+
+    document.addEventListener('oauth:auth-error', (e) => {
+      this.handleOAuthError(e.detail);
+    });
+  }
+
+  /**
+   * Update save button to show Git integration option
+   */
+  updateSaveButtonForGit() {
+    const saveButton = document.getElementById('save-review');
+    if (saveButton && this.config.git?.enabled) {
+      saveButton.title = 'Submit to Git';
+      saveButton.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+      `;
+    }
+  }
+
+  /**
+   * Connect to Git provider
+   */
+  async connectToGit() {
+    if (!this.oauthProvider) {
+      console.error('OAuth provider not initialized');
+      return;
+    }
+
+    try {
+      // Start OAuth flow
+      const deviceInfo = await this.oauthProvider.initiateAuth();
+
+      // Show device code UI
+      this.oauthUI.showDeviceCodeInstructions(deviceInfo, () => {
+        this.oauthProvider.cancelAuth();
+      });
+
+      // Wait for authentication
+      const token = await this.oauthProvider.pollForToken(
+        deviceInfo.deviceCode,
+        deviceInfo.interval
+      );
+
+      // Get user info
+      const userInfo = await this.oauthProvider.getUserInfo();
+
+      // Show success
+      this.oauthUI.showAuthSuccess(userInfo);
+
+      // Update UI
+      this.updateGitStatus(userInfo);
+
+      // Auto-detect repository
+      const repoConfig = this.gitIntegration.autoDetectRepository();
+      if (repoConfig) {
+        this.gitIntegration.configure(repoConfig);
+      } else {
+        // Show repository selection
+        this.selectRepository();
+      }
+    } catch (error) {
+      console.error('OAuth authentication failed:', error);
+      this.oauthUI.showAuthError(error.message, () => this.connectToGit());
+    }
+  }
+
+  /**
+   * Select repository for review submission
+   */
+  async selectRepository() {
+    if (!this.oauthProvider || !this.gitIntegration) {
+      console.error('Git integration not initialized');
+      return;
+    }
+
+    try {
+      const repos = await this.gitIntegration.getRepositories();
+
+      this.oauthUI.showRepositorySelection(repos, async (repo) => {
+        // Configure git integration with selected repo
+        const baseBranch = await this.oauthProvider.getDefaultBranch(
+          repo.owner.login,
+          repo.name
+        );
+
+        this.gitIntegration.configure({
+          owner: repo.owner.login,
+          repo: repo.name,
+          baseBranch: baseBranch
+        });
+
+        console.log('Repository configured:', repo.full_name);
+      });
+    } catch (error) {
+      console.error('Failed to load repositories:', error);
+    }
+  }
+
+  /**
+   * Submit review to Git
+   */
+  async submitReviewToGit() {
+    if (!this.gitIntegration || !this.oauthProvider) {
+      console.error('Git integration not configured');
+      return;
+    }
+
+    if (!this.oauthProvider.isAuthenticated()) {
+      await this.connectToGit();
+      return;
+    }
+
+    try {
+      // Show progress UI
+      this.oauthUI.showSubmissionProgress({
+        step: 1,
+        message: 'Creating review branch...',
+        progress: 10
+      });
+
+      // Get reviewer name
+      const userInfo = await this.oauthProvider.getUserInfo();
+      const reviewerName = userInfo.login;
+
+      // Prepare review data
+      const reviewData = {
+        reviewer: reviewerName,
+        title: `Review from ${userInfo.name || reviewerName}`,
+        changes: this.changes,
+        comments: Array.from(this.comments.values()),
+        sources: this.versionControl?.getAllSources() || {}
+      };
+
+      // Submit review
+      this.oauthUI.showSubmissionProgress({
+        step: 2,
+        message: 'Applying changes...',
+        progress: 40
+      });
+
+      const result = await this.gitIntegration.submitReview(reviewData);
+
+      this.oauthUI.showSubmissionProgress({
+        step: 3,
+        message: 'Creating pull request...',
+        progress: 80
+      });
+
+      // Show success
+      this.oauthUI.showSubmissionSuccess({
+        pullRequest: result.pullRequest,
+        branch: result.branch
+      });
+
+      console.log('Review submitted successfully:', result);
+    } catch (error) {
+      console.error('Failed to submit review:', error);
+      this.oauthUI.showAuthError(
+        `Failed to submit review: ${error.message}`,
+        () => this.submitReviewToGit()
+      );
+    }
+  }
+
+  /**
+   * Update Git status in UI
+   */
+  updateGitStatus(userInfo) {
+    // Add connected indicator to toolbar
+    const toolbar = document.querySelector('.review-toolbar');
+    if (toolbar) {
+      let statusEl = document.getElementById('git-status');
+      if (!statusEl) {
+        statusEl = document.createElement('div');
+        statusEl.id = 'git-status';
+        statusEl.className = 'git-status-indicator';
+        toolbar.appendChild(statusEl);
+      }
+
+      statusEl.innerHTML = `
+        <div class="git-user-info">
+          ${userInfo.avatar_url ? `<img src="${userInfo.avatar_url}" alt="${userInfo.login}" class="git-user-avatar">` : ''}
+          <span class="git-username">${userInfo.login}</span>
+        </div>
+      `;
+    }
+
+    // Update save button to "Submit to Git"
+    const saveButton = document.getElementById('save-review');
+    if (saveButton && this.config.git?.enabled) {
+      saveButton.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        Submit to Git
+      `;
+      saveButton.onclick = () => this.submitReviewToGit();
+    }
+  }
+
+  /**
+   * Handle OAuth success
+   */
+  async handleOAuthSuccess(detail) {
+    console.log('OAuth authentication successful:', detail);
+  }
+
+  /**
+   * Handle OAuth error
+   */
+  handleOAuthError(detail) {
+    console.error('OAuth authentication error:', detail);
   }
   
   updateUIForMode(mode) {

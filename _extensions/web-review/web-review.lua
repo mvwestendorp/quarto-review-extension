@@ -54,6 +54,49 @@ function Pandoc(doc)
       debug_log("No input files available")
     end
 
+    -- Extract Git repository metadata from document config
+    local git_repo_metadata = ""
+    local git_enabled = "false"
+    local git_provider = "github"
+    local git_client_id = ""
+
+    if doc.meta["web-review"] and doc.meta["web-review"]["git"] then
+      local git_config = doc.meta["web-review"]["git"]
+
+      -- Check if Git integration is enabled
+      if git_config["enabled"] then
+        git_enabled = pandoc.utils.stringify(git_config["enabled"])
+      end
+
+      -- Get provider
+      if git_config["provider"] then
+        git_provider = pandoc.utils.stringify(git_config["provider"])
+      end
+
+      -- Get client ID
+      if git_config["client-id"] then
+        git_client_id = pandoc.utils.stringify(git_config["client-id"])
+      end
+
+      -- Get repository metadata
+      if git_config["repository"] then
+        local repo = git_config["repository"]
+        local owner = repo["owner"] and pandoc.utils.stringify(repo["owner"]) or ""
+        local repo_name = repo["repo"] and pandoc.utils.stringify(repo["repo"]) or ""
+        local branch = repo["branch"] and pandoc.utils.stringify(repo["branch"]) or "main"
+
+        if owner ~= "" and repo_name ~= "" then
+          git_repo_metadata = string.format([[
+{
+  "owner": "%s",
+  "repo": "%s",
+  "branch": "%s"
+}]], owner, repo_name, branch)
+          debug_log("Embedded git repository metadata: " .. git_repo_metadata)
+        end
+      end
+    end
+
     -- Add debug attribute to body if debug mode is enabled
     local debug_script = ""
     if DEBUG_MODE then
@@ -67,10 +110,11 @@ function Pandoc(doc)
 ]]
     end
 
-    -- Create web review HTML block with UI, styles, and embedded content
+    -- Create web review HTML block (review-ui.js will create the UI dynamically)
     local web_review_html = pandoc.RawBlock("html", debug_script .. [[
 <!-- WEB REVIEW EXTENSION -->
 <style>
+/* Legacy styles for compatibility */
 @keyframes web-review-pulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.05); background-color: #e3f2fd; }
@@ -228,6 +272,7 @@ function Pandoc(doc)
   border-bottom: 6px solid rgba(0, 0, 0, 0.9) !important;
 }
 </style>
+
 <div id="web-review-container">
   <!-- Toggle Button -->
   <div id="web-review-toggle" style="
@@ -373,6 +418,24 @@ function Pandoc(doc)
     <!-- Export Section -->
     <div style="padding: 15px; border-top: 1px solid #eee; background: #f8f9fa;">
       <div style="margin-bottom: 10px; font-size: 14px; font-weight: bold; color: #333;">Export Options:</div>
+      <button id="submit-to-git-btn" style="
+        width: 100%;
+        padding: 8px 12px;
+        background: #24292e;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 8px;
+        display: none;
+      " title="Submit review as Pull Request to GitHub">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="white" style="vertical-align: middle; margin-right: 4px;">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+        </svg>
+        Submit to Git
+      </button>
       <button id="export-criticmarkup-btn" style="
         width: 100%;
         padding: 8px 12px;
@@ -428,15 +491,120 @@ function Pandoc(doc)
       cursor: pointer;
     ">✏️ Edit Text</button>
   </div>
+  </div> <!-- Close legacy toggle wrapper -->
 </div>
 
 <!-- jsdiff library for text differencing -->
 <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
 
+<!-- Main review UI script -->
 <script src="_extensions/web-review/web-review.js"></script>
+
+<!-- Git integration scripts (loaded conditionally) -->
+<script src="_extensions/web-review/assets/js/oauth-device-flow.js"></script>
+<script src="_extensions/web-review/assets/js/github-provider.js"></script>
+<script src="_extensions/web-review/assets/js/git-integration.js"></script>
+<script src="_extensions/web-review/assets/js/oauth-ui.js"></script>
 
 <!-- Embedded Original QMD Content for Export -->
 <script type="text/plain" id="original-qmd-content">]] .. qmd_content .. [[</script>
+
+<!-- Embedded Git Repository Metadata -->
+<script type="application/json" id="embedded-sources">
+{
+  "timestamp": "]] .. os.date("%Y-%m-%dT%H:%M:%SZ") .. [[",
+  "repository": ]] .. (git_repo_metadata ~= "" and git_repo_metadata or "null") .. [[,
+  "sources": {},
+  "mappings": {}
+}
+</script>
+
+<!-- Web Review Configuration -->
+<script>
+window.WebReviewConfig = {
+  git: {
+    enabled: ]] .. git_enabled .. [[,
+    provider: "]] .. git_provider .. [[",
+    clientId: "]] .. git_client_id .. [["
+  }
+};
+
+// Initialize Git Integration when document is ready
+document.addEventListener('DOMContentLoaded', function() {
+  const gitConfig = window.WebReviewConfig?.git;
+
+  if (gitConfig?.enabled && gitConfig?.clientId) {
+    // Show the Submit to Git button
+    const gitButton = document.getElementById('submit-to-git-btn');
+    if (gitButton) {
+      gitButton.style.display = 'block';
+
+      // Initialize OAuth provider
+      const oauthProvider = new GitHubOAuthProvider(gitConfig.clientId);
+      const gitIntegration = new GitIntegration(oauthProvider);
+      const oauthUI = new OAuthUI();
+
+      // Wire up the button
+      gitButton.addEventListener('click', async function() {
+        try {
+          // Check if authenticated
+          if (!oauthProvider.isAuthenticated()) {
+            // Start OAuth flow
+            const deviceInfo = await oauthProvider.initiateAuth();
+            oauthUI.showDeviceCodeInstructions(deviceInfo, () => {
+              oauthProvider.cancelAuth();
+            });
+
+            const token = await oauthProvider.pollForToken(deviceInfo.deviceCode, deviceInfo.interval);
+            const userInfo = await oauthProvider.getUserInfo();
+            oauthUI.showAuthSuccess(userInfo);
+          }
+
+          // Configure repository
+          const repoData = document.getElementById('embedded-sources');
+          if (repoData) {
+            const data = JSON.parse(repoData.textContent);
+            if (data.repository) {
+              gitIntegration.configure(data.repository);
+            }
+          }
+
+          // Get review data
+          const reviewData = window.webReviewManager?.exportData();
+          if (!reviewData || (!reviewData.comments?.length && !reviewData.changes?.length)) {
+            alert('No changes to submit. Make some edits or add comments first!');
+            return;
+          }
+
+          const userInfo = await oauthProvider.getUserInfo();
+
+          // Submit review
+          oauthUI.showSubmissionProgress({ step: 1, message: 'Creating review branch...', progress: 10 });
+
+          const result = await gitIntegration.submitReview({
+            reviewer: userInfo.login,
+            title: 'Review from ' + (userInfo.name || userInfo.login),
+            changes: new Map(reviewData.changes || []),
+            comments: reviewData.comments || [],
+            sources: {}
+          });
+
+          oauthUI.showSubmissionSuccess({
+            pullRequest: result.pullRequest,
+            branch: result.branch
+          });
+
+        } catch (error) {
+          console.error('Git submission error:', error);
+          oauthUI.showAuthError('Failed to submit review: ' + error.message, () => {
+            gitButton.click();
+          });
+        }
+      });
+    }
+  }
+});
+</script>
 
 <!-- END WEB REVIEW EXTENSION -->
 ]])

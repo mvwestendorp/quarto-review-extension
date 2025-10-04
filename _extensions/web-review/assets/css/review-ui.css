@@ -558,3 +558,553 @@
   margin-left: 0 !important;
   padding-left: 0 !important;
 }
+
+/* OAuth Modal Styles */
+.oauth-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.oauth-modal-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.oauth-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.oauth-modal-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.oauth-modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.oauth-modal-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: #111827;
+}
+
+.oauth-modal-close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.oauth-modal-close:hover {
+  background: #f3f4f6;
+}
+
+.oauth-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.oauth-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* Provider Selection */
+.oauth-providers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.oauth-provider-button {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.oauth-provider-button:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.oauth-provider-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.oauth-provider-name {
+  color: #111827;
+}
+
+/* Device Code Instructions */
+.oauth-device-code-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.oauth-instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.oauth-instruction-step {
+  font-size: 14px;
+  color: #374151;
+  margin: 0;
+}
+
+.oauth-verification-url {
+  text-align: center;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.oauth-verify-link {
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 16px;
+}
+
+.oauth-verify-link:hover {
+  text-decoration: underline;
+}
+
+.oauth-qr-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.oauth-or-divider {
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.oauth-user-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.oauth-user-code code {
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  letter-spacing: 2px;
+}
+
+.oauth-copy-button {
+  padding: 6px 12px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.oauth-copy-button:hover {
+  background: #2563eb;
+}
+
+.oauth-status {
+  text-align: center;
+  padding: 20px;
+}
+
+.oauth-status p {
+  margin: 12px 0 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.oauth-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: oauth-spin 1s linear infinite;
+  margin: 0 auto;
+}
+
+@keyframes oauth-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Success/Error States */
+.oauth-success-content,
+.oauth-error-content {
+  text-align: center;
+  padding: 20px;
+}
+
+.oauth-success-icon {
+  width: 64px;
+  height: 64px;
+  background: #10b981;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin: 0 auto 16px;
+}
+
+.oauth-error-icon {
+  width: 64px;
+  height: 64px;
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin: 0 auto 16px;
+}
+
+.oauth-success-message,
+.oauth-error-message {
+  font-size: 16px;
+  color: #374151;
+  margin: 16px 0;
+}
+
+.oauth-user-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: 16px auto;
+  display: block;
+}
+
+.oauth-user-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 8px 0;
+}
+
+.oauth-user-login {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 4px 0;
+}
+
+/* Repository Selection */
+.oauth-repo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.oauth-repo-search {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.oauth-repo-search:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: -1px;
+  border-color: #3b82f6;
+}
+
+.oauth-repo-container {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.oauth-repo-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.oauth-repo-item:hover {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.oauth-repo-info {
+  flex: 1;
+}
+
+.oauth-repo-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.oauth-repo-description {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.oauth-repo-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.oauth-repo-branch {
+  font-size: 12px;
+  color: #6b7280;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+}
+
+.oauth-no-results {
+  text-align: center;
+  color: #6b7280;
+  padding: 40px;
+}
+
+/* Progress Steps */
+.oauth-progress-steps {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.oauth-progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  position: relative;
+}
+
+.oauth-progress-step::after {
+  content: '';
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: #e5e7eb;
+  z-index: -1;
+}
+
+.oauth-progress-step:last-child::after {
+  display: none;
+}
+
+.oauth-progress-step.complete::after {
+  background: #10b981;
+}
+
+.oauth-progress-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.oauth-progress-step.active .oauth-progress-icon {
+  background: #3b82f6;
+  color: white;
+}
+
+.oauth-progress-step.complete .oauth-progress-icon {
+  background: #10b981;
+  color: white;
+}
+
+.oauth-progress-label {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.oauth-progress-step.active .oauth-progress-label {
+  color: #111827;
+  font-weight: 500;
+}
+
+.oauth-progress-message {
+  text-align: center;
+  color: #374151;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.oauth-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.oauth-progress-fill {
+  height: 100%;
+  background: #3b82f6;
+  transition: width 0.3s ease;
+}
+
+/* PR Info */
+.oauth-pr-info {
+  margin-top: 20px;
+  padding: 16px;
+  background: #f9fafb;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.oauth-pr-info p {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.oauth-pr-link {
+  display: inline-block;
+  margin-top: 12px;
+  color: #3b82f6;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.oauth-pr-link:hover {
+  text-decoration: underline;
+}
+
+/* Git Status Indicator */
+.git-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.git-user-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #374151;
+}
+
+.git-user-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid #d1d5db;
+}
+
+.git-username {
+  font-weight: 500;
+  color: #111827;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .oauth-modal-container {
+    min-width: 90vw;
+    max-width: 90vw;
+  }
+
+  .oauth-progress-steps {
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .oauth-progress-step::after {
+    display: none;
+  }
+
+  .git-status-indicator {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+}
