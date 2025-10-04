@@ -308,19 +308,27 @@ class OAuthUI {
 
   /**
    * Show submission success with PR link
-   * @param {Object} result - {pullRequest, branch}
+   * @param {Object} result - {pullRequest, branch, isUpdate}
    */
   showSubmissionSuccess(result) {
-    const modal = this.createModal('oauth-submission-success', 'Review Submitted Successfully');
+    const actionText = result.isUpdate ? 'Updated' : 'Submitted';
+    const modal = this.createModal('oauth-submission-success', `Review ${actionText} Successfully`);
 
     const content = document.createElement('div');
     content.className = 'oauth-success-content';
     content.innerHTML = `
       <div class="oauth-success-icon">✓</div>
-      <p class="oauth-success-message">Your review has been submitted as a pull request!</p>
+      <p class="oauth-success-message">
+        ${result.isUpdate
+          ? 'Your review has been updated with new commits!'
+          : 'Your review has been submitted as a pull request!'}
+      </p>
       <div class="oauth-pr-info">
         <p><strong>Pull Request:</strong> #${result.pullRequest.number}</p>
         <p><strong>Branch:</strong> ${result.branch}</p>
+        ${result.isUpdate
+          ? '<p style="color: #0969da; font-size: 13px;">💡 Tip: Subsequent edits will continue updating this PR until you clear your changes.</p>'
+          : ''}
         <a href="${result.pullRequest.html_url}" target="_blank" class="oauth-pr-link">
           View Pull Request →
         </a>

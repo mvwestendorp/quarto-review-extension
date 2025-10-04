@@ -36,5 +36,4 @@ metadata:
       auto-save: true
     git:
       enabled: false  # Enable Git integration
-      provider: "github"  # github, gitlab, gitea, azuredevops
-      client-id: ""  # OAuth client ID (required if enabled)
+      provider: "github"  # github (more providers can be added)

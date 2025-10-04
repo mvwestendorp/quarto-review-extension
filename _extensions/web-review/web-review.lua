@@ -12,9 +12,22 @@ end
 function Meta(meta)
   -- Enable debug mode if specified in metadata
   if meta["web-review"] and meta["web-review"]["debug"] then
-    DEBUG_MODE = pandoc.utils.stringify(meta["web-review"]["debug"]) == "true"
+    local debug_value = meta["web-review"]["debug"]
+    if type(debug_value) == "table" then
+      -- Support object format: { general: true, git: true, editing: false }
+      DEBUG_MODE = debug_value["general"] and pandoc.utils.stringify(debug_value["general"]) == "true" or false
+      DEBUG_GIT = debug_value["git"] and pandoc.utils.stringify(debug_value["git"]) == "true" or false
+      DEBUG_EDITING = debug_value["editing"] and pandoc.utils.stringify(debug_value["editing"]) == "true" or false
+    else
+      -- Support simple boolean: debug: true (enables all)
+      DEBUG_MODE = pandoc.utils.stringify(debug_value) == "true"
+      DEBUG_GIT = DEBUG_MODE
+      DEBUG_EDITING = DEBUG_MODE
+    end
   else
     DEBUG_MODE = false
+    DEBUG_GIT = false
+    DEBUG_EDITING = false
   end
 
   debug_log("Meta() called")
@@ -58,6 +71,23 @@ function Pandoc(doc)
     local git_repo_metadata = ""
     local git_enabled = "false"
     local git_provider = "github"
+    local source_file_path = ""
+
+    -- Get the source file path from quarto metadata or git config
+    if doc.meta["web-review"] and doc.meta["web-review"]["git"] and doc.meta["web-review"]["git"]["source-file"] then
+      source_file_path = pandoc.utils.stringify(doc.meta["web-review"]["git"]["source-file"])
+    elseif quarto and quarto.doc and quarto.doc.input_file then
+      -- Try to get from Quarto's document metadata
+      source_file_path = quarto.doc.input_file:match("([^/]+)$") or quarto.doc.input_file
+    elseif PANDOC_STATE and PANDOC_STATE.input_files and #PANDOC_STATE.input_files > 0 then
+      -- Fallback to input file (but this might be a temp file)
+      local full_path = PANDOC_STATE.input_files[1]
+      source_file_path = full_path:match("([^/]+)$") or full_path
+      -- Filter out temporary file patterns
+      if source_file_path:match("^quarto%-input") then
+        source_file_path = "" -- Will use default below
+      end
+    end
 
     if doc.meta["web-review"] and doc.meta["web-review"]["git"] then
       local git_config = doc.meta["web-review"]["git"]
@@ -84,21 +114,31 @@ function Pandoc(doc)
 {
   "owner": "%s",
   "repo": "%s",
-  "branch": "%s"
-}]], owner, repo_name, branch)
+  "branch": "%s",
+  "sourceFile": "%s"
+}]], owner, repo_name, branch, source_file_path)
           debug_log("Embedded git repository metadata: " .. git_repo_metadata)
         end
       end
     end
 
-    -- Add debug attribute to body if debug mode is enabled
+    -- Add debug configuration script
     local debug_script = ""
-    if DEBUG_MODE then
+    if DEBUG_MODE or DEBUG_GIT or DEBUG_EDITING then
+      local debug_flags = string.format([[{
+    general: %s,
+    git: %s,
+    editing: %s
+  }]], DEBUG_MODE and "true" or "false", DEBUG_GIT and "true" or "false", DEBUG_EDITING and "true" or "false")
+
       debug_script = [[
 <script>
+  window.WebReviewDebug = ]] .. debug_flags .. [[;
   document.addEventListener('DOMContentLoaded', function() {
-    document.body.setAttribute('data-web-review-debug', 'true');
-    console.log('[Web Review] Debug mode enabled');
+    if (window.WebReviewDebug.general || window.WebReviewDebug.git || window.WebReviewDebug.editing) {
+      document.body.setAttribute('data-web-review-debug', 'true');
+      console.log('[Web Review] Debug mode enabled:', window.WebReviewDebug);
+    }
   });
 </script>
 ]]
@@ -411,6 +451,20 @@ function Pandoc(doc)
 
     <!-- Export Section -->
     <div style="padding: 15px; border-top: 1px solid #eee; background: #f8f9fa;">
+      <div style="margin-bottom: 10px; font-size: 14px; font-weight: bold; color: #333;">Review Summary:</div>
+      <textarea id="review-summary-input" placeholder="Add overall review comments (optional)..." style="
+        width: 100%;
+        min-height: 80px;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 13px;
+        font-family: inherit;
+        resize: vertical;
+        margin-bottom: 15px;
+        box-sizing: border-box;
+      "></textarea>
+
       <div style="margin-bottom: 10px; font-size: 14px; font-weight: bold; color: #333;">Export Options:</div>
       <button id="submit-to-git-btn" style="
         width: 100%;
@@ -551,21 +605,157 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Configure repository
       const repoData = document.getElementById('embedded-sources');
+      let data = null;
       if (repoData) {
-        const data = JSON.parse(repoData.textContent);
+        data = JSON.parse(repoData.textContent);
         if (data.repository) {
           gitIntegration.configure(data.repository);
         }
       }
 
-      // Get review data
-      const reviewData = window.webReviewManager?.exportData();
-      if (!reviewData || (!reviewData.comments?.length && !reviewData.changes?.length)) {
+      // Get review data from criticMarkupManager
+      const comments = window.criticMarkupManager?.comments || [];
+      const elementStates = window.criticMarkupManager?.elementStates || {};
+
+      // Debug logging
+      if (window.debugGit) {
+        debugGit('CriticMarkup Manager:', window.criticMarkupManager);
+        debugGit('Comments:', comments);
+        debugGit('Element States:', elementStates);
+        debugGit('Comments length:', comments.length);
+        debugGit('Element States keys:', Object.keys(elementStates));
+      }
+
+      // Check if there are any changes or comments
+      if (comments.length === 0 && Object.keys(elementStates).length === 0) {
         alert('No changes to submit. Make some edits or add comments first!');
         return;
       }
 
       const userInfo = await provider.getUserInfo();
+
+      // Get the source file path from repository metadata
+      const sourceFile = data?.repository?.sourceFile || 'document.qmd';
+
+      // Helper function to convert HTML tags to human-readable names
+      function humanReadableElementType(tag) {
+        const typeMap = {
+          'p': 'paragraph',
+          'h1': 'heading',
+          'h2': 'section heading',
+          'h3': 'subsection heading',
+          'h4': 'subheading',
+          'h5': 'subheading',
+          'h6': 'subheading',
+          'ul': 'list',
+          'ol': 'numbered list',
+          'li': 'list item',
+          'blockquote': 'quote',
+          'pre': 'code block',
+          'code': 'code',
+          'table': 'table',
+          'tr': 'table row',
+          'td': 'table cell',
+          'th': 'table header',
+          'a': 'link',
+          'img': 'image',
+          'div': 'section',
+          'span': 'text',
+          'strong': 'bold text',
+          'em': 'italic text'
+        };
+        return typeMap[tag.toLowerCase()] || tag;
+      }
+
+      // Helper function to generate smart commit messages
+      function generateCommitMessage(original, modified, elementPath) {
+        // Extract element type from path (e.g., "ol", "p", "h2")
+        const elementTag = elementPath.split(' > ').pop().split(/[.#\[]/)[0];
+        const elementType = humanReadableElementType(elementTag);
+
+        // Analyze the type of change
+        const origWords = original.trim().split(/\s+/).length;
+        const modWords = modified.trim().split(/\s+/).length;
+        const wordDiff = Math.abs(modWords - origWords);
+
+        // Check for formatting-only changes (e.g., backslash escapes)
+        const origClean = original.replace(/\\/g, '');
+        const modClean = modified.replace(/\\/g, '');
+        const isFormattingOnly = origClean === modClean;
+
+        if (isFormattingOnly) {
+          return `Fix formatting in ${elementType}`;
+        }
+
+        // Significant content change
+        if (wordDiff > 10 || (wordDiff / origWords) > 0.3) {
+          return `Rewrite ${elementType}`;
+        }
+
+        // Minor edit
+        if (wordDiff > 0) {
+          return modWords > origWords
+            ? `Add content to ${elementType}`
+            : `Shorten ${elementType}`;
+        }
+
+        // Words count same, but content changed
+        const origFirst50 = original.substring(0, 50).trim();
+        const modFirst50 = modified.substring(0, 50).trim();
+
+        if (origFirst50 !== modFirst50) {
+          return `Edit ${elementType}: "${modFirst50}${modified.length > 50 ? '...' : ''}"`;
+        }
+
+        return `Update ${elementType}`;
+      }
+
+      // Get already submitted commits from localStorage to avoid duplicates
+      const submittedCommits = JSON.parse(localStorage.getItem('web-review-submitted-commits') || '{}');
+      const currentReviewKey = data?.repository?.owner + '/' + data?.repository?.repo + '/' + sourceFile;
+
+      // Convert elementStates to changes array for git-integration
+      const changes = [];
+      const alreadySubmittedCommits = submittedCommits[currentReviewKey] || [];
+      const commitIdsToSubmit = []; // Track commit IDs being submitted in this batch
+
+      for (const [path, state] of Object.entries(elementStates)) {
+        // Process all commits for this element, not just the latest
+        for (let commitIdx = 0; commitIdx < state.commits.length; commitIdx++) {
+          const commit = state.commits[commitIdx];
+          const commitId = path + ':' + commit.timestamp;
+
+          // Skip if this commit was already successfully submitted in a previous session
+          if (alreadySubmittedCommits.includes(commitId)) {
+            if (window.debugGit) debugGit('Skipping already-submitted commit:', commitId);
+            continue;
+          }
+
+          const message = generateCommitMessage(
+            commitIdx === 0 ? state.originalMarkdown : state.commits[commitIdx - 1].reviewedMarkdown,
+            commit.reviewedMarkdown,
+            path
+          );
+
+          changes.push({
+            filePath: sourceFile,
+            elementPath: path,
+            original: commitIdx === 0 ? state.originalMarkdown : state.commits[commitIdx - 1].reviewedMarkdown,
+            modified: commit.reviewedMarkdown,
+            author: commit.author,
+            message: message,
+            status: 'accepted',
+            commitId: commitId  // Add ID for tracking
+          });
+
+          // Track this commit ID for marking as submitted AFTER success
+          commitIdsToSubmit.push(commitId);
+        }
+      }
+
+      // Get review summary from textarea
+      const reviewSummaryInput = document.getElementById('review-summary-input');
+      const reviewSummary = reviewSummaryInput ? reviewSummaryInput.value.trim() : '';
 
       // Submit review
       oauthUI.showSubmissionProgress({ step: 1, message: 'Creating review branch...', progress: 10 });
@@ -573,14 +763,22 @@ document.addEventListener('DOMContentLoaded', function() {
       const result = await gitIntegration.submitReview({
         reviewer: userInfo.login,
         title: 'Review from ' + (userInfo.name || userInfo.login),
-        changes: new Map(reviewData.changes || []),
-        comments: reviewData.comments || [],
+        summary: reviewSummary,
+        changes: new Map(changes.map((c, i) => [i, c])),
+        comments: comments,
         sources: {}
       });
 
+      // Only mark commits as submitted AFTER successful submission
+      const newSubmittedCommits = [...alreadySubmittedCommits, ...commitIdsToSubmit];
+      submittedCommits[currentReviewKey] = newSubmittedCommits;
+      localStorage.setItem('web-review-submitted-commits', JSON.stringify(submittedCommits));
+      if (window.debugGit) debugGit(`Marked ${commitIdsToSubmit.length} commits as successfully submitted`);
+
       oauthUI.showSubmissionSuccess({
         pullRequest: result.pullRequest,
-        branch: result.branch
+        branch: result.branch,
+        isUpdate: result.isUpdate
       });
 
     } catch (error) {
@@ -588,7 +786,6 @@ document.addEventListener('DOMContentLoaded', function() {
       oauthUI.showAuthError('Failed to submit review: ' + error.message);
     }
   });
-}
 });
 </script>
 

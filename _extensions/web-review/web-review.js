@@ -1,15 +1,47 @@
 /**
- * Debug logging function - only logs when DEBUG mode is enabled
- * Checks for data-web-review-debug attribute on body element at call time
+ * Debug logging functions - only log when specific debug modes are enabled
  * @param {...any} args - Arguments to log
  */
 function debug(...args) {
-  if (document.body && document.body.hasAttribute('data-web-review-debug')) {
+  if (window.WebReviewDebug?.general) {
     console.log('[Web Review]', ...args);
   }
 }
 
+function debugGit(...args) {
+  if (window.WebReviewDebug?.git) {
+    console.log('[Git Integration]', ...args);
+  }
+}
+
+function debugEditing(...args) {
+  if (window.WebReviewDebug?.editing) {
+    console.log('[Editing]', ...args);
+  }
+}
+
 debug("WEB REVIEW EXTENSION LOADED!");
+
+/**
+ * Calculate character offset from the beginning of parentElement to a position within node
+ * @param {Element} parentElement - The parent element to measure from
+ * @param {Node} node - The node containing the position
+ * @param {number} offset - The offset within the node
+ * @returns {number} The character offset from the start of parentElement
+ */
+function getOffsetForNode(parentElement, node, offset) {
+  let charOffset = 0;
+
+  // Create a range from the start of parent to the target position
+  const range = document.createRange();
+  range.setStart(parentElement, 0);
+  range.setEnd(node, offset);
+
+  // Get the text content of this range - this gives us the character count
+  charOffset = range.toString().length;
+
+  return charOffset;
+}
 
 // Load Wysimark from CDN if not already loaded
 (function loadWysimark() {
@@ -157,9 +189,12 @@ class CriticMarkupManager {
    */
   constructor() {
     this.comments = [];
-    this.elementStates = {}; // New: stores original vs reviewed state per element
+    this.elementStates = {}; // Stores original vs reviewed state per element
     this.changes = []; // Deprecated: kept for migration only
     this.originalQMD = null; // Will be loaded from storage or extracted
+    this.qmdSectionMap = {}; // NEW: Maps section IDs to QMD text
+    this.nextNewSectionId = 1; // NEW: Counter for user-created sections
+    this.changeHistory = []; // Track all changes for line/section offset calculation
     this.loadFromStorage();
     this.migrateFromOldFormat();
   }
@@ -181,6 +216,503 @@ class CriticMarkupManager {
   }
 
   /**
+   * Find the original markdown for an element from the original QMD
+   * This is more reliable than reconstructing from HTML
+   * @param {HTMLElement} element - The element to find in QMD
+   * @returns {string|null} - The original markdown text, or null if not found
+   */
+  findElementInOriginalQMD(element) {
+    if (!this.originalQMD) {
+      debugEditing('No original QMD available');
+      return null;
+    }
+
+    // Get the element's text content (cleaned)
+    const elementText = element.textContent.trim();
+    if (!elementText) {
+      debugEditing('Element has no text content');
+      return null;
+    }
+
+    // Normalize whitespace and markdown formatting for better matching
+    const normalizeText = (text) => {
+      return text
+        .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
+        .replace(/\*([^*]+)\*/g, '$1')     // Remove italic
+        .replace(/`([^`]+)`/g, '$1')       // Remove code
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Remove links, keep text
+        .replace(/\s+/g, ' ')              // Normalize whitespace
+        .trim()
+        .toLowerCase();
+    };
+    const normalizedElementText = normalizeText(elementText);
+
+    // Try to find this text in the original QMD
+    const qmdLines = this.originalQMD.split('\n');
+
+    // For different element types, we need different strategies
+    const tagName = element.tagName;
+    debugEditing(`Finding element in QMD: ${tagName}, text length: ${elementText.length}`);
+
+    if (tagName === 'H1' || tagName === 'H2' || tagName === 'H3' ||
+        tagName === 'H4' || tagName === 'H5' || tagName === 'H6') {
+      // For headings, find the line starting with # that matches the text
+      const level = parseInt(tagName.charAt(1));
+      const prefix = '#'.repeat(level) + ' ';
+
+      for (const line of qmdLines) {
+        if (line.trim().startsWith(prefix)) {
+          const headingText = line.substring(line.indexOf(prefix) + prefix.length).trim();
+          if (normalizeText(headingText) === normalizedElementText) {
+            return line.trim();
+          }
+        }
+      }
+    } else if (tagName === 'OL' || tagName === 'UL') {
+      // For lists, find consecutive list items that match the content
+      // This is more complex - we need to find the range of lines
+      const listItems = element.querySelectorAll('li');
+      if (listItems.length === 0) {
+        debugEditing('List has no items');
+        return null;
+      }
+
+      // Get text of all list items
+      const itemTexts = Array.from(listItems).map(li => normalizeText(li.textContent));
+      debugEditing(`Looking for list with ${itemTexts.length} items, first item: "${itemTexts[0].substring(0, 50)}"`);
+
+      // Find matching range in QMD
+      for (let i = 0; i < qmdLines.length; i++) {
+        const line = qmdLines[i].trim();
+        // Check if this is a list item (starts with -, *, +, or number.)
+        const listMarkerMatch = line.match(/^([-*+]|\d+\.)\s*/);
+        if (listMarkerMatch) {
+          const lineText = line.substring(listMarkerMatch[0].length);
+          if (normalizeText(lineText) === itemTexts[0]) {
+            debugEditing(`Found potential list start at line ${i}: "${line}"`);
+            // Found potential start - now find all matching list items
+            let matchCount = 1;
+            let endLine = i;
+            let currentItemIdx = 1;
+
+            // Search forward from here to find remaining list items
+            for (let k = i + 1; k < qmdLines.length && currentItemIdx < itemTexts.length; k++) {
+              const testLine = qmdLines[k].trim();
+
+              // Skip blank lines
+              if (testLine === '') continue;
+
+              // Check if this is a list item
+              const testMarkerMatch = testLine.match(/^([-*+]|\d+\.)\s*/);
+              if (testMarkerMatch) {
+                const testLineText = testLine.substring(testMarkerMatch[0].length);
+                if (normalizeText(testLineText) === itemTexts[currentItemIdx]) {
+                  matchCount++;
+                  endLine = k;
+                  currentItemIdx++;
+                  debugEditing(`Matched item ${currentItemIdx} at line ${k}`);
+                } else {
+                  debugEditing(`Item mismatch at line ${k}: expected "${itemTexts[currentItemIdx].substring(0, 30)}", found "${normalizeText(testLineText).substring(0, 30)}"`);
+                  // Found a list item but it doesn't match - this isn't the right list
+                  break;
+                }
+              } else {
+                // Non-blank, non-list line - end of list
+                debugEditing(`Non-list line at ${k}, stopping search`);
+                break;
+              }
+            }
+
+            if (matchCount === itemTexts.length) {
+              // Found all items - return the full list range
+              const result = qmdLines.slice(i, endLine + 1).join('\n');
+              debugEditing(`Successfully found list in QMD (lines ${i}-${endLine})`);
+              return result;
+            } else {
+              debugEditing(`Only matched ${matchCount}/${itemTexts.length} items, continuing search`);
+            }
+          }
+        }
+      }
+      debugEditing('Could not find matching list in QMD');
+    } else {
+      // For paragraphs and other elements, find matching lines in QMD
+      // Try to find consecutive lines that match the element's text
+
+      // Split element text into words for more flexible matching
+      const elementWords = normalizedElementText.split(/\s+/).filter(w => w.length > 0);
+      if (elementWords.length === 0) return null;
+
+      // Search for lines that contain the start of the paragraph
+      const firstWords = elementWords.slice(0, Math.min(5, elementWords.length)).join(' ');
+
+      for (let i = 0; i < qmdLines.length; i++) {
+        const line = qmdLines[i].trim();
+
+        // Skip empty lines, headings, and list items
+        if (!line || line.startsWith('#') || line.match(/^[-*+]|\d+\./)) {
+          continue;
+        }
+
+        // Check if this line starts with our text
+        if (normalizeText(line).includes(firstWords)) {
+          // Found potential start - collect consecutive non-empty lines
+          let endLine = i;
+          let collectedText = line;
+
+          // Collect following lines that are part of the same paragraph
+          for (let j = i + 1; j < qmdLines.length; j++) {
+            const nextLine = qmdLines[j].trim();
+
+            // Stop at empty line, heading, or list
+            if (!nextLine || nextLine.startsWith('#') || nextLine.match(/^[-*+]|\d+\./)) {
+              break;
+            }
+
+            collectedText += ' ' + nextLine;
+            endLine = j;
+          }
+
+          // Check if the collected text matches our element
+          if (normalizeText(collectedText) === normalizedElementText ||
+              normalizeText(collectedText).includes(normalizedElementText)) {
+            // Return the actual lines (with original formatting)
+            const result = qmdLines.slice(i, endLine + 1).join('\n');
+            debugEditing(`Found paragraph in QMD (lines ${i}-${endLine})`);
+            return result;
+          }
+        }
+      }
+
+      debugEditing('Could not find paragraph in QMD');
+    }
+
+    // If we couldn't find it, return null
+    debugEditing('Could not find element in original QMD:', tagName, elementText.substring(0, 50));
+    return null;
+  }
+
+  /**
+   * Create a mapping between editable DOM elements and their corresponding QMD sections
+   * This provides a reliable 1:1 mapping that eliminates text matching errors
+   *
+   * Strategy: Parse QMD into sections, then match sections to DOM elements in order
+   */
+  createQmdSectionMap() {
+    if (!this.originalQMD) {
+      debug('No original QMD available for section mapping');
+      return;
+    }
+
+    // Step 1: Parse QMD file into sections
+    const qmdSections = this.parseQmdIntoSections(this.originalQMD);
+    debugEditing(`Parsed ${qmdSections.length} sections from QMD`);
+
+    // Step 2: Find all editable DOM elements in order
+    const editableSelectors = [
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',  // Headings
+      'p',                                  // Paragraphs
+      'ol', 'ul',                          // Lists
+      'blockquote',                        // Blockquotes
+      'pre'                                // Code blocks
+    ].join(', ');
+
+    const allElements = document.querySelectorAll(editableSelectors);
+    const topLevelElements = Array.from(allElements).filter(element => {
+      // Skip elements inside other editable elements
+      const hasEditableParent = element.parentElement?.closest(editableSelectors);
+      if (hasEditableParent) return false;
+      // Skip empty elements
+      if (!element.textContent.trim()) return false;
+      // Skip elements in the sidebar/UI (not part of main document content)
+      if (element.closest('#web-review-sidebar, .web-review-ui')) return false;
+      // Skip elements that are part of the extension's UI
+      if (element.classList.contains('web-review-panel') ||
+          element.closest('.web-review-panel')) return false;
+      return true;
+    });
+
+    debugEditing(`Found ${topLevelElements.length} top-level editable elements`);
+
+    // Step 3: Match QMD sections to DOM elements by content matching
+    // Use a scoring system to find the best match for each section
+
+    // Helper to normalize text for comparison
+    const normalizeForMatch = (text) => {
+      return text
+        .toLowerCase()
+        .replace(/[""]/g, '"')  // Normalize curly quotes to straight quotes
+        .replace(/['']/g, "'")  // Normalize curly apostrophes
+        .replace(/\s+/g, ' ')   // Normalize whitespace
+        .replace(/\*\*([^*]+)\*\*/g, '$1')  // Remove bold
+        .replace(/\*([^*]+)\*/g, '$1')      // Remove italic
+        .replace(/`([^`]+)`/g, '$1')        // Remove code
+        .trim();
+    };
+
+    // Debug: Show what we have
+    debugEditing('\n=== QMD Sections ===');
+    qmdSections.forEach((s, i) => {
+      debugEditing(`${i}: ${s.type} - "${s.qmdText.substring(0, 60).replace(/\n/g, ' ')}..."`);
+    });
+
+    debugEditing('\n=== DOM Elements ===');
+    topLevelElements.forEach((el, i) => {
+      debugEditing(`${i}: ${el.tagName.toLowerCase()} - "${el.textContent.substring(0, 60).replace(/\n/g, ' ')}..."`);
+    });
+
+    // Build mapping by content matching
+    let mappedCount = 0;
+    const usedElements = new Set();
+
+    qmdSections.forEach((section, sectionIdx) => {
+      const sectionId = `section-${sectionIdx}`;
+
+      // Get normalized QMD text
+      let qmdNormalized = normalizeForMatch(section.qmdText);
+
+      // Find best matching DOM element
+      let bestMatch = null;
+      let bestScore = 0;
+
+      topLevelElements.forEach((element, elemIdx) => {
+        if (usedElements.has(elemIdx)) return; // Already matched
+
+        const elementText = normalizeForMatch(element.textContent);
+
+        // Calculate match score
+        let score = 0;
+
+        // Type match bonus
+        const elemType = element.tagName.toLowerCase();
+        if (elemType === section.type) {
+          score += 100;
+        }
+
+        // Text similarity
+        const minLength = Math.min(qmdNormalized.length, elementText.length);
+        const maxLength = Math.max(qmdNormalized.length, elementText.length);
+
+        if (minLength > 0) {
+          // Check if one contains the other
+          if (elementText.includes(qmdNormalized) || qmdNormalized.includes(elementText)) {
+            score += 50;
+          }
+
+          // Check first 50 chars match
+          const qmdStart = qmdNormalized.substring(0, 50);
+          const elemStart = elementText.substring(0, 50);
+          if (qmdStart === elemStart) {
+            score += 30;
+          } else if (elemStart.includes(qmdStart.substring(0, 20))) {
+            score += 15;
+          }
+
+          // Length similarity
+          const lengthRatio = minLength / maxLength;
+          score += lengthRatio * 10;
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = { element, elemIdx };
+        }
+      });
+
+      if (bestMatch && bestScore > 50) {
+        const element = bestMatch.element;
+        element.dataset.sectionId = sectionId;
+        usedElements.add(bestMatch.elemIdx);
+
+        this.qmdSectionMap[sectionId] = {
+          sectionId: sectionId,
+          sectionIndex: sectionIdx,  // Store position index for stable reference
+          elementPath: this.generateElementPath(element),
+          qmdText: section.qmdText,
+          originalQmdText: section.qmdText,  // Never changes, even after edits
+          type: section.type,
+          isNew: false,
+          lineStart: section.lineStart,
+          lineEnd: section.lineEnd
+        };
+
+        mappedCount++;
+        debugEditing(`Mapped ${sectionId}: ${section.type} (lines ${section.lineStart}-${section.lineEnd}) to ${element.tagName} [score: ${bestScore}]`);
+      } else {
+        debugEditing(`Could not find match for ${sectionId}: ${section.type} (best score: ${bestScore})`);
+      }
+    });
+
+    debug(`Created QMD section map: ${mappedCount}/${qmdSections.length} sections mapped`);
+
+    if (qmdSections.length !== topLevelElements.length) {
+      debugEditing(`Note: QMD sections (${qmdSections.length}) != DOM elements (${topLevelElements.length}) - this is OK if Quarto added title or extension added UI elements`);
+    }
+  }
+
+  /**
+   * Parse QMD markdown into sections
+   * Each section is a logical block: heading, paragraph, list, etc.
+   * Returns array of {type, qmdText, lineStart, lineEnd}
+   */
+  parseQmdIntoSections(qmd) {
+    const lines = qmd.split('\n');
+    const sections = [];
+    let i = 0;
+
+    // Skip YAML frontmatter if present
+    if (lines[i] && lines[i].trim() === '---') {
+      i++; // Skip opening ---
+      // Find closing ---
+      while (i < lines.length && lines[i].trim() !== '---') {
+        i++;
+      }
+      if (i < lines.length) {
+        i++; // Skip closing ---
+      }
+    }
+
+    while (i < lines.length) {
+      const line = lines[i];
+      const trimmed = line.trim();
+
+      // Skip empty lines
+      if (!trimmed) {
+        i++;
+        continue;
+      }
+
+      // Heading
+      const headingMatch = trimmed.match(/^(#{1,6})\s+(.+)$/);
+      if (headingMatch) {
+        sections.push({
+          type: `h${headingMatch[1].length}`,
+          qmdText: line.trim(),
+          lineStart: i,
+          lineEnd: i
+        });
+        i++;
+        continue;
+      }
+
+      // List (ordered or unordered)
+      const listMatch = trimmed.match(/^([-*+]|\d+\.)\s+/);
+      if (listMatch) {
+        const startLine = i;
+        const listLines = [line];
+        i++;
+
+        // Collect all consecutive list items
+        while (i < lines.length) {
+          const nextLine = lines[i];
+          const nextTrimmed = nextLine.trim();
+
+          // Continue if it's a list item or empty line within list
+          if (!nextTrimmed) {
+            // Empty line - could be part of list or end of list
+            // Look ahead to see if list continues
+            if (i + 1 < lines.length && lines[i + 1].trim().match(/^([-*+]|\d+\.)\s+/)) {
+              i++; // Skip empty line, list continues
+              continue;
+            } else {
+              break; // End of list
+            }
+          } else if (nextTrimmed.match(/^([-*+]|\d+\.)\s+/)) {
+            listLines.push(nextLine);
+            i++;
+          } else {
+            break; // End of list
+          }
+        }
+
+        sections.push({
+          type: trimmed.match(/^\d+\./) ? 'ol' : 'ul',
+          qmdText: listLines.join('\n'),
+          lineStart: startLine,
+          lineEnd: i - 1
+        });
+        continue;
+      }
+
+      // Code block
+      if (trimmed.startsWith('```')) {
+        const startLine = i;
+        const codeLines = [line];
+        i++;
+
+        // Find closing ```
+        while (i < lines.length) {
+          codeLines.push(lines[i]);
+          if (lines[i].trim().startsWith('```')) {
+            i++;
+            break;
+          }
+          i++;
+        }
+
+        sections.push({
+          type: 'pre',
+          qmdText: codeLines.join('\n'),
+          lineStart: startLine,
+          lineEnd: i - 1
+        });
+        continue;
+      }
+
+      // Blockquote
+      if (trimmed.startsWith('>')) {
+        const startLine = i;
+        const quoteLines = [line];
+        i++;
+
+        while (i < lines.length && lines[i].trim().startsWith('>')) {
+          quoteLines.push(lines[i]);
+          i++;
+        }
+
+        sections.push({
+          type: 'blockquote',
+          qmdText: quoteLines.join('\n'),
+          lineStart: startLine,
+          lineEnd: i - 1
+        });
+        continue;
+      }
+
+      // Paragraph (default - collect consecutive non-empty, non-special lines)
+      const startLine = i;
+      const paraLines = [line];
+      i++;
+
+      while (i < lines.length) {
+        const nextLine = lines[i];
+        const nextTrimmed = nextLine.trim();
+
+        // End paragraph if: empty line, heading, list, code block, blockquote
+        if (!nextTrimmed ||
+            nextTrimmed.match(/^#{1,6}\s+/) ||
+            nextTrimmed.match(/^([-*+]|\d+\.)\s+/) ||
+            nextTrimmed.startsWith('```') ||
+            nextTrimmed.startsWith('>')) {
+          break;
+        }
+
+        paraLines.push(nextLine);
+        i++;
+      }
+
+      sections.push({
+        type: 'p',
+        qmdText: paraLines.join('\n'),
+        lineStart: startLine,
+        lineEnd: i - 1
+      });
+    }
+
+    return sections;
+  }
+
+  /**
    * Adds a comment annotation to the tracked comments.
    * @param {string} elementPath - DOM path identifying the element
    * @param {string} selectedText - The text that was selected for commenting
@@ -190,18 +722,22 @@ class CriticMarkupManager {
    * @param {number|null} endOffset - Character offset for the end of selection
    * @returns {Object} The created comment data object
    */
-  addComment(elementPath, selectedText, comment, author, startOffset = null, endOffset = null) {
+  addComment(elementPath, selectedText, comment, author, sectionId = null, offsetWithinSection = 0, userColor = null, startOffset = 0, endOffset = 0, commentId = null) {
     // Clean the selected text to remove any UI elements
     const cleanSelectedText = this.cleanTextContent(selectedText);
 
     const commentData = {
+      id: commentId || 'comment-' + Date.now(),
       type: 'comment',
       elementPath: elementPath,
+      sectionId: sectionId,  // Section ID (line number will be resolved at submission time)
       selectedText: cleanSelectedText,
+      offsetWithinSection: offsetWithinSection,  // Line offset from section start (0-indexed)
       comment: comment,
       author: author,
-      startOffset: startOffset,
-      endOffset: endOffset,
+      userColor: userColor,  // Store user color for consistent highlighting
+      startOffset: startOffset,  // Character offset for precise selection highlighting
+      endOffset: endOffset,     // Character offset for precise selection highlighting
       timestamp: new Date().toISOString(),
       criticMarkup: `{>>${comment} (${author})<<}`
     };
@@ -266,10 +802,74 @@ class CriticMarkupManager {
       });
     }
 
+    // Record the change in history for offset tracking
+    this.recordChange(elementPath, cleanOriginal, cleanReviewed);
+
     this.saveToStorage();
     debug('Element states count:', Object.keys(this.elementStates).length);
     debug('Commits for this element:', this.elementStates[elementPath].commits.length);
     return this.elementStates[elementPath];
+  }
+
+  /**
+   * Record a change in the change history for line/section offset tracking
+   * @param {string} elementPath - The element identifier (usually section ID)
+   * @param {string} originalMarkdown - Original markdown before change
+   * @param {string} reviewedMarkdown - New markdown after change
+   */
+  recordChange(elementPath, originalMarkdown, reviewedMarkdown) {
+    // Calculate line count delta
+    const originalLines = originalMarkdown.split('\n').length;
+    const reviewedLines = reviewedMarkdown.split('\n').length;
+    const lineDelta = reviewedLines - originalLines;
+
+    // Get section info if available
+    const section = this.qmdSectionMap[elementPath];
+    const sectionIndex = section ? section.sectionIndex : null;
+    const lineStart = section ? section.lineStart : null;
+
+    const changeRecord = {
+      timestamp: new Date().toISOString(),
+      elementPath: elementPath,
+      sectionIndex: sectionIndex,
+      lineStart: lineStart,
+      lineDelta: lineDelta,  // How many lines were added/removed
+      type: 'edit'  // 'edit', 'add-section', 'delete-section'
+    };
+
+    this.changeHistory.push(changeRecord);
+    debug('Recorded change:', changeRecord);
+  }
+
+  /**
+   * Calculate the current line number for a section, accounting for all changes
+   * that occurred after a given timestamp
+   * @param {number} originalSectionIndex - Original section index
+   * @param {number} originalLineStart - Original line number
+   * @param {string} sinceTimestamp - Only apply changes after this timestamp (null = apply all)
+   * @returns {number} Current line number
+   */
+  calculateCurrentLineNumber(originalSectionIndex, originalLineStart, sinceTimestamp = null) {
+    let currentLine = originalLineStart;
+
+    // Filter changes that happened after the timestamp (or all if sinceTimestamp is null)
+    const relevantChanges = sinceTimestamp
+      ? this.changeHistory.filter(change => change.timestamp > sinceTimestamp)
+      : this.changeHistory;
+
+    // Apply changes that affect this line
+    for (const change of relevantChanges) {
+      // If the change was to a section before this one, apply the line delta
+      if (change.sectionIndex !== null && change.sectionIndex < originalSectionIndex) {
+        currentLine += change.lineDelta;
+        debug(`Applying offset from section ${change.sectionIndex}: ${change.lineDelta} lines`);
+      } else if (change.lineStart !== null && change.lineStart < currentLine) {
+        currentLine += change.lineDelta;
+        debug(`Applying offset from line ${change.lineStart}: ${change.lineDelta} lines`);
+      }
+    }
+
+    return currentLine;
   }
 
   /**
@@ -293,9 +893,14 @@ class CriticMarkupManager {
 
     let cleaned = text.trim();
 
-    // Remove unnecessary escape sequences (only keep escaping for special markdown chars that need it)
-    // Common over-escaping from Wysimark: \. \( \) \/ etc.
-    cleaned = cleaned.replace(/\\([.()\/\[\]])/g, '$1');
+    // Remove unnecessary escape sequences added by Wysimark
+    // Wysimark escapes many characters that don't need escaping in markdown
+    // Keep ONLY escapes that are genuinely needed: \* \_ \` \[ \] for markdown syntax
+    // Remove escapes from: : - . , ! ? ( ) / etc.
+    cleaned = cleaned.replace(/\\([:\-.,!?()\/])/g, '$1');
+
+    // Also remove escapes from periods and other punctuation
+    cleaned = cleaned.replace(/\\([.;])/g, '$1');
 
     // Fix broken bold formatting from Wysimark editor
     // Pattern: **word**** ****word** should become **word word**
@@ -312,6 +917,9 @@ class CriticMarkupManager {
     // Normalize list formatting: remove extra blank lines between list items added by Wysimark
     // Replace double newlines followed by list markers with single newlines
     cleaned = cleaned.replace(/\n\n([-*+] )/g, '\n$1');
+
+    // Remove double newlines that Wysimark adds after list items
+    cleaned = cleaned.replace(/\n\n\n/g, '\n\n');
 
     return cleaned;
   }
@@ -605,6 +1213,9 @@ class CriticMarkupManager {
       elementStates: this.elementStates,
       changes: this.changes, // Kept for migration
       originalQMD: this.originalQMD, // Store immutable original QMD
+      qmdSectionMap: this.qmdSectionMap, // NEW: Store section mapping
+      nextNewSectionId: this.nextNewSectionId, // NEW: Store counter for new sections
+      changeHistory: this.changeHistory, // NEW: Track changes for offset calculation
       lastModified: new Date().toISOString()
     }));
   }
@@ -620,6 +1231,9 @@ class CriticMarkupManager {
       this.elementStates = data.elementStates || {};
       this.changes = data.changes || []; // For migration
       this.originalQMD = data.originalQMD || null; // Load stored original QMD
+      this.qmdSectionMap = data.qmdSectionMap || {}; // NEW: Load section map
+      this.nextNewSectionId = data.nextNewSectionId || 1; // NEW: Load counter
+      this.changeHistory = data.changeHistory || []; // NEW: Load change history
     }
 
     // If no original QMD in storage, extract it from the page and save it
@@ -629,6 +1243,15 @@ class CriticMarkupManager {
       this.saveToStorage();
     } else {
       debug('Loaded original QMD from storage, length:', this.originalQMD?.length);
+    }
+
+    // NEW: Create section map if not loaded from storage or if it's empty
+    if (Object.keys(this.qmdSectionMap).length === 0 && this.originalQMD) {
+      debug('Creating QMD section map...');
+      this.createQmdSectionMap();
+      this.saveToStorage();
+    } else {
+      debug(`Loaded QMD section map with ${Object.keys(this.qmdSectionMap).length} sections`);
     }
   }
 
@@ -1349,6 +1972,9 @@ class UserManager {
 const userManager = new UserManager();
 const criticMarkupManager = new CriticMarkupManager();
 
+// Expose to window for git integration
+window.criticMarkupManager = criticMarkupManager;
+
 document.addEventListener('DOMContentLoaded', function() {
   debug("Initializing Web Review...");
 
@@ -1511,6 +2137,192 @@ document.addEventListener('DOMContentLoaded', function() {
     return charCount;
   }
 
+  /**
+   * Find the best position for a comment highlight after text has been edited.
+   * Uses a hybrid approach combining character offsets and fuzzy text matching.
+   * @param {Element} element - The element containing the text
+   * @param {string} originalSelectedText - The text that was originally selected
+   * @param {number} originalStartOffset - Original start character offset
+   * @param {number} originalEndOffset - Original end character offset
+   * @returns {Object} - {startOffset, endOffset, score, selectedText} with adjusted offsets and possibly updated text
+   */
+  function findBestCommentPosition(element, originalSelectedText, originalStartOffset, originalEndOffset) {
+    const currentText = element.textContent;
+    const searchText = originalSelectedText.trim().toLowerCase();
+    const searchLength = originalEndOffset - originalStartOffset;
+
+    debug(`Finding best position for comment: "${searchText.substring(0, 30)}..." (original offsets: ${originalStartOffset}-${originalEndOffset})`);
+
+    let bestMatch = {
+      startOffset: originalStartOffset,
+      endOffset: originalEndOffset,
+      score: 0,
+      selectedText: originalSelectedText
+    };
+
+    // Strategy 1: Try exact text match
+    const textLower = currentText.toLowerCase();
+    let searchIndex = 0;
+    const allMatches = [];
+
+    while ((searchIndex = textLower.indexOf(searchText, searchIndex)) !== -1) {
+      allMatches.push({
+        startOffset: searchIndex,
+        endOffset: searchIndex + searchText.length,
+        distance: Math.abs(searchIndex - originalStartOffset)
+      });
+      searchIndex++;
+    }
+
+    if (allMatches.length > 0) {
+      debug(`Found ${allMatches.length} exact text match(es)`);
+
+      if (allMatches.length === 1) {
+        // Only one match - use it with high confidence
+        const match = allMatches[0];
+        const score = 100; // Perfect match, no ambiguity
+        debug(`Single exact match at offset ${match.startOffset} (score: ${score})`);
+
+        bestMatch = {
+          startOffset: match.startOffset,
+          endOffset: match.endOffset,
+          score: score,
+          selectedText: originalSelectedText
+        };
+      } else {
+        // Multiple matches - use offset/index to score them
+        let closestMatch = allMatches[0];
+        let minDistance = closestMatch.distance;
+
+        for (const match of allMatches) {
+          if (match.distance < minDistance) {
+            minDistance = match.distance;
+            closestMatch = match;
+          }
+        }
+
+        // Score based on how close to original position
+        const distancePenalty = Math.min(minDistance / 50, 0.4); // Max 40% penalty for duplicates
+        const score = 95 * (1 - distancePenalty); // Start at 95 to distinguish from single match
+
+        debug(`Multiple matches: closest at offset ${closestMatch.startOffset} (distance: ${minDistance}, score: ${score.toFixed(1)})`);
+
+        bestMatch = {
+          startOffset: closestMatch.startOffset,
+          endOffset: closestMatch.endOffset,
+          score: score,
+          selectedText: originalSelectedText
+        };
+      }
+    }
+
+    // Strategy 2: If no exact match found, try position-based matching with surrounding context
+    if (bestMatch.score < 90 && originalStartOffset < currentText.length) {
+      const textAtOriginalPosition = currentText.substring(originalStartOffset, Math.min(originalEndOffset, currentText.length));
+      const similarity = calculateSimilarity(searchText, textAtOriginalPosition.toLowerCase());
+      const score = similarity * 70; // Up to 70 points for position-based match
+
+      debug(`Text at original position "${textAtOriginalPosition.substring(0, 30)}..." similarity: ${similarity.toFixed(2)} (score: ${score.toFixed(1)})`);
+
+      if (score > bestMatch.score && score > 40) {
+        // Use the text at the original position as the new selected text
+        const newSelectedText = currentText.substring(originalStartOffset, Math.min(originalEndOffset, currentText.length));
+
+        bestMatch = {
+          startOffset: originalStartOffset,
+          endOffset: Math.min(originalEndOffset, currentText.length),
+          score: score,
+          selectedText: newSelectedText
+        };
+
+        debug(`Updated selected text to: "${newSelectedText.substring(0, 30)}..."`);
+      }
+    }
+
+    // Strategy 3: If still uncertain, highlight surrounding context at closest position
+    if (bestMatch.score < 50) {
+      debug(`Low confidence (${bestMatch.score.toFixed(1)}), using surrounding context approach`);
+
+      // Find the best approximate position
+      const targetPosition = Math.min(originalStartOffset, currentText.length - 1);
+
+      // Expand to word boundaries around the target position
+      const contextRadius = Math.max(searchLength, 20); // At least 20 chars or original length
+      let contextStart = Math.max(0, targetPosition - contextRadius / 2);
+      let contextEnd = Math.min(currentText.length, targetPosition + contextRadius / 2);
+
+      // Adjust to word boundaries
+      while (contextStart > 0 && !/\s/.test(currentText[contextStart - 1])) contextStart--;
+      while (contextEnd < currentText.length && !/\s/.test(currentText[contextEnd])) contextEnd++;
+
+      const contextText = currentText.substring(contextStart, contextEnd).trim();
+
+      bestMatch = {
+        startOffset: contextStart,
+        endOffset: contextEnd,
+        score: 30, // Low score to indicate uncertainty
+        selectedText: contextText
+      };
+
+      debug(`Using surrounding context: "${contextText.substring(0, 50)}..." at offset ${contextStart}-${contextEnd}`);
+    }
+
+    debug(`Best match: offsets ${bestMatch.startOffset}-${bestMatch.endOffset}, score: ${bestMatch.score.toFixed(1)}, text: "${bestMatch.selectedText?.substring(0, 30)}..."`);
+
+    return bestMatch;
+  }
+
+  /**
+   * Calculate similarity between two strings (0-1, where 1 is identical)
+   * Uses a simple character-based approach
+   */
+  function calculateSimilarity(str1, str2) {
+    if (str1 === str2) return 1.0;
+    if (!str1 || !str2) return 0.0;
+
+    const maxLen = Math.max(str1.length, str2.length);
+    const minLen = Math.min(str1.length, str2.length);
+
+    // Count matching characters at the same positions
+    let matches = 0;
+    for (let i = 0; i < minLen; i++) {
+      if (str1[i] === str2[i]) matches++;
+    }
+
+    // Penalize length differences
+    const lengthPenalty = (maxLen - minLen) / maxLen;
+    const positionScore = matches / maxLen;
+
+    return positionScore * (1 - lengthPenalty * 0.5);
+  }
+
+  /**
+   * Find the best matching substring using a sliding window approach
+   */
+  function findBestSubstringMatch(text, searchText, targetLength) {
+    const textLower = text.toLowerCase();
+    let bestMatch = null;
+
+    // Try different window sizes around the target length
+    for (let windowSize = Math.max(3, targetLength - 5); windowSize <= targetLength + 10; windowSize++) {
+      for (let i = 0; i <= textLower.length - windowSize; i++) {
+        const substring = textLower.substring(i, i + windowSize);
+        const similarity = calculateSimilarity(searchText, substring);
+        const score = similarity * 60; // Up to 60 points for fuzzy match
+
+        if (!bestMatch || score > bestMatch.score) {
+          bestMatch = {
+            startOffset: i,
+            endOffset: i + windowSize,
+            score: score
+          };
+        }
+      }
+    }
+
+    return bestMatch;
+  }
+
   // Helper function to create a range from character offsets
   function createRangeFromOffsets(element, startOffset, endOffset) {
     const treeWalker = document.createTreeWalker(
@@ -1584,11 +2396,29 @@ document.addEventListener('DOMContentLoaded', function() {
       if (confirm('Are you sure you want to clear all changes and comments? This cannot be undone.')) {
         debug('Clearing localStorage...');
         localStorage.removeItem('webReviewCriticMarkup');
+        localStorage.removeItem('web-review-submitted-commits');
+        localStorage.removeItem('webReviewChanges'); // Legacy storage
+
+        // Clear session PR tracking (removes all keys matching pattern)
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('web-review-session-pr-')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        debug('Cleared session PR tracking');
 
         // Reset in-memory state
         criticMarkupManager.comments = [];
         criticMarkupManager.elementStates = {};
         criticMarkupManager.changes = [];
+
+        // Clear in-memory legacy storage
+        if (window.webReviewChanges) {
+          window.webReviewChanges = { comments: [], textChanges: [], timestamp: new Date().toISOString() };
+        }
 
         // Remove visual indicators from DOM
         document.querySelectorAll('.web-review-modified').forEach(el => {
@@ -1607,8 +2437,10 @@ document.addEventListener('DOMContentLoaded', function() {
           contentDiv.innerHTML = '<p id="empty-state" style="color: #666; margin: 0;">Select text to add comments or suggestions.</p>';
         }
 
-        alert('All changes and comments have been cleared.');
         debug('Storage cleared successfully');
+
+        // Reload the page to ensure clean state
+        window.location.reload();
       }
     });
   }
@@ -1779,29 +2611,31 @@ document.addEventListener('DOMContentLoaded', function() {
       // Clear any existing timeout
       clearTimeout(window.commentPopupTimeout);
       
-      // Calculate character offsets for this selection
+      // Find the editable element that contains this selection
       const selText = selection.toString();
       const selectionRange = selection.getRangeAt(0);
-      const parentEl = selectionRange.commonAncestorContainer.nodeType === Node.TEXT_NODE ?
+      let parentEl = selectionRange.commonAncestorContainer.nodeType === Node.TEXT_NODE ?
                       selectionRange.commonAncestorContainer.parentElement :
                       selectionRange.commonAncestorContainer;
 
-      // Get character offsets from the start of the parent element
-      const startOffset = getCharacterOffsetWithin(selectionRange.startContainer, selectionRange.startOffset, parentEl);
-      const endOffset = getCharacterOffsetWithin(selectionRange.endContainer, selectionRange.endOffset, parentEl);
+      // Find the nearest editable block element (p, h1-h6, li, ol, ul, etc.)
+      const editableSelectors = 'p, h1, h2, h3, h4, h5, h6, ol, ul, blockquote, pre';
+      if (!parentEl.matches || !parentEl.matches(editableSelectors)) {
+        parentEl = parentEl.closest(editableSelectors);
+      }
 
-      debug('Selection offsets:', startOffset, '-', endOffset, 'for text:', selText);
-      debug('Parent element:', parentEl.tagName, parentEl.textContent.substring(0, 100));
+      if (!parentEl) {
+        debug('Could not find editable parent element');
+        return;
+      }
 
-      // Update current selection (this handles new selections properly)
+      debug('Found editable element:', parentEl.tagName, 'for selected text:', selText.substring(0, 50));
+
+      // Update current selection - LINE-BASED (no offsets)
       currentSelection = {
-        text: selection.toString(),
-        range: selection.getRangeAt(0).cloneRange(),
-        startOffset: startOffset,
-        endOffset: endOffset,
-        element: selection.getRangeAt(0).commonAncestorContainer.nodeType === Node.TEXT_NODE ?
-                 selection.getRangeAt(0).commonAncestorContainer.parentElement :
-                 selection.getRangeAt(0).commonAncestorContainer
+        text: selText.trim(),           // The selected text (will be included in comment)
+        element: parentEl,              // The element to attach comment to
+        range: selection.getRangeAt(0).cloneRange()  // Keep range for UI positioning only
       };
       
       // Position popup near new selection (always repositions for new selections)
@@ -2065,7 +2899,13 @@ document.addEventListener('DOMContentLoaded', function() {
       
       showCommentModal(storedSelection.text, function(comment, status) {
         if (comment) {
-          addCommentToSidebar(storedSelection.text, comment, status, storedSelection.element, storedSelection.startOffset, storedSelection.endOffset);
+          // Automatically prepend selected text as context
+          const contextualComment = storedSelection.text ?
+            `Re: "${storedSelection.text}"\n\n${comment}` :
+            comment;
+
+          // Pass range to calculate character offsets
+          addCommentToSidebar(storedSelection.text, contextualComment, status, storedSelection.element, storedSelection.range);
           if (!sidebarOpen) toggleSidebar();
         }
         // Clear selection after modal is handled
@@ -2141,10 +2981,31 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentText, currentHTML, currentMarkdown;
     let beforeEditHTML; // HTML state before opening editor (to restore if no changes)
 
+    // NEW: Get section ID and section info
+    const sectionId = element.dataset.sectionId;
+    const section = sectionId ? criticMarkupManager.qmdSectionMap[sectionId] : null;
+
     if (element.dataset.originalText && element.dataset.originalMarkdown) {
       // Element has been edited before - get ORIGINAL for comparison, CURRENT for editing
       originalText = element.dataset.originalText;
-      originalMarkdown = element.dataset.originalMarkdown;
+
+      // PREFER: Use section map (guaranteed to match QMD)
+      if (section && section.qmdText) {
+        originalMarkdown = section.qmdText;
+        debugEditing(`Using section map for original (subsequent edit): ${sectionId}`);
+      } else {
+        // FALLBACK: Try to find in QMD dynamically
+        const qmdOriginal = criticMarkupManager.findElementInOriginalQMD(element);
+        if (qmdOriginal) {
+          originalMarkdown = qmdOriginal;
+          debugEditing('Found in QMD (no section map for subsequent edit)');
+        } else {
+          // LAST RESORT: Use stored original
+          originalMarkdown = element.dataset.originalMarkdown;
+          debugEditing('Using stored original (could not verify in QMD)');
+        }
+      }
+
       originalHTML = element.dataset.originalHtml || convertMarkdownToHtml(originalMarkdown);
 
       // Get current (last saved) content for editing
@@ -2159,7 +3020,23 @@ document.addEventListener('DOMContentLoaded', function() {
       // First time editing - current content IS the original
       originalText = element.textContent;
       originalHTML = element.innerHTML; // Preserve original HTML including formatting
-      originalMarkdown = getElementMarkdown(element, originalText);
+
+      // BEST: Use section map (guaranteed to match QMD)
+      if (section && section.qmdText) {
+        originalMarkdown = section.qmdText;
+        debugEditing(`Using section map: ${sectionId} -> ${originalMarkdown.substring(0, 50)}`);
+      } else {
+        // FALLBACK: Try to find in QMD dynamically
+        const qmdOriginal = criticMarkupManager.findElementInOriginalQMD(element);
+        if (qmdOriginal) {
+          originalMarkdown = qmdOriginal;
+          debugEditing(`Found in QMD (no section map): ${originalMarkdown.substring(0, 50)}`);
+        } else {
+          // LAST RESORT: Reconstruct from HTML
+          originalMarkdown = getElementMarkdown(element, originalText);
+          debugEditing(`Reconstructed from HTML: ${originalMarkdown.substring(0, 50)}`);
+        }
+      }
 
       currentText = originalText;
       currentHTML = originalHTML;
@@ -2284,8 +3161,13 @@ document.addEventListener('DOMContentLoaded', function() {
             placeholder: 'Edit your content here...',
             minHeight: '200px',
             onChange: (markdown) => {
+              // Clean unnecessary escapes from Wysimark before storing
+              // Wysimark over-escapes many characters that don't need it
+              let cleaned = markdown;
+              cleaned = cleaned.replace(/\\([:\-.,!?()\/;"'])/g, '$1');  // Added quotes to the list
+
               // Sync with textarea for source mode toggle
-              textarea.value = markdown;
+              textarea.value = cleaned;
             }
           });
           console.log('Wysimark editor initialized successfully');
@@ -2343,20 +3225,28 @@ document.addEventListener('DOMContentLoaded', function() {
       let newMarkdown;
       if (isVisualMode && wysimarkInstance) {
         newMarkdown = wysimarkInstance.getMarkdown();
+        // Clean Wysimark escapes
+        newMarkdown = newMarkdown.replace(/\\([:\-.,!?()\/;"'])/g, '$1');
       } else {
         newMarkdown = textarea.value;
       }
 
-      const newText = convertMarkdownToText(newMarkdown);
-      const newHtml = convertMarkdownToHtml(newMarkdown);
-      const originalHtml = convertMarkdownToHtml(originalMarkdown);
+      // Also clean the original markdown for comparison to avoid false positives
+      const cleanedOriginalMarkdown = originalMarkdown.replace(/\\([:\-.,!?()\/;"'])/g, '$1');
 
-      // Compare normalized text content, not markdown (to avoid false positives from formatting changes)
+      const newText = convertMarkdownToText(newMarkdown);
+      const originalText = convertMarkdownToText(cleanedOriginalMarkdown);
+      const newHtml = convertMarkdownToHtml(newMarkdown);
+      const originalHtml = convertMarkdownToHtml(cleanedOriginalMarkdown);
+
+      // Compare normalized text content AND markdown to detect real changes
       const cleanOriginalText = originalText.replace(/\s+/g, ' ').trim();
       const cleanNewText = newText.replace(/\s+/g, ' ').trim();
+      const cleanOriginalMd = cleanedOriginalMarkdown.replace(/\s+/g, ' ').trim();
+      const cleanNewMd = newMarkdown.replace(/\s+/g, ' ').trim();
 
-      // Only save if there are actual content changes
-      if (cleanNewText !== cleanOriginalText) {
+      // Only save if there are actual content changes (text or markdown structure)
+      if (cleanNewText !== cleanOriginalText || cleanNewMd !== cleanOriginalMd) {
         // Save to persistence layer
         saveElementChange(element, originalMarkdown, newMarkdown);
 
@@ -2366,6 +3256,53 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // showInlineDiff now handles adding to sidebar
         showInlineDiff(element, cleanOriginalText, cleanNewText, originalMarkdown, newMarkdown, originalHtml, newHtml);
+
+        // Restore comment highlights if they existed using hybrid approach
+        const elementPath = criticMarkupManager.generateElementPath(element);
+        const comments = criticMarkupManager.comments.filter(c => c.elementPath === elementPath);
+        if (comments.length > 0) {
+          debug(`Restoring ${comments.length} comment highlights after edit using hybrid matching`);
+
+          // First, remove all existing comment highlights from this element to avoid duplicates
+          element.querySelectorAll('[data-comment-id]').forEach(highlight => {
+            // Extract the content from the highlight and replace the highlight with plain text
+            const textContent = highlight.textContent;
+            const textNode = document.createTextNode(textContent);
+            highlight.parentNode.replaceChild(textNode, highlight);
+          });
+
+          // Clear the stored comment data to prevent duplicates
+          delete element.dataset.comments;
+          delete element.dataset.commentIds;
+
+          debug(`Removed old comment highlights before restoring`);
+
+          comments.forEach(commentData => {
+            const adjustedOffsets = findBestCommentPosition(
+              element,
+              commentData.selectedText || '',
+              commentData.startOffset || 0,
+              commentData.endOffset || 0
+            );
+
+            // Update the comment's selected text if it changed
+            if (adjustedOffsets.selectedText && adjustedOffsets.selectedText !== commentData.selectedText) {
+              debug(`Updating comment selected text from "${commentData.selectedText?.substring(0, 30)}..." to "${adjustedOffsets.selectedText.substring(0, 30)}..."`);
+              commentData.selectedText = adjustedOffsets.selectedText;
+              criticMarkupManager.saveToStorage();
+            }
+
+            highlightCommentedText(
+              element,
+              adjustedOffsets.selectedText || commentData.selectedText || '',
+              commentData.id,
+              commentData.userColor || userManager.getUserColor(commentData.author),
+              adjustedOffsets.startOffset,
+              adjustedOffsets.endOffset,
+              commentData.comment || ''
+            );
+          });
+        }
       } else {
         // No actual content changes - restore to state before editing (preserves diff if it existed)
         element.innerHTML = beforeEditHTML;
@@ -2410,44 +3347,77 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // Helper functions for markdown conversion
   function getElementMarkdown(element, text) {
+    let result;
+
     // Convert HTML element back to markdown based on tag type and context
     switch(element.tagName) {
-      case 'H1': return '# ' + text;
-      case 'H2': return '## ' + text;
-      case 'H3': return '### ' + text;
-      case 'H4': return '#### ' + text;
-      case 'H5': return '##### ' + text;
-      case 'H6': return '###### ' + text;
+      case 'H1':
+        result = '# ' + text;
+        break;
+      case 'H2':
+        result = '## ' + text;
+        break;
+      case 'H3':
+        result = '### ' + text;
+        break;
+      case 'H4':
+        result = '#### ' + text;
+        break;
+      case 'H5':
+        result = '##### ' + text;
+        break;
+      case 'H6':
+        result = '###### ' + text;
+        break;
       case 'UL':
         // Convert unordered list to markdown
-        return convertHtmlToMarkdown(element.outerHTML);
+        result = convertHtmlToMarkdown(element.outerHTML);
+        break;
       case 'OL':
         // Convert ordered list to markdown
-        return convertHtmlToMarkdown(element.outerHTML);
+        result = convertHtmlToMarkdown(element.outerHTML);
+        break;
       case 'LI':
         // For list items, return just the content WITHOUT list markers
         // The list structure is part of the parent, not the LI content
         // Convert inner HTML to markdown to preserve formatting
         if (element.innerHTML !== element.textContent) {
-          return convertHtmlToMarkdown(element.innerHTML);
+          result = convertHtmlToMarkdown(element.innerHTML);
         } else {
-          return text;
+          result = text;
         }
+        break;
       default:
         // Preserve existing formatting if element already has HTML structure
         if (element.innerHTML !== element.textContent) {
-          return convertHtmlToMarkdown(element.innerHTML);
+          result = convertHtmlToMarkdown(element.innerHTML);
+        } else {
+          result = text;
         }
-        return text;
     }
+
+    // Clean excessive escaping and formatting artifacts
+    // Remove escaped characters that don't need escaping
+    result = result.replace(/\\([:\-.,!?()\/;.()\/\[\]{}_*`])/g, '$1');
+    // Fix excessive asterisks (more than 2 in a row)
+    result = result.replace(/\*{3,}/g, '**');
+
+    return result;
   }
   
   function convertMarkdownToHtml(markdown) {
     // Enhanced markdown to HTML conversion with proper list support
     let html = markdown;
 
+    // Strip CriticMarkup comments (they'll be rendered separately as visual indicators)
+    // First strip highlight+comment pairs: {==text==}{>>comment<<}
+    html = html.replace(/\{==([^=]+)==\}\{>>([^<>]+?)<<\}/g, '$1');
+    // Then strip any remaining standalone comments
+    html = html.replace(/\{>>(.+?)<<\}/g, '');
+
     // Unescape markdown escape sequences from Wysimark
-    html = html.replace(/\\([.()\/\[\]{}\-_*`])/g, '$1');
+    // Remove ALL unnecessary escapes that Wysimark adds
+    html = html.replace(/\\([:\-.,!?()\/;.()\/\[\]{}_*`])/g, '$1');
 
     // Process inline formatting (bold, italic, code)
     // Do this before line processing to preserve formatting within lists
@@ -2539,7 +3509,13 @@ document.addEventListener('DOMContentLoaded', function() {
   function convertMarkdownToText(markdown) {
     // Convert markdown back to plain text for display
     let text = markdown;
-    
+
+    // Remove CriticMarkup comments
+    // First strip highlight+comment pairs: {==text==}{>>comment<<}
+    text = text.replace(/\{==([^=]+)==\}\{>>([^<>]+?)<<\}/g, '$1');
+    // Then strip any remaining standalone comments
+    text = text.replace(/\{>>(.+?)<<\}/g, '');
+
     // Remove headers
     text = text.replace(/^#{1,6}\s+/gm, '');
     
@@ -2567,22 +3543,39 @@ document.addEventListener('DOMContentLoaded', function() {
   (function restoreStoredChanges() {
     debug('Restoring element states from commits...');
 
-    Object.entries(criticMarkupManager.elementStates).forEach(([path, state]) => {
-      const element = criticMarkupManager.findElementByPath(path);
-      if (!element) {
-        debug('Could not find element for path:', path);
-        return;
-      }
+    // Build timeline of all changes (element states) with timestamps
+    const changeTimeline = [];
 
+    Object.entries(criticMarkupManager.elementStates).forEach(([path, state]) => {
       // Get the latest commit
       const latestCommit = state.commits && state.commits.length > 0
         ? state.commits[state.commits.length - 1]
         : null;
 
-      if (!latestCommit) {
-        debug('No commits found for element:', path);
+      if (latestCommit) {
+        changeTimeline.push({
+          type: 'change',
+          timestamp: latestCommit.timestamp,
+          path: path,
+          state: state,
+          commit: latestCommit
+        });
+      }
+    });
+
+    // Sort by timestamp (oldest first)
+    changeTimeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // Apply changes in chronological order
+    changeTimeline.forEach(item => {
+      const element = criticMarkupManager.findElementByPath(item.path);
+      if (!element) {
+        debug('Could not find element for path:', item.path);
         return;
       }
+
+      const state = item.state;
+      const latestCommit = item.commit;
 
       // Convert to HTML and text
       const originalHtml = convertMarkdownToHtml(state.originalMarkdown);
@@ -2613,60 +3606,25 @@ document.addEventListener('DOMContentLoaded', function() {
       // Mark as modified
       element.classList.add('web-review-modified');
 
-      debug('Restored:', path, '-', state.commits.length, 'commits');
+      debug('Restored:', item.path, '-', state.commits.length, 'commits');
     });
 
-    debug('Restore complete');
+    debug('Element state restoration complete');
   })();
 
   function saveElementChange(element, originalMarkdown, newMarkdown) {
-    // Get or create document changes storage
-    if (!window.webReviewChanges) {
-      window.webReviewChanges = {
-        comments: [],
-        textChanges: [],
-        metadata: {
-          documentTitle: document.title,
-          timestamp: new Date().toISOString()
-        }
-      };
-    }
+    // SINGLE SOURCE OF TRUTH: Use CriticMarkupManager only
+    // All storage goes through criticMarkupManager.updateElementState()
 
-    // Create element identifier
-    const elementId = getElementIdentifier(element);
+    // NEW: Prefer section ID over element path
+    const sectionId = element.dataset.sectionId;
+    const identifier = sectionId || criticMarkupManager.generateElementPath(element);
+    const currentUser = userManager.getCurrentUser();
 
-    // Check if there's already a pending change for this element
-    const existingChangeIndex = window.webReviewChanges.textChanges.findIndex(
-      change => change.elementId === elementId && change.status === 'pending'
-    );
+    // Update the single source of truth
+    criticMarkupManager.updateElementState(identifier, originalMarkdown, newMarkdown, currentUser);
 
-    if (existingChangeIndex !== -1) {
-      // Update existing pending change (keep original, update new)
-      const existingChange = window.webReviewChanges.textChanges[existingChangeIndex];
-      existingChange.newMarkdown = newMarkdown;
-      existingChange.timestamp = new Date().toISOString();
-      existingChange.user = userManager.getCurrentUser();
-      existingChange.userColor = userManager.getUserColor(userManager.getCurrentUser());
-      debug('Updated existing change for element:', elementId);
-    } else {
-      // Create new change
-      window.webReviewChanges.textChanges.push({
-        id: 'change-' + Date.now(),
-        elementId: elementId,
-        originalMarkdown: originalMarkdown,
-        newMarkdown: newMarkdown,
-        timestamp: new Date().toISOString(),
-        status: 'pending',
-        user: userManager.getCurrentUser(),
-        userColor: userManager.getUserColor(userManager.getCurrentUser())
-      });
-      debug('Created new change for element:', elementId);
-    }
-
-    // Save to localStorage
-    localStorage.setItem('webReviewChanges', JSON.stringify(window.webReviewChanges));
-
-    debug('Saved change for element:', elementId, 'by user:', userManager.getCurrentUser());
+    debug('Saved change via CriticMarkupManager:', identifier, 'by user:', currentUser);
   }
   
   function getElementIdentifier(element) {
@@ -2863,6 +3821,9 @@ document.addEventListener('DOMContentLoaded', function() {
     element.dataset.newHtml = newHtml || '';
     element.dataset.reviewStatus = 'pending';
 
+    // Parse and highlight CriticMarkup comments from the new markdown
+    parseCriticMarkupComments(element, newMarkdown);
+
     // Restore comment highlights if they existed
     if (existingComments.length > 0) {
       element.dataset.comments = JSON.stringify(existingComments);
@@ -2873,6 +3834,191 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Update the sidebar to show this change
     updateSidebarWithChange(element, originalText, newText, originalMarkdown, newMarkdown);
+  }
+
+  /**
+   * Parse CriticMarkup comments {==text==}{>>comment<<} from markdown and display them
+   */
+  function parseCriticMarkupComments(element, markdown) {
+    // Find CriticMarkup highlight+comment pattern: {==text==}{>>comment<<}
+    const commentPattern = /\{==([^=]+)==\}\{>>([^<>]+?)<<\}/g;
+    const comments = [];
+    let match;
+
+    while ((match = commentPattern.exec(markdown)) !== null) {
+      const highlightedText = match[1];
+      const commentContent = match[2];
+      const position = match.index;
+
+      // Extract author from comment if present (format: "comment text (Author)")
+      const authorMatch = commentContent.match(/^(.+?)\s*\(([^)]+)\)$/);
+      const commentText = authorMatch ? authorMatch[1].trim() : commentContent;
+      const author = authorMatch ? authorMatch[2].trim() : 'Unknown';
+
+      comments.push({
+        text: commentText,
+        author: author,
+        highlightedText: highlightedText,
+        position: position
+      });
+
+      debug(`Found CriticMarkup comment on "${highlightedText}": "${commentText}" by ${author}`);
+    }
+
+    // For each comment, find and highlight the text
+    comments.forEach(comment => {
+      const textContent = element.textContent;
+      const searchText = comment.highlightedText.trim();
+
+      // Find this text in the rendered content
+      const textIndex = textContent.indexOf(searchText);
+
+      if (textIndex !== -1) {
+        // Found the text - highlight it with a yellow box
+        const highlightStart = textIndex;
+        const highlightEnd = textIndex + searchText.length;
+
+        // Create comment ID
+        const commentId = 'critic-comment-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+        // Get user color (yellow for comments)
+        const userColor = '#ffc107';
+
+        // Add yellow highlight box on the selected text
+        highlightCriticMarkupComment(element, highlightStart, highlightEnd, commentId, userColor, comment.text, comment.author);
+
+        // Add to sidebar
+        addCriticMarkupCommentToSidebar(comment.text, comment.author, searchText, commentId, userColor);
+      } else {
+        debug(`Could not find highlighted text "${searchText}" for CriticMarkup comment`);
+      }
+    });
+  }
+
+  /**
+   * Highlight a CriticMarkup comment in the document
+   */
+  function highlightCriticMarkupComment(element, startOffset, endOffset, commentId, userColor, commentText, author) {
+    const range = createRangeFromOffsets(element, startOffset, endOffset);
+
+    if (range) {
+      const highlightColor = userColor + '40';
+      const borderColor = userColor;
+
+      // Create wrapper for the highlighted text
+      const highlightSpan = document.createElement('mark');
+      highlightSpan.setAttribute('data-comment', commentId);
+      highlightSpan.setAttribute('data-comment-id', commentId);
+      highlightSpan.setAttribute('data-critic-markup', 'true');
+      highlightSpan.setAttribute('data-comment-text', commentText);
+      highlightSpan.setAttribute('data-comment-author', author);
+      highlightSpan.className = 'comment-highlight critic-comment';
+      highlightSpan.style.cssText = `background: ${highlightColor}; border: 2px solid ${borderColor}; padding: 1px 2px; border-radius: 3px; cursor: pointer; position: relative; display: inline;`;
+      highlightSpan.title = `${author}: ${commentText}`;
+
+      // Add click handler to edit comment
+      highlightSpan.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const currentComment = highlightSpan.getAttribute('data-comment-text');
+        const newComment = prompt(`Edit comment by ${author}:`, currentComment);
+
+        if (newComment !== null && newComment.trim() !== '' && newComment !== currentComment) {
+          // Update the comment
+          highlightSpan.setAttribute('data-comment-text', newComment);
+          highlightSpan.title = `${author}: ${newComment}`;
+
+          // Update in sidebar
+          const sidebarItem = document.getElementById(commentId + '-sidebar');
+          if (sidebarItem) {
+            const commentTextDiv = sidebarItem.querySelector('div[style*="margin-left"]');
+            if (commentTextDiv) {
+              commentTextDiv.textContent = newComment;
+            }
+          }
+
+          // Update the markdown with new comment
+          const originalMarkdown = element.dataset.newMarkdown || element.dataset.originalMarkdown;
+          const highlightedText = highlightSpan.textContent.replace('💬', '').trim();
+          const oldPattern = `{==${highlightedText}==}{>>${currentComment} (${author})<<}`;
+          const newPattern = `{==${highlightedText}==}{>>${newComment} (${author})<<}`;
+          const updatedMarkdown = originalMarkdown.replace(oldPattern, newPattern);
+
+          saveElementChange(element, originalMarkdown, updatedMarkdown);
+        }
+      });
+
+      try {
+        // Extract the content and wrap it
+        const extractedContent = range.extractContents();
+        highlightSpan.appendChild(extractedContent);
+
+        // Create comment icon indicator (small, in top right corner)
+        const commentIcon = document.createElement('span');
+        commentIcon.className = 'comment-icon-indicator';
+        commentIcon.style.cssText = `
+          position: absolute;
+          top: -4px;
+          right: -4px;
+          background: ${userColor};
+          color: white;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          font-size: 8px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+        `;
+        commentIcon.textContent = '💬';
+        commentIcon.title = `${author}: ${commentText}`;
+
+        // Add the icon to the highlighted span
+        highlightSpan.appendChild(commentIcon);
+
+        // Insert the wrapped content back
+        range.insertNode(highlightSpan);
+        debug('Successfully highlighted CriticMarkup comment');
+      } catch (e) {
+        debug('Failed to highlight CriticMarkup comment:', e.message);
+      }
+    }
+  }
+
+  /**
+   * Add CriticMarkup comment to sidebar
+   */
+  function addCriticMarkupCommentToSidebar(commentText, author, contextText, commentId, userColor) {
+    const content = document.getElementById('web-review-content');
+    if (!content) return;
+
+    const commentDiv = document.createElement('div');
+    commentDiv.id = commentId + '-sidebar';
+    commentDiv.className = 'review-item';
+    commentDiv.dataset.type = 'critic-comment';
+    commentDiv.style.cssText =
+      'border-left: 3px solid ' + userColor + '; padding: 10px; margin: 10px 0; background: #fffbf0; border-radius: 0 4px 4px 0;';
+
+    const userInitials = userManager.getUserInitials(author);
+
+    commentDiv.innerHTML =
+      '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">' +
+        '<div style="' +
+          'width: 20px; height: 20px; border-radius: 50%; background: ' + userColor + '; ' +
+          'color: white; display: flex; align-items: center; justify-content: center; ' +
+          'font-size: 10px; font-weight: bold;' +
+        '">' + userInitials + '</div>' +
+        '<div style="font-size: 12px; color: #666; flex: 1;">' +
+          author + ' commented near: "' + contextText.substring(0, 30) + (contextText.length > 30 ? '...' : '') + '"' +
+        '</div>' +
+        '<div style="' +
+          'background: #ffc107; color: #333; ' +
+          'padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: bold;' +
+        '">💬 Comment</div>' +
+      '</div>' +
+      '<div style="color: #333; margin-left: 28px;">' + commentText + '</div>';
+
+    content.appendChild(commentDiv);
   }
 
   function reapplyCommentHighlight(element, text, commentId, userColor, startOffset = 0, endOffset = 0, commentText = '') {
@@ -3835,7 +4981,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  function addCommentToSidebar(originalText, comment, status = 'open', element = null, startOffset = null, endOffset = null) {
+  function addCommentToSidebar(originalText, comment, status = 'open', element = null, selectionRange = null) {
     const commentId = 'comment-' + Date.now();
     const currentUser = userManager.getCurrentUser();
     const userColor = userManager.getUserColor(currentUser);
@@ -3844,20 +4990,75 @@ document.addEventListener('DOMContentLoaded', function() {
     // Use provided element or fall back to currentSelection
     const targetElement = element || (currentSelection && currentSelection.element);
 
-    // Use provided offsets or fall back to currentSelection
-    const selStartOffset = startOffset !== null ? startOffset : (currentSelection ? currentSelection.startOffset : 0);
-    const selEndOffset = endOffset !== null ? endOffset : (currentSelection ? currentSelection.endOffset : 0);
+    // Use provided range or fall back to currentSelection
+    const range = selectionRange || (currentSelection && currentSelection.range);
 
-    // Save comment to storage
-    if (targetElement) {
-      saveComment(targetElement, originalText, comment, commentId, status);
-      // Highlight the commented text with character offsets
-      debug('Using offsets for highlight:', selStartOffset, selEndOffset);
-      highlightCommentedText(targetElement, originalText, commentId, userColor, selStartOffset, selEndOffset, comment);
-      
-      // Add to CriticMarkup manager with offsets
-      const elementPath = criticMarkupManager.generateElementPath(targetElement);
-      criticMarkupManager.addComment(elementPath, originalText, comment, currentUser, selStartOffset, selEndOffset);
+    // NEW APPROACH: Use CriticMarkup for comments - insert {>>comment<<} annotation
+    if (targetElement && range) {
+      debug('Adding comment using CriticMarkup approach');
+
+      // Get current content as markdown
+      const originalMarkdown = targetElement.dataset.newMarkdown || targetElement.dataset.originalMarkdown ||
+                              getElementMarkdown(targetElement, targetElement.textContent);
+
+      // Get the selected text from the range
+      const selectedText = range.toString();
+
+      debug(`Adding CriticMarkup comment for selected text: "${selectedText}" in: "${originalMarkdown.substring(0, 50)}..."`);
+
+      // Find the selected text in the markdown
+      // We need to be careful to match it correctly, accounting for markdown formatting
+      const searchText = selectedText.trim();
+      let markdownIndex = originalMarkdown.indexOf(searchText);
+
+      if (markdownIndex === -1) {
+        // Try without markdown formatting (e.g., **bold** -> bold)
+        const plainSearchText = searchText.replace(/[*_`]/g, '');
+        debug(`Exact match not found, trying without formatting: "${plainSearchText}"`);
+
+        // Find position in markdown that corresponds to this text
+        const textWithoutFormatting = originalMarkdown.replace(/[*_`]/g, '');
+        const plainIndex = textWithoutFormatting.indexOf(plainSearchText);
+
+        if (plainIndex !== -1) {
+          // Map back to position in original markdown
+          markdownIndex = plainIndex;
+        }
+      }
+
+      if (markdownIndex !== -1) {
+        // Use proper CriticMarkup syntax: {==highlighted text==}{>>comment<<}
+        // This highlights the text and attaches a comment to it
+        const criticComment = `{==${searchText}==}{>>${comment} (${currentUser})<<}`;
+
+        // Replace the selected text with the CriticMarkup version
+        const insertPosition = markdownIndex;
+        const newMarkdown = originalMarkdown.substring(0, insertPosition) + criticComment + originalMarkdown.substring(insertPosition + searchText.length);
+
+        debug(`Inserted CriticMarkup at position ${insertPosition}: "${newMarkdown.substring(Math.max(0, markdownIndex - 10), Math.min(newMarkdown.length, insertPosition + criticComment.length + 10))}..."`);
+
+        // Save as a change using the standard mechanism
+        saveElementChange(targetElement, originalMarkdown, newMarkdown);
+
+        // The change will be visible in the diff view
+        const originalText = convertMarkdownToText(originalMarkdown);
+        const newText = convertMarkdownToText(newMarkdown);
+        const originalHtml = convertMarkdownToHtml(originalMarkdown);
+        const newHtml = convertMarkdownToHtml(newMarkdown);
+
+        showInlineDiff(targetElement, originalText, newText, originalMarkdown, newMarkdown, originalHtml, newHtml);
+
+        // Store comment metadata for export (still track separately for PR comments)
+        const sectionId = targetElement.dataset.sectionId;
+        const identifier = sectionId || criticMarkupManager.generateElementPath(targetElement);
+        const commentColor = '#ffc107';
+
+        criticMarkupManager.addComment(identifier, selectedText, comment, currentUser, sectionId, 0, commentColor, markdownIndex, markdownIndex + searchText.length, commentId);
+
+        debug(`Added CriticMarkup comment as change`);
+      } else {
+        debug(`ERROR: Could not find selected text "${searchText}" in markdown`);
+      }
     }
     
     const commentDiv = document.createElement('div');
@@ -4002,42 +5203,18 @@ document.addEventListener('DOMContentLoaded', function() {
   }
   
   function saveComment(element, originalText, comment, commentId, status = 'open') {
-    // Get or create document changes storage
-    if (!window.webReviewChanges) {
-      window.webReviewChanges = {
-        comments: [],
-        textChanges: [],
-        metadata: {
-          documentTitle: document.title,
-          timestamp: new Date().toISOString()
-        }
-      };
-    }
-    
-    // Store the comment with user attribution
-    window.webReviewChanges.comments.push({
-      id: commentId,
-      elementId: getElementIdentifier(element),
-      text: originalText,
-      comment: comment,
-      timestamp: new Date().toISOString(),
-      status: status,
-      user: userManager.getCurrentUser(),
-      userColor: userManager.getUserColor(userManager.getCurrentUser())
-    });
-    
-    // Save to localStorage
-    localStorage.setItem('webReviewChanges', JSON.stringify(window.webReviewChanges));
+    // SINGLE SOURCE OF TRUTH: Comments are already saved via criticMarkupManager.addComment()
+    // This function is kept for backwards compatibility but does nothing
+    // All comment storage happens in addCommentToSidebar() -> criticMarkupManager.addComment()
+    debug('saveComment called (deprecated - using CriticMarkupManager instead)');
   }
   
   window.updateCommentStatus = function(commentId, newStatus) {
-    // Update storage
-    if (window.webReviewChanges) {
-      const comment = window.webReviewChanges.comments.find(c => c.id === commentId);
-      if (comment) {
-        comment.status = newStatus;
-      }
-      localStorage.setItem('webReviewChanges', JSON.stringify(window.webReviewChanges));
+    // Update in criticMarkupManager (single source of truth)
+    const comment = criticMarkupManager.comments.find(c => c.id === commentId);
+    if (comment) {
+      comment.status = newStatus;
+      criticMarkupManager.saveToStorage();
     }
     
     // Update the visual indicator
@@ -4071,13 +5248,11 @@ document.addEventListener('DOMContentLoaded', function() {
   };
   
   window.resolveComment = function(commentId) {
-    // Update storage
-    if (window.webReviewChanges) {
-      const comment = window.webReviewChanges.comments.find(c => c.id === commentId);
-      if (comment) {
-        comment.status = 'resolved';
-        localStorage.setItem('webReviewChanges', JSON.stringify(window.webReviewChanges));
-      }
+    // Update in criticMarkupManager (single source of truth)
+    const comment = criticMarkupManager.comments.find(c => c.id === commentId);
+    if (comment) {
+      comment.status = 'resolved';
+      criticMarkupManager.saveToStorage();
     }
     
     // Update UI
@@ -4118,6 +5293,17 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     element.dataset.comments = JSON.stringify(comments);
 
+    // Check if element has diff markup - if so, use enhanced fallback highlighting
+    const hasDiffMarkup = element.querySelector('[data-web-review-diff]') || element.hasAttribute('data-web-review-diff');
+
+    if (hasDiffMarkup) {
+      debug('Element has diff markup, using enhanced fallback highlight');
+      addFallbackHighlight(element, userColor, commentId, commentText);
+      // Also try to highlight within diff using character offsets
+      tryHighlightInDiff(element, text, commentId, userColor, commentText, startOffset, endOffset);
+      return;
+    }
+
     // Use DOM range to highlight at the exact character offsets
     debug('Creating range for element:', element.tagName, 'text:', element.textContent.substring(0, 100));
     const range = createRangeFromOffsets(element, startOffset, endOffset);
@@ -4142,19 +5328,46 @@ document.addEventListener('DOMContentLoaded', function() {
         showCommentEditDialog(commentId);
       });
 
+      // Check if range crosses complex boundaries (like list items with diff markup)
+      const startsAtElementBoundary = range.startOffset === 0 && range.startContainer.nodeType === Node.ELEMENT_NODE;
+      const hasComplexStructure = element.querySelector('.diff-unchanged, .diff-added, .diff-removed');
+      const isListOrListItem = element.tagName === 'LI' || element.tagName === 'UL' || element.tagName === 'OL' || element.closest('li, ul, ol');
+      const rangeContainsListItem = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE &&
+                                     (range.commonAncestorContainer.tagName === 'UL' ||
+                                      range.commonAncestorContainer.tagName === 'OL' ||
+                                      range.commonAncestorContainer.tagName === 'LI');
+
+      if (hasComplexStructure && (startsAtElementBoundary || isListOrListItem)) {
+        debug('Complex structure detected (list/diff), using CSS-only highlight to avoid breaking layout');
+        // Use CSS-based highlighting without modifying DOM structure
+        highlightSpan.style.cssText = `background: ${highlightColor}; outline: 2px solid ${borderColor}; outline-offset: -2px; border-radius: 3px; cursor: pointer; display: inline; padding: 0;`;
+      }
+
       try {
         range.surroundContents(highlightSpan);
         debug('Successfully highlighted text at offsets', startOffset, '-', endOffset);
       } catch (e) {
-        console.error('Failed to surround contents with highlight:', e);
-        // Fallback: try extracting and wrapping
-        try {
-          const contents = range.extractContents();
-          highlightSpan.appendChild(contents);
-          range.insertNode(highlightSpan);
-        } catch (e2) {
-          console.error('Fallback also failed:', e2);
+        debug('Failed to surround contents (likely crosses element boundaries):', e.message);
+
+        // For complex structures or lists, don't try extract/insert as it breaks layout
+        if (hasComplexStructure || isListOrListItem || rangeContainsListItem) {
+          debug('Skipping extract/insert for complex structure/list, using fallback');
           addFallbackHighlight(element, userColor);
+        } else {
+          // Fallback: try extracting and wrapping only for simple structures
+          try {
+            const contents = range.extractContents();
+            highlightSpan.appendChild(contents);
+            range.insertNode(highlightSpan);
+            debug('Successfully used extract/insert fallback');
+          } catch (e2) {
+            debug('Fallback also failed, using visual-only highlight:', e2.message);
+            // Final fallback: just add a visual indicator without modifying DOM structure
+            addFallbackHighlight(element, userColor);
+
+            // Store the comment anyway so it appears in the sidebar
+            // The highlight just won't be inline, but the comment is still recorded
+          }
         }
       }
     } else {
@@ -4167,24 +5380,95 @@ document.addEventListener('DOMContentLoaded', function() {
     element.title = `${commentCount} comment${commentCount > 1 ? 's' : ''} - Click highlighted text to view`;
   }
   
-  function addFallbackHighlight(element, userColor) {
-    element.style.borderLeft = `4px solid ${userColor}`;
-    element.style.paddingLeft = '8px';
-    element.style.backgroundColor = `${userColor}10`;
-    element.addEventListener('click', function(e) {
-      if (e.target === element) {
-        // Find the first comment for this element
-        const comments = JSON.parse(element.dataset.comments || '[]');
-        if (comments.length > 0) {
-          showCommentInSidebar(comments[0].id);
+  /**
+   * Add a line-based comment indicator next to an element
+   * Shows a visible comment badge that's always visible (persists through edits)
+   */
+  function addLineCommentIndicator(element, commentId, userColor, commentText) {
+    // Just store comment ID on element - no visual indicator
+    if (!element.dataset.commentIds) {
+      element.dataset.commentIds = commentId;
+    } else {
+      element.dataset.commentIds += ',' + commentId;
+    }
+  }
+
+  function addFallbackHighlight(element, userColor, commentId, commentText) {
+    // Use the same line-based indicator for consistency
+    addLineCommentIndicator(element, commentId, userColor, commentText);
+  }
+
+  function tryHighlightInDiff(element, text, commentId, userColor, commentText, startOffset = 0, endOffset = 0) {
+    // Try to highlight using character offsets within diff markup
+    debug(`Trying to highlight in diff at offsets ${startOffset}-${endOffset}`);
+
+    // Create range using offsets (this works with diff markup too)
+    const range = createRangeFromOffsets(element, startOffset, endOffset);
+
+    if (range) {
+      debug('Created range in diff, range text:', range.toString());
+
+      // Create highlight span
+      const highlightColor = userColor + '40';
+      const borderColor = userColor;
+
+      const highlightSpan = document.createElement('mark');
+      highlightSpan.setAttribute('data-comment', commentId);
+      highlightSpan.setAttribute('data-comment-id', commentId);
+      highlightSpan.className = 'comment-highlight';
+      highlightSpan.style.cssText = `background: ${highlightColor}; border: 2px solid ${borderColor}; padding: 1px 2px; border-radius: 3px; cursor: pointer; font-weight: bold;`;
+      highlightSpan.title = commentText || 'Click to view/edit comment';
+
+      highlightSpan.addEventListener('click', function(e) {
+        e.stopPropagation();
+        showCommentEditDialog(commentId);
+      });
+
+      // Check for complex structures
+      const startsAtElementBoundary = range.startOffset === 0 && range.startContainer.nodeType === Node.ELEMENT_NODE;
+      const isListOrListItem = element.tagName === 'LI' || element.tagName === 'UL' || element.tagName === 'OL' || element.closest('li, ul, ol');
+      const rangeContainsListItem = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE &&
+                                     (range.commonAncestorContainer.tagName === 'UL' ||
+                                      range.commonAncestorContainer.tagName === 'OL' ||
+                                      range.commonAncestorContainer.tagName === 'LI');
+
+      if (startsAtElementBoundary || isListOrListItem || rangeContainsListItem) {
+        debug('Complex structure in diff (list/boundary), using CSS-only highlight');
+        highlightSpan.style.cssText = `background: ${highlightColor}; outline: 2px solid ${borderColor}; outline-offset: -2px; border-radius: 3px; cursor: pointer; display: inline; padding: 0;`;
+      }
+
+      try {
+        range.surroundContents(highlightSpan);
+        debug('Successfully highlighted text in diff at offsets', startOffset, '-', endOffset);
+        return;
+      } catch (e) {
+        debug('Failed to surround in diff:', e.message);
+
+        // Skip extract/insert for list items as it breaks layout
+        if (isListOrListItem || rangeContainsListItem) {
+          debug('List item detected, skipping extract/insert to avoid layout break');
+          return;
+        }
+
+        // Try extract/insert method for non-list items
+        try {
+          const contents = range.extractContents();
+          highlightSpan.appendChild(contents);
+          range.insertNode(highlightSpan);
+          debug('Successfully used extract/insert in diff');
+          return;
+        } catch (e2) {
+          debug('Extract/insert also failed in diff:', e2.message);
         }
       }
-    });
+    }
+
+    debug('Could not highlight in diff markup using offsets');
   }
   
   function showCommentEditDialog(commentId) {
-    // Find the comment in storage
-    const commentData = window.webReviewChanges?.comments.find(c => c.id === commentId);
+    // Find the comment in criticMarkupManager (single source of truth)
+    const commentData = criticMarkupManager.comments.find(c => c.id === commentId);
     if (!commentData) {
       console.error('Comment not found:', commentId);
       return;
@@ -4237,9 +5521,9 @@ document.addEventListener('DOMContentLoaded', function() {
     saveBtn.addEventListener('click', () => {
       const newComment = textarea.value.trim();
       if (newComment) {
-        // Update comment in storage
+        // Update comment in criticMarkupManager (single source of truth)
         commentData.comment = newComment;
-        localStorage.setItem('webReviewChanges', JSON.stringify(window.webReviewChanges));
+        criticMarkupManager.saveToStorage();
 
         // Update sidebar display
         const sidebarComment = document.getElementById(commentId + '-sidebar');
@@ -4296,15 +5580,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const userColor = userManager.getUserColor(currentUser);
     const userInitials = userManager.getUserInitials(currentUser);
 
-    // Add to CriticMarkup manager - use MARKDOWN versions for proper export
+    // NOTE: Do NOT save to criticMarkupManager here - that's already done by saveElementChange()
+    // This function is only for UI display in the sidebar
+    // Saving here would create duplicate commits
     const elementPath = criticMarkupManager.generateElementPath(element);
-
-    // Use the markdown stored in dataset (this matches the QMD source)
-    // Fallback to parameters if not available
-    const markdownOriginal = element.dataset.originalMarkdown || originalMarkdown;
-    const markdownNew = element.dataset.newMarkdown || newMarkdown;
-
-    criticMarkupManager.addChange(elementPath, markdownOriginal, markdownNew, currentUser);
 
     // Convert markdown to HTML for display in sidebar to preserve formatting
     const originalHtml = element.dataset.originalHtml || convertMarkdownToHtml(originalMarkdown);
@@ -4846,7 +6125,191 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   };
-  
-  
+
+  // Restore comments and changes from localStorage
+  function restoreCommentsAndChanges() {
+    debug('Restoring saved comments and changes...');
+
+    // Sort comments by timestamp for consistent ordering
+    const sortedComments = (criticMarkupManager.comments || [])
+      .filter(c => c.selectedText && c.comment) // Filter out empty comments
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // Restore comments to sidebar in chronological order
+    if (sortedComments.length > 0) {
+      debug(`Restoring ${sortedComments.length} comments in chronological order`);
+      sortedComments.forEach(commentData => {
+        // Skip empty comments
+        if (!commentData.selectedText || !commentData.comment) {
+          debug('Skipping empty comment:', commentData);
+          return;
+        }
+
+        // Restore visual highlight in document first (to get the element)
+        let element = null;
+        if (commentData.elementPath) {
+          element = criticMarkupManager.findElementByPath(commentData.elementPath);
+          if (element) {
+            highlightCommentedText(
+              element,
+              commentData.selectedText || '',
+              commentData.id,
+              commentData.userColor || userManager.getUserColor(commentData.author),
+              commentData.startOffset || 0,
+              commentData.endOffset || 0,
+              commentData.comment || ''
+            );
+          }
+        }
+
+        // Restore comment to sidebar UI (without re-adding to storage)
+        const userColor = commentData.userColor || userManager.getUserColor(commentData.author);
+        const userInitials = userManager.getUserInitials(commentData.author);
+        const statusColors = {
+          'open': '#007acc',
+          'suggestion': '#28a745',
+          'question': '#6f42c1',
+          'accepted': '#28a745',
+          'rejected': '#dc3545',
+          'partially-accepted': '#fd7e14'
+        };
+
+        const statusLabels = {
+          'open': 'Open',
+          'suggestion': 'Suggestion',
+          'question': 'Question',
+          'accepted': 'Accepted',
+          'rejected': 'Rejected',
+          'partially-accepted': 'Partially Accepted'
+        };
+
+        const status = commentData.status || 'open';
+
+        const commentDiv = document.createElement('div');
+        commentDiv.id = commentData.id + '-sidebar';
+        commentDiv.className = 'review-item';
+        commentDiv.dataset.type = 'comment';
+        commentDiv.dataset.status = 'active';
+        commentDiv.dataset.user = commentData.author;
+        commentDiv.style.cssText =
+          'border-left: 3px solid ' + userColor + '; padding: 10px; margin: 10px 0; background: #f8f9fa; border-radius: 0 4px 4px 0; cursor: pointer;';
+
+        commentDiv.innerHTML =
+          '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">' +
+            '<div style="' +
+              'width: 20px; height: 20px; border-radius: 50%; background: ' + userColor + '; ' +
+              'color: white; display: flex; align-items: center; justify-content: center; ' +
+              'font-size: 10px; font-weight: bold;' +
+            '">' + userInitials + '</div>' +
+            '<div style="font-size: 12px; color: #666; flex: 1;">' +
+              commentData.author + ' commented on: "' + commentData.selectedText.substring(0, 30) + (commentData.selectedText.length > 30 ? '...' : '') + '"' +
+            '</div>' +
+            '<div style="' +
+              'background: ' + (statusColors[status] || '#007acc') + '; color: white; ' +
+              'padding: 2px 6px; border-radius: 10px; font-size: 10px; font-weight: bold;' +
+            '">' + (statusLabels[status] || status) + '</div>' +
+          '</div>' +
+          '<div style="color: #333; margin-left: 28px;">' + commentData.comment + '</div>' +
+          '<div style="font-size: 11px; color: #999; margin-top: 8px; margin-left: 28px; display: flex; justify-content: space-between; align-items: center;">' +
+            '<span>' + new Date(commentData.timestamp).toLocaleString() + '</span>' +
+            '<div style="display: flex; gap: 4px;">' +
+              '<select onchange="updateCommentStatus(\'' + commentData.id + '\', this.value)" style="' +
+                'background: white; border: 1px solid #ddd; border-radius: 3px; ' +
+                'padding: 2px 4px; font-size: 10px; cursor: pointer;' +
+              '">' +
+                '<option value="open"' + (status === 'open' ? ' selected' : '') + '>Open</option>' +
+                '<option value="suggestion"' + (status === 'suggestion' ? ' selected' : '') + '>Suggestion</option>' +
+                '<option value="question"' + (status === 'question' ? ' selected' : '') + '>Question</option>' +
+                '<option value="accepted"' + (status === 'accepted' ? ' selected' : '') + '>Accepted</option>' +
+                '<option value="rejected"' + (status === 'rejected' ? ' selected' : '') + '>Rejected</option>' +
+                '<option value="partially-accepted"' + (status === 'partially-accepted' ? ' selected' : '') + '>Partially Accepted</option>' +
+              '</select>' +
+              '<button onclick="resolveComment(\'' + commentData.id + '\')" style="background: #28a745; color: white; border: none; padding: 2px 6px; border-radius: 2px; font-size: 10px; cursor: pointer;">Resolve</button>' +
+            '</div>' +
+          '</div>';
+
+        // Click to navigate to comment in document
+        commentDiv.addEventListener('click', function() {
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const highlight = element.querySelector('[data-comment="' + commentData.id + '"]');
+            if (highlight) {
+              highlight.style.animation = 'none';
+              setTimeout(() => {
+                highlight.style.animation = 'pulse 1s';
+              }, 10);
+            }
+          }
+        });
+
+        content.appendChild(commentDiv);
+      });
+    }
+
+    // Restore element states (edits/changes)
+    if (criticMarkupManager.elementStates && Object.keys(criticMarkupManager.elementStates).length > 0) {
+      debug(`Restoring ${Object.keys(criticMarkupManager.elementStates).length} element states`);
+
+      Object.entries(criticMarkupManager.elementStates).forEach(([path, state]) => {
+        const element = criticMarkupManager.findElementByPath(path);
+        if (!element) {
+          debug('Could not find element for path:', path);
+          return;
+        }
+
+        // Get the latest commit
+        const latestCommit = state.commits && state.commits.length > 0
+          ? state.commits[state.commits.length - 1]
+          : null;
+
+        if (!latestCommit) return;
+
+        // Convert markdown to HTML for display
+        const originalHtml = convertMarkdownToHtml(state.originalMarkdown);
+        const reviewedHtml = convertMarkdownToHtml(latestCommit.reviewedMarkdown);
+
+        // Get text versions
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = originalHtml;
+        const originalText = tempDiv.textContent;
+        tempDiv.innerHTML = reviewedHtml;
+        const newText = tempDiv.textContent;
+
+        // Store data in element
+        element.dataset.originalMarkdown = state.originalMarkdown;
+        element.dataset.newMarkdown = latestCommit.reviewedMarkdown;
+        element.dataset.originalHtml = originalHtml;
+        element.dataset.newHtml = reviewedHtml;
+        element.dataset.originalText = originalText;
+        element.dataset.newText = newText;
+        element.dataset.reviewStatus = 'pending';
+
+        // Add visual indicator
+        element.classList.add('web-review-modified');
+        element.style.outline = '1px dashed #28a745';
+        element.style.outlineOffset = '2px';
+        element.title = `Modified by ${latestCommit.author} (${state.commits.length} commit${state.commits.length > 1 ? 's' : ''})`;
+
+        // Show diff if enabled
+        if (window.showInlineDiffVisualization) {
+          showInlineDiff(element, originalHtml, reviewedHtml, state.originalMarkdown, latestCommit.reviewedMarkdown);
+        } else {
+          // Just update content without diff
+          element.innerHTML = reviewedHtml;
+        }
+
+        // Add to sidebar
+        addChangeToSidebar(element, originalText, newText, state.originalMarkdown, latestCommit.reviewedMarkdown);
+
+        debug('Restored state for element:', path, 'with', state.commits.length, 'commits');
+      });
+    }
+
+    debug('Restoration complete');
+  }
+
+  // Run restoration after a short delay to ensure DOM is fully ready
+  setTimeout(restoreCommentsAndChanges, 100);
+
   debug("Web Review initialized successfully!");
 });

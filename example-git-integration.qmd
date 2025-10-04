@@ -1,0 +1,67 @@
+---
+title: "Example Document with Git Integration"
+format:
+  html:
+    filters:
+      - _extensions/web-review/web-review.lua
+web-review:
+  enabled: true
+  debug: true
+  mode: "review"
+  features:
+    comments: true
+    editing: true
+    versioning: true
+    diff-view: true
+  git:
+    enabled: true
+    source-file: "example-git-integration.qmd"
+    provider: "github"
+    repository:
+      owner: "mvwestendorp"
+      repo: "quarto-review-extension-github-demo"
+      branch: "main"
+---
+
+## Getting Started with Git Integration
+
+This example demonstrates the Web Review extension with Git integration enabled.
+
+### What You Can Do
+
+1. **Review the document** - Add comments and suggest changes as usual
+2. **Connect to GitHub** - Click the "Connect to Git" button in the toolbar
+3. **Authenticate** - Follow the device flow instructions to authenticate
+4. **Submit Review** - Your changes will be submitted as a Pull Request
+
+### How It Works
+
+The extension uses OAuth Device Flow to authenticate:
+
+- No redirect URLs needed
+- Works with static HTML files
+- Secure authentication flow
+- Creates branches and PRs automatically
+
+### Example Content
+
+This is a paragraph you can review. Try selecting this text and adding a comment!
+
+You can also **double-click** to edit this text directly in the browser.
+
+## Technical Details
+
+When you submit a review:
+
+1. A new branch is created: `review/your-username-timestamp`
+2. Your changes are committed to that branch
+3. A pull request is created automatically
+4. Comments are included in the PR description
+
+## Try It Out!
+
+1. Make some edits to this document
+2. Add a few comments
+3. Click "Submit to Git" when ready
+4. Follow the authentication flow
+5. Your review will be submitted as a PR!
