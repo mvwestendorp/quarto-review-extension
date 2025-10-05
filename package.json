@@ -1,0 +1,32 @@
+{
+  "name": "quarto-web-review",
+  "version": "1.0.0",
+  "description": "Quarto extension for collaborative web-based document review with Git integration",
+  "scripts": {
+    "test": "npm run test:node",
+    "test:node": "node _extensions/web-review/tests/run-tests-node.js",
+    "test:browser": "echo 'Open _extensions/web-review/tests/test-modules-standalone.html in a browser (via http-server)'",
+    "test:integration": "echo 'Integration tests require browser environment'",
+    "lint": "eslint _extensions/web-review/**/*.js --ignore-pattern '**/assets/js/modules/*.js'",
+    "lint:modules": "eslint _extensions/web-review/assets/js/modules/*.js",
+    "check-syntax": "node --check _extensions/web-review/web-review.js && node --check _extensions/web-review/assets/js/modules/debug-utils.js && node --check _extensions/web-review/assets/js/modules/dom-utils.js && node --check _extensions/web-review/assets/js/modules/markdown-utils.js && node --check _extensions/web-review/assets/js/modules/user-manager.js && node --check _extensions/web-review/assets/js/modules/critic-markup-manager.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/quarto-web-review.git"
+  },
+  "keywords": [
+    "quarto",
+    "review",
+    "collaboration",
+    "criticmarkup",
+    "git",
+    "github"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "eslint-plugin-security": "^1.7.1"
+  }
+}

@@ -545,6 +545,12 @@ function Pandoc(doc)
 <!-- jsdiff library for text differencing -->
 <script src="https://cdn.jsdelivr.net/npm/diff@5.1.0/dist/diff.min.js"></script>
 
+<!-- Web Review Modules (load in order) -->
+<script src="_extensions/web-review/assets/js/modules/debug-utils.js"></script>
+<script src="_extensions/web-review/assets/js/modules/markdown-utils.js"></script>
+<script src="_extensions/web-review/assets/js/modules/user-manager.js"></script>
+<script src="_extensions/web-review/assets/js/modules/critic-markup-manager.js"></script>
+
 <!-- Main review UI script -->
 <script src="_extensions/web-review/web-review.js"></script>
 

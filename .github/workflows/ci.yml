@@ -29,6 +29,12 @@ jobs:
           node --check _extensions/web-review/assets/js/review-ui.js
           node --check _extensions/web-review/assets/js/diff-viewer.js
           node --check _extensions/web-review/assets/js/version-control.js
+          echo "Checking module files..."
+          node --check _extensions/web-review/assets/js/modules/debug-utils.js
+          node --check _extensions/web-review/assets/js/modules/dom-utils.js
+          node --check _extensions/web-review/assets/js/modules/markdown-utils.js
+          node --check _extensions/web-review/assets/js/modules/user-manager.js
+          node --check _extensions/web-review/assets/js/modules/critic-markup-manager.js
 
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
@@ -61,6 +67,11 @@ jobs:
             echo "✗ minimal-test.html not generated"
             exit 1
           fi
+
+      - name: Run unit tests
+        run: |
+          echo "Running Node.js-based unit tests..."
+          node _extensions/web-review/tests/run-tests-node.js
 
   security:
     name: Security Scan
