@@ -1,0 +1,11 @@
+/**
+ * Design Token: Typography
+ *
+ * Font families for different contexts (sans-serif, monospace).
+ */
+
+:root {
+  /* Typography */
+  --review-font-family-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --review-font-family-mono: 'Monaco', 'Menlo', 'Courier New', monospace;
+}

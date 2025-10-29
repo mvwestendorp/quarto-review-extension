@@ -1,0 +1,108 @@
+/**
+ * Component: Modal Editor
+ *
+ * Styles for modal editor dialogs and form elements.
+ */
+
+.review-editor-modal {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--review-z-notification);
+}
+
+.review-editor-container {
+  background: var(--review-color-surface);
+  border-radius: 16px;
+  box-shadow: var(--review-shadow-2xl);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+  max-width: 800px;
+  width: 90%;
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+}
+
+.review-editor-body {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  min-height: 200px;
+}
+
+.review-editor-header {
+  padding: 16px 24px;
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.5),
+    rgba(240, 249, 255, 0.3)
+  );
+  border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.15);
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--review-font-family-sans);
+}
+
+.review-editor-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--review-color-text-on-light);
+}
+
+.review-editor-footer {
+  padding: 16px 24px;
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.5),
+    rgba(240, 249, 255, 0.3)
+  );
+  border-top: 1px solid rgba(var(--review-color-primary-rgb), 0.15);
+  border-radius: 0 0 16px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Editor form elements */
+.review-editor-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  border: 1px solid var(--review-color-border);
+  border-radius: var(--review-radius-xs);
+  font-family: var(--review-font-family-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.review-editor-textarea:focus {
+  outline: none;
+  border-color: var(--review-color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--review-color-primary-rgb), 0.1);
+}
+
+.review-editor-preview {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--review-color-border);
+  border-radius: var(--review-radius-xs);
+  background-color: var(--review-color-surface-alt);
+  min-height: 100px;
+}
+
+/* Unsaved changes indicator */
+.review-unsaved-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--review-color-warning);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

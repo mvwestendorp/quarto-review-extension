@@ -1,0 +1,142 @@
+[
+  {
+    "objectID": "document.html#features",
+    "href": "document.html#features",
+    "title": "Example Document with Review Extension",
+    "section": "Features",
+    "text": "Features"
+  },
+  {
+    "objectID": "document.html#how-to-use",
+    "href": "document.html#how-to-use",
+    "title": "Example Document with Review Extension",
+    "section": "How to Use",
+    "text": "How to Use"
+  },
+  {
+    "objectID": "document.html#lists",
+    "href": "document.html#lists",
+    "title": "Example Document with Review Extension",
+    "section": "Lists",
+    "text": "Lists"
+  },
+  {
+    "objectID": "document.html#collaboration",
+    "href": "document.html#collaboration",
+    "title": "Example Document with Review Extension",
+    "section": "Collaboration",
+    "text": "Collaboration"
+  },
+  {
+    "objectID": "document.html#technical-details",
+    "href": "document.html#technical-details",
+    "title": "Example Document with Review Extension",
+    "section": "Technical Details",
+    "text": "Technical Details"
+  },
+  {
+    "objectID": "document.html#conclusion",
+    "href": "document.html#conclusion",
+    "title": "Example Document with Review Extension",
+    "section": "Conclusion",
+    "text": "Conclusion"
+  },
+  {
+    "objectID": "doc-translation.html#features",
+    "href": "doc-translation.html#features",
+    "title": "Example Document with Review Extension",
+    "section": "Features",
+    "text": "Features"
+  },
+  {
+    "objectID": "debug-example.html",
+    "href": "debug-example.html",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "This document demonstrates how to enable debug mode for the Quarto Review extension. Debug output will appear in your browser’s Developer Console.\n\n\n\nOpen Developer Console:\n\nWindows/Linux: Press F12 or Ctrl+Shift+I\nmacOS: Press Cmd+Option+I\n\nGo to Console Tab:\n\nClick the “Console” tab in Developer Tools\n\nLook for Debug Messages:\n\nMessages will show module name, timestamp, and debug info\nExample: [DEBUG] [17:45:23.456] [UIModule] Component initialized\n\n\n\n\n\n\n\nClick on any paragraph to edit it. You should see debug messages like: - Opening editor for [element-id] - Markdown updated: [content]\nExample paragraph: This is a paragraph you can edit. Double-click to open the editor and watch the debug output.\n\n\n\nSingle-click to add a comment. Watch for: - Comment composer opened - Comment added: [timestamp]\n\n\n\nPress Cmd+F (or Ctrl+F) to search. Look for: - Search panel opened - Matches found: [count]\n\n\n\n\nThis document uses this configuration:\nreview:\n  debug:\n    enabled: true\n    level: debug\n    modules:\n      - UIModule\n      - ChangesModule\n    format-timestamp: true\n\n\n\nenabled: true - Debug mode is active\nlevel: debug - Show detailed information (not just errors/warnings)\nmodules - Only log these modules to reduce noise\nformat-timestamp: true - Include time in each message\n\n\n\n\n\nChange level to see different amounts of output:\n# Just errors and warnings\nlevel: warn\n\n# General information only\nlevel: info\n\n# Detailed debugging info (current)\nlevel: debug\n\n# Everything (most verbose)\nlevel: trace\n\n\n\nYou can configure which modules to log:\nmodules:\n  - UIModule              # User interface\n  - ChangesModule         # Change tracking\n  - CommentsModule        # Comments\n  - MarkdownModule        # Markdown rendering\n  - GitModule             # Git operations\n  - UserModule            # Authentication\n  - KeyboardShortcuts     # Keyboard commands\n  - DocumentSearch        # Search functionality\n\n\n\nReduce noise by excluding certain modules:\nexclude-modules:\n  - GitModule         # Git often very verbose\n  - KeyboardShortcuts # Too many events\n\n\n\nDebug mode has minimal performance impact: - Only enabled when enabled: true - Filtering reduces overhead - Can be disabled quickly for testing\nWhen done debugging, remove the review.debug section from your YAML.\n\n\n\nTry editing this bullet list and watch the debug output:\n\nItem one: Try editing this text\nItem two: Double-click to enter edit mode\nItem three: Watch the console for debug messages\n\n\n\n\nTry adding a comment:\nSingle-click on any text element and select “Add comment” from the quick menu. The console will show comment-related debug messages.\n\n\n\n\nPress Cmd+F (or Ctrl+F)\nType a word to search for\nWatch the console for search debug output\n\n\n\n\nFor complete documentation, see: docs/user/DEBUG.md\n\n\nIf you need to change debug settings after loading:\n// In browser console:\n\n// Enable debug mode\nwindow.debugLogger.enable('debug')\n\n// Disable debug mode\nwindow.debugLogger.disable()\n\n// Change configuration\nwindow.debugLogger.setConfig({\n  modules: ['UIModule'],\n  level: 'trace'\n})\n\n// Show debug help\nwindow.printDebugHelp()\n\n\n\n\n\n✅ Open Developer Console (F12)\n✅ Try editing content above\n✅ Watch debug messages appear\n✅ Try different actions (comments, search, etc.)\n✅ Modify the review.debug config to try different settings\n✅ Read docs/user/DEBUG.md for complete documentation\n\nHappy debugging! 🐛"
+  },
+  {
+    "objectID": "debug-example.html#how-to-view-debug-output",
+    "href": "debug-example.html#how-to-view-debug-output",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "Open Developer Console:\n\nWindows/Linux: Press F12 or Ctrl+Shift+I\nmacOS: Press Cmd+Option+I\n\nGo to Console Tab:\n\nClick the “Console” tab in Developer Tools\n\nLook for Debug Messages:\n\nMessages will show module name, timestamp, and debug info\nExample: [DEBUG] [17:45:23.456] [UIModule] Component initialized"
+  },
+  {
+    "objectID": "debug-example.html#try-these-actions",
+    "href": "debug-example.html#try-these-actions",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "Click on any paragraph to edit it. You should see debug messages like: - Opening editor for [element-id] - Markdown updated: [content]\nExample paragraph: This is a paragraph you can edit. Double-click to open the editor and watch the debug output.\n\n\n\nSingle-click to add a comment. Watch for: - Comment composer opened - Comment added: [timestamp]\n\n\n\nPress Cmd+F (or Ctrl+F) to search. Look for: - Search panel opened - Matches found: [count]"
+  },
+  {
+    "objectID": "debug-example.html#debug-configuration",
+    "href": "debug-example.html#debug-configuration",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "This document uses this configuration:\nreview:\n  debug:\n    enabled: true\n    level: debug\n    modules:\n      - UIModule\n      - ChangesModule\n    format-timestamp: true\n\n\n\nenabled: true - Debug mode is active\nlevel: debug - Show detailed information (not just errors/warnings)\nmodules - Only log these modules to reduce noise\nformat-timestamp: true - Include time in each message"
+  },
+  {
+    "objectID": "debug-example.html#different-debug-levels",
+    "href": "debug-example.html#different-debug-levels",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "Change level to see different amounts of output:\n# Just errors and warnings\nlevel: warn\n\n# General information only\nlevel: info\n\n# Detailed debugging info (current)\nlevel: debug\n\n# Everything (most verbose)\nlevel: trace"
+  },
+  {
+    "objectID": "debug-example.html#available-modules",
+    "href": "debug-example.html#available-modules",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "You can configure which modules to log:\nmodules:\n  - UIModule              # User interface\n  - ChangesModule         # Change tracking\n  - CommentsModule        # Comments\n  - MarkdownModule        # Markdown rendering\n  - GitModule             # Git operations\n  - UserModule            # Authentication\n  - KeyboardShortcuts     # Keyboard commands\n  - DocumentSearch        # Search functionality"
+  },
+  {
+    "objectID": "debug-example.html#exclude-specific-modules",
+    "href": "debug-example.html#exclude-specific-modules",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "Reduce noise by excluding certain modules:\nexclude-modules:\n  - GitModule         # Git often very verbose\n  - KeyboardShortcuts # Too many events"
+  },
+  {
+    "objectID": "debug-example.html#performance-note",
+    "href": "debug-example.html#performance-note",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "Debug mode has minimal performance impact: - Only enabled when enabled: true - Filtering reduces overhead - Can be disabled quickly for testing\nWhen done debugging, remove the review.debug section from your YAML."
+  },
+  {
+    "objectID": "debug-example.html#example-editing-content",
+    "href": "debug-example.html#example-editing-content",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "Try editing this bullet list and watch the debug output:\n\nItem one: Try editing this text\nItem two: Double-click to enter edit mode\nItem three: Watch the console for debug messages"
+  },
+  {
+    "objectID": "debug-example.html#example-adding-comments",
+    "href": "debug-example.html#example-adding-comments",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "Try adding a comment:\nSingle-click on any text element and select “Add comment” from the quick menu. The console will show comment-related debug messages."
+  },
+  {
+    "objectID": "debug-example.html#example-using-search",
+    "href": "debug-example.html#example-using-search",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "Press Cmd+F (or Ctrl+F)\nType a word to search for\nWatch the console for search debug output"
+  },
+  {
+    "objectID": "debug-example.html#more-debug-options",
+    "href": "debug-example.html#more-debug-options",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "For complete documentation, see: docs/user/DEBUG.md\n\n\nIf you need to change debug settings after loading:\n// In browser console:\n\n// Enable debug mode\nwindow.debugLogger.enable('debug')\n\n// Disable debug mode\nwindow.debugLogger.disable()\n\n// Change configuration\nwindow.debugLogger.setConfig({\n  modules: ['UIModule'],\n  level: 'trace'\n})\n\n// Show debug help\nwindow.printDebugHelp()"
+  },
+  {
+    "objectID": "debug-example.html#next-steps",
+    "href": "debug-example.html#next-steps",
+    "title": "Debug Mode Example",
+    "section": "",
+    "text": "✅ Open Developer Console (F12)\n✅ Try editing content above\n✅ Watch debug messages appear\n✅ Try different actions (comments, search, etc.)\n✅ Modify the review.debug config to try different settings\n✅ Read docs/user/DEBUG.md for complete documentation\n\nHappy debugging! 🐛"
+  }
+]

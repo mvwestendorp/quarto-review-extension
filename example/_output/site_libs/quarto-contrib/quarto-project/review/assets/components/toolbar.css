@@ -1,0 +1,413 @@
+/**
+ * Component: Toolbar
+ *
+ * Styles for inline editor toolbar and main floating toolbar.
+ */
+
+/* Main floating toolbar */
+.review-toolbar {
+  position: fixed;
+  top: 80px;
+  left: 24px;
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  color: var(--review-color-primary-contrast);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.15);
+  box-shadow: var(--review-shadow-lg);
+  z-index: var(--review-z-toolbar);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.review-toolbar:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--review-shadow-xl);
+  border-color: rgba(var(--review-color-primary-rgb), 0.25);
+}
+
+.review-toolbar .review-btn {
+  background: #ffffff;
+  color: var(--review-color-text-on-light);
+  border-color: rgba(var(--review-color-primary-rgb), 0.1);
+  box-shadow: var(--review-shadow-sm);
+  font-weight: 600;
+}
+
+.review-toolbar .review-btn:hover {
+  background: var(--review-color-bg-hover-light);
+  border-color: rgba(var(--review-color-primary-rgb), 0.45);
+  color: var(--review-color-primary-darker);
+  box-shadow: var(--review-shadow-md);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .review-toolbar {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 80px;
+  }
+}
+
+/* Inline editor toolbar */
+.review-inline-editor-container {
+  position: relative;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  margin: 6px 0;
+  padding: 12px 14px;
+  z-index: 10;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.review-inline-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 0 0;
+  background: transparent;
+  border-top: 1px solid rgba(79, 70, 229, 0.15);
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.review-inline-editor-body {
+  position: relative;
+  z-index: 1;
+  padding: 0;
+  min-height: 80px;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+.review-editor-layout {
+  position: relative;
+  display: flex;
+  gap: 0;
+}
+
+.review-editor-content {
+  position: relative;
+  min-width: 0;
+  flex: 1;
+  /* Toolbar will be positioned absolutely to the right */
+}
+
+.review-editor-toolbar-container {
+  position: absolute;
+  top: 0;
+  right: -100px;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  pointer-events: auto;
+  z-index: calc(var(--review-z-toolbar) + 1);
+}
+
+.review-editor-toolbar {
+  position: static;
+  display: grid;
+  grid-auto-flow: row;
+  grid-template-columns: auto;
+  gap: 4px;
+  padding: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  border-radius: 12px;
+  box-shadow: var(--review-shadow-lg);
+  backdrop-filter: blur(8px);
+  z-index: calc(var(--review-z-toolbar) + 1);
+  width: auto;
+  height: auto;
+  pointer-events: auto;
+}
+
+.review-editor-toolbar-group {
+  display: contents;
+}
+
+/* Undo/Redo corner buttons */
+.review-editor-toolbar-undo-redo {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.25);
+  background: rgba(var(--review-color-primary-rgb), 0.08);
+  color: var(--review-color-primary);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    opacity 0.18s ease;
+  box-shadow: var(--review-shadow-sm);
+  z-index: 10;
+  top: -8px;
+}
+
+.review-editor-toolbar-undo {
+  left: -8px;
+}
+
+.review-editor-toolbar-redo {
+  right: -8px;
+}
+
+.review-editor-toolbar-undo-redo:hover:not(:disabled) {
+  background: rgba(var(--review-color-primary-rgb), 0.15);
+  border-color: rgba(var(--review-color-primary-rgb), 0.4);
+  box-shadow: var(--review-shadow-md);
+  transform: translateY(-1px);
+}
+
+.review-editor-toolbar-undo-redo:disabled,
+.review-editor-toolbar-undo-redo-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(var(--review-color-primary-rgb), 0.05);
+  border-color: rgba(var(--review-color-primary-rgb), 0.1);
+}
+
+.review-editor-toolbar-undo-redo:disabled:hover,
+.review-editor-toolbar-undo-redo-disabled:hover {
+  background: rgba(var(--review-color-primary-rgb), 0.05);
+  border-color: rgba(var(--review-color-primary-rgb), 0.1);
+  box-shadow: var(--review-shadow-sm);
+  transform: none;
+}
+
+.review-editor-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 30px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  background: var(--review-color-active-bg);
+  color: var(--review-color-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+  box-shadow: var(--review-shadow-sm);
+}
+
+.review-editor-toolbar-btn:hover {
+  background: rgba(var(--review-color-primary-rgb), 0.15);
+  border-color: rgba(var(--review-color-primary-rgb), 0.4);
+  box-shadow: var(--review-shadow-md);
+  transform: translateY(-2px);
+}
+
+.review-editor-toolbar-btn:focus-visible {
+  outline: 2px solid var(--review-color-primary);
+  outline-offset: 2px;
+}
+
+.review-editor-toolbar-btn-active {
+  background: rgba(var(--review-color-accent-rgb), 0.28);
+  border-color: rgba(var(--review-color-accent-rgb), 0.5);
+  color: var(--review-color-accent-strong);
+  box-shadow: inset 0 0 0 1px rgba(var(--review-color-accent-rgb), 0.28);
+}
+
+.review-editor-toolbar-btn-strike {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.review-editor-surface {
+  min-height: 120px;
+}
+
+/* Context mode toggle button */
+.review-editor-toolbar-context-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--review-color-primary-rgb), 0.08);
+  color: var(--review-color-primary);
+  border: 1px solid transparent;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+  white-space: nowrap;
+}
+
+.review-editor-toolbar-context-toggle:hover {
+  background: rgba(var(--review-color-primary-rgb), 0.15);
+  border-color: rgba(var(--review-color-primary-rgb), 0.35);
+}
+
+.review-editor-toolbar-context-toggle:active {
+  background: rgba(var(--review-color-primary-rgb), 0.2);
+}
+
+/* Toolbar expand/collapse button */
+.review-editor-toolbar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(var(--review-color-accent-rgb), 0.08);
+  color: var(--review-color-accent-deep);
+  border: 1px solid transparent;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    border-color 0.18s ease;
+  white-space: nowrap;
+}
+
+.review-editor-toolbar-toggle:hover {
+  background: rgba(var(--review-color-accent-rgb), 0.2);
+  border-color: rgba(var(--review-color-accent-rgb), 0.35);
+}
+
+/* Collapsed toolbar state - show only first 3 buttons and expand button */
+.review-editor-toolbar.review-editor-toolbar-collapsed {
+  grid-auto-flow: row;
+  grid-template-columns: auto;
+}
+
+/* Hide all buttons in collapsed state */
+.review-editor-toolbar.review-editor-toolbar-collapsed .review-editor-toolbar-btn {
+  display: none;
+}
+
+/* Show only core buttons in collapsed state */
+.review-editor-toolbar.review-editor-toolbar-collapsed .review-editor-toolbar-btn-core {
+  display: flex;
+}
+
+/* Always show expand button */
+.review-editor-toolbar.review-editor-toolbar-collapsed .review-editor-toolbar-toggle {
+  display: flex;
+}
+
+/* Expanded state - multi-column layout with buttons showing column by column */
+.review-editor-toolbar:not(.review-editor-toolbar-collapsed) {
+  grid-auto-flow: column;
+  grid-template-rows: repeat(4, auto);
+}
+
+/* Hide expand button in expanded state */
+.review-editor-toolbar:not(.review-editor-toolbar-collapsed) .review-editor-toolbar-toggle {
+  display: none;
+}
+
+/* Show all buttons in expanded state */
+.review-editor-toolbar:not(.review-editor-toolbar-collapsed) .review-editor-toolbar-btn {
+  display: flex;
+}
+
+@media (max-width: 768px) {
+  .review-editor-toolbar-container {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  }
+
+  .review-editor-toolbar {
+    display: grid;
+    grid-auto-flow: row;
+    grid-template-columns: auto;
+    gap: 4px;
+  }
+}
+
+/* Hide original content when editing inline */
+.review-editable-editing .review-editable-original-content {
+  display: none;
+}
+
+/* Remove pointer cursor and hover effects when editing */
+.review-editable-editing,
+section.review-editable-editing {
+  cursor: default !important;
+  background-color: rgba(79, 70, 229, 0.08) !important;
+  outline: none !important;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.15);
+  border: 1px solid rgba(79, 70, 229, 0.35);
+  transition: box-shadow 0.2s ease, background-color 0.2s ease;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.review-editable-editing > .review-inline-editor-container,
+section.review-editable-editing > .review-inline-editor-container {
+  padding: 12px 14px;
+}
+
+.review-editable-editing:hover,
+section.review-editable-editing:hover {
+  background-color: rgba(79, 70, 229, 0.12) !important;
+  box-shadow: 0 12px 32px rgba(79, 70, 229, 0.2);
+}
+
+/* Milkdown editor styles for inline mode */
+.review-inline-editor-body .milkdown {
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  min-height: 80px;
+  position: relative;
+  z-index: 1;
+}
+
+.review-inline-editor-body .milkdown:focus-within {
+  outline: none;
+}
+
+/* Make the editor content area blend with document */
+.review-inline-editor-body .milkdown .editor {
+  background: transparent;
+}
+
+/* Compact editor styling */
+.review-inline-editor-body .milkdown p {
+  margin: 0.5em 0;
+}
+
+.review-inline-editor-body .milkdown p:first-child {
+  margin-top: 0;
+}
+
+.review-inline-editor-body .milkdown p:last-child {
+  margin-bottom: 0;
+}

@@ -1,0 +1,36 @@
+---
+title: "Example Document with Review Extension"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+    code-fold: true
+review:
+  enabled: true
+  mode: translation
+  editable-elements:
+    - Para
+    - Header
+    - CodeBlock
+    - BulletList
+    - OrderedList
+filters:
+  - review
+---
+
+# Introduction {#sec-intro}
+
+::: {.content-language language="en"}
+This is an example document demonstrating the **Quarto Review Extension**. Click on any paragraph, heading, or code block to edit it directly in your browser.
+:::
+
+::: {.content-language language="en"}
+## Features
+
+The review extension provides several powerful features:
+
+- **In-browser editing**: Click any element to edit with a live preview
+- **Change tracking**: All edits are tracked as operations
+- **CriticMarkup support**: Use standard markup for annotations
+- **Git integration**: Save changes directly to your repository
+:::

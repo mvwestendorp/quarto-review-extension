@@ -1,0 +1,178 @@
+/**
+ * Component: Persistent Sidebar
+ *
+ * Main sidebar with toolbar buttons and help section.
+ */
+
+/* Add padding to body to prevent sidebar overlap */
+body {
+  padding-right: 300px; /* 280px sidebar + 20px gap */
+}
+
+body.review-sidebar-collapsed-mode {
+  padding-right: 68px; /* 48px collapsed + 20px gap */
+}
+
+/* Persistent Sidebar */
+.review-persistent-sidebar {
+  position: fixed !important;
+  top: 80px;
+  right: 24px;
+  width: 280px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+  border-radius: 16px;
+  box-shadow: var(--review-shadow-xl);
+  display: flex;
+  flex-direction: column;
+  z-index: calc(var(--review-z-toolbar) - 1);
+  max-height: calc(100vh - 104px);
+  overflow: hidden;
+  transition:
+    width 0.3s ease,
+    transform 0.3s ease;
+}
+
+.review-persistent-sidebar.review-sidebar-collapsed {
+  width: 48px;
+}
+
+body.review-sidebar-collapsed-mode .review-persistent-sidebar {
+  width: 48px;
+}
+
+.review-sidebar-header {
+  padding: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.8),
+    rgba(240, 249, 255, 0.6)
+  );
+  border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.15);
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.review-sidebar-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--review-color-text-on-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.review-sidebar-collapsed .review-sidebar-header h3,
+.review-sidebar-collapsed .review-sidebar-body {
+  display: none;
+}
+
+body.review-sidebar-collapsed-mode .review-sidebar-header h3,
+body.review-sidebar-collapsed-mode .review-sidebar-body {
+  display: none;
+}
+
+.review-icon-chevron {
+  display: inline-block;
+  transition: transform 0.2s ease;
+  font-family: monospace;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.review-sidebar-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.review-sidebar-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--review-color-surface-alt);
+}
+
+.review-sidebar-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.review-sidebar-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--review-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.review-sidebar-help {
+  background: linear-gradient(
+    135deg,
+    rgba(229, 237, 255, 0.5),
+    rgba(224, 231, 255, 0.4)
+  );
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  box-shadow: var(--review-shadow-sm);
+}
+
+.review-help-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--review-color-neutral-strong);
+  margin: 0;
+}
+
+.review-help-text strong {
+  color: var(--review-color-neutral-strong);
+  font-weight: 600;
+}
+
+/* Checkbox label */
+.review-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--review-color-neutral-strong);
+  cursor: pointer;
+  user-select: none;
+}
+
+.review-checkbox-label.review-checkbox-active {
+  color: var(--review-color-accent);
+  font-weight: 600;
+}
+
+.review-checkbox-label input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--review-color-accent);
+}
+
+@media (max-width: 768px) {
+  body {
+    padding-right: 260px; /* 240px sidebar + 20px gap */
+  }
+
+  .review-persistent-sidebar {
+    width: 240px;
+    top: 80px;
+    right: 16px;
+  }
+
+  .review-persistent-sidebar.review-sidebar-collapsed {
+    width: 40px;
+  }
+
+  body.review-sidebar-collapsed-mode {
+    padding-right: 60px; /* 40px collapsed + 20px gap */
+  }
+}
