@@ -328,7 +328,10 @@ export class DocumentSearch {
       try {
         pattern = new RegExp(options.query, options.caseSensitive ? 'g' : 'gi');
       } catch (regexError) {
-        logger.warn('Invalid regex:', options.query, regexError);
+        logger.warn('Invalid regex', {
+          query: options.query,
+          error: regexError,
+        });
         return [];
       }
     } else {

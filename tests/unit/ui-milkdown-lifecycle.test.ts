@@ -22,7 +22,7 @@ const {
 
   const ensureConstructor = () => {
     if (!constructorMock) {
-      constructorMock = vi.fn().mockImplementation(() => {
+      constructorMock = vi.fn(function MockMilkdownEditorConstructor() {
         const instance: MockedEditorInstance = {
           initialize: vi.fn().mockResolvedValue(undefined),
           destroy: vi.fn(),
@@ -52,7 +52,10 @@ const {
 });
 
 const { createNoopClassMock } = vi.hoisted(() => {
-  const factory = () => vi.fn().mockImplementation(() => ({}));
+  const factory = () =>
+    vi.fn(function NoopClassMock(this: unknown) {
+      return {};
+    });
   return { createNoopClassMock: factory };
 });
 
@@ -61,14 +64,16 @@ vi.mock('@modules/ui/editor/MilkdownEditor', () => ({
 }));
 
 vi.mock('@modules/ui/editor/EditorToolbar', () => ({
-  EditorToolbar: vi.fn().mockImplementation(() => ({
-    setEditor: vi.fn(),
-    setElementType: vi.fn(),
-    create: vi.fn().mockImplementation(() => document.createElement('div')),
-    attachHandlers: vi.fn(),
-    updateState: vi.fn(),
-    destroy: vi.fn(),
-  })),
+  EditorToolbar: vi.fn(function MockEditorToolbar(this: unknown) {
+    return {
+      setEditor: vi.fn(),
+      setElementType: vi.fn(),
+      create: vi.fn().mockImplementation(() => document.createElement('div')),
+      attachHandlers: vi.fn(),
+      updateState: vi.fn(),
+      destroy: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('@modules/ui/editor/EditorHistory', () => ({
@@ -76,7 +81,7 @@ vi.mock('@modules/ui/editor/EditorHistory', () => ({
 }));
 
 vi.mock('@modules/ui/comments/CommentsSidebar', () => ({
-  CommentsSidebar: vi.fn().mockImplementation(() => {
+  CommentsSidebar: vi.fn(function MockCommentsSidebar(this: unknown) {
     const element = document.createElement('div');
     element.className = 'review-comments-sidebar';
     const content = document.createElement('div');
@@ -95,48 +100,56 @@ vi.mock('@modules/ui/comments/CommentsSidebar', () => ({
 }));
 
 vi.mock('@modules/ui/comments/CommentComposer', () => ({
-  CommentComposer: vi.fn().mockImplementation(() => ({
-    on: vi.fn(),
-    off: vi.fn(),
-    open: vi.fn(),
-    destroy: vi.fn(),
-  })),
+  CommentComposer: vi.fn(function MockCommentComposer(this: unknown) {
+    return {
+      on: vi.fn(),
+      off: vi.fn(),
+      open: vi.fn(),
+      destroy: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('@modules/ui/comments/CommentBadges', () => ({
-  CommentBadges: vi.fn().mockImplementation(() => ({
-    refresh: vi.fn(),
-    syncIndicators: vi.fn(),
-    destroy: vi.fn(),
-  })),
+  CommentBadges: vi.fn(function MockCommentBadges(this: unknown) {
+    return {
+      refresh: vi.fn(),
+      syncIndicators: vi.fn(),
+      destroy: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('@modules/ui/sidebars/MainSidebar', () => ({
-  MainSidebar: vi.fn().mockImplementation(() => ({
-    create: vi.fn().mockImplementation(() => {
-      const element = document.createElement('div');
-      element.className = 'review-toolbar review-persistent-sidebar';
-      return element;
-    }),
-    onUndo: vi.fn(),
-    onRedo: vi.fn(),
-    onTrackedChangesToggle: vi.fn(),
-    onShowComments: vi.fn(),
-    onToggleSidebar: vi.fn(),
-    setCollapsed: vi.fn(),
-    setTrackedChangesVisible: vi.fn(),
-    updateUndoRedoState: vi.fn(),
-    setHasUnsavedChanges: vi.fn(),
-    destroy: vi.fn(),
-  })),
+  MainSidebar: vi.fn(function MockMainSidebar(this: unknown) {
+    return {
+      create: vi.fn().mockImplementation(() => {
+        const element = document.createElement('div');
+        element.className = 'review-toolbar review-persistent-sidebar';
+        return element;
+      }),
+      onUndo: vi.fn(),
+      onRedo: vi.fn(),
+      onTrackedChangesToggle: vi.fn(),
+      onShowComments: vi.fn(),
+      onToggleSidebar: vi.fn(),
+      setCollapsed: vi.fn(),
+      setTrackedChangesVisible: vi.fn(),
+      updateUndoRedoState: vi.fn(),
+      setHasUnsavedChanges: vi.fn(),
+      destroy: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('@modules/ui/sidebars/ContextMenu', () => ({
-  ContextMenu: vi.fn().mockImplementation(() => ({
-    onEdit: vi.fn(),
-    onComment: vi.fn(),
-    open: vi.fn(),
-  })),
+  ContextMenu: vi.fn(function MockContextMenu(this: unknown) {
+    return {
+      onEdit: vi.fn(),
+      onComment: vi.fn(),
+      open: vi.fn(),
+    };
+  }),
 }));
 
 const createStubConfig = (): UIConfig => ({

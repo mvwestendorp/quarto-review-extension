@@ -26,4 +26,4 @@ export {
 
 // Remark parser
 export { remarkCriticMarkupMilkdown } from './remark-parser';
-export type { default as RemarkPlugin } from 'unified';
+export type { Plugin as RemarkPlugin } from 'unified';
