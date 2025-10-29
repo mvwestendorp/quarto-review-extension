@@ -7,6 +7,10 @@ import GitIntegrationService, {
   type ReviewSubmissionPayload,
 } from './integration';
 import type { ResolvedGitConfig } from './types';
+import {
+  EmbeddedSourceStore,
+  type EmbeddedSourceRecord,
+} from './fallback';
 
 const logger = createModuleLogger('GitModule');
 
@@ -14,9 +18,11 @@ export class GitModule {
   private readonly resolution: ReturnType<typeof resolveGitConfig>;
   private readonly provider?: BaseProvider;
   private readonly integration?: GitIntegrationService;
+  private readonly fallbackStore: EmbeddedSourceStore;
 
   constructor(rawConfig?: ReviewGitConfig) {
     this.resolution = resolveGitConfig(rawConfig);
+    this.fallbackStore = new EmbeddedSourceStore();
 
     if (!this.resolution) {
       logger.info('Git integration disabled (no configuration provided)');
@@ -69,9 +75,31 @@ export class GitModule {
     _summary: unknown,
     _filepath = 'document.qmd'
   ): Promise<string> {
+    const message = typeof _summary === 'string' ? _summary : 'Update file';
+
+    if (!this.integration) {
+      const result = await this.fallbackStore.saveFile(
+        _filepath,
+        _content,
+        message
+      );
+      return result.version;
+    }
+
     logger.warn('Direct git saves are not supported yet. Submit a review instead.');
     return '';
   }
+
+  public async listEmbeddedSources(): Promise<EmbeddedSourceRecord[]> {
+    return this.fallbackStore.listSources();
+  }
+
+  public async getEmbeddedSource(
+    filename: string
+  ): Promise<EmbeddedSourceRecord | undefined> {
+    return this.fallbackStore.getSource(filename);
+  }
 }
 
+export { EmbeddedSourceStore } from './fallback';
 export default GitModule;
