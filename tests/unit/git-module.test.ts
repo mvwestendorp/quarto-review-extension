@@ -182,14 +182,17 @@ describe('GitModule', () => {
   });
 
   describe('save (legacy)', () => {
-    it('logs warning when called', async () => {
+    it('persists via fallback store when git is disabled', async () => {
       vi.mocked(resolveGitConfig).mockReturnValueOnce(null);
 
       const module = new GitModule();
 
       const result = await module.save('content', {}, 'document.qmd');
 
-      expect(result).toBe('');
+      expect(typeof result).toBe('string');
+      expect(result.length).toBeGreaterThan(0);
+      const sources = await module.listEmbeddedSources();
+      expect(sources.some((source) => source.filename === 'document.qmd')).toBe(true);
     });
   });
 
