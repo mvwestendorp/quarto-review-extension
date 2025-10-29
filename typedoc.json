@@ -1,0 +1,27 @@
+{
+  "name": "Quarto Review Extension - API Reference",
+  "out": "docs/generated/api",
+  "entryPoints": [
+    "src/main.ts",
+    "src/modules/changes/index.ts",
+    "src/modules/comments/index.ts",
+    "src/modules/ui/index.ts",
+    "src/modules/markdown/index.ts",
+    "src/modules/git/index.ts",
+    "src/modules/user/index.ts",
+    "src/utils/debug.ts"
+  ],
+  "skipErrorChecking": false,
+  "excludeExternals": false,
+  "excludeNotDocumented": false,
+  "excludePrivate": false,
+  "excludeProtected": false,
+  "readme": "docs/dev/README.md",
+  "theme": "default",
+  "sort": [
+    "source-order"
+  ],
+  "searchInComments": true,
+  "treatWarningsAsErrors": false,
+  "logLevel": "Error"
+}
