@@ -33,6 +33,8 @@ export class DocumentSearch {
   private highlightedElements: Set<HTMLElement> = new Set();
   private panelVisible: boolean = false;
   private debounceTimer: number | null = null;
+  private removalTimer: number | null = null;
+  private keyboardHandler: ((event: KeyboardEvent) => void) | null = null;
 
   constructor(config: DocumentSearchConfig) {
     this.config = config;
@@ -43,7 +45,11 @@ export class DocumentSearch {
    * Setup Cmd+F / Ctrl+F keyboard shortcut
    */
   private setupSearchKeyboardShortcuts(): void {
-    document.addEventListener('keydown', (e: KeyboardEvent) => {
+    if (this.keyboardHandler) {
+      document.removeEventListener('keydown', this.keyboardHandler);
+    }
+
+    this.keyboardHandler = (e: KeyboardEvent) => {
       // Check if user is in an editable context where find shouldn't be triggered
       if (this.isEditableTarget(e.target as HTMLElement)) {
         return;
@@ -54,7 +60,9 @@ export class DocumentSearch {
         e.preventDefault();
         this.toggleSearchPanel();
       }
-    });
+    };
+
+    document.addEventListener('keydown', this.keyboardHandler);
   }
 
   /**
@@ -105,9 +113,13 @@ export class DocumentSearch {
 
     if (this.searchPanel) {
       this.searchPanel.classList.add('review-search-closing');
-      setTimeout(() => {
+      if (this.removalTimer) {
+        clearTimeout(this.removalTimer);
+      }
+      this.removalTimer = window.setTimeout(() => {
         this.searchPanel?.remove();
         this.searchPanel = null;
+        this.removalTimer = null;
       }, getAnimationDuration('MEDIUM'));
     }
   }
@@ -569,8 +581,21 @@ export class DocumentSearch {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
+
+    if (this.keyboardHandler) {
+      document.removeEventListener('keydown', this.keyboardHandler);
+      this.keyboardHandler = null;
+    }
     // Close search panel
     this.closeSearchPanel();
+    if (this.removalTimer) {
+      clearTimeout(this.removalTimer);
+      this.removalTimer = null;
+    }
+    if (this.searchPanel) {
+      this.searchPanel.remove();
+      this.searchPanel = null;
+    }
     // Clear matches
     this.matches = [];
     this.highlightedElements.clear();

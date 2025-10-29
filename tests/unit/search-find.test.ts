@@ -36,6 +36,9 @@ describe('DocumentSearch', () => {
   });
 
   afterEach(() => {
+    if (search) {
+      search.destroy();
+    }
     document.body.innerHTML = '';
   });
 
