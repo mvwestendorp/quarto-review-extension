@@ -179,7 +179,9 @@ export class MarkdownModule {
       }
 
       const fullMatch = matchResult[0] ?? '';
-      working = working.slice(0, Math.max(0, working.length - fullMatch.length)).trimEnd();
+      working = working
+        .slice(0, Math.max(0, working.length - fullMatch.length))
+        .trimEnd();
     }
 
     return working;
@@ -242,7 +244,12 @@ export class MarkdownModule {
       if (!token) return false;
       if (token.startsWith('#') && token.length > 1) return true;
       if (token.startsWith('.') && token.length > 1) return true;
-      if (token.includes('=') && !token.startsWith('{') && !token.startsWith('}')) return true;
+      if (
+        token.includes('=') &&
+        !token.startsWith('{') &&
+        !token.startsWith('}')
+      )
+        return true;
       return false;
     });
   }

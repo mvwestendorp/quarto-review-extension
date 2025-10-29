@@ -7,10 +7,7 @@ import GitIntegrationService, {
   type ReviewSubmissionPayload,
 } from './integration';
 import type { ResolvedGitConfig } from './types';
-import {
-  EmbeddedSourceStore,
-  type EmbeddedSourceRecord,
-} from './fallback';
+import { EmbeddedSourceStore, type EmbeddedSourceRecord } from './fallback';
 
 const logger = createModuleLogger('GitModule');
 
@@ -56,9 +53,7 @@ export class GitModule {
     return this.provider;
   }
 
-  public async submitReview(
-    payload: ReviewSubmissionPayload
-  ): Promise<void> {
+  public async submitReview(payload: ReviewSubmissionPayload): Promise<void> {
     if (!this.integration) {
       throw new Error('Git integration is not configured');
     }
@@ -86,7 +81,9 @@ export class GitModule {
       return result.version;
     }
 
-    logger.warn('Direct git saves are not supported yet. Submit a review instead.');
+    logger.warn(
+      'Direct git saves are not supported yet. Submit a review instead.'
+    );
     return '';
   }
 

@@ -22,11 +22,14 @@ const LOG_LEVEL_VALUES: Record<LogLevel, number> = {
 };
 
 const LOG_STYLES: Record<LogLevel, string> = {
-  error: 'background-color: #ff6b6b; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
+  error:
+    'background-color: #ff6b6b; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
   warn: 'background-color: #ffa500; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
   info: 'background-color: #4a90e2; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
-  debug: 'background-color: #50e3c2; color: black; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
-  trace: 'background-color: #b8e986; color: black; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
+  debug:
+    'background-color: #50e3c2; color: black; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
+  trace:
+    'background-color: #b8e986; color: black; font-weight: bold; padding: 2px 6px; border-radius: 3px;',
 };
 
 class DebugLogger {
@@ -49,9 +52,7 @@ class DebugLogger {
     this.config = {
       enabled: debugFromUrl !== null || debugEnv === 'true',
       level:
-        (debugFromUrl as LogLevel) ||
-        (debugLevelEnv as LogLevel) ||
-        'info',
+        (debugFromUrl as LogLevel) || (debugLevelEnv as LogLevel) || 'info',
       modules: debugModulesEnv?.split(','),
       excludeModules: debugExcludeEnv?.split(','),
       formatTimestamp: true,
@@ -132,7 +133,12 @@ class DebugLogger {
   /**
    * Core logging method
    */
-  private log(module: string, level: LogLevel, message: string, data?: unknown): void {
+  private log(
+    module: string,
+    level: LogLevel,
+    message: string,
+    data?: unknown
+  ): void {
     if (!this.shouldLog(module, level)) {
       return;
     }
@@ -201,11 +207,16 @@ export const debugLogger = new DebugLogger();
  */
 export function createModuleLogger(moduleName: string) {
   return {
-    error: (message: string, error?: unknown) => debugLogger.error(moduleName, message, error),
-    warn: (message: string, data?: unknown) => debugLogger.warn(moduleName, message, data),
-    info: (message: string, data?: unknown) => debugLogger.info(moduleName, message, data),
-    debug: (message: string, data?: unknown) => debugLogger.debug(moduleName, message, data),
-    trace: (message: string, data?: unknown) => debugLogger.trace(moduleName, message, data),
+    error: (message: string, error?: unknown) =>
+      debugLogger.error(moduleName, message, error),
+    warn: (message: string, data?: unknown) =>
+      debugLogger.warn(moduleName, message, data),
+    info: (message: string, data?: unknown) =>
+      debugLogger.info(moduleName, message, data),
+    debug: (message: string, data?: unknown) =>
+      debugLogger.debug(moduleName, message, data),
+    trace: (message: string, data?: unknown) =>
+      debugLogger.trace(moduleName, message, data),
   };
 }
 
@@ -213,7 +224,8 @@ export function createModuleLogger(moduleName: string) {
  * Print debug configuration and usage guide
  */
 export function printDebugHelp(): void {
-  console.log(`
+  console.log(
+    `
 %c╔══════════════════════════════════════════════════════════╗
 ║  Quarto Review Extension - Debug Mode Help               ║
 ╚══════════════════════════════════════════════════════════╝%c

@@ -113,7 +113,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
     });
 
     it('should render the element correctly in the DOM', () => {
-      const element = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
 
       expect(element).not.toBeNull();
       expect(element?.querySelector('ul')).not.toBeNull();
@@ -183,8 +185,12 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       expect(toolbar).not.toBeNull();
 
       // Verify toolbar buttons are present (for bullet list context)
-      const bulletListBtn = toolbar?.querySelector('[data-command="bullet-list"]');
-      const orderedListBtn = toolbar?.querySelector('[data-command="ordered-list"]');
+      const bulletListBtn = toolbar?.querySelector(
+        '[data-command="bullet-list"]'
+      );
+      const orderedListBtn = toolbar?.querySelector(
+        '[data-command="ordered-list"]'
+      );
       const boldBtn = toolbar?.querySelector('[data-command="bold"]');
 
       expect(bulletListBtn).not.toBeNull();
@@ -205,7 +211,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
 
       // Get the ProseMirror editor
       const editorSurface = document.querySelector('.review-editor-surface');
-      const proseMirror = editorSurface?.querySelector('.ProseMirror') as HTMLElement;
+      const proseMirror = editorSurface?.querySelector(
+        '.ProseMirror'
+      ) as HTMLElement;
 
       expect(proseMirror).not.toBeNull();
 
@@ -237,7 +245,8 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       changes.edit(TEST_LIST_ID, editedContent);
 
       // Get content with tracked changes visualization
-      const trackedContent = changes.getElementContentWithTrackedChanges(TEST_LIST_ID);
+      const trackedContent =
+        changes.getElementContentWithTrackedChanges(TEST_LIST_ID);
 
       // Should contain CriticMarkup markers for tracked changes
       // The exact format includes {--old--} and {++new++} markers
@@ -320,7 +329,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       // Get updated element
-      const element = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
       const wrapper = element?.querySelector('.review-section-wrapper');
       const liItems = wrapper?.querySelectorAll('li');
 
@@ -342,7 +353,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 50));
 
-      const element = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
       const liItems = element?.querySelectorAll('li');
 
       // Check that bold elements are rendered
@@ -359,7 +372,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
     });
 
     it('should preserve embedded markdown attribute after edits', () => {
-      const element = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
       const originalMarkdown = element?.getAttribute('data-review-markdown');
       expect(originalMarkdown).toBe(TEST_LIST_CONTENT);
 
@@ -370,13 +385,19 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       changes.edit(TEST_LIST_ID, editedContent);
       ui.refresh();
 
-      const updatedElement = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
-      const updatedMarkdown = updatedElement?.getAttribute('data-review-markdown');
+      const updatedElement = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
+      const updatedMarkdown = updatedElement?.getAttribute(
+        'data-review-markdown'
+      );
       expect(updatedMarkdown).toBe(originalMarkdown);
     });
 
     it('should update the modified attribute', () => {
-      const element = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
 
       // Initially not modified
       expect(element?.getAttribute('data-review-modified')).not.toBe('true');
@@ -386,7 +407,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       ui.refresh();
 
       // Should be marked as modified
-      const updatedElement = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const updatedElement = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
       expect(updatedElement?.getAttribute('data-review-modified')).toBe('true');
     });
   });
@@ -524,7 +547,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       changes.edit(TEST_LIST_ID, boldContent);
       ui.refresh();
 
-      const element = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
       const boldElements = element?.querySelectorAll('strong');
 
       // Should have strong elements for bold text
@@ -543,7 +568,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       changes.edit(TEST_LIST_ID, mixedContent);
       ui.refresh();
 
-      const element = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
 
       expect(element?.querySelector('strong')).not.toBeNull();
       expect(element?.querySelector('em')).not.toBeNull();
@@ -558,7 +585,9 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       changes.edit(TEST_LIST_ID, complexContent);
       ui.refresh();
 
-      const element = document.querySelector(`[data-review-id="${TEST_LIST_ID}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${TEST_LIST_ID}"]`
+      );
       const listItems = element?.querySelectorAll('li');
 
       expect(listItems?.length).toBe(3);

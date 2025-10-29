@@ -68,11 +68,14 @@ export class ChangeSummaryDashboard {
       modifiedElements.add(op.elementId);
 
       // Count change types by analyzing CriticMarkup
-      const content = this.config.changes.getElementContentWithTrackedChanges(op.elementId);
+      const content = this.config.changes.getElementContentWithTrackedChanges(
+        op.elementId
+      );
 
       const additionMatches = content.match(/\{\+\+([\s\S]*?)\+\+\}/g) || [];
-      const deletionMatches = content.match(/\{\-\-([\s\S]*?)\-\-\}/g) || [];
-      const substitutionMatches = content.match(/\{\~\~([\s\S]*?)\~>([\s\S]*?)\~\~\}/g) || [];
+      const deletionMatches = content.match(/\{--([\s\S]*?)--\}/g) || [];
+      const substitutionMatches =
+        content.match(/\{~~([\s\S]*?)~>([\s\S]*?)~~\}/g) || [];
 
       summary.additions += additionMatches.length;
       summary.deletions += deletionMatches.length;
@@ -85,7 +88,7 @@ export class ChangeSummaryDashboard {
       });
 
       deletionMatches.forEach((match: string) => {
-        const text = match.replace(/\{\-\-|\-\-\}/g, '');
+        const text = match.replace(/\{--|--\}/g, '');
         summary.charactersRemoved += text.length;
       });
 
@@ -127,14 +130,13 @@ export class ChangeSummaryDashboard {
       if (!element) return;
 
       const plainText = this.config.markdown.toPlainText(element.content) || '';
-      const preview = plainText
-        .substring(0, 100)
-        .replace(/\s+/g, ' ')
-        .trim();
+      const preview = plainText.substring(0, 100).replace(/\s+/g, ' ').trim();
 
       // Determine change type
       let changeType: 'addition' | 'deletion' | 'substitution' = 'substitution';
-      const content = this.config.changes.getElementContentWithTrackedChanges(op.elementId);
+      const content = this.config.changes.getElementContentWithTrackedChanges(
+        op.elementId
+      );
 
       if (content.includes('{++') && !content.includes('{--')) {
         changeType = 'addition';
@@ -165,17 +167,20 @@ export class ChangeSummaryDashboard {
       dashboard.setAttribute('role', 'region');
       dashboard.setAttribute('aria-label', 'Change summary statistics');
 
-    const additionPercent = summary.totalChanges > 0
-      ? Math.round((summary.additions / summary.totalChanges) * 100)
-      : 0;
-    const deletionPercent = summary.totalChanges > 0
-      ? Math.round((summary.deletions / summary.totalChanges) * 100)
-      : 0;
-    const substitutionPercent = summary.totalChanges > 0
-      ? Math.round((summary.substitutions / summary.totalChanges) * 100)
-      : 0;
+      const additionPercent =
+        summary.totalChanges > 0
+          ? Math.round((summary.additions / summary.totalChanges) * 100)
+          : 0;
+      const deletionPercent =
+        summary.totalChanges > 0
+          ? Math.round((summary.deletions / summary.totalChanges) * 100)
+          : 0;
+      const substitutionPercent =
+        summary.totalChanges > 0
+          ? Math.round((summary.substitutions / summary.totalChanges) * 100)
+          : 0;
 
-    dashboard.innerHTML = `
+      dashboard.innerHTML = `
       <div class="review-summary-section">
         <div class="review-summary-header">
           <h3>📊 Change Summary</h3>
@@ -251,12 +256,14 @@ export class ChangeSummaryDashboard {
           <h4>Changes by Element Type</h4>
           <div class="review-element-types">
             ${Array.from(summary.changesByElementType.entries())
-              .map(([type, count]) => `
+              .map(
+                ([type, count]) => `
                 <div class="review-element-type-item">
                   <span class="review-element-type-name">${this.getElementTypeIcon(type)} ${type}</span>
                   <span class="review-element-type-count">${count}</span>
                 </div>
-              `)
+              `
+              )
               .join('')}
           </div>
         </div>
@@ -371,39 +378,52 @@ export class ChangeSummaryDashboard {
    */
   private attachDashboardHandlers(dashboard: HTMLElement): void {
     // Refresh button
-    dashboard.querySelector('[data-action="refresh"]')?.addEventListener('click', () => {
-      const refreshed = this.renderDashboard();
-      this.summaryElement?.replaceWith(refreshed);
-    });
+    dashboard
+      .querySelector('[data-action="refresh"]')
+      ?.addEventListener('click', () => {
+        const refreshed = this.renderDashboard();
+        this.summaryElement?.replaceWith(refreshed);
+      });
 
     // Jump buttons
-    dashboard.querySelector('[data-action="jump-to-first"]')?.addEventListener('click', () => {
-      this.jumpToChange('first');
-    });
+    dashboard
+      .querySelector('[data-action="jump-to-first"]')
+      ?.addEventListener('click', () => {
+        this.jumpToChange('first');
+      });
 
-    dashboard.querySelector('[data-action="jump-to-last"]')?.addEventListener('click', () => {
-      this.jumpToChange('last');
-    });
+    dashboard
+      .querySelector('[data-action="jump-to-last"]')
+      ?.addEventListener('click', () => {
+        this.jumpToChange('last');
+      });
 
     // Export summary
-    dashboard.querySelector('[data-action="export-summary"]')?.addEventListener('click', () => {
-      this.exportSummary();
-    });
+    dashboard
+      .querySelector('[data-action="export-summary"]')
+      ?.addEventListener('click', () => {
+        this.exportSummary();
+      });
 
     // Jump to individual changes
-    dashboard.querySelectorAll('[data-action="jump-to-change"]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const elementId = (e.currentTarget as HTMLElement).getAttribute('data-element-id');
-        if (elementId) {
-          this.jumpToElement(elementId);
-        }
+    dashboard
+      .querySelectorAll('[data-action="jump-to-change"]')
+      .forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          const elementId = (e.currentTarget as HTMLElement).getAttribute(
+            'data-element-id'
+          );
+          if (elementId) {
+            this.jumpToElement(elementId);
+          }
+        });
       });
-    });
 
     // Click on change item to jump
     dashboard.querySelectorAll('.review-change-item').forEach((item) => {
       item.addEventListener('click', (e) => {
-        if ((e.target as HTMLElement).closest('[data-action="jump-to-change"]')) return;
+        if ((e.target as HTMLElement).closest('[data-action="jump-to-change"]'))
+          return;
         const elementId = (item as HTMLElement).getAttribute('data-element-id');
         if (elementId) {
           this.jumpToElement(elementId);
@@ -431,7 +451,9 @@ export class ChangeSummaryDashboard {
    * Jump to element and highlight it
    */
   private jumpToElement(elementId: string): void {
-    const element = document.querySelector(`[data-review-id="${elementId}"]`) as HTMLElement;
+    const element = document.querySelector(
+      `[data-review-id="${elementId}"]`
+    ) as HTMLElement;
     if (!element) return;
 
     // Scroll into view
@@ -520,7 +542,10 @@ export class ChangeSummaryDashboard {
   /**
    * Show notification
    */
-  private showNotification(message: string, type: 'info' | 'success' | 'error'): void {
+  private showNotification(
+    message: string,
+    type: 'info' | 'success' | 'error'
+  ): void {
     const notification = document.createElement('div');
     notification.className = `review-notification review-notification-${type}`;
     notification.textContent = message;

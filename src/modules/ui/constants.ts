@@ -58,6 +58,8 @@ export const UI_CONSTANTS = {
 /**
  * Get animation duration by name
  */
-export function getAnimationDuration(key: keyof typeof UI_CONSTANTS.ANIMATION_DURATION_MS): number {
+export function getAnimationDuration(
+  key: keyof typeof UI_CONSTANTS.ANIMATION_DURATION_MS
+): number {
   return UI_CONSTANTS.ANIMATION_DURATION_MS[key];
 }

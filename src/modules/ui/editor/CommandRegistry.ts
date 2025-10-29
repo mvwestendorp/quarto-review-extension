@@ -73,7 +73,9 @@ export class CommandRegistry {
    */
   register(definition: CommandDefinition): void {
     if (this.commands.has(definition.id)) {
-      logger.warn(`Command '${definition.id}' is already registered, overwriting`);
+      logger.warn(
+        `Command '${definition.id}' is already registered, overwriting`
+      );
     }
     this.commands.set(definition.id, definition);
     logger.debug(`Registered command: ${definition.id}`);
@@ -206,9 +208,7 @@ export class CommandRegistry {
         if (!attrs) return true;
 
         const nodeAttrs = node.attrs || {};
-        return Object.keys(attrs).every(
-          (key) => nodeAttrs[key] === attrs[key]
-        );
+        return Object.keys(attrs).every((key) => nodeAttrs[key] === attrs[key]);
       }
       depth--;
     }
@@ -283,7 +283,8 @@ export function createStandardCommands(): CommandDefinition[] {
       id: 'strike',
       label: 'Strike',
       handler: (ctx) => ctx.commands.call(toggleStrikethroughCommand.key),
-      isActive: (state) => CommandRegistry.isMarkActive(state, 'strike_through'),
+      isActive: (state) =>
+        CommandRegistry.isMarkActive(state, 'strike_through'),
     },
     {
       id: 'code',
@@ -325,8 +326,7 @@ export function createStandardCommands(): CommandDefinition[] {
         }
         return ctx.commands.call(wrapInBlockquoteCommand.key);
       },
-      isActive: (state) =>
-        CommandRegistry.isNodeActive(state, 'blockquote'),
+      isActive: (state) => CommandRegistry.isNodeActive(state, 'blockquote'),
     },
     {
       id: 'code-block',
@@ -337,8 +337,7 @@ export function createStandardCommands(): CommandDefinition[] {
         }
         return ctx.commands.call(createCodeBlockCommand.key);
       },
-      isActive: (state) =>
-        CommandRegistry.isNodeActive(state, 'code_block'),
+      isActive: (state) => CommandRegistry.isNodeActive(state, 'code_block'),
     },
     // Lists
     {
@@ -350,8 +349,7 @@ export function createStandardCommands(): CommandDefinition[] {
         }
         return ctx.commands.call(wrapInBulletListCommand.key);
       },
-      isActive: (state) =>
-        CommandRegistry.isNodeActive(state, 'bullet_list'),
+      isActive: (state) => CommandRegistry.isNodeActive(state, 'bullet_list'),
     },
     {
       id: 'ordered-list',
@@ -362,8 +360,7 @@ export function createStandardCommands(): CommandDefinition[] {
         }
         return ctx.commands.call(wrapInOrderedListCommand.key);
       },
-      isActive: (state) =>
-        CommandRegistry.isNodeActive(state, 'ordered_list'),
+      isActive: (state) => CommandRegistry.isNodeActive(state, 'ordered_list'),
     },
   ];
 }

@@ -126,10 +126,7 @@ function renderSubstitutionMarkup(
   return `<span class="${classPrefix}-substitution" data-critic-type="substitution">${markup}</span>`;
 }
 
-function processNodeChildren(
-  node: Parent,
-  options: CriticMarkupOptions
-): void {
+function processNodeChildren(node: Parent, options: CriticMarkupOptions): void {
   if (!node.children) return;
 
   const nextChildren: Parent['children'] = [];
@@ -138,10 +135,15 @@ function processNodeChildren(
     const child = node.children[i] as any;
 
     if (child.type === 'delete') {
-      const previous = nextChildren[nextChildren.length - 1] as Text | Html | undefined;
+      const previous = nextChildren[nextChildren.length - 1] as
+        | Text
+        | Html
+        | undefined;
       const nextSibling = node.children[i + 1] as Text | undefined;
       const deleteText =
-        child.children?.map((c: any) => ('value' in c ? (c as Text).value : '')).join('') ?? '';
+        child.children
+          ?.map((c: any) => ('value' in c ? (c as Text).value : ''))
+          .join('') ?? '';
       const [oldText, newText] = deleteText.split('~>');
 
       if (
@@ -156,7 +158,9 @@ function processNodeChildren(
       ) {
         const braceIndex = previous.value.lastIndexOf('{');
         if (braceIndex !== -1) {
-          const updated = previous.value.slice(0, braceIndex) + previous.value.slice(braceIndex + 1);
+          const updated =
+            previous.value.slice(0, braceIndex) +
+            previous.value.slice(braceIndex + 1);
           if (updated) {
             previous.value = updated;
           } else {
@@ -164,7 +168,11 @@ function processNodeChildren(
           }
         }
 
-        const substitutionHtml = renderSubstitutionMarkup(oldText, newText, options);
+        const substitutionHtml = renderSubstitutionMarkup(
+          oldText,
+          newText,
+          options
+        );
         nextChildren.push({
           type: 'html',
           value: substitutionHtml,
@@ -211,9 +219,13 @@ export const remarkCriticMarkup: Plugin<[CriticMarkupOptions?], Root> = (
       (parent as Parent).children[index] = htmlNode;
     });
 
-    visit(tree, ['paragraph', 'heading', 'table', 'tableRow', 'tableCell'], (node: any) => {
-      processNodeChildren(node, options);
-    });
+    visit(
+      tree,
+      ['paragraph', 'heading', 'table', 'tableRow', 'tableCell'],
+      (node: any) => {
+        processNodeChildren(node, options);
+      }
+    );
   };
 };
 

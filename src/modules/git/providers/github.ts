@@ -1,8 +1,4 @@
-import {
-  BaseProvider,
-  type Issue,
-  type PullRequest,
-} from './base';
+import { BaseProvider, type Issue, type PullRequest } from './base';
 import type {
   CreateBranchResult,
   FileUpsertResult,
@@ -16,8 +12,9 @@ function decodeBase64(content: string): string {
   if (typeof atob === 'function') {
     return decodeURIComponent(
       Array.prototype.map
-        .call(atob(content), (c: string) =>
-          `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
+        .call(
+          atob(content),
+          (c: string) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
         )
         .join('')
     );
@@ -286,10 +283,7 @@ export class GitHubProvider extends BaseProvider {
     return response.map((issue) => this.mapIssue(issue));
   }
 
-  async addPullRequestComment(
-    number: number,
-    body: string
-  ): Promise<void> {
+  async addPullRequestComment(number: number, body: string): Promise<void> {
     await this.request(
       `/repos/${this.config.owner}/${this.config.repo}/issues/${number}/comments`,
       {

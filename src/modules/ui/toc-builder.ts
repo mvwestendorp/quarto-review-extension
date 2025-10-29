@@ -72,7 +72,9 @@ export class TOCBuilder {
       }
     });
 
-    logger.debug('Built TOC with entries', { count: this.countEntries(this.tocRoot) });
+    logger.debug('Built TOC with entries', {
+      count: this.countEntries(this.tocRoot),
+    });
     return this.tocRoot;
   }
 
@@ -212,10 +214,16 @@ export class TOCBuilder {
   }
 
   private countEntries(entries: TocEntry[]): number {
-    return entries.reduce((sum, entry) => 1 + this.countEntries(entry.children) + sum, 0);
+    return entries.reduce(
+      (sum, entry) => 1 + this.countEntries(entry.children) + sum,
+      0
+    );
   }
 
-  private renderEntries(entries: TocEntry[], container: HTMLUListElement): void {
+  private renderEntries(
+    entries: TocEntry[],
+    container: HTMLUListElement
+  ): void {
     entries.forEach((entry) => {
       const li = document.createElement('li');
       li.className = 'review-toc-item';

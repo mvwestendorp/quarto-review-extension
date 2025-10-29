@@ -21,7 +21,10 @@ import type {
 export class GiteaProvider extends BaseProvider {
   constructor(config: ProviderConfig) {
     // Ensure URL includes API path
-    const rawUrl = (config.url || 'https://gitea.com/api/v1').replace(/\/$/, '');
+    const rawUrl = (config.url || 'https://gitea.com/api/v1').replace(
+      /\/$/,
+      ''
+    );
     const url = rawUrl.endsWith('/api/v1') ? rawUrl : `${rawUrl}/api/v1`;
 
     super({

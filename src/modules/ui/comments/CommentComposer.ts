@@ -9,7 +9,12 @@
  */
 
 import { createModuleLogger } from '@utils/debug';
-import { MODULE_EVENTS, ModuleEventEmitter, type CommentSubmittedDetail, escapeHtml } from '../shared';
+import {
+  MODULE_EVENTS,
+  ModuleEventEmitter,
+  type CommentSubmittedDetail,
+  escapeHtml,
+} from '../shared';
 
 const logger = createModuleLogger('CommentComposer');
 
@@ -30,7 +35,9 @@ export class CommentComposer extends ModuleEventEmitter {
   private currentContext: ComposerContext | null = null;
   private insertionAnchor: HTMLElement | null = null;
   private originalItem: HTMLElement | null = null;
-  private onSubmitCallback: ((content: string, context: ComposerContext) => void) | null = null;
+  private onSubmitCallback:
+    | ((content: string, context: ComposerContext) => void)
+    | null = null;
   private onCancelCallback: (() => void) | null = null;
 
   /**
@@ -169,12 +176,23 @@ export class CommentComposer extends ModuleEventEmitter {
     sidebarBody.scrollTop = 0;
 
     // Set up event handlers
-    this.element!.querySelector('[data-action="close"]')?.addEventListener('click', () => this.cancel());
-    this.element!.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.cancel());
-    this.element!.querySelector('[data-action="save"]')?.addEventListener('click', () => this.submit());
+    this.element!.querySelector('[data-action="close"]')?.addEventListener(
+      'click',
+      () => this.cancel()
+    );
+    this.element!.querySelector('[data-action="cancel"]')?.addEventListener(
+      'click',
+      () => this.cancel()
+    );
+    this.element!.querySelector('[data-action="save"]')?.addEventListener(
+      'click',
+      () => this.submit()
+    );
 
     // Focus and populate textarea
-    const textarea = this.element!.querySelector('textarea') as HTMLTextAreaElement;
+    const textarea = this.element!.querySelector(
+      'textarea'
+    ) as HTMLTextAreaElement;
     if (textarea) {
       if (context.existingComment) {
         textarea.value = context.existingComment;
@@ -191,7 +209,9 @@ export class CommentComposer extends ModuleEventEmitter {
     // Emit event
     this.emit(MODULE_EVENTS.COMMENT_COMPOSER_OPENED, {
       elementId: context.elementId,
-      existingComment: context.existingComment ? { content: context.existingComment } : undefined,
+      existingComment: context.existingComment
+        ? { content: context.existingComment }
+        : undefined,
     } as any);
 
     logger.debug('Comment composer opened', { context });
@@ -229,7 +249,9 @@ export class CommentComposer extends ModuleEventEmitter {
    */
   getContent(): string {
     if (!this.element) return '';
-    const textarea = this.element.querySelector('textarea') as HTMLTextAreaElement;
+    const textarea = this.element.querySelector(
+      'textarea'
+    ) as HTMLTextAreaElement;
     return textarea ? textarea.value.trim() : '';
   }
 
@@ -263,7 +285,10 @@ export class CommentComposer extends ModuleEventEmitter {
     }
 
     this.close();
-    logger.debug('Comment submitted', { context: this.currentContext, content });
+    logger.debug('Comment submitted', {
+      context: this.currentContext,
+      content,
+    });
   }
 
   /**
@@ -289,7 +314,9 @@ export class CommentComposer extends ModuleEventEmitter {
    */
   private clearForm(): void {
     if (!this.element) return;
-    const textarea = this.element.querySelector('textarea') as HTMLTextAreaElement;
+    const textarea = this.element.querySelector(
+      'textarea'
+    ) as HTMLTextAreaElement;
     if (textarea) {
       textarea.value = '';
     }
@@ -299,7 +326,9 @@ export class CommentComposer extends ModuleEventEmitter {
   /**
    * Register submit handler
    */
-  onSubmit(callback: (content: string, context: ComposerContext) => void): void {
+  onSubmit(
+    callback: (content: string, context: ComposerContext) => void
+  ): void {
     this.onSubmitCallback = callback;
   }
 

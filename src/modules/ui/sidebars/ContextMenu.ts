@@ -52,7 +52,8 @@ export class ContextMenu {
 
     // Comment action
     const commentItem = document.createElement('button');
-    commentItem.className = 'review-context-menu-item review-context-menu-comment';
+    commentItem.className =
+      'review-context-menu-item review-context-menu-comment';
     commentItem.setAttribute('role', 'menuitem');
     commentItem.textContent = 'Add Comment';
     commentItem.addEventListener('click', () => {
@@ -108,7 +109,9 @@ export class ContextMenu {
     this.isOpen = true;
 
     // Focus first item for accessibility
-    const firstItem = this.element!.querySelector('button') as HTMLButtonElement;
+    const firstItem = this.element!.querySelector(
+      'button'
+    ) as HTMLButtonElement;
     if (firstItem) {
       firstItem.focus();
     }

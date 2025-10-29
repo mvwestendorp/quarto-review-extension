@@ -18,7 +18,10 @@ export interface CommentControllerConfig {
 export interface CommentControllerCallbacks {
   requestRefresh: () => void;
   ensureSidebarVisible?: () => void;
-  showNotification: (message: string, type?: 'info' | 'success' | 'error') => void;
+  showNotification: (
+    message: string,
+    type?: 'info' | 'success' | 'error'
+  ) => void;
   onComposerClosed?: () => void;
 }
 
@@ -68,7 +71,9 @@ export class CommentController {
       return;
     }
 
-    const body = sidebarElement.querySelector('.review-comments-sidebar-content') as HTMLElement | null;
+    const body = sidebarElement.querySelector(
+      '.review-comments-sidebar-content'
+    ) as HTMLElement | null;
     if (!body) {
       return;
     }
@@ -76,7 +81,9 @@ export class CommentController {
     this.closeComposer();
 
     const element = this.config.changes.getElementById(context.elementId);
-    const elementLabel = element ? this.getElementLabel(element.content, element.metadata.type) : 'Document section';
+    const elementLabel = element
+      ? this.getElementLabel(element.content, element.metadata.type)
+      : 'Document section';
 
     const existingCommentContent = context.existingComment?.content;
 
@@ -90,15 +97,20 @@ export class CommentController {
       body
     );
 
-    const composerElement = body.querySelector('.review-comment-composer') as HTMLElement | null;
+    const composerElement = body.querySelector(
+      '.review-comment-composer'
+    ) as HTMLElement | null;
     if (composerElement) {
       composerElement.dataset.elementId = context.elementId;
       composerElement.dataset.commentKey = context.commentKey ?? '';
       if (context.existingComment) {
-        composerElement.dataset.commentStart = String(context.existingComment.start);
+        composerElement.dataset.commentStart = String(
+          context.existingComment.start
+        );
       }
       this.commentState.activeCommentComposer = composerElement;
-      this.commentState.activeComposerInsertionAnchor = composerElement.previousElementSibling as HTMLElement | null;
+      this.commentState.activeComposerInsertionAnchor =
+        composerElement.previousElementSibling as HTMLElement | null;
     }
 
     // Hide original comment item while editing
@@ -112,7 +124,9 @@ export class CommentController {
       }
     }
 
-    const textarea = body.querySelector('.review-comment-composer-input') as HTMLTextAreaElement | null;
+    const textarea = body.querySelector(
+      '.review-comment-composer-input'
+    ) as HTMLTextAreaElement | null;
     textarea?.focus();
   }
 
@@ -127,7 +141,9 @@ export class CommentController {
     this.commentState.activeComposerInsertionAnchor = null;
 
     if (this.commentState.activeComposerOriginalItem) {
-      this.commentState.activeComposerOriginalItem.classList.remove('review-comment-item-hidden');
+      this.commentState.activeComposerOriginalItem.classList.remove(
+        'review-comment-item-hidden'
+      );
       this.commentState.activeComposerOriginalItem = null;
     }
 
@@ -150,7 +166,10 @@ export class CommentController {
     this.closeComposer();
   }
 
-  public removeComment(elementId: string, match: ReturnType<CommentsModule['parse']>[0]): void {
+  public removeComment(
+    elementId: string,
+    match: ReturnType<CommentsModule['parse']>[0]
+  ): void {
     try {
       const currentContent = this.config.changes.getElementContent(elementId);
       const newContent = this.config.comments.accept(currentContent, match);
@@ -177,12 +196,11 @@ export class CommentController {
       const lastCommentIndex = existingComments.length - 1;
       const lastComment =
         lastCommentIndex >= 0 ? existingComments[lastCommentIndex] : undefined;
-      const newContent =
-        lastComment
-          ? currentContent.substring(0, lastComment.start) +
-            this.config.comments.createComment(comment) +
-            currentContent.substring(lastComment.end)
-          : currentContent + this.config.comments.createComment(comment);
+      const newContent = lastComment
+        ? currentContent.substring(0, lastComment.start) +
+          this.config.comments.createComment(comment) +
+          currentContent.substring(lastComment.end)
+        : currentContent + this.config.comments.createComment(comment);
 
       this.config.changes.edit(elementId, newContent);
       const extracted = this.extractSectionComments(newContent);
@@ -197,7 +215,11 @@ export class CommentController {
     }
   }
 
-  private updateSectionComment(elementId: string, start: number, comment: string): void {
+  private updateSectionComment(
+    elementId: string,
+    start: number,
+    comment: string
+  ): void {
     try {
       const currentContent = this.config.changes.getElementContent(elementId);
       const comments = this.config.comments
@@ -246,7 +268,9 @@ export class CommentController {
     const snapshots: SectionCommentSnapshot[] = [];
 
     rawState.forEach((element) => {
-      const matches = parse(element.content).filter((m) => m.type === 'comment');
+      const matches = parse(element.content).filter(
+        (m) => m.type === 'comment'
+      );
 
       if (matches.length > 0) {
         snapshots.push({ element, matches });
@@ -264,9 +288,7 @@ export class CommentController {
     return counts;
   }
 
-  public refreshUI(options: {
-    showSidebar?: boolean;
-  }): void {
+  public refreshUI(options: { showSidebar?: boolean }): void {
     const sections = this.getSectionComments();
 
     if (options.showSidebar) {
@@ -321,7 +343,10 @@ export class CommentController {
     });
   }
 
-  public cacheSectionCommentMarkup(elementId: string, markup: string | null): void {
+  public cacheSectionCommentMarkup(
+    elementId: string,
+    markup: string | null
+  ): void {
     if (markup && markup.trim()) {
       this.sectionCommentCache.set(elementId, markup);
     } else {
@@ -345,9 +370,10 @@ export class CommentController {
     ids.forEach((id) => this.sectionCommentCache.delete(id));
   }
 
-  public extractSectionComments(
-    content: string
-  ): { content: string; commentMarkup: string | null } {
+  public extractSectionComments(content: string): {
+    content: string;
+    commentMarkup: string | null;
+  } {
     let working = content;
     const captured: string[] = [];
     const pattern = /\s*\{>>[\s\S]*?<<\}\s*$/;
@@ -372,7 +398,11 @@ export class CommentController {
     return `${base}${commentMarkup}`;
   }
 
-  public highlightSection(elementId: string, source: 'hover' | 'composer', commentKey?: string): void {
+  public highlightSection(
+    elementId: string,
+    source: 'hover' | 'composer',
+    commentKey?: string
+  ): void {
     const element = document.querySelector(
       `[data-review-id="${elementId}"]`
     ) as HTMLElement | null;
@@ -384,7 +414,9 @@ export class CommentController {
       this.commentState.activeHighlightedSection &&
       this.commentState.activeHighlightedSection !== element
     ) {
-      this.commentState.activeHighlightedSection.classList.remove('review-comment-section-highlight');
+      this.commentState.activeHighlightedSection.classList.remove(
+        'review-comment-section-highlight'
+      );
     }
 
     this.commentState.activeHighlightedSection = element;
@@ -397,14 +429,17 @@ export class CommentController {
       const isComposerElement =
         this.commentState.activeCommentComposer.dataset.elementId === elementId;
       if (source === 'composer' && isComposerElement) {
-        this.commentState.activeCommentComposer.classList.add('review-comment-composer-active');
+        this.commentState.activeCommentComposer.classList.add(
+          'review-comment-composer-active'
+        );
       } else if (source === 'hover') {
-        this.commentState.activeCommentComposer.classList.remove('review-comment-composer-active');
+        this.commentState.activeCommentComposer.classList.remove(
+          'review-comment-composer-active'
+        );
       }
     }
 
     this.sanitizeInlineCommentArtifacts(element);
-
   }
 
   public clearHighlight(source?: 'hover' | 'composer'): void {
@@ -417,7 +452,9 @@ export class CommentController {
     }
 
     if (this.commentState.activeHighlightedSection) {
-      this.commentState.activeHighlightedSection.classList.remove('review-comment-section-highlight');
+      this.commentState.activeHighlightedSection.classList.remove(
+        'review-comment-section-highlight'
+      );
     }
     this.commentState.activeHighlightedSection = null;
     this.commentState.highlightedBy = null;
@@ -429,7 +466,9 @@ export class CommentController {
       this.commentState.activeCommentComposer &&
       source === 'composer'
     ) {
-      this.commentState.activeCommentComposer.classList.remove('review-comment-composer-active');
+      this.commentState.activeCommentComposer.classList.remove(
+        'review-comment-composer-active'
+      );
     }
 
     if (source === 'hover' && this.commentState.activeCommentComposer) {
@@ -445,7 +484,6 @@ export class CommentController {
         );
       }
     }
-
   }
 
   public focusCommentAnchor(elementId: string, commentKey: string): void {
@@ -474,7 +512,6 @@ export class CommentController {
         element.classList.remove('review-highlight-flash');
       }, getAnimationDuration('LONG_HIGHLIGHT'));
     }
-
   }
 
   private updateCommentHighlights(
@@ -484,7 +521,9 @@ export class CommentController {
   ): void {
     document
       .querySelectorAll<HTMLElement>('.review-comment-item')
-      .forEach((item) => item.classList.remove('review-comment-item-highlight'));
+      .forEach((item) =>
+        item.classList.remove('review-comment-item-highlight')
+      );
 
     if (!elementId) {
       return;
@@ -501,7 +540,9 @@ export class CommentController {
         }
       });
     } else if (source === 'hover') {
-      items.forEach((item) => item.classList.add('review-comment-item-highlight'));
+      items.forEach((item) =>
+        item.classList.add('review-comment-item-highlight')
+      );
     }
   }
 

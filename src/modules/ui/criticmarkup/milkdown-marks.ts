@@ -58,9 +58,9 @@ function createCriticMark(
         }
 
         // Create brand new text nodes from scratch
-        const textNodes = textValues.map(value => ({
+        const textNodes = textValues.map((value) => ({
           type: 'text',
-          value: value
+          value: value,
         }));
 
         state.next(textNodes);

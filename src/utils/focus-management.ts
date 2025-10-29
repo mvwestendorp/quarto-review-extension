@@ -133,7 +133,10 @@ export class FocusManager {
     }
 
     // Restore focus to previously focused element
-    if (this.previouslyFocused && this.previouslyFocused instanceof HTMLElement) {
+    if (
+      this.previouslyFocused &&
+      this.previouslyFocused instanceof HTMLElement
+    ) {
       requestAnimationFrame(() => {
         this.previouslyFocused?.focus();
       });
@@ -175,7 +178,10 @@ export function announceToScreenReader(
 /**
  * Create a visually hidden skip link element
  */
-export function createSkipLink(targetId: string, text: string = 'Skip to main content'): HTMLElement {
+export function createSkipLink(
+  targetId: string,
+  text: string = 'Skip to main content'
+): HTMLElement {
   const skipLink = document.createElement('a');
   skipLink.href = `#${targetId}`;
   skipLink.className = 'skip-link';

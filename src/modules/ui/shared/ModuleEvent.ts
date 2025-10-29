@@ -13,7 +13,7 @@ export class ModuleEvent<T = any> extends CustomEvent<T> {
     super(type, {
       detail,
       bubbles: true,
-      cancelable: true
+      cancelable: true,
     });
   }
 }
@@ -202,10 +202,7 @@ export function onModuleEvent<T = any>(
 /**
  * Helper to emit module events globally
  */
-export function emitModuleEvent<T = any>(
-  eventType: string,
-  detail?: T
-): void {
+export function emitModuleEvent<T = any>(eventType: string, detail?: T): void {
   const event = new ModuleEvent<T>(eventType, detail);
   document.dispatchEvent(event);
 }

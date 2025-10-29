@@ -8,11 +8,7 @@
  * Extracted from UIModule index.ts to reduce monolithic complexity.
  */
 
-import {
-  Editor,
-  rootCtx,
-  defaultValueCtx,
-} from '@milkdown/kit/core';
+import { Editor, rootCtx, defaultValueCtx } from '@milkdown/kit/core';
 import { nord } from '@milkdown/theme-nord';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
@@ -23,7 +19,11 @@ import { Plugin, PluginKey } from '@milkdown/prose/state';
 import type { Node as ProseNode } from '@milkdown/prose/model';
 
 import { createModuleLogger } from '@utils/debug';
-import { MODULE_EVENTS, ModuleEventEmitter, normalizeListMarkers } from '../shared';
+import {
+  MODULE_EVENTS,
+  ModuleEventEmitter,
+  normalizeListMarkers,
+} from '../shared';
 import {
   criticMarkupRemarkPlugin,
   criticAddition,
@@ -102,7 +102,9 @@ export class MilkdownEditor extends ModuleEventEmitter {
     // Find the editor body - works for both modal and inline
     const editorContainer =
       (container.querySelector('.review-editor-body') as HTMLElement | null) ||
-      (container.querySelector('.review-inline-editor-body') as HTMLElement | null);
+      (container.querySelector(
+        '.review-inline-editor-body'
+      ) as HTMLElement | null);
     if (!editorContainer) {
       throw new Error('Editor container not found');
     }
@@ -119,7 +121,10 @@ export class MilkdownEditor extends ModuleEventEmitter {
           ctx.set(rootCtx, mount);
           ctx.set(defaultValueCtx, initialContent);
           // Configure history plugin with a reasonable depth
-          ctx.set(historyProviderConfig.key, { depth: 100, newGroupDelay: 500 });
+          ctx.set(historyProviderConfig.key, {
+            depth: 100,
+            newGroupDelay: 500,
+          });
 
           const listenerManager = ctx.get(listenerCtx);
           // Listen for markdown changes
@@ -201,7 +206,8 @@ export class MilkdownEditor extends ModuleEventEmitter {
       logger.debug('Milkdown editor initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize Milkdown:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       editorContainer.innerHTML = `
         <div style="padding:20px; color:red;">
           Failed to initialize editor. Please try again.
@@ -215,9 +221,10 @@ export class MilkdownEditor extends ModuleEventEmitter {
   /**
    * Prepare editor layout with toolbar and mount point
    */
-  private prepareLayout(
-    container: HTMLElement
-  ): { mount: HTMLElement; toolbarElement: HTMLElement } {
+  private prepareLayout(container: HTMLElement): {
+    mount: HTMLElement;
+    toolbarElement: HTMLElement;
+  } {
     let layout = container.querySelector(
       '.review-editor-layout'
     ) as HTMLElement | null;
@@ -259,9 +266,7 @@ export class MilkdownEditor extends ModuleEventEmitter {
   /**
    * Create tracked highlight plugin for diff visualization
    */
-  private createTrackedHighlightPlugin(
-    ranges: DiffHighlightRange[]
-  ) {
+  private createTrackedHighlightPlugin(ranges: DiffHighlightRange[]) {
     const trackedHighlightPluginKey = new PluginKey('reviewTrackedHighlight');
 
     // Wrap the plugin with $prose to create a proper MilkdownPlugin descriptor
@@ -332,9 +337,7 @@ export class MilkdownEditor extends ModuleEventEmitter {
             ? 'review-tracked-deletion'
             : 'review-tracked-modification';
 
-      decorations.push(
-        Decoration.inline(from, to, { class: className })
-      );
+      decorations.push(Decoration.inline(from, to, { class: className }));
     });
 
     return decorations;

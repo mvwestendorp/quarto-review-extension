@@ -111,8 +111,14 @@ export class MainSidebar {
 
     this.trackedChangesToggle = document.createElement('input');
     this.trackedChangesToggle.type = 'checkbox';
-    this.trackedChangesToggle.setAttribute('data-action', 'toggle-tracked-changes');
-    this.trackedChangesToggle.setAttribute('aria-label', 'Show tracked changes');
+    this.trackedChangesToggle.setAttribute(
+      'data-action',
+      'toggle-tracked-changes'
+    );
+    this.trackedChangesToggle.setAttribute(
+      'aria-label',
+      'Show tracked changes'
+    );
     this.trackedChangesToggle.className = 'review-sidebar-checkbox';
     this.trackedChangesToggle.addEventListener('change', (event) => {
       const target = event.target as HTMLInputElement;
@@ -137,7 +143,8 @@ export class MainSidebar {
     commentsSection.appendChild(commentsTitle);
 
     this.commentsBtn = document.createElement('button');
-    this.commentsBtn.className = 'review-btn review-btn-primary review-btn-block';
+    this.commentsBtn.className =
+      'review-btn review-btn-primary review-btn-block';
     this.commentsBtn.setAttribute('data-action', 'show-comments');
     this.commentsBtn.textContent = '💬 View Comments';
     this.commentsBtn.addEventListener('click', () => {
@@ -225,8 +232,14 @@ export class MainSidebar {
     if (chevron) {
       chevron.textContent = collapsed ? '›' : '‹';
     }
-    this.toggleBtn.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
-    this.toggleBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+    this.toggleBtn.setAttribute(
+      'title',
+      collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+    );
+    this.toggleBtn.setAttribute(
+      'aria-label',
+      collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+    );
     this.toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
   }
 

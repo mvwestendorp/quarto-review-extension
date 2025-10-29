@@ -25,9 +25,7 @@ export class GitIntegrationService {
     return this.provider;
   }
 
-  public async submitReview(
-    _payload: ReviewSubmissionPayload
-  ): Promise<void> {
+  public async submitReview(_payload: ReviewSubmissionPayload): Promise<void> {
     logger.warn('Git integration submitReview is not implemented yet');
     throw new Error('Git integration workflow is not implemented yet');
   }

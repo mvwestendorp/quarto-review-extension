@@ -110,188 +110,189 @@ export const TOOLBAR_BUTTON_GROUPS: EditorToolbarButton[][] = [
  * Context-aware toolbar configurations based on element type
  * Maps element types to their most relevant button groups
  */
-export const CONTEXT_TOOLBAR_CONFIGS: Record<string, EditorToolbarButton[][]> = {
-  // For headers - focus on heading levels and basic formatting
-  heading: [
-    [
-      {
-        action: 'heading-2',
-        label: 'H2',
-        title: 'Heading 2 (Ctrl+Alt+2)',
-      },
-      {
-        action: 'heading-3',
-        label: 'H3',
-        title: 'Heading 3 (Ctrl+Alt+3)',
-      },
-      {
-        action: 'blockquote',
-        label: '>',
-        title: 'Blockquote (Ctrl+Shift+B)',
-      },
+export const CONTEXT_TOOLBAR_CONFIGS: Record<string, EditorToolbarButton[][]> =
+  {
+    // For headers - focus on heading levels and basic formatting
+    heading: [
+      [
+        {
+          action: 'heading-2',
+          label: 'H2',
+          title: 'Heading 2 (Ctrl+Alt+2)',
+        },
+        {
+          action: 'heading-3',
+          label: 'H3',
+          title: 'Heading 3 (Ctrl+Alt+3)',
+        },
+        {
+          action: 'blockquote',
+          label: '>',
+          title: 'Blockquote (Ctrl+Shift+B)',
+        },
+      ],
+      [
+        {
+          action: 'bold',
+          label: 'B',
+          title: 'Bold (Ctrl+B)',
+        },
+        {
+          action: 'italic',
+          label: 'I',
+          title: 'Italic (Ctrl+I)',
+        },
+        {
+          action: 'code',
+          label: '`',
+          title: 'Inline code (Ctrl+E)',
+        },
+      ],
     ],
-    [
-      {
-        action: 'bold',
-        label: 'B',
-        title: 'Bold (Ctrl+B)',
-      },
-      {
-        action: 'italic',
-        label: 'I',
-        title: 'Italic (Ctrl+I)',
-      },
-      {
-        action: 'code',
-        label: '`',
-        title: 'Inline code (Ctrl+E)',
-      },
-    ],
-  ],
 
-  // For paragraphs - focus on text formatting and lists
-  paragraph: [
-    [
-      {
-        action: 'bold',
-        label: 'B',
-        title: 'Bold (Ctrl+B)',
-      },
-      {
-        action: 'italic',
-        label: 'I',
-        title: 'Italic (Ctrl+I)',
-      },
-      {
-        action: 'strike',
-        label: 'S',
-        title: 'Strikethrough (Ctrl+Alt+X)',
-        modifierClass: 'review-editor-toolbar-btn-strike',
-      },
-      {
-        action: 'code',
-        label: '`',
-        title: 'Inline code (Ctrl+E)',
-      },
+    // For paragraphs - focus on text formatting and lists
+    paragraph: [
+      [
+        {
+          action: 'bold',
+          label: 'B',
+          title: 'Bold (Ctrl+B)',
+        },
+        {
+          action: 'italic',
+          label: 'I',
+          title: 'Italic (Ctrl+I)',
+        },
+        {
+          action: 'strike',
+          label: 'S',
+          title: 'Strikethrough (Ctrl+Alt+X)',
+          modifierClass: 'review-editor-toolbar-btn-strike',
+        },
+        {
+          action: 'code',
+          label: '`',
+          title: 'Inline code (Ctrl+E)',
+        },
+      ],
+      [
+        {
+          action: 'bullet-list',
+          label: '•',
+          title: 'Bullet list (Ctrl+Alt+8)',
+        },
+        {
+          action: 'ordered-list',
+          label: '1.',
+          title: 'Ordered list (Ctrl+Alt+9)',
+        },
+      ],
     ],
-    [
-      {
-        action: 'bullet-list',
-        label: '•',
-        title: 'Bullet list (Ctrl+Alt+8)',
-      },
-      {
-        action: 'ordered-list',
-        label: '1.',
-        title: 'Ordered list (Ctrl+Alt+9)',
-      },
-    ],
-  ],
 
-  // For code blocks - only escape option
-  code_block: [
-    [
-      {
-        action: 'code-block',
-        label: '{}',
-        title: 'Exit code block (Ctrl+Alt+C)',
-      },
+    // For code blocks - only escape option
+    code_block: [
+      [
+        {
+          action: 'code-block',
+          label: '{}',
+          title: 'Exit code block (Ctrl+Alt+C)',
+        },
+      ],
     ],
-  ],
 
-  // For lists - list type switching and light formatting
-  bullet_list: [
-    [
-      {
-        action: 'bullet-list',
-        label: '•',
-        title: 'Bullet list (Ctrl+Alt+8)',
-      },
-      {
-        action: 'ordered-list',
-        label: '1.',
-        title: 'Ordered list (Ctrl+Alt+9)',
-      },
+    // For lists - list type switching and light formatting
+    bullet_list: [
+      [
+        {
+          action: 'bullet-list',
+          label: '•',
+          title: 'Bullet list (Ctrl+Alt+8)',
+        },
+        {
+          action: 'ordered-list',
+          label: '1.',
+          title: 'Ordered list (Ctrl+Alt+9)',
+        },
+      ],
+      [
+        {
+          action: 'bold',
+          label: 'B',
+          title: 'Bold (Ctrl+B)',
+        },
+        {
+          action: 'italic',
+          label: 'I',
+          title: 'Italic (Ctrl+I)',
+        },
+        {
+          action: 'code',
+          label: '`',
+          title: 'Inline code (Ctrl+E)',
+        },
+      ],
     ],
-    [
-      {
-        action: 'bold',
-        label: 'B',
-        title: 'Bold (Ctrl+B)',
-      },
-      {
-        action: 'italic',
-        label: 'I',
-        title: 'Italic (Ctrl+I)',
-      },
-      {
-        action: 'code',
-        label: '`',
-        title: 'Inline code (Ctrl+E)',
-      },
-    ],
-  ],
 
-  ordered_list: [
-    [
-      {
-        action: 'bullet-list',
-        label: '•',
-        title: 'Bullet list (Ctrl+Alt+8)',
-      },
-      {
-        action: 'ordered-list',
-        label: '1.',
-        title: 'Ordered list (Ctrl+Alt+9)',
-      },
+    ordered_list: [
+      [
+        {
+          action: 'bullet-list',
+          label: '•',
+          title: 'Bullet list (Ctrl+Alt+8)',
+        },
+        {
+          action: 'ordered-list',
+          label: '1.',
+          title: 'Ordered list (Ctrl+Alt+9)',
+        },
+      ],
+      [
+        {
+          action: 'bold',
+          label: 'B',
+          title: 'Bold (Ctrl+B)',
+        },
+        {
+          action: 'italic',
+          label: 'I',
+          title: 'Italic (Ctrl+I)',
+        },
+        {
+          action: 'code',
+          label: '`',
+          title: 'Inline code (Ctrl+E)',
+        },
+      ],
     ],
-    [
-      {
-        action: 'bold',
-        label: 'B',
-        title: 'Bold (Ctrl+B)',
-      },
-      {
-        action: 'italic',
-        label: 'I',
-        title: 'Italic (Ctrl+I)',
-      },
-      {
-        action: 'code',
-        label: '`',
-        title: 'Inline code (Ctrl+E)',
-      },
-    ],
-  ],
 
-  // For blockquotes - similar to paragraphs
-  blockquote: [
-    [
-      {
-        action: 'blockquote',
-        label: '>',
-        title: 'Blockquote (Ctrl+Shift+B)',
-      },
+    // For blockquotes - similar to paragraphs
+    blockquote: [
+      [
+        {
+          action: 'blockquote',
+          label: '>',
+          title: 'Blockquote (Ctrl+Shift+B)',
+        },
+      ],
+      [
+        {
+          action: 'bold',
+          label: 'B',
+          title: 'Bold (Ctrl+B)',
+        },
+        {
+          action: 'italic',
+          label: 'I',
+          title: 'Italic (Ctrl+I)',
+        },
+        {
+          action: 'code',
+          label: '`',
+          title: 'Inline code (Ctrl+E)',
+        },
+      ],
     ],
-    [
-      {
-        action: 'bold',
-        label: 'B',
-        title: 'Bold (Ctrl+B)',
-      },
-      {
-        action: 'italic',
-        label: 'I',
-        title: 'Italic (Ctrl+I)',
-      },
-      {
-        action: 'code',
-        label: '`',
-        title: 'Inline code (Ctrl+E)',
-      },
-    ],
-  ],
-};
+  };
 
 /**
  * EditorToolbar class manages the editor's formatting toolbar with context awareness
@@ -359,7 +360,10 @@ export class EditorToolbar {
    */
   private saveContextModePreference(): void {
     try {
-      localStorage.setItem('review-toolbar-context-mode', JSON.stringify(this.useContextMode));
+      localStorage.setItem(
+        'review-toolbar-context-mode',
+        JSON.stringify(this.useContextMode)
+      );
     } catch {
       // Silently fail if localStorage unavailable
     }
@@ -390,7 +394,9 @@ export class EditorToolbar {
     if (!this.element) return;
 
     // Remove existing buttons
-    const oldGroups = this.element.querySelectorAll('.review-editor-toolbar-group');
+    const oldGroups = this.element.querySelectorAll(
+      '.review-editor-toolbar-group'
+    );
     oldGroups.forEach((group) => group.remove());
 
     // Recreate buttons with new configuration
@@ -429,7 +435,9 @@ export class EditorToolbar {
       });
 
       // Insert before the toggle buttons
-      const toggleBtn = this.element!.querySelector('.review-editor-toolbar-toggle');
+      const toggleBtn = this.element!.querySelector(
+        '.review-editor-toolbar-toggle'
+      );
       if (toggleBtn) {
         this.element!.insertBefore(groupElem, toggleBtn);
       } else {
@@ -467,7 +475,8 @@ export class EditorToolbar {
     // Add undo button in top-left corner
     const undoBtn = document.createElement('button');
     undoBtn.type = 'button';
-    undoBtn.className = 'review-editor-toolbar-undo-redo review-editor-toolbar-undo';
+    undoBtn.className =
+      'review-editor-toolbar-undo-redo review-editor-toolbar-undo';
     undoBtn.setAttribute('aria-label', 'Undo (Ctrl+Z)');
     undoBtn.setAttribute('title', 'Undo (Ctrl+Z)');
     undoBtn.textContent = '↶';
@@ -478,7 +487,8 @@ export class EditorToolbar {
     // Add redo button in top-right corner
     const redoBtn = document.createElement('button');
     redoBtn.type = 'button';
-    redoBtn.className = 'review-editor-toolbar-undo-redo review-editor-toolbar-redo';
+    redoBtn.className =
+      'review-editor-toolbar-undo-redo review-editor-toolbar-redo';
     redoBtn.setAttribute('aria-label', 'Redo (Ctrl+Y)');
     redoBtn.setAttribute('title', 'Redo (Ctrl+Y)');
     redoBtn.textContent = '↷';
@@ -529,8 +539,14 @@ export class EditorToolbar {
     const contextToggleBtn = document.createElement('button');
     contextToggleBtn.type = 'button';
     contextToggleBtn.className = 'review-editor-toolbar-context-toggle';
-    contextToggleBtn.setAttribute('aria-label', this.useContextMode ? 'Show all buttons' : 'Show smart buttons');
-    contextToggleBtn.setAttribute('title', this.useContextMode ? 'Show all buttons (⇄)' : 'Show smart buttons (⇄)');
+    contextToggleBtn.setAttribute(
+      'aria-label',
+      this.useContextMode ? 'Show all buttons' : 'Show smart buttons'
+    );
+    contextToggleBtn.setAttribute(
+      'title',
+      this.useContextMode ? 'Show all buttons (⇄)' : 'Show smart buttons (⇄)'
+    );
     contextToggleBtn.textContent = '⇄';
     toolbar.appendChild(contextToggleBtn);
 
@@ -553,12 +569,20 @@ export class EditorToolbar {
     if (!this.element) return;
 
     this.isCollapsed = !this.isCollapsed;
-    this.element.classList.toggle('review-editor-toolbar-collapsed', this.isCollapsed);
+    this.element.classList.toggle(
+      'review-editor-toolbar-collapsed',
+      this.isCollapsed
+    );
 
     // Update button label
-    const toggleBtn = this.element.querySelector('.review-editor-toolbar-toggle') as HTMLButtonElement;
+    const toggleBtn = this.element.querySelector(
+      '.review-editor-toolbar-toggle'
+    ) as HTMLButtonElement;
     if (toggleBtn) {
-      toggleBtn.setAttribute('aria-label', this.isCollapsed ? 'Expand toolbar' : 'Collapse toolbar');
+      toggleBtn.setAttribute(
+        'aria-label',
+        this.isCollapsed ? 'Expand toolbar' : 'Collapse toolbar'
+      );
     }
   }
 
@@ -595,7 +619,9 @@ export class EditorToolbar {
     });
 
     // Handle context mode toggle button
-    const contextToggleBtn = this.element.querySelector('.review-editor-toolbar-context-toggle') as HTMLButtonElement;
+    const contextToggleBtn = this.element.querySelector(
+      '.review-editor-toolbar-context-toggle'
+    ) as HTMLButtonElement;
     if (contextToggleBtn) {
       contextToggleBtn.addEventListener('click', (event) => {
         event.preventDefault();
@@ -605,7 +631,9 @@ export class EditorToolbar {
     }
 
     // Handle expand/collapse toggle button
-    const toggleBtn = this.element.querySelector('.review-editor-toolbar-toggle') as HTMLButtonElement;
+    const toggleBtn = this.element.querySelector(
+      '.review-editor-toolbar-toggle'
+    ) as HTMLButtonElement;
     if (toggleBtn) {
       toggleBtn.addEventListener('click', (event) => {
         event.preventDefault();
@@ -648,9 +676,7 @@ export class EditorToolbar {
     }
 
     const buttons = Array.from(
-      this.element.querySelectorAll<HTMLButtonElement>(
-        'button[data-command]'
-      )
+      this.element.querySelectorAll<HTMLButtonElement>('button[data-command]')
     );
 
     buttons.forEach((button) => {
@@ -660,14 +686,14 @@ export class EditorToolbar {
       if (action === 'undo' || action === 'redo') {
         const canExecute = this.canExecuteCommand(action);
         button.disabled = !canExecute;
-        button.classList.toggle('review-editor-toolbar-undo-redo-disabled', !canExecute);
+        button.classList.toggle(
+          'review-editor-toolbar-undo-redo-disabled',
+          !canExecute
+        );
       } else {
         // For other buttons, track active state
         const isActive = this.commandRegistry.getActiveState(action);
-        button.classList.toggle(
-          'review-editor-toolbar-btn-active',
-          isActive
-        );
+        button.classList.toggle('review-editor-toolbar-btn-active', isActive);
         button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       }
     });
@@ -688,10 +714,16 @@ export class EditorToolbar {
         const state = ctx.get(editorViewCtx).state;
         if (action === 'undo') {
           // Check if there's any history to undo
-          canExecute = state.history && state.history.done && state.history.done.length > 0;
+          canExecute =
+            state.history &&
+            state.history.done &&
+            state.history.done.length > 0;
         } else if (action === 'redo') {
           // Check if there's any history to redo
-          canExecute = state.history && state.history.undone && state.history.undone.length > 0;
+          canExecute =
+            state.history &&
+            state.history.undone &&
+            state.history.undone.length > 0;
         }
       });
       return canExecute;

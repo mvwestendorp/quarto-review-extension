@@ -43,7 +43,10 @@ export class KeyboardShortcutManager {
 
     // Index shortcut if provided
     if (command.shortcut) {
-      this.shortcutMap.set(this.normalizeShortcut(command.shortcut), command.id);
+      this.shortcutMap.set(
+        this.normalizeShortcut(command.shortcut),
+        command.id
+      );
     }
   }
 
@@ -77,7 +80,9 @@ export class KeyboardShortcutManager {
     if (this.paletteVisible) return;
 
     this.paletteVisible = true;
-    this.filteredCommands = Array.from(this.commands.values()).filter(cmd => cmd.enabled());
+    this.filteredCommands = Array.from(this.commands.values()).filter((cmd) =>
+      cmd.enabled()
+    );
 
     const palette = this.createPaletteElement();
     document.body.appendChild(palette);
@@ -90,7 +95,9 @@ export class KeyboardShortcutManager {
       this.focusManager = new FocusManager(palette);
       this.focusManager.activate();
 
-      const input = palette.querySelector('.review-palette-input') as HTMLInputElement;
+      const input = palette.querySelector(
+        '.review-palette-input'
+      ) as HTMLInputElement;
       input?.focus();
     });
   }
@@ -126,7 +133,9 @@ export class KeyboardShortcutManager {
    * Get commands by category
    */
   getCommandsByCategory(category: string): KeyboardCommand[] {
-    return Array.from(this.commands.values()).filter(cmd => cmd.category === category);
+    return Array.from(this.commands.values()).filter(
+      (cmd) => cmd.category === category
+    );
   }
 
   /**
@@ -242,8 +251,12 @@ export class KeyboardShortcutManager {
     `;
 
     // Attach event listeners
-    const input = palette.querySelector('.review-palette-input') as HTMLInputElement;
-    const overlay = palette.querySelector('.review-palette-overlay') as HTMLElement;
+    const input = palette.querySelector(
+      '.review-palette-input'
+    ) as HTMLInputElement;
+    const overlay = palette.querySelector(
+      '.review-palette-overlay'
+    ) as HTMLElement;
 
     input.addEventListener('input', (e) => {
       this.filterCommands((e.target as HTMLInputElement).value);
@@ -258,9 +271,11 @@ export class KeyboardShortcutManager {
     });
 
     // Prevent palette from closing when clicking inside
-    palette.querySelector('.review-palette-container')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
+    palette
+      .querySelector('.review-palette-container')
+      ?.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
 
     // Initial render
     this.renderPaletteResults(palette);
@@ -278,9 +293,9 @@ export class KeyboardShortcutManager {
     const normalizedQuery = query.toLowerCase();
 
     this.filteredCommands = Array.from(this.commands.values())
-      .filter(cmd => cmd.enabled())
+      .filter((cmd) => cmd.enabled())
       .filter(
-        cmd =>
+        (cmd) =>
           cmd.name.toLowerCase().includes(normalizedQuery) ||
           cmd.description.toLowerCase().includes(normalizedQuery) ||
           cmd.id.toLowerCase().includes(normalizedQuery)
@@ -299,7 +314,9 @@ export class KeyboardShortcutManager {
   }
 
   private renderPaletteResults(paletteElement: HTMLElement): void {
-    const resultsContainer = paletteElement.querySelector('.review-palette-results');
+    const resultsContainer = paletteElement.querySelector(
+      '.review-palette-results'
+    );
     if (!resultsContainer) return;
 
     if (this.filteredCommands.length === 0) {
@@ -410,7 +427,9 @@ export class KeyboardShortcutManager {
 
   private showHelp(): void {
     const help = this.getShortcutsHelp();
-    const resultsContainer = this.paletteElement?.querySelector('.review-palette-results');
+    const resultsContainer = this.paletteElement?.querySelector(
+      '.review-palette-results'
+    );
     if (!resultsContainer) return;
 
     resultsContainer.innerHTML = `
@@ -429,7 +448,12 @@ export class KeyboardShortcutManager {
     if (e.metaKey) parts.push('cmd');
 
     const key = e.key.toLowerCase();
-    if (key !== 'control' && key !== 'alt' && key !== 'shift' && key !== 'meta') {
+    if (
+      key !== 'control' &&
+      key !== 'alt' &&
+      key !== 'shift' &&
+      key !== 'meta'
+    ) {
       parts.push(key === ' ' ? 'space' : key);
     }
 
@@ -445,7 +469,9 @@ export class KeyboardShortcutManager {
     if (editableTypes.includes(target.tagName)) {
       const type = (target as HTMLInputElement).type;
       // Allow if it's not a text input
-      return type === 'text' || type === 'search' || type === 'email' || type === '';
+      return (
+        type === 'text' || type === 'search' || type === 'email' || type === ''
+      );
     }
 
     // Check contenteditable
@@ -497,7 +523,9 @@ export class KeyboardShortcutManager {
  * Default commands for the Review Extension
  * These are registered by the UIModule
  */
-export function getDefaultCommands(uiModule: UIModuleInterface): KeyboardCommand[] {
+export function getDefaultCommands(
+  uiModule: UIModuleInterface
+): KeyboardCommand[] {
   return [
     // Editing Commands
     {
@@ -570,9 +598,14 @@ export function getDefaultCommands(uiModule: UIModuleInterface): KeyboardCommand
       shortcut: 'Cmd+Shift+Home',
       category: 'navigation',
       handler: () => {
-        const firstModified = document.querySelector('[data-review-modified="true"]');
+        const firstModified = document.querySelector(
+          '[data-review-modified="true"]'
+        );
         if (firstModified) {
-          (firstModified as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+          (firstModified as HTMLElement).scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
         }
       },
       enabled: () => !!document.querySelector('[data-review-modified="true"]'),
@@ -584,10 +617,15 @@ export function getDefaultCommands(uiModule: UIModuleInterface): KeyboardCommand
       shortcut: 'Cmd+Shift+End',
       category: 'navigation',
       handler: () => {
-        const allModified = document.querySelectorAll('[data-review-modified="true"]');
+        const allModified = document.querySelectorAll(
+          '[data-review-modified="true"]'
+        );
         if (allModified.length > 0) {
           const lastModified = allModified[allModified.length - 1];
-          (lastModified as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+          (lastModified as HTMLElement).scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
         }
       },
       enabled: () => !!document.querySelector('[data-review-modified="true"]'),

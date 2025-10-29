@@ -8,7 +8,10 @@
 
 import type { Root, Text, Parent, Node } from 'mdast';
 import type { Plugin } from 'unified';
-import type { Handle as ToMarkdownHandle, Options as ToMarkdownExtension } from 'mdast-util-to-markdown';
+import type {
+  Handle as ToMarkdownHandle,
+  Options as ToMarkdownExtension,
+} from 'mdast-util-to-markdown';
 
 /**
  * CriticMarkup patterns
@@ -35,14 +38,14 @@ function hasCriticMarkup(text: string): boolean {
 // Create text nodes with only essential properties - NO parent references
 const createText = (value: string): Text => ({
   type: 'text',
-  value
+  value,
 });
 
 // Create criticMarkup nodes - NO parent references
 const createMarkup = (markup: string, value: string) => ({
   type: 'criticMarkup' as const,
   markup,
-  children: [createText(value)]
+  children: [createText(value)],
 });
 
 /**
@@ -111,7 +114,7 @@ function cleanCopyNode(node: any): any {
 
   // Handle arrays
   if (Array.isArray(node)) {
-    return node.map(item => cleanCopyNode(item));
+    return node.map((item) => cleanCopyNode(item));
   }
 
   // Create clean object

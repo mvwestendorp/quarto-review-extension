@@ -50,9 +50,11 @@ export function resolveGitConfig(
   }
 
   const baseBranch =
-    (rawConfig.baseBranch ||
+    (
+      rawConfig.baseBranch ||
       (rawConfig['base-branch'] as string | undefined) ||
-      DEFAULT_BASE_BRANCH).trim() || DEFAULT_BASE_BRANCH;
+      DEFAULT_BASE_BRANCH
+    ).trim() || DEFAULT_BASE_BRANCH;
 
   const sourceFile =
     (rawConfig.sourceFile as string | undefined) ||
@@ -113,7 +115,9 @@ function normalizeAuthConfig(
   };
 }
 
-function determineAuthMode(config: ReviewGitConfig['auth']): GitAuthConfig['mode'] {
+function determineAuthMode(
+  config: ReviewGitConfig['auth']
+): GitAuthConfig['mode'] {
   const modeValue = (config?.mode as string | undefined)?.toLowerCase();
   if (modeValue === 'header' || modeValue === 'cookie' || modeValue === 'pat') {
     return modeValue;

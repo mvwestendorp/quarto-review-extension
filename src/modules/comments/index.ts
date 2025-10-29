@@ -409,7 +409,11 @@ export class CommentsModule {
       const end = start + fullMatch.length;
 
       const isPartOfHighlight = matches.some(
-        (m) => m.type === 'highlight' && m.comment && start >= m.start && start < m.end
+        (m) =>
+          m.type === 'highlight' &&
+          m.comment &&
+          start >= m.start &&
+          start < m.end
       );
 
       if (!isPartOfHighlight) {

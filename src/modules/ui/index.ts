@@ -1,7 +1,12 @@
 // UIModule.ts
 
 // import { utils } from '@milkdown/kit';
-import type { Root, Content, Heading as MdHeading, List as MdList } from 'mdast';
+import type {
+  Root,
+  Content,
+  Heading as MdHeading,
+  List as MdList,
+} from 'mdast';
 import type { Position, Point } from 'unist';
 // Import from extracted modules
 import type { DiffHighlightRange } from './editor/MilkdownEditor';
@@ -56,7 +61,6 @@ interface HeadingReferenceInfo {
   style: 'atx' | 'setext';
 }
 
-
 export class UIModule {
   private config: UIConfig;
 
@@ -67,10 +71,7 @@ export class UIModule {
 
   // Cache and utility maps
   private headingReferenceLookup = new Map<string, HeadingReferenceInfo>();
-  private activeHeadingReferenceCache = new Map<
-    string,
-    HeadingReferenceInfo
-  >();
+  private activeHeadingReferenceCache = new Map<string, HeadingReferenceInfo>();
 
   // Configuration
   private changeSummaryDashboard: ChangeSummaryDashboard | null = null;
@@ -89,7 +90,10 @@ export class UIModule {
 
   constructor(config: UIConfig) {
     this.config = config;
-    logger.debug('Initialized with tracked changes:', this.editorState.showTrackedChanges);
+    logger.debug(
+      'Initialized with tracked changes:',
+      this.editorState.showTrackedChanges
+    );
 
     // Initialize module instances
     // NOTE: EditorLifecycle initializes Milkdown on-demand to prevent plugin state corruption
@@ -111,9 +115,12 @@ export class UIModule {
       badges: this.commentBadgesModule,
       callbacks: {
         requestRefresh: () => this.refresh(),
-        ensureSidebarVisible: () => this.refreshCommentUI({ showSidebar: true }),
-        showNotification: (message, type) => this.showNotification(message, type),
-        onComposerClosed: () => this.commentController.clearHighlight('composer'),
+        ensureSidebarVisible: () =>
+          this.refreshCommentUI({ showSidebar: true }),
+        showNotification: (message, type) =>
+          this.showNotification(message, type),
+        onComposerClosed: () =>
+          this.commentController.clearHighlight('composer'),
       },
     });
     this.contextMenuCoordinator = new ContextMenuCoordinator({
@@ -198,7 +205,10 @@ export class UIModule {
 
     toolbar.classList.toggle('review-sidebar-collapsed', collapsed);
     if (document.body) {
-      document.body.classList.toggle('review-sidebar-collapsed-mode', collapsed);
+      document.body.classList.toggle(
+        'review-sidebar-collapsed-mode',
+        collapsed
+      );
     }
 
     this.mainSidebarModule.setCollapsed(collapsed);
@@ -209,9 +219,7 @@ export class UIModule {
    */
   public toggleTrackedChanges(force?: boolean): void {
     const nextState =
-      typeof force === 'boolean'
-        ? force
-        : !this.editorState.showTrackedChanges;
+      typeof force === 'boolean' ? force : !this.editorState.showTrackedChanges;
 
     if (this.editorState.showTrackedChanges === nextState) {
       this.mainSidebarModule.setTrackedChangesVisible(nextState);
@@ -352,7 +360,10 @@ export class UIModule {
 
     this.editorState.currentElementId = elementId;
     logger.debug('Opening editor for', { elementId });
-    logger.trace('Tracked changes enabled:', this.editorState.showTrackedChanges);
+    logger.trace(
+      'Tracked changes enabled:',
+      this.editorState.showTrackedChanges
+    );
 
     // Restore editor history if available
     this.restoreEditorHistory(elementId);
@@ -393,8 +404,10 @@ export class UIModule {
 
     const type = element.getAttribute('data-review-type') || 'Para';
 
-    const { plainContent, diffHighlights } =
-      this.createEditorSession(elementId, type);
+    const { plainContent, diffHighlights } = this.createEditorSession(
+      elementId,
+      type
+    );
 
     // Mark element as being edited
     element.classList.add('review-editable-editing');
@@ -444,7 +457,9 @@ export class UIModule {
       const elementId = this.editorState.currentElementId;
       let elementType = 'default';
       if (elementId) {
-        const element = document.querySelector(`[data-review-id="${elementId}"]`) as HTMLElement | null;
+        const element = document.querySelector(
+          `[data-review-id="${elementId}"]`
+        ) as HTMLElement | null;
         if (element) {
           elementType = element.getAttribute('data-review-type') || 'Para';
         }
@@ -466,8 +481,12 @@ export class UIModule {
     } catch (error) {
       logger.error('Failed to initialize Milkdown:', error);
       const editorContainer =
-        (container.querySelector('.review-editor-body') as HTMLElement | null) ||
-        (container.querySelector('.review-inline-editor-body') as HTMLElement | null);
+        (container.querySelector(
+          '.review-editor-body'
+        ) as HTMLElement | null) ||
+        (container.querySelector(
+          '.review-inline-editor-body'
+        ) as HTMLElement | null);
       if (editorContainer) {
         editorContainer.innerHTML = `
           <div style="padding:20px; color:red;">
@@ -498,15 +517,17 @@ export class UIModule {
           `[data-review-id="${this.editorState.currentElementId}"]`
         ) as HTMLElement;
         if (element) {
-      element.classList.remove('review-editable-editing');
-      const cachedHtml = element.getAttribute('data-review-original-html');
-      if (cachedHtml !== null) {
-        element.innerHTML = cachedHtml;
-        element.removeAttribute('data-review-original-html');
-      }
-      if (this.editorState.currentElementId) {
-        this.commentController.clearSectionCommentMarkup(this.editorState.currentElementId);
-      }
+          element.classList.remove('review-editable-editing');
+          const cachedHtml = element.getAttribute('data-review-original-html');
+          if (cachedHtml !== null) {
+            element.innerHTML = cachedHtml;
+            element.removeAttribute('data-review-original-html');
+          }
+          if (this.editorState.currentElementId) {
+            this.commentController.clearSectionCommentMarkup(
+              this.editorState.currentElementId
+            );
+          }
         }
       } else {
         // For modal editing, just remove the modal
@@ -514,7 +535,9 @@ export class UIModule {
       }
       this.editorState.activeEditor = null;
       if (this.editorState.currentElementId) {
-        this.activeHeadingReferenceCache.delete(this.editorState.currentElementId);
+        this.activeHeadingReferenceCache.delete(
+          this.editorState.currentElementId
+        );
       }
       this.editorState.currentElementId = null;
       this.editorState.currentEditorContent = '';
@@ -522,11 +545,14 @@ export class UIModule {
   }
 
   private saveEditor(): void {
-    if (!this.editorState.milkdownEditor || !this.editorState.currentElementId) return;
+    if (!this.editorState.milkdownEditor || !this.editorState.currentElementId)
+      return;
     const elementId = this.editorState.currentElementId;
 
     // Get markdown content from tracked state
-    let newContent = normalizeListMarkers(this.editorState.currentEditorContent);
+    let newContent = normalizeListMarkers(
+      this.editorState.currentEditorContent
+    );
     const cachedHeadingReference =
       this.activeHeadingReferenceCache.get(elementId);
     if (cachedHeadingReference) {
@@ -544,7 +570,8 @@ export class UIModule {
       return;
     }
 
-    const cachedSectionComment = this.commentController.consumeSectionCommentMarkup(elementId);
+    const cachedSectionComment =
+      this.commentController.consumeSectionCommentMarkup(elementId);
 
     const segments = this.segmentContentIntoElements(
       newContent,
@@ -564,13 +591,12 @@ export class UIModule {
     const originalContent = normalizeListMarkers(
       this.config.changes.getElementContent(elementId)
     );
-    const originalPrimary = this.commentController.extractSectionComments(originalContent).content;
+    const originalPrimary =
+      this.commentController.extractSectionComments(originalContent).content;
     const newPrimaryContent = segments[0]?.content ?? '';
 
-    const originalNormalized =
-      normalizeContentForComparison(originalPrimary);
-    const newNormalized =
-      normalizeContentForComparison(newPrimaryContent);
+    const originalNormalized = normalizeContentForComparison(originalPrimary);
+    const newNormalized = normalizeContentForComparison(newPrimaryContent);
 
     logger.debug('Saving editor');
     logger.trace('Original primary:', originalPrimary);
@@ -584,8 +610,7 @@ export class UIModule {
     this.commentController.clearSectionCommentMarkup(elementId);
     this.commentController.clearSectionCommentMarkupFor(removedIds);
     if (cachedSectionComment && elementIds.length > 0) {
-      const commentTargetId =
-        elementIds[elementIds.length - 1];
+      const commentTargetId = elementIds[elementIds.length - 1];
       if (typeof commentTargetId === 'string') {
         this.commentController.cacheSectionCommentMarkup(
           commentTargetId,
@@ -664,8 +689,11 @@ export class UIModule {
 
       // IMPORTANT: Always check if element was previously modified (shown in DOM)
       // This ensures undo/redo properly updates display even when removing operations
-      const wasPreviouslyModified = elem.id === this.editorState.currentElementId ||
-        document.querySelector(`[data-review-id="${elem.id}"][data-review-modified="true"]`);
+      const wasPreviouslyModified =
+        elem.id === this.editorState.currentElementId ||
+        document.querySelector(
+          `[data-review-id="${elem.id}"][data-review-modified="true"]`
+        );
 
       if (!isModified && !wasPreviouslyModified) {
         return;
@@ -697,7 +725,9 @@ export class UIModule {
     // Update modified marker for all elements
     // Elements WITH modifications get the marker, elements WITHOUT get it removed
     currentState.forEach((elem) => {
-      const domElement = document.querySelector(`[data-review-id="${elem.id}"]`);
+      const domElement = document.querySelector(
+        `[data-review-id="${elem.id}"]`
+      );
       if (!domElement) return;
 
       if (currentlyModifiedIds.has(elem.id)) {
@@ -793,8 +823,10 @@ export class UIModule {
       { skipHeadingCache: true }
     );
 
-    const plainResult = this.commentController.extractSectionComments(preparedPlain);
-    const trackedResult = this.commentController.extractSectionComments(preparedTracked);
+    const plainResult =
+      this.commentController.extractSectionComments(preparedPlain);
+    const trackedResult =
+      this.commentController.extractSectionComments(preparedTracked);
 
     return {
       plainContent: plainResult.content,
@@ -803,7 +835,10 @@ export class UIModule {
     };
   }
 
-  private createEditorSession(elementId: string, type: string): {
+  private createEditorSession(
+    elementId: string,
+    type: string
+  ): {
     plainContent: string;
     trackedContent: string;
     diffHighlights: DiffHighlightRange[];
@@ -1171,7 +1206,10 @@ export class UIModule {
     }
     const desiredParent = previousNode.parentNode;
     const anchor = previousNode.nextSibling;
-    if (node.parentNode !== desiredParent || node.previousSibling !== previousNode) {
+    if (
+      node.parentNode !== desiredParent ||
+      node.previousSibling !== previousNode
+    ) {
       desiredParent.insertBefore(node, anchor);
     }
   }
@@ -1206,7 +1244,9 @@ export class UIModule {
     const canUndo = this.config.changes.canUndo();
     const canRedo = this.config.changes.canRedo();
     this.mainSidebarModule.updateUndoRedoState(canUndo, canRedo);
-    this.mainSidebarModule.setTrackedChangesVisible(this.editorState.showTrackedChanges);
+    this.mainSidebarModule.setTrackedChangesVisible(
+      this.editorState.showTrackedChanges
+    );
   }
 
   private cacheInitialHeadingReferences(): void {
@@ -1222,10 +1262,7 @@ export class UIModule {
         }
       });
     } catch (error) {
-      logger.debug(
-        'Skipped initial heading reference cache:',
-        error
-      );
+      logger.debug('Skipped initial heading reference cache:', error);
     }
   }
 
@@ -1281,8 +1318,9 @@ export class UIModule {
     const prefix = firstLine.slice(prefixStart, openingIndex);
 
     const trimmedLeading = trimLineStart(firstLine);
-    const style: 'atx' | 'setext' =
-      trimmedLeading.startsWith('#') ? 'atx' : 'setext';
+    const style: 'atx' | 'setext' = trimmedLeading.startsWith('#')
+      ? 'atx'
+      : 'setext';
 
     return {
       reference,
@@ -1345,7 +1383,9 @@ export class UIModule {
     }
 
     const before = firstLineValue.slice(0, removalStart);
-    const after = firstLineValue.slice(referencePosition + info.reference.length);
+    const after = firstLineValue.slice(
+      referencePosition + info.reference.length
+    );
     lines[0] = trimLineEnd(before + after);
 
     return lines.join(newline);
@@ -1385,17 +1425,12 @@ export class UIModule {
 
     const safePrefix = info.prefix.length > 0 ? info.prefix : ' ';
     const withoutTrailing = trimLineEnd(firstLineValue);
-    lines[0] = trimLineEnd(
-      `${withoutTrailing}${safePrefix}${info.reference}`
-    );
+    lines[0] = trimLineEnd(`${withoutTrailing}${safePrefix}${info.reference}`);
 
     return lines.join(newline);
   }
 
-  private syncHeadingReference(
-    elementId: string,
-    content: string
-  ): void {
+  private syncHeadingReference(elementId: string, content: string): void {
     const updated = this.extractHeadingReferenceInfo(content);
     if (updated) {
       this.headingReferenceLookup.set(elementId, updated);
@@ -1403,7 +1438,6 @@ export class UIModule {
       this.headingReferenceLookup.delete(elementId);
     }
   }
-
 
   private updateElementDisplay(elem: ReviewElement): void {
     const domElement = document.querySelector(
@@ -1588,11 +1622,15 @@ export class UIModule {
   }
 
   private getOrCreateToolbar(): HTMLElement {
-    let toolbar = document.querySelector('.review-toolbar') as HTMLElement | null;
+    let toolbar = document.querySelector(
+      '.review-toolbar'
+    ) as HTMLElement | null;
     if (!toolbar) {
       toolbar = this.createPersistentSidebar();
       document.body.appendChild(toolbar);
-      this.mainSidebarModule.setTrackedChangesVisible(this.editorState.showTrackedChanges);
+      this.mainSidebarModule.setTrackedChangesVisible(
+        this.editorState.showTrackedChanges
+      );
       this.syncToolbarState();
       this.applySidebarCollapsedState(this.uiState.isSidebarCollapsed, toolbar);
     }
@@ -1629,7 +1667,11 @@ export class UIModule {
       commentKey,
     });
 
-    this.commentController.highlightSection(context.elementId, 'composer', commentKey);
+    this.commentController.highlightSection(
+      context.elementId,
+      'composer',
+      commentKey
+    );
   }
 
   private refreshCommentUI(options: { showSidebar?: boolean } = {}): void {
@@ -1638,7 +1680,10 @@ export class UIModule {
     });
   }
 
-  private wrapSectionContent(alreadyWrapped: boolean, nodes: ChildNode[]): HTMLElement {
+  private wrapSectionContent(
+    alreadyWrapped: boolean,
+    nodes: ChildNode[]
+  ): HTMLElement {
     if (alreadyWrapped) {
       const fragment = document.createDocumentFragment();
       nodes.forEach((node) => fragment.appendChild(node));
@@ -1720,11 +1765,10 @@ export class UIModule {
     });
   }
 
-
   /**
    * Save editor history to persistent localStorage for undo/redo
    * Stores multiple snapshots of editor content per section
-  */
+   */
   private saveEditorHistory(elementId: string): void {
     if (!elementId) {
       return;
@@ -1774,7 +1818,6 @@ export class UIModule {
   public clearAllHistories(): void {
     this.historyStorage.clearAll();
   }
-
 }
 
 export default UIModule;

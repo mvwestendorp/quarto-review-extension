@@ -35,9 +35,12 @@ export class EditorLifecycle {
     this.module = module;
 
     if (options.onContentChange) {
-      module.on(MODULE_EVENTS.EDITOR_CONTENT_CHANGED, (detail: { markdown: string }) => {
-        options.onContentChange?.(detail.markdown);
-      });
+      module.on(
+        MODULE_EVENTS.EDITOR_CONTENT_CHANGED,
+        (detail: { markdown: string }) => {
+          options.onContentChange?.(detail.markdown);
+        }
+      );
     }
 
     await module.initialize(
@@ -49,7 +52,9 @@ export class EditorLifecycle {
 
     this.editor = module.getInstance();
     if (!this.editor) {
-      throw new Error('Milkdown editor failed to provide instance after initialization');
+      throw new Error(
+        'Milkdown editor failed to provide instance after initialization'
+      );
     }
 
     return this.editor;

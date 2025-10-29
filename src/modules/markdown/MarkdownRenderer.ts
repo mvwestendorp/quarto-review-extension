@@ -30,7 +30,10 @@ export class MarkdownRenderer {
     return String(processor.processSync(markdown));
   }
 
-  renderAsync(markdown: string, options?: Partial<RendererOptions>): Promise<string> {
+  renderAsync(
+    markdown: string,
+    options?: Partial<RendererOptions>
+  ): Promise<string> {
     const processor = this.getProcessor(options);
     return processor.process(markdown).then(String);
   }

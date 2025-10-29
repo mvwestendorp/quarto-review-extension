@@ -84,7 +84,9 @@ export class DocumentSearch {
 
     // Focus input and select all text if any
     requestAnimationFrame(() => {
-      const input = this.searchPanel?.querySelector('.review-search-input') as HTMLInputElement;
+      const input = this.searchPanel?.querySelector(
+        '.review-search-input'
+      ) as HTMLInputElement;
       if (input) {
         input.focus();
         input.select();
@@ -206,7 +208,9 @@ export class DocumentSearch {
    * Attach event handlers to search panel
    */
   private attachSearchHandlers(panel: HTMLElement): void {
-    const input = panel.querySelector('.review-search-input') as HTMLInputElement;
+    const input = panel.querySelector(
+      '.review-search-input'
+    ) as HTMLInputElement;
     const closeBtn = panel.querySelector('[data-action="close"]');
     const nextBtn = panel.querySelector('[data-action="next"]');
     const prevBtn = panel.querySelector('[data-action="prev"]');
@@ -256,7 +260,9 @@ export class DocumentSearch {
     try {
       if (!this.searchPanel) return;
 
-      const input = this.searchPanel.querySelector('.review-search-input') as HTMLInputElement;
+      const input = this.searchPanel.querySelector(
+        '.review-search-input'
+      ) as HTMLInputElement;
       const query = input?.value.trim();
 
       if (!query) {
@@ -271,14 +277,23 @@ export class DocumentSearch {
       const options: SearchOptions = {
         query,
         caseSensitive:
-          (this.searchPanel.querySelector('[data-option="caseSensitive"]') as HTMLInputElement)
-            ?.checked || false,
+          (
+            this.searchPanel.querySelector(
+              '[data-option="caseSensitive"]'
+            ) as HTMLInputElement
+          )?.checked || false,
         regex:
-          (this.searchPanel.querySelector('[data-option="regex"]') as HTMLInputElement)?.checked ||
-          false,
+          (
+            this.searchPanel.querySelector(
+              '[data-option="regex"]'
+            ) as HTMLInputElement
+          )?.checked || false,
         wholeWord:
-          (this.searchPanel.querySelector('[data-option="wholeWord"]') as HTMLInputElement)
-            ?.checked || false,
+          (
+            this.searchPanel.querySelector(
+              '[data-option="wholeWord"]'
+            ) as HTMLInputElement
+          )?.checked || false,
       };
 
       this.matches = this.findMatches(options);
@@ -311,12 +326,9 @@ export class DocumentSearch {
 
     if (options.regex) {
       try {
-        pattern = new RegExp(
-          options.query,
-          options.caseSensitive ? 'g' : 'gi'
-        );
-      } catch (e) {
-        logger.warn('Invalid regex:', options.query);
+        pattern = new RegExp(options.query, options.caseSensitive ? 'g' : 'gi');
+      } catch (regexError) {
+        logger.warn('Invalid regex:', options.query, regexError);
         return [];
       }
     } else {
@@ -334,7 +346,10 @@ export class DocumentSearch {
 
       while ((match = pattern.exec(plainText)) !== null) {
         const preview = plainText
-          .substring(Math.max(0, match.index - 30), match.index + match[0].length + 30)
+          .substring(
+            Math.max(0, match.index - 30),
+            match.index + match[0].length + 30
+          )
           .replace(/\n/g, ' ');
 
         matches.push({
@@ -381,7 +396,9 @@ export class DocumentSearch {
     if (!match) {
       return;
     }
-    const element = document.querySelector(`[data-review-id="${match.elementId}"]`);
+    const element = document.querySelector(
+      `[data-review-id="${match.elementId}"]`
+    );
 
     if (element instanceof HTMLElement) {
       // Scroll into view
@@ -403,7 +420,10 @@ export class DocumentSearch {
   /**
    * Highlight specific match text in element
    */
-  private highlightMatchInElement(element: HTMLElement, match: SearchMatch): void {
+  private highlightMatchInElement(
+    element: HTMLElement,
+    match: SearchMatch
+  ): void {
     try {
       // Find text nodes and wrap the match
       const walker = document.createTreeWalker(
@@ -423,11 +443,15 @@ export class DocumentSearch {
         // Check if match overlaps with this node
         if (match.offset < nodeEnd && match.offset + match.length > nodeStart) {
           const startOffset = Math.max(0, match.offset - nodeStart);
-          const endOffset = Math.min(nodeLength, match.offset + match.length - nodeStart);
+          const endOffset = Math.min(
+            nodeLength,
+            match.offset + match.length - nodeStart
+          );
 
           if (startOffset < endOffset) {
             const before = node.textContent?.substring(0, startOffset) || '';
-            const highlighted = node.textContent?.substring(startOffset, endOffset) || '';
+            const highlighted =
+              node.textContent?.substring(startOffset, endOffset) || '';
             const after = node.textContent?.substring(endOffset) || '';
 
             const span = document.createElement('span');
@@ -450,7 +474,9 @@ export class DocumentSearch {
    */
   private highlightMatches(): void {
     this.matches.forEach((match: SearchMatch, index: number) => {
-      const element = document.querySelector(`[data-review-id="${match.elementId}"]`);
+      const element = document.querySelector(
+        `[data-review-id="${match.elementId}"]`
+      );
       if (element instanceof HTMLElement) {
         element.classList.add('review-search-has-match');
         if (index === this.currentMatchIndex) {
@@ -501,8 +527,12 @@ export class DocumentSearch {
     }
 
     // Update button states
-    const prevBtn = this.searchPanel.querySelector('[data-action="prev"]') as HTMLButtonElement;
-    const nextBtn = this.searchPanel.querySelector('[data-action="next"]') as HTMLButtonElement;
+    const prevBtn = this.searchPanel.querySelector(
+      '[data-action="prev"]'
+    ) as HTMLButtonElement;
+    const nextBtn = this.searchPanel.querySelector(
+      '[data-action="next"]'
+    ) as HTMLButtonElement;
 
     if (prevBtn && nextBtn) {
       prevBtn.disabled = this.matches.length === 0;

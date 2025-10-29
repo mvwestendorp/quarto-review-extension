@@ -145,10 +145,7 @@ export abstract class BaseProvider {
   /**
    * Add a comment to a pull request.
    */
-  abstract addPullRequestComment(
-    number: number,
-    body: string
-  ): Promise<void>;
+  abstract addPullRequestComment(number: number, body: string): Promise<void>;
 
   /**
    * Add a comment to an issue.
@@ -191,7 +188,7 @@ export abstract class BaseProvider {
 
     // Merge headers without overwriting provided values
     const finalHeaders: HeadersInit = {
-      'Accept': 'application/json',
+      Accept: 'application/json',
       ...(authHeader ? { [headerName]: authHeader } : {}),
       ...(options.headers ?? {}),
     };

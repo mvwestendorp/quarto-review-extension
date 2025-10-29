@@ -130,7 +130,8 @@ export class EmbeddedSourceStore {
             content: data.content,
             originalContent: data.originalContent ?? data.content,
             lastModified: data.lastModified ?? payload.timestamp,
-            version: data.version ?? payload.version ?? this.generateVersionId(),
+            version:
+              data.version ?? payload.version ?? this.generateVersionId(),
             commitMessage: data.commitMessage,
           });
         });
@@ -168,7 +169,10 @@ export class EmbeddedSourceStore {
         }
 
         // Prefer whichever record is newer
-        if (new Date(data.lastModified).getTime() > new Date(existing.lastModified).getTime()) {
+        if (
+          new Date(data.lastModified).getTime() >
+          new Date(existing.lastModified).getTime()
+        ) {
           this.sources.set(filename, {
             filename,
             content: data.content,
@@ -185,7 +189,10 @@ export class EmbeddedSourceStore {
         Object.keys(payload.sources).length
       );
     } catch (error) {
-      this.logger.warn('Failed to parse embedded sources from localStorage:', error);
+      this.logger.warn(
+        'Failed to parse embedded sources from localStorage:',
+        error
+      );
     }
   }
 
@@ -234,12 +241,17 @@ export class EmbeddedSourceStore {
     try {
       this.storage.setItem(this.storageKey, JSON.stringify(payload));
     } catch (error) {
-      this.logger.warn('Failed to persist embedded sources to localStorage:', error);
+      this.logger.warn(
+        'Failed to persist embedded sources to localStorage:',
+        error
+      );
     }
   }
 
   private ensureEmbeddedScript(): HTMLScriptElement {
-    let script = document.getElementById(EMBEDDED_SOURCES_ID) as HTMLScriptElement | null;
+    let script = document.getElementById(
+      EMBEDDED_SOURCES_ID
+    ) as HTMLScriptElement | null;
     if (!script) {
       script = document.createElement('script');
       script.id = EMBEDDED_SOURCES_ID;

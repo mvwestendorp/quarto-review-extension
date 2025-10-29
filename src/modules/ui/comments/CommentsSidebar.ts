@@ -70,7 +70,10 @@ export class CommentsSidebar {
     return this.isVisible;
   }
 
-  updateSections(sections: SectionCommentSnapshot[], callbacks: CommentsSidebarCallbacks): void {
+  updateSections(
+    sections: SectionCommentSnapshot[],
+    callbacks: CommentsSidebarCallbacks
+  ): void {
     this.sections = sections;
     this.callbacks = callbacks;
     this.refresh();
@@ -80,7 +83,9 @@ export class CommentsSidebar {
   refresh(): void {
     if (!this.element) return;
 
-    const content = this.element.querySelector('.review-comments-sidebar-content');
+    const content = this.element.querySelector(
+      '.review-comments-sidebar-content'
+    );
     if (!content) return;
 
     content.innerHTML = '';

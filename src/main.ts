@@ -13,7 +13,12 @@ import { debugLogger, type DebugConfig } from '@utils/debug';
 import type { ReviewGitConfig } from '@/types';
 
 // Export debug logger and configuration
-export { debugLogger, createModuleLogger, printDebugHelp, type DebugConfig } from '@utils/debug';
+export {
+  debugLogger,
+  createModuleLogger,
+  printDebugHelp,
+  type DebugConfig,
+} from '@utils/debug';
 
 // Export types for documentation
 export type {
@@ -118,7 +123,7 @@ export class QuartoReview {
   private setupAutoSave(): void {
     this.autoSaveInterval = window.setInterval(() => {
       if (this.changes.hasUnsavedOperations()) {
-        this.save().catch(error => {
+        this.save().catch((error) => {
           console.error('Auto-save failed:', error);
         });
       }
@@ -159,9 +164,7 @@ if (typeof window !== 'undefined') {
     const reviewElement = document.querySelector('[data-review]');
     if (reviewElement) {
       const config = reviewElement.getAttribute('data-review-config');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const parsedConfig = config ? JSON.parse(config) : {};
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       new QuartoReview(parsedConfig);
     }
   });

@@ -127,12 +127,7 @@ export function changesToCriticMarkup(
         const nextValue = Array.isArray(next.value)
           ? (next.value as string[])
           : [];
-        result.push(
-          ...formatBlockPair(
-            partValue,
-            nextValue
-          )
-        );
+        result.push(...formatBlockPair(partValue, nextValue));
         i++;
       } else {
         partValue.forEach((token) => {
@@ -256,7 +251,10 @@ function formatBlockPair(oldBlocks: string[], newBlocks: string[]): string[] {
   return result;
 }
 
-function formatBlockSubstitution(oldSegment: string, newSegment: string): string {
+function formatBlockSubstitution(
+  oldSegment: string,
+  newSegment: string
+): string {
   const oldLines = splitIntoLines(oldSegment);
   const newLines = splitIntoLines(newSegment);
   const max = Math.max(oldLines.length, newLines.length);
@@ -270,7 +268,8 @@ function formatBlockSubstitution(oldSegment: string, newSegment: string): string
       if (
         isListItemLine(oldLine) &&
         isListItemLine(newLine) &&
-        normalizeListMarker(getListMarker(oldLine)) === normalizeListMarker(getListMarker(newLine))
+        normalizeListMarker(getListMarker(oldLine)) ===
+          normalizeListMarker(getListMarker(newLine))
       ) {
         buffer.push(formatListLineChange(oldLine, newLine));
       } else if (isTableLine(oldLine) && isTableLine(newLine)) {
@@ -296,10 +295,7 @@ function formatLineDiff(oldLine: string, newLine: string): string {
   const { prefix: newPrefix, body: newBody } = splitListPrefix(newContent);
 
   if (oldPrefix !== newPrefix) {
-    return (
-      formatLine(oldLine, 'deletion') +
-      formatLine(newLine, 'addition')
-    );
+    return formatLine(oldLine, 'deletion') + formatLine(newLine, 'addition');
   }
 
   const diffs = Diff.diffWordsWithSpace(oldBody, newBody);
@@ -436,9 +432,7 @@ function wrapWithMarkup(content: string, kind: ChangeKind): string {
   if (!text.trim()) {
     return text;
   }
-  return kind === 'addition'
-    ? `{++${text}++}`
-    : `{--${text}--}`;
+  return kind === 'addition' ? `{++${text}++}` : `{--${text}--}`;
 }
 
 function wrapWithSubstitution(oldContent: string, newContent: string): string {
@@ -505,7 +499,6 @@ function splitIntoLines(text: string): string[] {
   return text.match(/[^\n]*\n?/g)?.filter((line) => line.length > 0) ?? [];
 }
 
-
 function getListMarker(line: string): string | null {
   const { content } = splitLine(line);
   const match = content.match(/^(\s*(?:[-*+]|\d+[.)])\s+)/);
@@ -517,7 +510,6 @@ function normalizeListMarker(marker: string | null): string | null {
   // Normalize to single space after marker, preserve leading indent
   return marker.replace(/^(\s*)([-*+]|\d+[.)])\s+/, '$1$2 ');
 }
-
 
 function isTableLine(body: string): boolean {
   const trimmed = body.trim();
@@ -531,8 +523,7 @@ function isAlignmentRow(line: string): boolean {
   if (!trimmed.includes('|')) return false;
   const cells = trimmed.split('|').filter((cell) => cell.length > 0);
   return (
-    cells.length > 0 &&
-    cells.every((cell) => /^:?-+:?$/.test(cell.trim()))
+    cells.length > 0 && cells.every((cell) => /^:?-+:?$/.test(cell.trim()))
   );
 }
 
@@ -560,10 +551,7 @@ function formatTableLine(
       const trailingMatch = cell.match(/\s*$/);
       const leading: string = leadingMatch?.[0] ?? '';
       const trailing: string = trailingMatch?.[0] ?? '';
-      const inner = cell.slice(
-        leading.length,
-        cell.length - trailing.length
-      );
+      const inner = cell.slice(leading.length, cell.length - trailing.length);
 
       return `${leading}${wrapWithMarkup(inner || ' ', kind)}${trailing}`;
     })

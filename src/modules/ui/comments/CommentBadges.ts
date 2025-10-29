@@ -15,7 +15,10 @@ export class CommentBadges {
   private indicators = new Map<string, HTMLButtonElement>();
   private latestMatch = new Map<string, CriticMarkupMatch | null>();
 
-  syncIndicators(sections: SectionCommentSnapshot[], callbacks: CommentBadgeCallbacks): void {
+  syncIndicators(
+    sections: SectionCommentSnapshot[],
+    callbacks: CommentBadgeCallbacks
+  ): void {
     const activeIds = new Set(sections.map((section) => section.element.id));
 
     for (const [sectionId, indicator] of this.indicators) {
@@ -30,11 +33,18 @@ export class CommentBadges {
       const domElement = document.querySelector(
         `[data-review-id="${snapshot.element.id}"]`
       ) as HTMLElement | null;
-      if (!domElement || domElement.classList.contains('review-editable-editing')) {
+      if (
+        !domElement ||
+        domElement.classList.contains('review-editable-editing')
+      ) {
         return;
       }
 
-      const indicator = this.ensureIndicator(snapshot.element.id, domElement, callbacks);
+      const indicator = this.ensureIndicator(
+        snapshot.element.id,
+        domElement,
+        callbacks
+      );
       this.updateIndicator(indicator, domElement, snapshot);
     });
   }
@@ -67,10 +77,14 @@ export class CommentBadges {
     return indicator;
   }
 
-  private createIndicator(sectionId: string, callbacks: CommentBadgeCallbacks): HTMLButtonElement {
+  private createIndicator(
+    sectionId: string,
+    callbacks: CommentBadgeCallbacks
+  ): HTMLButtonElement {
     const indicator = document.createElement('button');
     indicator.type = 'button';
-    indicator.className = 'review-section-comment-indicator review-badge-positioned';
+    indicator.className =
+      'review-section-comment-indicator review-badge-positioned';
 
     const icon = document.createElement('span');
     icon.className = 'review-badge-icon';
@@ -130,14 +144,19 @@ export class CommentBadges {
       countSpan.classList.toggle('is-hidden', count <= 1);
     }
 
-    const commentKey = firstMatch ? `${element.id}:${firstMatch.start}` : element.id;
+    const commentKey = firstMatch
+      ? `${element.id}:${firstMatch.start}`
+      : element.id;
     indicator.dataset.commentKey = commentKey;
     indicator.dataset.commentStart = firstMatch ? String(firstMatch.start) : '';
 
-    const preview = (firstMatch?.comment || firstMatch?.content || '').replace(/\s+/g, ' ').trim();
-    const tooltip = count > 1
-      ? `${count} comments${preview ? ` • "${preview}"` : ''}`
-      : `Comment${preview ? ` • "${preview}"` : ''}`;
+    const preview = (firstMatch?.comment || firstMatch?.content || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const tooltip =
+      count > 1
+        ? `${count} comments${preview ? ` • "${preview}"` : ''}`
+        : `Comment${preview ? ` • "${preview}"` : ''}`;
 
     indicator.setAttribute('title', tooltip);
     indicator.setAttribute('aria-label', tooltip);

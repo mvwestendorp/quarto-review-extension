@@ -211,12 +211,20 @@ export class ChangesModule {
     if (!firstSegment) {
       return { elementIds: resultIds, removedIds };
     }
-    this.edit(elementId, firstSegment.content, undefined, firstSegment.metadata);
+    this.edit(
+      elementId,
+      firstSegment.content,
+      undefined,
+      firstSegment.metadata
+    );
     resultIds.push(elementId);
 
     let lastId = elementId;
 
-    const reuseCount = Math.min(tailSegments.length, existingGeneratedIds.length);
+    const reuseCount = Math.min(
+      tailSegments.length,
+      existingGeneratedIds.length
+    );
 
     for (let i = 0; i < reuseCount; i++) {
       const segment = tailSegments[i];
@@ -593,9 +601,7 @@ export class ChangesModule {
    */
   public toCleanMarkdown(): string {
     const elements = this.getCurrentState();
-    return elements
-      .map((e) => stripCriticMarkup(e.content, true))
-      .join('\n\n');
+    return elements.map((e) => stripCriticMarkup(e.content, true)).join('\n\n');
   }
 
   /**

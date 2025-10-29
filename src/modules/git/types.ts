@@ -80,4 +80,3 @@ export interface CreateBranchResult {
   name: string;
   sha: string;
 }
-
