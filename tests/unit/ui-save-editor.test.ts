@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { UIConfig } from '@modules/ui';
 import { UIModule } from '@modules/ui';
+import { MarkdownModule } from '@modules/markdown';
 
 const {
   getCommentControllerStub,
@@ -176,6 +177,8 @@ const createStubConfig = (
     replaceElementWithSegments: vi.fn(),
   };
 
+  const markdownModule = new MarkdownModule();
+
   return {
     changes: {
       getElementById: vi.fn().mockImplementation((id: string) => ({
@@ -194,8 +197,9 @@ const createStubConfig = (
       canRedo: vi.fn().mockReturnValue(false),
     } as any,
     markdown: {
-      render: vi.fn(),
-      renderSync: vi.fn(),
+      render: vi.fn((input) => markdownModule.render(input)),
+      renderSync: vi.fn((input) => markdownModule.renderSync(input)),
+      parseToAST: vi.fn((input) => markdownModule.parseToAST(input)),
     } as any,
     comments: {
       parse: vi.fn().mockReturnValue([]),
@@ -315,5 +319,22 @@ describe('UIModule.saveEditor comment handling', () => {
     expect(commentStub.clearSectionCommentMarkup).toHaveBeenCalledWith(
       'section-1'
     );
+  });
+
+  it('preserves leading blank lines when segmenting content', () => {
+    const contentStore = new Map<string, string>([
+      ['section-1', '\nLeading paragraph'],
+    ]);
+    const config = createStubConfig(contentStore);
+    const ui = new UIModule(config as UIConfig);
+
+    const segments = (ui as any).segmentContentIntoElements(
+      '\nLeading paragraph',
+      { type: 'Para' }
+    );
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0]?.content.startsWith('\n')).toBe(true);
+    expect(segments[0]?.content.trim()).toBe('Leading paragraph');
   });
 });

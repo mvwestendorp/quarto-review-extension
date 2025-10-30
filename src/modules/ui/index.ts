@@ -984,6 +984,8 @@ export class UIModule {
     const offsets = this.buildLineOffsets(content);
     const segments: { content: string; metadata: ElementMetadata }[] = [];
 
+    const leadingWhitespaceLength = content.length - content.trimStart().length;
+
     children.forEach((node, index) => {
       const start = this.positionToIndex(offsets, node.position?.start);
       const nextNode = children[index + 1];
@@ -991,8 +993,14 @@ export class UIModule {
         ? this.positionToIndex(offsets, nextNode.position?.start)
         : content.length;
 
-      let segmentContent = content.slice(start, end);
-      segmentContent = this.normalizeSegmentContent(segmentContent);
+      const inclusiveStart = index === 0 ? 0 : start;
+
+      let segmentContent = content.slice(inclusiveStart, end);
+      const preserveLeading =
+        index === 0 && leadingWhitespaceLength > 0 && inclusiveStart === 0;
+      segmentContent = this.normalizeSegmentContent(segmentContent, {
+        preserveLeadingWhitespace: preserveLeading,
+      });
       if (!segmentContent.trim()) {
         return;
       }
@@ -1062,12 +1070,17 @@ export class UIModule {
     return base + Math.max(0, column - 1);
   }
 
-  private normalizeSegmentContent(text: string): string {
+  private normalizeSegmentContent(
+    text: string,
+    options: { preserveLeadingWhitespace?: boolean } = {}
+  ): string {
     let cleaned = text;
     const leadingPattern = /^(?:\s*\r?\n)+/;
     const trailingPattern = /(\r?\n\s*)+$/;
 
-    cleaned = cleaned.replace(leadingPattern, '');
+    if (!options.preserveLeadingWhitespace) {
+      cleaned = cleaned.replace(leadingPattern, '');
+    }
     cleaned = cleaned.replace(trailingPattern, (match) => {
       return match.includes('\n') ? '' : match;
     });
