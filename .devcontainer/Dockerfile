@@ -26,12 +26,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxfixes3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Quarto
-ARG QUARTO_VERSION=1.8.25
-RUN wget -q https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb \
-    && gdebi --non-interactive quarto-${QUARTO_VERSION}-linux-amd64.deb \
-    && rm quarto-${QUARTO_VERSION}-linux-amd64.deb
-
 WORKDIR /workspace
 
 # Set up node user permissions

@@ -37,6 +37,14 @@
       }
     }
   },
+  "features": {
+    "ghcr.io/devcontainers/features/python:1": {},
+    "ghcr.io/rocker-org/devcontainer-features/r-apt:0": {
+      "installRMarkdown": true,
+      ""
+    },
+    "ghcr.io/rocker-org/devcontainer-features/quarto-cli:1": {}
+  },
   "forwardPorts": [5173, 3000, 8080],
   "portsAttributes": {
     "5173": {
