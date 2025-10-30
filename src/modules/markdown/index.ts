@@ -69,6 +69,30 @@ export class MarkdownModule {
     return resolved;
   }
 
+  private prepareMarkdown(markdown: string): string {
+    return this.normalizeCriticMarkupLists(markdown);
+  }
+
+  private normalizeCriticMarkupLists(markdown: string): string {
+    const pattern =
+      /(^|\n)([ \t]*)\{\+\+\s*((?:[*+-])|(?:\d+[.)]))\s+([\s\S]*?)\+\+\}(?=\n|$)/g;
+
+    return markdown.replace(
+      pattern,
+      (
+        _match,
+        lineBreak: string,
+        indent: string,
+        marker: string,
+        body: string
+      ) => {
+        const cleanedBody = body.replace(/^\s+/, '').replace(/\s+$/, '');
+        const normalizedMarker = marker.trim();
+        return `${lineBreak}${indent}${normalizedMarker} {++${cleanedBody}++}`;
+      }
+    );
+  }
+
   /**
    * Convert markdown to HTML using Remark/Unified pipeline (async)
    */
@@ -77,7 +101,8 @@ export class MarkdownModule {
     enableCriticMarkup?: boolean
   ): Promise<string> {
     const options = this.resolveRendererOptions({ enableCriticMarkup });
-    const html = await this.renderer.renderAsync(markdown, options);
+    const prepared = this.prepareMarkdown(markdown);
+    const html = await this.renderer.renderAsync(prepared, options);
     return this.sanitizeOutput(html, options);
   }
 
@@ -86,7 +111,8 @@ export class MarkdownModule {
    */
   public renderSync(markdown: string, enableCriticMarkup?: boolean): string {
     const options = this.resolveRendererOptions({ enableCriticMarkup });
-    const html = this.renderer.render(markdown, options);
+    const prepared = this.prepareMarkdown(markdown);
+    const html = this.renderer.render(prepared, options);
     return this.sanitizeOutput(html, options);
   }
 
@@ -107,7 +133,8 @@ export class MarkdownModule {
    * Parse markdown to MDAST (Markdown Abstract Syntax Tree)
    */
   public parseToAST(markdown: string): Root {
-    return this.astProcessor.parse(markdown) as Root;
+    const prepared = this.prepareMarkdown(markdown);
+    return this.astProcessor.parse(prepared) as Root;
   }
 
   /**

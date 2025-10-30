@@ -200,6 +200,16 @@ describe('MarkdownModule', () => {
       expect(result).toContain('critic-comment');
     });
 
+    it('should render added list items without leaking CriticMarkup syntax', () => {
+      const input = '- First item\n{++- Added item++}';
+      const result = markdown.renderSync(input);
+      expect(result).toContain('<ul>');
+      expect(result).toMatch(/<li>First item<\/li>/);
+      expect(result).toMatch(/<li><ins class="critic-addition" data-critic-type="addition">Added item<\/ins><\/li>/);
+      expect(result).not.toContain('{++');
+      expect(result).not.toContain('++}');
+    });
+
     it('should allow disabling CriticMarkup', () => {
       const result = markdown.renderSync('This is {++added++}', false);
       // When disabled, CriticMarkup syntax should be rendered as-is
