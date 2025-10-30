@@ -40,6 +40,7 @@ import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
 // CriticMarkup components are now handled by MilkdownEditor module
 import { ChangeSummaryDashboard } from './change-summary';
 import { createModuleLogger } from '@utils/debug';
+import { initializeDebugTools } from '@utils/debug-tools';
 import type { ChangesModule } from '@modules/changes';
 import type { MarkdownModule } from '@modules/markdown';
 import type { CommentsModule } from '@modules/comments';
@@ -144,6 +145,9 @@ export class UIModule {
       if (this.config.changes.undo()) {
         this.refresh();
       }
+    });
+    initializeDebugTools({
+      changes: this.config.changes,
     });
     this.mainSidebarModule.onRedo(() => {
       if (this.config.changes.redo()) {
@@ -561,6 +565,12 @@ export class UIModule {
         cachedHeadingReference
       );
     }
+
+    const leadingWhitespaceResult = this.stripLeadingBlankLines(newContent);
+    if (leadingWhitespaceResult.removed) {
+      newContent = leadingWhitespaceResult.content;
+      this.showWhitespaceIgnoredNotification();
+    }
     this.editorState.currentEditorContent = newContent;
 
     const elementData = this.config.changes.getElementById(elementId);
@@ -591,6 +601,18 @@ export class UIModule {
     const originalContent = normalizeListMarkers(
       this.config.changes.getElementContent(elementId)
     );
+
+    if (originalContent === newContent) {
+      if (cachedSectionComment) {
+        this.commentController.cacheSectionCommentMarkup(
+          elementId,
+          cachedSectionComment
+        );
+      }
+      this.closeEditor();
+      this.refresh();
+      return;
+    }
     const originalPrimary =
       this.commentController.extractSectionComments(originalContent).content;
     const newPrimaryContent = segments[0]?.content ?? '';
@@ -984,8 +1006,6 @@ export class UIModule {
     const offsets = this.buildLineOffsets(content);
     const segments: { content: string; metadata: ElementMetadata }[] = [];
 
-    const leadingWhitespaceLength = content.length - content.trimStart().length;
-
     children.forEach((node, index) => {
       const start = this.positionToIndex(offsets, node.position?.start);
       const nextNode = children[index + 1];
@@ -993,14 +1013,8 @@ export class UIModule {
         ? this.positionToIndex(offsets, nextNode.position?.start)
         : content.length;
 
-      const inclusiveStart = index === 0 ? 0 : start;
-
-      let segmentContent = content.slice(inclusiveStart, end);
-      const preserveLeading =
-        index === 0 && leadingWhitespaceLength > 0 && inclusiveStart === 0;
-      segmentContent = this.normalizeSegmentContent(segmentContent, {
-        preserveLeadingWhitespace: preserveLeading,
-      });
+      let segmentContent = content.slice(start, end);
+      segmentContent = this.normalizeSegmentContent(segmentContent);
       if (!segmentContent.trim()) {
         return;
       }
@@ -1070,22 +1084,38 @@ export class UIModule {
     return base + Math.max(0, column - 1);
   }
 
-  private normalizeSegmentContent(
-    text: string,
-    options: { preserveLeadingWhitespace?: boolean } = {}
-  ): string {
+  private normalizeSegmentContent(text: string): string {
     let cleaned = text;
     const leadingPattern = /^(?:\s*\r?\n)+/;
     const trailingPattern = /(\r?\n\s*)+$/;
 
-    if (!options.preserveLeadingWhitespace) {
-      cleaned = cleaned.replace(leadingPattern, '');
-    }
+    cleaned = cleaned.replace(leadingPattern, '');
     cleaned = cleaned.replace(trailingPattern, (match) => {
       return match.includes('\n') ? '' : match;
     });
 
     return cleaned.trimEnd();
+  }
+
+  private stripLeadingBlankLines(content: string): {
+    content: string;
+    removed: boolean;
+  } {
+    if (!content) {
+      return { content, removed: false };
+    }
+    const stripped = content.replace(/^(?:\s*\r?\n)+/, '');
+    return {
+      content: stripped,
+      removed: stripped.length !== content.length,
+    };
+  }
+
+  private showWhitespaceIgnoredNotification(): void {
+    this.showNotification(
+      'Leading blank lines were removed because whitespace-only changes are ignored.',
+      'info'
+    );
   }
 
   private deriveMetadataFromNode(

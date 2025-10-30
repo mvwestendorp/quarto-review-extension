@@ -321,7 +321,7 @@ describe('UIModule.saveEditor comment handling', () => {
     );
   });
 
-  it('preserves leading blank lines when segmenting content', () => {
+  it('removes leading blank lines when segmenting content directly', () => {
     const contentStore = new Map<string, string>([
       ['section-1', '\nLeading paragraph'],
     ]);
@@ -334,7 +334,58 @@ describe('UIModule.saveEditor comment handling', () => {
     );
 
     expect(segments).toHaveLength(1);
-    expect(segments[0]?.content.startsWith('\n')).toBe(true);
-    expect(segments[0]?.content.trim()).toBe('Leading paragraph');
+    expect(segments[0]?.content.startsWith('\n')).toBe(false);
+    expect(segments[0]?.content).toBe('Leading paragraph');
+  });
+
+  it('strips leading blank lines on save and notifies the user', () => {
+    const contentStore = new Map<string, string>([
+      ['section-1', 'Original content'],
+    ]);
+    const config = createStubConfig(contentStore);
+    const ui = new UIModule(config as UIConfig);
+    const commentStub = getCommentControllerStub();
+    if (!commentStub) {
+      throw new Error('Comment controller stub not initialized');
+    }
+
+    commentStub.consumeSectionCommentMarkup.mockReturnValue(undefined);
+    commentStub.extractSectionComments.mockReturnValue({
+      content: 'Original content',
+      commentMarkup: null,
+    });
+
+    (ui as any).ensureSegmentDom = vi.fn();
+    (ui as any).updateHeadingReferencesAfterSave = vi.fn();
+    (ui as any).closeEditor = vi.fn();
+    (ui as any).refresh = vi.fn();
+
+    const notificationSpy = vi
+      .spyOn(ui as any, 'showNotification')
+      .mockImplementation(() => {});
+
+    config.changeMocks.replaceElementWithSegments.mockReturnValue({
+      elementIds: ['section-1'],
+      removedIds: [],
+    });
+
+    (ui as any).editorState.currentElementId = 'section-1';
+    (ui as any).editorState.currentEditorContent = '\n\nUpdated content';
+    (ui as any).editorState.milkdownEditor = {} as any;
+
+    (ui as any).saveEditor();
+
+    const segments = config.changeMocks.replaceElementWithSegments.mock
+      .calls[0][1];
+    expect(segments).toHaveLength(1);
+    expect(segments[0]?.content.startsWith('\n')).toBe(false);
+    expect(segments[0]?.content).toBe('Updated content');
+    expect(notificationSpy).toHaveBeenCalledTimes(1);
+    expect(notificationSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Leading blank lines were removed'),
+      'info'
+    );
+
+    notificationSpy.mockRestore();
   });
 });
