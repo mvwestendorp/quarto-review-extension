@@ -1,14 +1,6 @@
 ---
 title: "Debug Mode Example"
 format: html
-review:
-  debug:
-    enabled: true
-    level: debug
-    modules:
-      - UIModule
-      - ChangesModule
-    format-timestamp: true
 ---
 
 # Quarto Review Extension - Debug Mode Example

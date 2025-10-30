@@ -48,6 +48,7 @@ export class MainSidebar {
     this.toggleBtn.setAttribute('title', 'Collapse sidebar');
     this.toggleBtn.setAttribute('aria-label', 'Collapse sidebar');
     this.toggleBtn.setAttribute('aria-expanded', 'true');
+    this.toggleBtn.setAttribute('aria-label', 'Toggle sidebar visibility');
 
     const chevron = document.createElement('span');
     chevron.className = 'review-icon-chevron';

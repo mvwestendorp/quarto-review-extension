@@ -5,16 +5,6 @@ format:
   html:
     toc: true
     code-fold: true
-review:
-  enabled: true
-  editable-elements:
-    - Para
-    - Header
-    - CodeBlock
-    - BulletList
-    - OrderedList
-filters:
-  - review
 ---
 
 # Introduction {#sec-intro}
@@ -99,6 +89,10 @@ The extension uses a modular architecture:
 - **Git Module**: Provides version control integration
 - **UI Module**: Stateless rendering layer
 
+```{r}
+print("Some code that is not editable.")
+```
+
 ### Git Providers
 
 The extension supports multiple git providers:
@@ -113,7 +107,11 @@ The extension supports multiple git providers:
 
 More text
 
-More more text
+```{r}
+#| label: fig-cars
+#| fig-cap: "A caption for a figure should be editable"
+plot(cars)
+```
 
 ## Conclusion
 

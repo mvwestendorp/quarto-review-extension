@@ -22,6 +22,7 @@ const {
     ),
     clearHighlight: vi.fn(),
     refreshUI: vi.fn(),
+    sanitizeInlineCommentArtifacts: vi.fn(),
   });
 
   let currentStub: ReturnType<typeof createCommentControllerStub> | null = null;
@@ -176,6 +177,10 @@ const createStubConfig = (
   const changeMocks = {
     replaceElementWithSegments: vi.fn(),
   };
+  changeMocks.replaceElementWithSegments.mockReturnValue({
+    elementIds: [],
+    removedIds: [],
+  });
 
   const markdownModule = new MarkdownModule();
 
@@ -195,11 +200,16 @@ const createStubConfig = (
       initializeFromDOM: vi.fn(),
       canUndo: vi.fn().mockReturnValue(false),
       canRedo: vi.fn().mockReturnValue(false),
+      hasUnsavedOperations: vi.fn().mockReturnValue(false),
+      markAsSaved: vi.fn(),
     } as any,
     markdown: {
       render: vi.fn((input) => markdownModule.render(input)),
       renderSync: vi.fn((input) => markdownModule.renderSync(input)),
       parseToAST: vi.fn((input) => markdownModule.parseToAST(input)),
+      renderElement: vi.fn((content, type, level) =>
+        markdownModule.renderElement(content, type, level)
+      ),
     } as any,
     comments: {
       parse: vi.fn().mockReturnValue([]),
@@ -385,6 +395,111 @@ describe('UIModule.saveEditor comment handling', () => {
       expect.stringContaining('Leading blank lines were removed'),
       'info'
     );
+
+    notificationSpy.mockRestore();
+  });
+
+  it('strips leading HTML break tags on save and avoids additional operations', () => {
+    const contentStore = new Map<string, string>([
+      ['section-1', 'Original content'],
+    ]);
+    const config = createStubConfig(contentStore);
+    const ui = new UIModule(config as UIConfig);
+    const notificationSpy = vi
+      .spyOn(ui as any, 'showNotification')
+      .mockImplementation(() => {});
+
+    (ui as any).editorState.currentElementId = 'section-1';
+    (ui as any).editorState.currentEditorContent = '<br />\nOriginal content';
+    (ui as any).editorState.milkdownEditor = {} as any;
+
+    const consumeSpy = getCommentControllerStub()?.consumeSectionCommentMarkup;
+    consumeSpy?.mockReturnValue(undefined);
+
+    config.changeMocks.replaceElementWithSegments.mockClear();
+    config.changeMocks.replaceElementWithSegments.mockReturnValue({
+      elementIds: ['section-1'],
+      removedIds: [],
+    });
+
+    (ui as any).saveEditor();
+
+    expect(config.changeMocks.replaceElementWithSegments).toHaveBeenCalledTimes(
+      1
+    );
+    const segments = config.changeMocks.replaceElementWithSegments.mock
+      .calls[0][1];
+    expect(segments).toHaveLength(1);
+    expect(segments[0]?.content).toBe('Original content');
+    expect(notificationSpy).toHaveBeenCalledTimes(1);
+    expect(notificationSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Leading blank lines were removed'),
+      'info'
+    );
+    notificationSpy.mockRestore();
+  });
+
+  it('preserves generated segments when only leading whitespace changes', () => {
+    const contentStore = new Map<string, string>([
+      ['section-1', 'Original content'],
+      ['temp-1', 'Test'],
+    ]);
+    const config = createStubConfig(contentStore);
+    config.changes.getOperations.mockReturnValue([
+      {
+        id: 'op-1',
+        type: 'insert',
+        elementId: 'temp-1',
+        timestamp: Date.now(),
+        data: {
+          type: 'insert',
+          content: 'Test',
+          metadata: { type: 'Para' },
+          position: { after: 'section-1' },
+          parentId: 'section-1',
+          generated: true,
+        },
+      },
+    ]);
+    config.changes.getCurrentState.mockReturnValue([
+      {
+        id: 'section-1',
+        content: 'Original content',
+        metadata: { type: 'Para' },
+      },
+      {
+        id: 'temp-1',
+        content: 'Test',
+        metadata: { type: 'Para' },
+      },
+    ]);
+
+    const ui = new UIModule(config as UIConfig);
+    const notificationSpy = vi
+      .spyOn(ui as any, 'showNotification')
+      .mockImplementation(() => {});
+
+    config.changeMocks.replaceElementWithSegments.mockClear();
+    config.changeMocks.replaceElementWithSegments.mockReturnValue({
+      elementIds: ['section-1', 'temp-1'],
+      removedIds: [],
+    });
+
+    (ui as any).editorState.currentElementId = 'section-1';
+    (ui as any).editorState.currentEditorContent = '<br />Original content';
+    (ui as any).editorState.milkdownEditor = {} as any;
+
+    const generatedPreview = (ui as any).collectGeneratedSegments('section-1');
+    expect(generatedPreview).toHaveLength(1);
+    expect(generatedPreview[0]?.content).toBe('Test');
+
+    (ui as any).saveEditor();
+
+    const segments = config.changeMocks.replaceElementWithSegments.mock
+      .calls[0][1];
+    expect(segments).toHaveLength(2);
+    expect(segments[1]?.content).toBe('Test');
+    expect(notificationSpy).toHaveBeenCalled();
 
     notificationSpy.mockRestore();
   });

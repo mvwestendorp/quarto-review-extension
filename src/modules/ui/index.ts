@@ -598,31 +598,25 @@ export class UIModule {
       );
     }
 
-    const originalContent = normalizeListMarkers(
-      this.config.changes.getElementContent(elementId)
-    );
+    const originalContentRaw = this.config.changes.getElementContent(elementId);
+    const originalContent = normalizeListMarkers(originalContentRaw);
+    const strippedOriginal =
+      this.stripLeadingBlankLines(originalContent).content;
 
-    if (originalContent === newContent) {
-      if (cachedSectionComment) {
-        this.commentController.cacheSectionCommentMarkup(
-          elementId,
-          cachedSectionComment
-        );
+    const originalNormalized = normalizeContentForComparison(strippedOriginal);
+    const newNormalized = normalizeContentForComparison(newContent);
+    const noTextChange = originalNormalized === newNormalized;
+
+    if (noTextChange) {
+      const generatedSegments = this.collectGeneratedSegments(elementId);
+      if (generatedSegments.length > 0) {
+        segments.push(...generatedSegments);
       }
-      this.closeEditor();
-      this.refresh();
-      return;
     }
-    const originalPrimary =
-      this.commentController.extractSectionComments(originalContent).content;
-    const newPrimaryContent = segments[0]?.content ?? '';
-
-    const originalNormalized = normalizeContentForComparison(originalPrimary);
-    const newNormalized = normalizeContentForComparison(newPrimaryContent);
 
     logger.debug('Saving editor');
-    logger.trace('Original primary:', originalPrimary);
-    logger.trace('New primary:', newPrimaryContent);
+    logger.trace('Original normalized:', originalNormalized);
+    logger.trace('New normalized:', newNormalized);
 
     const { elementIds, removedIds } =
       this.config.changes.replaceElementWithSegments(elementId, segments);
@@ -1104,7 +1098,7 @@ export class UIModule {
     if (!content) {
       return { content, removed: false };
     }
-    const stripped = content.replace(/^(?:\s*\r?\n)+/, '');
+    const stripped = content.replace(/^(?:\s*(?:<br\s*\/?>|\r?\n))+/, '');
     return {
       content: stripped,
       removed: stripped.length !== content.length,
@@ -1116,6 +1110,62 @@ export class UIModule {
       'Leading blank lines were removed because whitespace-only changes are ignored.',
       'info'
     );
+  }
+
+  private collectGeneratedSegments(
+    elementId: string
+  ): { content: string; metadata: ElementMetadata }[] {
+    const operations = this.config.changes.getOperations?.() ?? [];
+    if (!operations.length) {
+      return [];
+    }
+
+    const activeIds = new Set<string>();
+    for (const op of operations) {
+      if (op.type === 'insert') {
+        const insertData = op.data as { parentId?: string };
+        if (insertData.parentId === elementId) {
+          activeIds.add(op.elementId);
+        }
+      } else if (op.type === 'delete') {
+        if (activeIds.has(op.elementId)) {
+          activeIds.delete(op.elementId);
+        }
+      }
+    }
+
+    if (activeIds.size === 0) {
+      return [];
+    }
+
+    const state = this.config.changes.getCurrentState?.() ?? [];
+    if (!state.length) {
+      return [];
+    }
+
+    const ordered: { content: string; metadata: ElementMetadata }[] = [];
+    let afterParent = false;
+    for (const element of state) {
+      if (element.id === elementId) {
+        afterParent = true;
+        continue;
+      }
+      if (!afterParent) {
+        continue;
+      }
+      if (activeIds.has(element.id)) {
+        ordered.push({
+          content: element.content,
+          metadata: element.metadata,
+        });
+      } else if (ordered.length > 0) {
+        break;
+      } else {
+        break;
+      }
+    }
+
+    return ordered;
   }
 
   private deriveMetadataFromNode(

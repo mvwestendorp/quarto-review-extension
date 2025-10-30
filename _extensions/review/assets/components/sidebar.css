@@ -58,6 +58,7 @@ body.review-sidebar-collapsed-mode .review-persistent-sidebar {
   justify-content: space-between;
   align-items: center;
   transition: opacity 0.2s ease, visibility 0.2s ease;
+  position: relative;
 }
 
 .review-sidebar-header h3 {
@@ -70,6 +71,7 @@ body.review-sidebar-collapsed-mode .review-persistent-sidebar {
   text-overflow: ellipsis;
 }
 
+/* Hide header and body when collapsed, but button will be visible via absolute positioning */
 .review-sidebar-collapsed .review-sidebar-header,
 .review-sidebar-collapsed .review-sidebar-body,
 body.review-sidebar-collapsed-mode .review-sidebar-header,
@@ -86,6 +88,34 @@ body.review-sidebar-collapsed-mode .review-sidebar-header h3,
 body.review-sidebar-collapsed-mode .review-sidebar-body h4,
 body.review-sidebar-collapsed-mode .review-sidebar-body p {
   opacity: 0;
+}
+
+/* Toggle button always visible even when header is hidden */
+.review-sidebar-header .review-btn-icon {
+  position: relative;
+  z-index: 10;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: all 0.2s ease;
+}
+
+.review-sidebar-collapsed .review-sidebar-header .review-btn-icon,
+body.review-sidebar-collapsed-mode .review-sidebar-header .review-btn-icon {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Enhanced hover state for collapsed sidebar button */
+.review-persistent-sidebar.review-sidebar-collapsed .review-sidebar-header .review-btn-icon:hover {
+  background-color: rgba(var(--review-color-primary-rgb), 0.15);
+  color: var(--review-color-primary);
+  transform: scale(1.1);
+}
+
+.review-persistent-sidebar.review-sidebar-collapsed .review-sidebar-header .review-btn-icon:active {
+  transform: scale(0.95);
 }
 
 .review-icon-chevron {
@@ -192,5 +222,15 @@ body.review-sidebar-collapsed-mode .review-icon-chevron {
 
   body.review-sidebar-collapsed-mode {
     padding-inline-end: clamp(0px, 8vw, 60px);
+  }
+
+  /* Enhanced button visibility on mobile collapsed state */
+  .review-persistent-sidebar.review-sidebar-collapsed .review-sidebar-header .review-btn-icon {
+    padding: 8px 6px;
+    font-size: 18px;
+  }
+
+  .review-persistent-sidebar.review-sidebar-collapsed .review-sidebar-header .review-btn-icon:hover {
+    background-color: rgba(var(--review-color-primary-rgb), 0.2);
   }
 }
