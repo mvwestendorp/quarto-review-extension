@@ -53,6 +53,10 @@
     transform: translateX(-50%);
     top: 80px;
   }
+
+  .review-toolbar:hover {
+    transform: translateX(-50%) translateY(-3px);
+  }
 }
 
 /* Inline editor toolbar */

@@ -42,13 +42,6 @@
     "text": "Conclusion"
   },
   {
-    "objectID": "doc-translation.html#features",
-    "href": "doc-translation.html#features",
-    "title": "Example Document with Review Extension",
-    "section": "Features",
-    "text": "Features"
-  },
-  {
     "objectID": "debug-example.html",
     "href": "debug-example.html",
     "title": "Debug Mode Example",
@@ -138,5 +131,12 @@
     "title": "Debug Mode Example",
     "section": "",
     "text": "✅ Open Developer Console (F12)\n✅ Try editing content above\n✅ Watch debug messages appear\n✅ Try different actions (comments, search, etc.)\n✅ Modify the review.debug config to try different settings\n✅ Read docs/user/DEBUG.md for complete documentation\n\nHappy debugging! 🐛"
+  },
+  {
+    "objectID": "doc-translation.html#features",
+    "href": "doc-translation.html#features",
+    "title": "Example Document with Review Extension",
+    "section": "Features",
+    "text": "Features"
   }
 ]
