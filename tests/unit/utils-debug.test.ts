@@ -89,6 +89,21 @@ describe('debug utilities', () => {
     expect(config.level).toBe('trace');
   });
 
+  it('normalizes module filters provided as comma-separated string', async () => {
+    setLocationSearch('');
+    const { debugLogger } = await loadDebugModule();
+    debugLogger.setConfig({
+      enabled: true,
+      level: 'debug',
+      modules: 'ui,changes',
+      excludeModules: 'git ,  markdown  ',
+    } as any);
+
+    const config = debugLogger.getConfig();
+    expect(config.modules).toEqual(['ui', 'changes']);
+    expect(config.excludeModules).toEqual(['git', 'markdown']);
+  });
+
   it('derives configuration from environment variables', async () => {
     setLocationSearch('');
     process.env.DEBUG = 'true';

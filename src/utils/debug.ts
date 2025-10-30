@@ -49,22 +49,65 @@ class DebugLogger {
     const debugModulesEnv = env['DEBUG_MODULES'];
     const debugExcludeEnv = env['DEBUG_EXCLUDE'];
 
+    const normalizeList = (
+      value?: string | string[] | null
+    ): string[] | undefined => {
+      if (!value) return undefined;
+      if (Array.isArray(value)) {
+        return value
+          .map((entry) => entry?.toString().trim())
+          .filter((entry): entry is string => Boolean(entry));
+      }
+      return value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+    };
+
     this.config = {
       enabled: debugFromUrl !== null || debugEnv === 'true',
       level:
         (debugFromUrl as LogLevel) || (debugLevelEnv as LogLevel) || 'info',
-      modules: debugModulesEnv?.split(','),
-      excludeModules: debugExcludeEnv?.split(','),
+      modules: normalizeList(debugModulesEnv),
+      excludeModules: normalizeList(debugExcludeEnv),
       formatTimestamp: true,
       ...config,
     };
+
+    this.config.modules = normalizeList(this.config.modules);
+    this.config.excludeModules = normalizeList(this.config.excludeModules);
   }
 
   /**
    * Update debug configuration
    */
   setConfig(config: Partial<DebugConfig>): void {
-    this.config = { ...this.config, ...config };
+    const normalizeList = (
+      value?: string | string[] | null
+    ): string[] | undefined => {
+      if (!value) return undefined;
+      if (Array.isArray(value)) {
+        return value
+          .map((entry) => entry?.toString().trim())
+          .filter((entry): entry is string => Boolean(entry));
+      }
+      return value
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+    };
+
+    const next: DebugConfig = {
+      ...this.config,
+      ...config,
+    };
+
+    next.modules = normalizeList(config.modules ?? this.config.modules);
+    next.excludeModules = normalizeList(
+      config.excludeModules ?? this.config.excludeModules
+    );
+
+    this.config = next;
   }
 
   /**
