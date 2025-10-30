@@ -7,8 +7,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import { buildCSS } from '../../scripts/build-css.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '../..');
@@ -17,10 +17,8 @@ const devCssFile = path.join(distDir, 'review.css');
 const devMapFile = path.join(distDir, 'review.css.map');
 
 describe('CSS Build Process', () => {
-  beforeAll(() => {
-    // Run development build
-    process.env.NODE_ENV = 'development';
-    execSync('npm run build:css:dev', { cwd: projectRoot, stdio: 'pipe' });
+  beforeAll(async () => {
+    await buildCSS({ mode: 'development', silent: true });
   });
 
   describe('Development Build', () => {
@@ -113,33 +111,31 @@ describe('CSS Build Process', () => {
     let prodCssFile: string;
     let prodMapFile: string;
 
-    beforeAll(() => {
-      // Save current dev file for comparison
+    beforeAll(async () => {
       prodCssFile = path.join(distDir, 'review.prod.css');
       prodMapFile = path.join(distDir, 'review.prod.css.map');
 
-      // Temporarily rename dev files
-      const tempDevFile = path.join(distDir, 'review.dev.css');
-      const tempDevMap = path.join(distDir, 'review.dev.css.map');
-      fs.renameSync(devCssFile, tempDevFile);
-      if (fs.existsSync(devMapFile)) {
-        fs.renameSync(devMapFile, tempDevMap);
+      if (fs.existsSync(prodCssFile)) {
+        fs.unlinkSync(prodCssFile);
+      }
+      if (fs.existsSync(prodMapFile)) {
+        fs.unlinkSync(prodMapFile);
       }
 
-      // Build production version
-      process.env.NODE_ENV = 'production';
-      execSync('npm run build:css', { cwd: projectRoot, stdio: 'pipe' });
+      await buildCSS({
+        mode: 'production',
+        outputFile: 'review.prod.css',
+        outputMapFile: 'review.prod.css.map',
+        silent: true,
+      });
+    });
 
-      // Rename production file
-      fs.renameSync(devCssFile, prodCssFile);
-      if (fs.existsSync(devMapFile)) {
-        fs.renameSync(devMapFile, prodMapFile);
+    afterAll(() => {
+      if (fs.existsSync(prodCssFile)) {
+        fs.unlinkSync(prodCssFile);
       }
-
-      // Restore dev files for comparison
-      fs.renameSync(tempDevFile, devCssFile);
-      if (fs.existsSync(tempDevMap)) {
-        fs.renameSync(tempDevMap, devMapFile);
+      if (fs.existsSync(prodMapFile)) {
+        fs.unlinkSync(prodMapFile);
       }
     });
 
