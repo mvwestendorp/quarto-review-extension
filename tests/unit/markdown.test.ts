@@ -204,10 +204,42 @@ describe('MarkdownModule', () => {
       const input = '- First item\n{++- Added item++}';
       const result = markdown.renderSync(input);
       expect(result).toContain('<ul>');
-      expect(result).toMatch(/<li>First item<\/li>/);
-      expect(result).toMatch(/<li><ins class="critic-addition" data-critic-type="addition">Added item<\/ins><\/li>/);
+      expect(result).toMatch(/<li>\s*First item\s*<\/li>/);
+      expect(result).toMatch(
+        /<li><ins class="critic-addition" data-critic-type="addition">Added item<\/ins><\/li>/
+      );
       expect(result).not.toContain('{++');
       expect(result).not.toContain('++}');
+    });
+
+    it('should render deleted list items without leaking CriticMarkup syntax', () => {
+      const input = '- First item\n{-- - Removed item--}';
+      const result = markdown.renderSync(input);
+      expect(result).toContain('<ul>');
+      expect(result).toMatch(/<li>\s*First item\s*<\/li>/);
+      expect(result).toMatch(
+        /<li><del class="critic-deletion" data-critic-type="deletion">Removed item<\/del><\/li>/
+      );
+      expect(result).not.toContain('{--');
+      expect(result).not.toContain('--}');
+    });
+
+    it('should render substituted list items without leaking CriticMarkup syntax', () => {
+      const input = '- First item\n{~~ - Old item~>New item~~}';
+      const result = markdown.renderSync(input);
+      expect(result).toContain('<ul>');
+      expect(result).toMatch(/<li>\s*First item\s*<\/li>/);
+      expect(result).toMatch(
+        /<li><span class="critic-substitution" data-critic-type="substitution">/
+      );
+      expect(result).toContain(
+        '<del class="critic-substitution-old" data-critic-type="deletion">Old item</del>'
+      );
+      expect(result).toContain(
+        '<ins class="critic-substitution-new" data-critic-type="addition">New item</ins>'
+      );
+      expect(result).not.toContain('{~~');
+      expect(result).not.toContain('~~}');
     });
 
     it('should allow disabling CriticMarkup', () => {

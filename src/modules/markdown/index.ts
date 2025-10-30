@@ -75,7 +75,7 @@ export class MarkdownModule {
 
   private normalizeCriticMarkupLists(markdown: string): string {
     const pattern =
-      /(^|\n)([ \t]*)\{\+\+\s*((?:[*+-])|(?:\d+[.)]))\s+([\s\S]*?)\+\+\}(?=\n|$)/g;
+      /(^|\n)([ \t]*)\{(\+\+|--|~~)\s*((?:[*+-])|(?:\d+[.)]))\s+([\s\S]*?)\3\}(?=\n|$)/g;
 
     return markdown.replace(
       pattern,
@@ -83,12 +83,13 @@ export class MarkdownModule {
         _match,
         lineBreak: string,
         indent: string,
+        criticToken: string,
         marker: string,
         body: string
       ) => {
         const cleanedBody = body.replace(/^\s+/, '').replace(/\s+$/, '');
         const normalizedMarker = marker.trim();
-        return `${lineBreak}${indent}${normalizedMarker} {++${cleanedBody}++}`;
+        return `${lineBreak}${indent}${normalizedMarker} {${criticToken}${cleanedBody}${criticToken}}`;
       }
     );
   }
