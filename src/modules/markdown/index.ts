@@ -153,6 +153,14 @@ export class MarkdownModule {
    * Convert a single element to HTML based on its type
    */
   public renderElement(content: string, type: string, level?: number): string {
+    if (type === 'FigureCaption' || type === 'TableCaption') {
+      return this.renderInline(content);
+    }
+
+    if (type === 'DocumentTitle') {
+      return this.renderInline(content);
+    }
+
     // For headers, strip existing # and attributes, then render
     if (type === 'Header' && level) {
       return this.renderHeading(content, level);

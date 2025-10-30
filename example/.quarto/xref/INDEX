@@ -1,6 +1,8 @@
 {
   "document.qmd": {
-    "document.html": "9e1bbfb7"
+    "document.html": "9e1bbfb7",
+    "document.json": "a243dcdb",
+    "document.native": "c8083b2f"
   },
   "doc-translation.qmd": {
     "doc-translation.html": "0c2fe957"

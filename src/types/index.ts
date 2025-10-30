@@ -9,7 +9,10 @@ export type ElementType =
   | 'BulletList'
   | 'OrderedList'
   | 'BlockQuote'
-  | 'Div';
+  | 'Div'
+  | 'FigureCaption'
+  | 'TableCaption'
+  | 'DocumentTitle';
 
 export type OperationType = 'insert' | 'delete' | 'edit' | 'move';
 

@@ -7,6 +7,7 @@ import { ChangesModule } from '@modules/changes';
 import { MarkdownModule, type MarkdownOptions } from '@modules/markdown';
 import { CommentsModule } from '@modules/comments';
 import { UIModule } from '@modules/ui';
+import { registerSupplementalEditableSegments } from '@modules/ui/segment-preprocessor';
 import { GitModule } from '@modules/git';
 import { UserModule } from '@modules/user';
 import { debugLogger, type DebugConfig } from '@utils/debug';
@@ -89,6 +90,8 @@ export class QuartoReview {
     if (this.config.debug) {
       debugLogger.setConfig(this.config.debug);
     }
+
+    registerSupplementalEditableSegments();
 
     // Initialize modules
     this.changes = new ChangesModule();
