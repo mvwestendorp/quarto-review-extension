@@ -1,180 +1,116 @@
 ## Review Fixtures & GitHub Pages Workflow
 
-This repository embeds a GitHub demo project under `fixtures/github`. The demo site can be published to GitHub Pages and updated from exported review artefacts.
+The review demo now lives in its own repository (no submodule). This project publishes
+build artefacts of the Quarto review extension so the fixture repository can download
+and render the latest UI.
 
-### Terminology
+### How the pieces fit together
 
-- **Fixtures repo**: `fixtures/github` submodule. Treat it as the canonical repo for the review demo.
-- **Review branch**: branch in the fixtures repo that accumulates reviewer changes (defaults to `review/live`).
-- **Pages branch**: branch used for GitHub Pages (e.g. `gh-pages`), generated from QMD sources.
+1. **Extension repository (this repo)**
+   - `npm run package:extension` produces `dist/packages/quarto-review-extension-<version>.zip` containing `_extensions/review`.
+   - The **Publish Extension Bundle** workflow uploads that archive to the `continuous`
+     GitHub release every time `main` is updated.
 
-> **Prerequisite checklist**
-> 1. Enable GitHub Pages in the fixtures repo (Settings ▸ Pages ▸ Build and deployment ▸ GitHub Actions).
-> 2. Add a secret named `REVIEW_REPO_TOKEN` to this repository (or an organisation secret) containing a PAT/GitHub App token with `contents:write` access to the fixtures repo.  
->    This allows the `review-sync` workflow to push changes automatically. If the secret is omitted, the workflow will leave the commit staged locally and remind you to push manually.
+2. **Fixture repository**
+   - A GitHub Pages workflow downloads the bundle, extracts it into `_extensions/review`,
+     renders the Quarto site, and publishes the HTML.
 
-### Local Setup
+3. **Reviewers**
+   - Read-only access to the published Pages site.
+   - Reviewer changes are committed back to the fixture repo as usual (no special
+     coupling to the extension repo).
 
-```bash
-git submodule update --init --recursive
-npm install
-```
-
-Render the fixtures demo locally:
-
-```bash
-npm run fixtures:render            # Renders QMD sources with Quarto
-```
-
-To sync exported QMD files from the main extension back into the fixtures repo:
+### Packaging the extension locally
 
 ```bash
-# Example for exporting into ./exports and committing to review/live
-npm run fixtures:sync -- --source ./exports --branch review/live --message "chore(review): sync demo"
+# Build + package the extension
+npm run package:extension
+
+# Optional: skip rebuilding if you already ran npm run build
+npm run package:extension -- --skip-build
 ```
 
-The script stages files and creates a commit inside `fixtures/github`. Push manually:
+The output is created under `dist/packages/`. You can unzip that archive directly
+into another Quarto project when testing locally:
 
 ```bash
-cd fixtures/github
-git push origin review/live
+unzip -o dist/packages/quarto-review-extension-<version>.zip -d path/to/another/project
 ```
 
-### GitHub Pages Publishing
+### GitHub workflow (extension repo)
 
-1. In the fixtures repo, create a workflow (example below) that renders QMDs and deploys to Pages.
-2. Enable Pages via Settings ▸ Pages ▸ Build and deployment ▸ GitHub Actions.
-3. Ensure the workflow commits artefacts to the Pages branch or uses the built-in Pages deploy actions.
+The `.github/workflows/publish-extension-bundle.yml` workflow:
 
-Example workflow (`fixtures/github/.github/workflows/publish.yml`):
+1. Runs on pushes to `main` or manually.
+2. Installs dependencies, runs `npm run package:extension`.
+3. Uploads the resulting archive to the `continuous` release (creating/updating the
+   release as needed) and stores it as a workflow artifact.
+
+No extra configuration is required unless you want to change the release name or
+retention policy.
+
+### Consuming the bundle in the fixture repo
+
+In the fixtures repository, add a step that downloads the release asset before
+rendering. Example snippet for your Pages workflow:
 
 ```yaml
-name: Publish review demo
-
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-
-      - name: Render site
-        run: |
-          npm install
-          npm run fixtures:render
-
-      - name: Upload artefacts
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: fixtures/github/_site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+- name: Download latest extension bundle
+  env:
+    GITHUB_TOKEN: ${{ secrets.EXTENSION_BUNDLE_TOKEN }}    # PAT with repo read access
+  run: |
+    curl -L \
+      -H "Authorization: Bearer $GITHUB_TOKEN" \
+      -o extension.zip \
+      https://github.com/<owner>/quarto-review-extension/releases/download/continuous/quarto-review-extension-<version>.zip
+    rm -rf _extensions/review
+    unzip -o extension.zip -d _extensions
 ```
 
-### Authentication Options
+If the extension repository is public, the token can be omitted (`curl -L -o ...`).
+For private repositories, create a fine-grained PAT with **Contents: read** access
+and store it as `EXTENSION_BUNDLE_TOKEN` in the fixtures repo secrets.
 
-| Scenario | Recommended Approach | Notes |
-|----------|---------------------|-------|
-| GitHub-hosted | Fine-grained PAT stored as `REVIEW_REPO_TOKEN` | Minimal setup, per-user tokens |
-| Automated CI | GitHub App installation token | Scoped permissions, auditable |
-| Deploy keys | Read-only publishing | Use SSH keys tied to the fixtures repo |
-| Enterprise/on-prem | OAuth2 tokens (Authorization Code for users, Client Credentials for automation) | Integrate with self-hosted runners and internal secret store |
-
-### Workflow for Reviewers
-
-1. Render the QMD with the web review extension and export reviewed QMD/markdown.
-2. Run `npm run fixtures:sync -- --source <export-dir>`.
-3. Push the resulting commit to the fixtures repo (`review/live` or a feature branch).
-4. Open a PR in the fixtures repo to merge the changes into `main`.
-5. Trigger the Pages workflow (automatic on merge or manual via workflow_dispatch).
-
-### CI Integration in the Main Repo
-
-- Create a workflow (`.github/workflows/review-sync.yml`) that, when triggered, runs the sync script using the exported artefacts and commits to the fixtures repo.
-- Gate execution behind manual trigger or label-based PR comment.
-- Store secrets (`REVIEW_REPO_TOKEN`, or GitHub App credentials) in repository or organization-level secrets.
-
-Example skeleton:
+After downloading the bundle, continue with the usual Quarto render and Pages
+deployment:
 
 ```yaml
-name: Sync review fixtures
-
-on:
-  workflow_dispatch:
-    inputs:
-      source:
-        description: Path to exported QMD artefacts
-        required: true
-        default: dist/export
-      branch:
-        description: Target branch in fixtures repo
-        required: true
-        default: review/live
-
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Prepare git credentials
-        env:
-          REVIEW_REPO_TOKEN: ${{ secrets.REVIEW_REPO_TOKEN }}
-        run: |
-          git config --global user.name "Review Bot"
-          git config --global user.email "review-bot@example.com"
-          git config --global url."https://${REVIEW_REPO_TOKEN}@github.com/".insteadOf "https://github.com/"
-
-      - name: Sync fixtures
-        run: |
-          npm install
-          npm run fixtures:sync -- --source "${{ github.event.inputs.source }}" --branch "${{ github.event.inputs.branch }}" --message "chore(review): sync via workflow"
-
-      - name: Push changes
-        working-directory: fixtures/github
-        run: git push origin "${{ github.event.inputs.branch }}"
+- uses: quarto-dev/quarto-actions/setup@v2
+- run: quarto render
+- uses: actions/upload-pages-artifact@v3
+  with:
+    path: _site
+- uses: actions/deploy-pages@v4
 ```
 
-### Security Considerations
+### Manual refresh inside the fixtures repo
 
-- Protect branches in the fixtures repo (`main`, `review/template`, `gh-pages`).
-- Store tokens or SSH keys securely (GitHub Secrets or enterprise secret store).
-- Rotate credentials regularly; document rotation procedures.
-- Monitor workflow logs and enable Dependabot/security alerts for the fixtures repo.
+```bash
+TOKEN=ghp_xxx  # optional if repo is private
+curl -L \
+  ${TOKEN:+-H "Authorization: Bearer $TOKEN"} \
+  -o extension.zip \
+  https://github.com/<owner>/quarto-review-extension/releases/download/continuous/quarto-review-extension-<version>.zip
+rm -rf _extensions/review
+unzip -o extension.zip -d _extensions
+quarto render
+```
+
+Commit the resulting `_site` changes or rely on the GitHub Pages workflow to
+publish them.
+
+### Authentication options
+
+| Scenario | Suggested credential | Notes |
+|----------|----------------------|-------|
+| Public extension repo | none (anonymous `curl`) | Use the release URL directly |
+| Private extension repo | Repo-scoped PAT (`EXTENSION_BUNDLE_TOKEN`) | Grants read access to releases |
+| Enterprise/on-prem | OAuth2 token | Same scope requirements as PAT |
 
 ### Troubleshooting
 
-| Issue | Fix |
-|-------|-----|
-| `fixtures/github` reports dirty working tree | Run `git submodule update --init --recursive` then `git reset --hard HEAD` inside the submodule |
-| Sync script says “No files matched pattern” | Ensure exports exist; pass `--source` pointing to the export directory |
-| Pages site stale | Trigger the publish workflow manually or merge a new commit to `main` |
-| Authentication failures in CI | Verify secrets, token scopes, and that the automation account has repo access |
+| Problem | Possible fix |
+|---------|---------------|
+| Bundle download fails with 404 | Ensure the `continuous` release exists and contains the zip |
+| Pages workflow renders outdated UI | Confirm the workflow downloads the bundle before rendering |
+| Local render fails with cache errors | Run `quarto render --no-cache` or delete `_extensions/review` and unzip again |
