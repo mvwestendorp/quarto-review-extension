@@ -5,12 +5,9 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-
 jobs:
-  build:
-    name: Build and Release
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,10 +24,86 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Build
+  build:
+    name: Build Extension
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build extension
         run: npm run build
 
-      - name: Create release archive
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-build
+          path: _extensions/
+          retention-days: 1
+
+  security:
+    name: Security Validation
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit (strict mode)
+        run: npm audit --production --audit-level=high
+
+      - name: Run Trivy security scanner (strict mode)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  release:
+    name: Create Release
+    needs: [test, build, security]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-build
+          path: _extensions/
+
+      - name: Create release archives
         run: |
           mkdir -p release
           cp -r _extensions release/
@@ -45,7 +118,7 @@ jobs:
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Create Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
@@ -53,6 +126,9 @@ jobs:
             quarto-review-extension.zip
           body: |
             ## Quarto Review Extension ${{ steps.get_version.outputs.VERSION }}
+
+            ✅ All tests passed
+            ✅ Security validation passed
 
             ### Installation
 

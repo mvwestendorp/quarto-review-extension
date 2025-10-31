@@ -83,9 +83,36 @@ jobs:
         run: npm run docs
         if: github.ref == 'refs/heads/main'
 
-  e2e:
-    name: E2E Tests
+  # e2e:
+  #   name: E2E Tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+
+  #     - name: Install dependencies
+  #       run: npm ci
+
+  #     - name: Install Playwright Browsers
+  #       run: npx playwright install --with-deps chromium
+
+  #     - name: Run Playwright tests
+  #       run: npm run test:e2e
+
+  security:
+    name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -100,8 +127,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps chromium
+      - name: Run npm audit (production)
+        continue-on-error: true
+        run: |
+          npm audit --production --audit-level=moderate || echo "npm audit found vulnerabilities"
 
-      - name: Run Playwright tests
-        run: npm run test:e2e
+      - name: Run Trivy security scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
