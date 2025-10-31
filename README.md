@@ -1,5 +1,10 @@
 # Quarto Review Extension
 
+[![CI](https://github.com/mvwestendorp/quarto-review-extension/workflows/CI/badge.svg)](https://github.com/mvwestendorp/quarto-review-extension/actions)
+[![Test Coverage](https://img.shields.io/badge/coverage-71.27%25-yellow)](https://mvwestendorp.github.io/quarto-review-extension/coverage/)
+[![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://mvwestendorp.github.io/quarto-review-extension/)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 A Quarto extension for collaborative document review with in-browser editing capabilities.
 
 ## Features

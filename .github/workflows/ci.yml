@@ -79,9 +79,25 @@ jobs:
       - name: Run unit tests
         run: npm test -- --coverage
 
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 90
+
       - name: Build TypeDoc documentation
         run: npm run docs
         if: github.ref == 'refs/heads/main'
+
+      - name: Upload API documentation
+        uses: actions/upload-artifact@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: api-docs
+          path: docs/generated/api/
+          retention-days: 90
 
   # e2e:
   #   name: E2E Tests
@@ -147,3 +163,46 @@ jobs:
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
+
+  deploy-docs:
+    name: Deploy Documentation
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download coverage report
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: public/coverage
+
+      - name: Download API documentation
+        uses: actions/download-artifact@v4
+        with:
+          name: api-docs
+          path: public/api
+
+      - name: Copy static documentation
+        run: |
+          mkdir -p public
+          cp docs/index.html public/
+          cp -r docs/user public/
+          cp -r docs/dev public/
+          cp README.md public/
+          cp CHANGELOG.md public/
+          cp SECURITY.md public/
+          cp docs/TEST_COVERAGE_PLAN.md public/
+          cp docs/TEST_COVERAGE_PROGRESS.md public/
+          cp docs/SECURITY_CI_PROPOSAL.md public/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
