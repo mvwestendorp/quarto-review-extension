@@ -18,10 +18,9 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-build)
       SKIP_BUILD=true
-      shift
       ;;
     -h|--help)
-      grep '^#' "$BASH_SOURCE" | sed 's/^# \{0,1\}//'
+      grep '^#' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -29,7 +28,8 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
   esac
-end
+  shift
+done
 
 if ! $SKIP_BUILD; then
   pushd "$ROOT_DIR" >/dev/null
