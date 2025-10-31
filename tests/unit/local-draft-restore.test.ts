@@ -34,7 +34,20 @@ const createConfigStub = (draftContent: string | null): UIConfig => {
   const persistence = {
     saveDraft: vi.fn(),
     clearAll: vi.fn(),
-    loadDraft: vi.fn().mockResolvedValue(draftContent),
+    loadDraft: vi.fn().mockResolvedValue(
+      draftContent === null
+        ? null
+        : {
+            savedAt: new Date().toISOString(),
+            elements: [
+              {
+                id: 'section-1',
+                content: draftContent,
+                metadata: { type: 'Para' },
+              },
+            ],
+          }
+    ),
   };
 
   const markdown = {

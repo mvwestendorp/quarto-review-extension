@@ -205,7 +205,13 @@ const createStubConfig = (
         .mockImplementation((id: string) => contentStore.get(id) ?? ''),
       getElementContentWithTrackedChanges: vi.fn().mockReturnValue(''),
       replaceElementWithSegments: changeMocks.replaceElementWithSegments,
-      getCurrentState: vi.fn().mockReturnValue([]),
+      getCurrentState: vi.fn().mockImplementation(() =>
+        Array.from(contentStore.entries()).map(([id, content]) => ({
+          id,
+          content,
+          metadata: { type: 'Para' },
+        }))
+      ),
       getOperations: vi.fn().mockReturnValue([]),
       initializeFromDOM: vi.fn(),
       canUndo: vi.fn().mockReturnValue(false),
@@ -229,7 +235,10 @@ const createStubConfig = (
       refresh: vi.fn(),
     } as any,
     inlineEditing: false,
-    persistence: persistenceMocks as any,
+    persistence: {
+      ...persistenceMocks,
+      loadDraft: vi.fn().mockResolvedValue(null),
+    } as any,
     changeMocks,
     persistenceMocks,
   } as any;
@@ -549,7 +558,12 @@ describe('UIModule.saveEditor comment handling', () => {
     expect(savedSegments).toHaveLength(1);
     expect(savedSegments[0]?.content).toBe('Original content');
     expect(config.persistenceMocks.saveDraft).toHaveBeenCalledWith(
-      'Full markdown content',
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'section-1',
+          content: 'Original content',
+        }),
+      ]),
       undefined
     );
   });

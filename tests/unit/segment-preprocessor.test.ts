@@ -211,9 +211,25 @@ describe('segment preprocessor', () => {
   });
 
   it('respects captions already marked processed', () => {
-    const caption = document.querySelector('.quarto-float-caption');
-    caption?.setAttribute('data-review-caption-processed', 'true');
-    caption?.innerHTML =
+    resetDocument(`
+      <header id="title-block-header">
+        <div class="quarto-title">
+          <h1 class="title">Example Document</h1>
+        </div>
+      </header>
+      <div class="quarto-float quarto-figure" id="fig-sample">
+        <figure>
+          <figcaption class="quarto-float-caption">Figure 1: Sample caption text</figcaption>
+        </figure>
+      </div>
+    `);
+
+    const caption = document.querySelector(
+      '.quarto-float-caption'
+    ) as HTMLElement | null;
+    expect(caption).toBeTruthy();
+    caption!.setAttribute('data-review-caption-processed', 'true');
+    caption!.innerHTML =
       '<span data-review-id="existing" data-review-type="FigureCaption">Existing</span>';
 
     registerSupplementalEditableSegments();

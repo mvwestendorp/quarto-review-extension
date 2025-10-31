@@ -71,6 +71,7 @@ describe('No HTML to Markdown Conversion', () => {
     const persistence = {
       saveDraft: vi.fn().mockResolvedValue(undefined),
       clearAll: vi.fn().mockResolvedValue(undefined),
+      loadDraft: vi.fn().mockResolvedValue(null),
     };
     const ui = new UIModule({ changes, markdown, comments, persistence });
 

@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { CommentsSidebar } from '@modules/ui/comments/CommentsSidebar';
 
 describe('Button Functionality - Search Panel', () => {
   let mockConfig: any;
@@ -187,61 +188,57 @@ describe('Button Functionality - Toolbar Buttons', () => {
   });
 });
 
-describe('Button Functionality - View Comments Button', () => {
+describe('Comments sidebar interactions', () => {
+  let sidebar: CommentsSidebar;
+
   beforeEach(() => {
-    // Setup comments sidebar in DOM for testing
-    document.body.innerHTML = `
-      <div class="review-comments-sidebar" role="region" aria-label="Comments">
-        <div class="review-comments-sidebar-header">
-          <h2>Comments</h2>
-          <button class="review-comments-sidebar-close" aria-label="Close comments">×</button>
-        </div>
-        <div class="review-comments-sidebar-content"></div>
-      </div>
-      <div class="review-section" data-review-id="section-1">
-        <button class="review-btn-view-comments" data-action="view-comments" title="View Comments">
-          View Comments
-        </button>
-      </div>
-    `;
+    document.body.innerHTML = '';
+    sidebar = new CommentsSidebar();
+    sidebar.create();
   });
 
-  it('view comments button should be clickable', () => {
-    const viewCommentsBtn = document.querySelector('[data-action="view-comments"]') as HTMLButtonElement;
-    expect(viewCommentsBtn).toBeTruthy();
+  it('renders collapsed panel with toggle', () => {
+    const element = sidebar.getElement();
+    expect(element).toBeTruthy();
+    expect(element?.classList.contains('review-sidebar-collapsed')).toBe(true);
 
-    expect(() => {
-      viewCommentsBtn.click();
-    }).not.toThrow();
+    const toggleBtn = element?.querySelector(
+      '[data-action="toggle-comments-sidebar"]'
+    ) as HTMLButtonElement | null;
+    expect(toggleBtn).toBeTruthy();
+    expect(toggleBtn?.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('view comments button should have correct data attribute', () => {
-    const viewCommentsBtn = document.querySelector('[data-action="view-comments"]');
-    expect(viewCommentsBtn?.getAttribute('data-action')).toBe('view-comments');
+  it('toggle button expands and collapses the comments sidebar', () => {
+    const element = sidebar.getElement();
+    const toggleBtn = element?.querySelector(
+      '[data-action="toggle-comments-sidebar"]'
+    ) as HTMLButtonElement;
+    toggleBtn.click();
+    expect(element?.classList.contains('review-sidebar-collapsed')).toBe(false);
+    expect(document.body.classList.contains('review-comments-sidebar-open')).toBe(true);
+    toggleBtn.click();
+    expect(element?.classList.contains('review-sidebar-collapsed')).toBe(true);
+    expect(document.body.classList.contains('review-comments-sidebar-open')).toBe(false);
   });
 
-  it('view comments button should have title attribute', () => {
-    const viewCommentsBtn = document.querySelector('[data-action="view-comments"]') as HTMLElement;
-    expect(viewCommentsBtn?.getAttribute('title')).toBe('View Comments');
+  it('show() expands the sidebar programmatically', () => {
+    sidebar.show();
+    const element = sidebar.getElement();
+    expect(element?.classList.contains('review-sidebar-collapsed')).toBe(false);
   });
 
-  it('sidebar should be in DOM after button click', () => {
-    const sidebar = document.querySelector('.review-comments-sidebar');
-    expect(sidebar).toBeTruthy();
+  it('hide() collapses the sidebar programmatically', () => {
+    sidebar.show();
+    sidebar.hide();
+    const element = sidebar.getElement();
+    expect(element?.classList.contains('review-sidebar-collapsed')).toBe(true);
   });
 
-  it('sidebar content area should exist', () => {
+  it('refresh maintains content container', () => {
+    sidebar.refresh();
     const contentArea = document.querySelector('.review-comments-sidebar-content');
     expect(contentArea).toBeTruthy();
-  });
-
-  it('sidebar close button should be clickable', () => {
-    const closeBtn = document.querySelector('.review-comments-sidebar-close') as HTMLButtonElement;
-    expect(closeBtn).toBeTruthy();
-
-    expect(() => {
-      closeBtn.click();
-    }).not.toThrow();
   });
 });
 

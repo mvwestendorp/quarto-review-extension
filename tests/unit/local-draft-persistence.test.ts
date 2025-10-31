@@ -14,11 +14,20 @@ describe('LocalDraftPersistence', () => {
       defaultMessage: 'Draft',
     });
 
-    await persistence.saveDraft('content', 'Custom message');
+    await persistence.saveDraft(
+      [
+        {
+          id: 'section-1',
+          content: 'Updated content',
+          metadata: { type: 'Para' },
+        },
+      ],
+      'Custom message'
+    );
 
     expect(store.saveFile).toHaveBeenCalledWith(
       'test.qmd',
-      'content',
+      expect.stringContaining('Updated content'),
       'Custom message'
     );
   });

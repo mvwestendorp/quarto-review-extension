@@ -183,6 +183,7 @@ const createStubConfig = (): UIConfig => ({
   persistence: {
     saveDraft: vi.fn(),
     clearAll: vi.fn(),
+    loadDraft: vi.fn().mockResolvedValue(null),
   } as any,
 });
 

@@ -228,6 +228,7 @@ const createStubConfig = (): UIConfig => ({
   persistence: {
     saveDraft: vi.fn(),
     clearAll: vi.fn(),
+    loadDraft: vi.fn().mockResolvedValue(null),
   } as any,
 });
 
@@ -284,6 +285,8 @@ describe('UIModule sidebar state handling', () => {
     expect(clearCallback).toBeInstanceOf(Function);
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const originalReload = window.location.reload;
+    (window.location as any).reload = vi.fn();
 
     await clearCallback();
 
@@ -291,7 +294,9 @@ describe('UIModule sidebar state handling', () => {
     expect(config.persistence.clearAll).toHaveBeenCalled();
     const historyInstance = getHistoryStorageInstances()[0];
     expect(historyInstance.clearAll).toHaveBeenCalled();
+    expect(window.location.reload).toHaveBeenCalled();
     confirmSpy.mockRestore();
+    (window.location as any).reload = originalReload;
   });
 
   it('does not clear local drafts when confirmation is declined', async () => {
@@ -304,6 +309,8 @@ describe('UIModule sidebar state handling', () => {
     expect(clearCallback).toBeInstanceOf(Function);
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const originalReload = window.location.reload;
+    (window.location as any).reload = vi.fn();
 
     await clearCallback();
 
@@ -312,5 +319,6 @@ describe('UIModule sidebar state handling', () => {
     const historyInstance = getHistoryStorageInstances()[0];
     expect(historyInstance.clearAll).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
+    (window.location as any).reload = originalReload;
   });
 });
