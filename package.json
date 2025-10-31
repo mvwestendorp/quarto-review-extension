@@ -20,6 +20,7 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "test:coverage:check": "vitest --coverage --run",
+    "test:lua": "lua5.4 tests/lua/sanitize-identifier.test.lua",
     "test:e2e": "playwright test",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",

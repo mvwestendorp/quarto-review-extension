@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     # Quarto needs gdebi for .deb installation
     gdebi-core \
+    # Lua for testing Lua filter
+    lua5.4 \
     # Playwright browser dependencies (minimal set)
     libnss3 \
     libatk1.0-0 \
