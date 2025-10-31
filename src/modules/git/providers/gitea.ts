@@ -206,6 +206,9 @@ export class GiteaProvider extends BaseProvider {
       createdAt: pr.created_at,
       updatedAt: pr.updated_at,
       url: pr.html_url,
+      headRef: pr.head?.ref ?? pr.head?.label,
+      baseRef: pr.base?.ref ?? pr.base?.label,
+      draft: pr.draft ?? false,
     };
   }
 
@@ -241,6 +244,15 @@ interface GiteaPullRequest {
   created_at: string;
   updated_at: string;
   html_url: string;
+  head?: {
+    ref?: string;
+    label?: string;
+  };
+  base?: {
+    ref?: string;
+    label?: string;
+  };
+  draft?: boolean;
 }
 
 interface GiteaIssue {

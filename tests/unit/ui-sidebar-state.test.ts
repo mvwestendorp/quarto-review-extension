@@ -19,6 +19,9 @@ const {
     onClearDrafts: ReturnType<typeof vi.fn>;
     onExportClean: ReturnType<typeof vi.fn>;
     onExportCritic: ReturnType<typeof vi.fn>;
+    onSubmitReview: ReturnType<typeof vi.fn>;
+    setSubmitReviewEnabled: ReturnType<typeof vi.fn>;
+    setSubmitReviewPending: ReturnType<typeof vi.fn>;
     setCollapsed: ReturnType<typeof vi.fn>;
     setTrackedChangesVisible: ReturnType<typeof vi.fn>;
     updateUndoRedoState: ReturnType<typeof vi.fn>;
@@ -43,6 +46,9 @@ const {
       onClearDrafts: vi.fn(),
       onExportClean: vi.fn(),
       onExportCritic: vi.fn(),
+      onSubmitReview: vi.fn(),
+      setSubmitReviewEnabled: vi.fn(),
+      setSubmitReviewPending: vi.fn(),
       setCollapsed: vi.fn(),
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),
@@ -199,42 +205,52 @@ vi.mock('@modules/ui/change-summary', () => ({
   }),
 }));
 
-const createStubConfig = (): UIConfig => ({
-  changes: {
-    getElementById: vi.fn().mockReturnValue({
-      id: 'elem-1',
-      metadata: { type: 'Para' },
-    }),
-    getElementContent: vi.fn().mockReturnValue('Original content'),
-    getElementContentWithTrackedChanges: vi.fn().mockReturnValue(''),
-    replaceElementWithSegments: vi.fn().mockReturnValue({
-      elementIds: ['elem-1'],
-      removedIds: [],
-    }),
-    getCurrentState: vi.fn().mockReturnValue([]),
-    getOperations: vi.fn().mockReturnValue([]),
-    initializeFromDOM: vi.fn(),
-    canUndo: vi.fn().mockReturnValue(false),
-    canRedo: vi.fn().mockReturnValue(false),
-    toMarkdown: vi.fn().mockReturnValue('Full markdown content'),
-  } as any,
-  markdown: {
-    render: vi.fn(),
-    renderSync: vi.fn(),
-  } as any,
-  comments: {
-    parse: vi.fn().mockReturnValue([]),
-    createComment: vi.fn().mockReturnValue('{>>comment<<}'),
-    accept: vi.fn().mockReturnValue(''),
-    refresh: vi.fn(),
-  } as any,
-  inlineEditing: false,
-  persistence: {
-    saveDraft: vi.fn(),
-    clearAll: vi.fn(),
-    loadDraft: vi.fn().mockResolvedValue(null),
-  } as any,
-});
+const createStubConfig = (overrides: Partial<UIConfig> = {}): UIConfig => {
+  const base: UIConfig = {
+    changes: {
+      getElementById: vi.fn().mockReturnValue({
+        id: 'elem-1',
+        metadata: { type: 'Para' },
+      }),
+      getElementContent: vi.fn().mockReturnValue('Original content'),
+      getElementContentWithTrackedChanges: vi.fn().mockReturnValue(''),
+      replaceElementWithSegments: vi.fn().mockReturnValue({
+        elementIds: ['elem-1'],
+        removedIds: [],
+      }),
+      getCurrentState: vi.fn().mockReturnValue([]),
+      getOperations: vi.fn().mockReturnValue([]),
+      initializeFromDOM: vi.fn(),
+      canUndo: vi.fn().mockReturnValue(false),
+      canRedo: vi.fn().mockReturnValue(false),
+      toMarkdown: vi.fn().mockReturnValue('Full markdown content'),
+      undo: vi.fn().mockReturnValue(false),
+      redo: vi.fn().mockReturnValue(false),
+    } as any,
+    markdown: {
+      render: vi.fn(),
+      renderSync: vi.fn(),
+      toPlainText: vi.fn().mockReturnValue('Plain text'),
+    } as any,
+    comments: {
+      parse: vi.fn().mockReturnValue([]),
+      createComment: vi.fn().mockReturnValue('{>>comment<<}'),
+      accept: vi.fn().mockReturnValue(''),
+      refresh: vi.fn(),
+    } as any,
+    inlineEditing: false,
+    persistence: {
+      saveDraft: vi.fn(),
+      clearAll: vi.fn(),
+      loadDraft: vi.fn().mockResolvedValue(null),
+    } as any,
+  };
+
+  return {
+    ...base,
+    ...overrides,
+  };
+};
 
 describe('UIModule sidebar state handling', () => {
   let reloadSpy: ReturnType<typeof vi.fn>;
@@ -334,5 +350,80 @@ describe('UIModule sidebar state handling', () => {
     const historyInstance = getHistoryStorageInstances()[0];
     expect(historyInstance.clearAll).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
+  });
+
+  it('registers export handlers when exporter is provided', async () => {
+    const exporter = {
+      exportToQmd: vi.fn().mockResolvedValue({
+        fileCount: 1,
+        filenames: ['example.qmd'],
+        downloadedAs: 'bundle.zip',
+      }),
+    };
+
+    const config = createStubConfig({ exporter: exporter as any });
+    const ui = new UIModule(config);
+    const mainSidebar = getMainSidebarInstances()[0];
+
+    expect(mainSidebar?.onExportClean).toHaveBeenCalledWith(expect.any(Function));
+    expect(mainSidebar?.onExportCritic).toHaveBeenCalledWith(expect.any(Function));
+
+    const handler = mainSidebar?.onExportClean.mock.calls[0]?.[0];
+    expect(handler).toBeInstanceOf(Function);
+
+    // Directly exercise export logic for coverage
+    const notifySpy = vi
+      .spyOn(ui as unknown as { showNotification: (...args: unknown[]) => void }, 'showNotification')
+      .mockImplementation(() => undefined);
+
+    try {
+      await (ui as any).handleExportQmd('clean');
+      expect(exporter.exportToQmd).toHaveBeenCalledWith({ format: 'clean' });
+      expect(notifySpy).toHaveBeenCalledWith('Exported example.qmd', 'success');
+    } finally {
+      notifySpy.mockRestore();
+    }
+  });
+
+  it('surfaces export failures to the user', async () => {
+    const exporter = {
+      exportToQmd: vi.fn().mockRejectedValue(new Error('boom')),
+    };
+    const config = createStubConfig({ exporter: exporter as any });
+    const ui = new UIModule(config);
+    const notifySpy = vi
+      .spyOn(ui as unknown as { showNotification: (...args: unknown[]) => void }, 'showNotification')
+      .mockImplementation(() => undefined);
+
+    try {
+      await (ui as any).handleExportQmd('critic');
+
+      expect(exporter.exportToQmd).toHaveBeenCalledWith({ format: 'critic' });
+      expect(notifySpy).toHaveBeenLastCalledWith(
+        'Failed to export QMD files.',
+        'error'
+      );
+    } finally {
+      notifySpy.mockRestore();
+    }
+  });
+
+  it('notifies when export service is unavailable', async () => {
+    const config = createStubConfig({ exporter: undefined });
+    const ui = new UIModule(config);
+    const notifySpy = vi
+      .spyOn(ui as unknown as { showNotification: (...args: unknown[]) => void }, 'showNotification')
+      .mockImplementation(() => undefined);
+
+    try {
+      await (ui as any).handleExportQmd('clean');
+
+      expect(notifySpy).toHaveBeenCalledWith(
+        'Export service is not configured.',
+        'error'
+      );
+    } finally {
+      notifySpy.mockRestore();
+    }
   });
 });

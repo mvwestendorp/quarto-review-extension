@@ -37,6 +37,11 @@ import {
 } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
 import { QmdExportService, type ExportFormat } from '@modules/export';
+import ReviewSubmissionModal, {
+  type ReviewSubmissionInitialValues,
+} from './modals/ReviewSubmissionModal';
+import GitReviewService from '@modules/git/review-service';
+import type { UserModule } from '@modules/user';
 
 // CriticMarkup components are now handled by MilkdownEditor module
 import { ChangeSummaryDashboard } from './change-summary';
@@ -58,6 +63,8 @@ export interface UIConfig {
   inlineEditing?: boolean; // Use inline editing instead of modal
   persistence?: LocalDraftPersistence;
   exporter?: QmdExportService;
+  reviewService?: GitReviewService;
+  user?: UserModule;
 }
 
 interface HeadingReferenceInfo {
@@ -81,6 +88,9 @@ export class UIModule {
   // Configuration
   private changeSummaryDashboard: ChangeSummaryDashboard | null = null;
   private exporter?: QmdExportService;
+  private reviewService?: GitReviewService;
+  private reviewSubmissionModal?: ReviewSubmissionModal;
+  private userModule?: UserModule;
 
   // Module instances (for Phase 3 integration - will be used when code replacement completes)
   private editorLifecycle: EditorLifecycle;
@@ -94,10 +104,13 @@ export class UIModule {
   private historyStorage: EditorHistoryStorage;
   private globalShortcutsBound = false;
   private localPersistence?: LocalDraftPersistence;
+  private isSubmittingReview = false;
 
   constructor(config: UIConfig) {
     this.config = config;
     this.exporter = config.exporter;
+    this.reviewService = config.reviewService;
+    this.userModule = config.user;
     this.localPersistence = config.persistence;
     logger.debug(
       'Initialized with tracked changes:',
@@ -177,6 +190,15 @@ export class UIModule {
           }
         : undefined
     );
+    const enableReviewSubmit = Boolean(this.reviewService);
+    this.mainSidebarModule.onSubmitReview(
+      enableReviewSubmit
+        ? () => {
+            void this.handleSubmitReview();
+          }
+        : undefined
+    );
+    this.mainSidebarModule.setSubmitReviewEnabled(enableReviewSubmit);
     this.mainSidebarModule.onTrackedChangesToggle((enabled) => {
       this.toggleTrackedChanges(enabled);
     });
@@ -781,6 +803,149 @@ export class UIModule {
       logger.error('Failed to export QMD files', error);
       this.showNotification('Failed to export QMD files.', 'error');
     }
+  }
+
+  private async handleSubmitReview(): Promise<void> {
+    if (!this.reviewService) {
+      this.showNotification('Git review submission is not configured.', 'error');
+      return;
+    }
+    if (this.isSubmittingReview) {
+      return;
+    }
+
+    const reviewer = this.getReviewerDisplayName();
+    const repoConfig = this.reviewService.getRepositoryConfig();
+    const baseBranch = repoConfig?.baseBranch ?? 'main';
+    const format: ExportFormat = this.editorState.showTrackedChanges
+      ? 'critic'
+      : 'clean';
+
+    const modal = this.getReviewSubmissionModal();
+    const initialValues = this.buildReviewInitialValues(reviewer, baseBranch);
+    const formValues = await modal.open(initialValues);
+    if (!formValues) {
+      return;
+    }
+
+    const resolvedReviewer = formValues.reviewer.trim() || reviewer;
+    const resolvedBranch = this.sanitizeBranchName(
+      formValues.branchName.trim() || initialValues.branchName
+    );
+    const resolvedBaseBranch = formValues.baseBranch.trim() || baseBranch;
+    const resolvedCommitMessage =
+      formValues.commitMessage.trim() || initialValues.commitMessage;
+    const resolvedTitle =
+      formValues.pullRequestTitle.trim() || initialValues.pullRequestTitle;
+    const resolvedBody = formValues.pullRequestBody.trim();
+
+    const loading = this.showLoading('Submitting review to Git…');
+    this.isSubmittingReview = true;
+    this.mainSidebarModule.setSubmitReviewPending(true);
+
+    try {
+      const context = await this.reviewService.submitReview({
+        reviewer: resolvedReviewer,
+        branchName: resolvedBranch,
+        baseBranch: resolvedBaseBranch,
+        commitMessage: resolvedCommitMessage,
+        format,
+        pullRequest: {
+          title: resolvedTitle,
+          body: resolvedBody,
+          draft: formValues.draft,
+        },
+      });
+
+      const pr = context.result.pullRequest;
+      const message = pr.url
+        ? `Review submitted: ${pr.url}`
+        : `Review submitted: PR #${pr.number}`;
+      this.showNotification(message, 'success');
+    } catch (error) {
+      logger.error('Failed to submit git review', error);
+      const message =
+        error instanceof Error && error.message
+          ? `Review submission failed: ${error.message}`
+          : 'Failed to submit review to Git provider.';
+      this.showNotification(message, 'error');
+    } finally {
+      this.hideLoading(loading);
+      this.isSubmittingReview = false;
+      this.mainSidebarModule.setSubmitReviewPending(false);
+      this.mainSidebarModule.setSubmitReviewEnabled(Boolean(this.reviewService));
+    }
+  }
+
+  private getReviewerDisplayName(): string {
+    const user = this.userModule?.getCurrentUser?.();
+    if (!user) {
+      return 'Reviewer';
+    }
+    return (
+      user.name?.trim() ||
+      user.email?.trim() ||
+      user.id?.trim() ||
+      'Reviewer'
+    );
+  }
+
+  private buildPullRequestBody(reviewer: string): string {
+    const lines = [
+      `Automated review submission by ${reviewer}.`,
+      '',
+      'This pull request was generated from the Quarto Review web UI.',
+    ];
+    return lines.join('\n');
+  }
+
+  private buildReviewInitialValues(
+    reviewer: string,
+    baseBranch: string
+  ): ReviewSubmissionInitialValues {
+    return {
+      reviewer,
+      baseBranch,
+      branchName: this.generateSuggestedBranchName(reviewer),
+      commitMessage: `Review updates from ${reviewer}`,
+      pullRequestTitle: `Review updates from ${reviewer}`,
+      pullRequestBody: this.buildPullRequestBody(reviewer),
+      draft: false,
+    };
+  }
+
+  private getReviewSubmissionModal(): ReviewSubmissionModal {
+    if (!this.reviewSubmissionModal) {
+      this.reviewSubmissionModal = new ReviewSubmissionModal();
+    }
+    return this.reviewSubmissionModal;
+  }
+
+  private generateSuggestedBranchName(reviewer: string): string {
+    const slug = reviewer
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32);
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')
+      .replace('T', '-')
+      .slice(0, 19);
+    const raw = slug
+      ? `review/${slug}-${timestamp}`
+      : `review/${timestamp}`;
+    return this.sanitizeBranchName(raw);
+  }
+
+  private sanitizeBranchName(name: string): string {
+    const cleaned = name
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^A-Za-z0-9._\/-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return cleaned || 'review-branch';
   }
 
   private createEditorModal(_content: string, type: string): HTMLElement {

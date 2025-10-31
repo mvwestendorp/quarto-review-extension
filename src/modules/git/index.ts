@@ -5,6 +5,7 @@ import { createProvider } from './providers';
 import type { BaseProvider } from './providers';
 import GitIntegrationService, {
   type ReviewSubmissionPayload,
+  type ReviewSubmissionResult,
 } from './integration';
 import type { ResolvedGitConfig } from './types';
 import { EmbeddedSourceStore, type EmbeddedSourceRecord } from './fallback';
@@ -57,12 +58,14 @@ export class GitModule {
     return this.fallbackStore;
   }
 
-  public async submitReview(payload: ReviewSubmissionPayload): Promise<void> {
+  public submitReview(
+    payload: ReviewSubmissionPayload
+  ): Promise<ReviewSubmissionResult> {
     if (!this.integration) {
       throw new Error('Git integration is not configured');
     }
 
-    await this.integration.submitReview(payload);
+    return this.integration.submitReview(payload);
   }
 
   /**
@@ -103,4 +106,12 @@ export class GitModule {
 }
 
 export { EmbeddedSourceStore } from './fallback';
+
+export type {
+  ReviewSubmissionPayload,
+  ReviewSubmissionResult,
+} from './integration';
+
+export type { ReviewFileChange, ReviewComment } from './integration';
+
 export default GitModule;

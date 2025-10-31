@@ -16,6 +16,10 @@ export class MainSidebar {
   private unsavedIndicator: HTMLElement | null = null;
   private exportCleanBtn: HTMLButtonElement | null = null;
   private exportCriticBtn: HTMLButtonElement | null = null;
+  private submitReviewBtn: HTMLButtonElement | null = null;
+  private readonly submitReviewLabel = '🚀 Submit Review';
+  private submitReviewEnabled = false;
+  private submitReviewPending = false;
 
   private onUndoCallback: (() => void) | null = null;
   private onRedoCallback: (() => void) | null = null;
@@ -24,6 +28,7 @@ export class MainSidebar {
   private onClearDraftsCallback: (() => void) | null = null;
   private onExportCleanCallback: (() => void) | null = null;
   private onExportCriticCallback: (() => void) | null = null;
+  private onSubmitReviewCallback: (() => void) | null = null;
 
   /**
    * Lazily create (or return) the sidebar element.
@@ -184,8 +189,28 @@ export class MainSidebar {
     });
     exportSection.appendChild(this.exportCriticBtn);
 
+    this.submitReviewBtn = document.createElement('button');
+    this.submitReviewBtn.className =
+      'review-btn review-btn-primary review-btn-block';
+    this.submitReviewBtn.setAttribute('data-action', 'submit-review');
+    this.submitReviewBtn.setAttribute(
+      'title',
+      'Submit review changes to the configured Git provider'
+    );
+    this.submitReviewBtn.setAttribute(
+      'aria-label',
+      'Submit review changes to the configured Git provider'
+    );
+    this.submitReviewBtn.textContent = this.submitReviewLabel;
+    this.submitReviewBtn.disabled = true;
+    this.submitReviewBtn.addEventListener('click', () => {
+      this.onSubmitReviewCallback?.();
+    });
+    exportSection.appendChild(this.submitReviewBtn);
+
     body.appendChild(exportSection);
     this.updateExportButtonStates();
+    this.updateSubmitReviewButtonState();
 
     // Comments section hint
     const commentsSection = document.createElement('div');
@@ -290,6 +315,14 @@ export class MainSidebar {
     }
   }
 
+  private updateSubmitReviewButtonState(): void {
+    if (!this.submitReviewBtn) return;
+    const hasHandler = typeof this.onSubmitReviewCallback === 'function';
+    const canClick = hasHandler && this.submitReviewEnabled && !this.submitReviewPending;
+    this.submitReviewBtn.disabled = !canClick;
+    this.submitReviewBtn.classList.toggle('review-btn-disabled', !canClick);
+  }
+
   onUndo(callback: () => void): void {
     this.onUndoCallback = callback;
   }
@@ -318,6 +351,30 @@ export class MainSidebar {
   onExportCritic(callback?: () => void): void {
     this.onExportCriticCallback = callback ?? null;
     this.updateExportButtonStates();
+  }
+
+  onSubmitReview(callback?: () => void): void {
+    this.onSubmitReviewCallback = callback ?? null;
+    this.submitReviewEnabled = Boolean(callback);
+    this.updateSubmitReviewButtonState();
+  }
+
+  setSubmitReviewEnabled(enabled: boolean): void {
+    this.submitReviewEnabled = enabled;
+    this.updateSubmitReviewButtonState();
+  }
+
+  setSubmitReviewPending(pending: boolean): void {
+    if (!this.submitReviewBtn) return;
+    this.submitReviewPending = pending;
+    if (pending) {
+      this.submitReviewBtn.dataset.loading = 'true';
+      this.submitReviewBtn.textContent = 'Submitting…';
+    } else {
+      delete this.submitReviewBtn.dataset.loading;
+      this.submitReviewBtn.textContent = this.submitReviewLabel;
+    }
+    this.updateSubmitReviewButtonState();
   }
 
   /**
@@ -367,6 +424,7 @@ export class MainSidebar {
     this.toggleBtn = null;
     this.exportCleanBtn = null;
     this.exportCriticBtn = null;
+    this.submitReviewBtn = null;
     this.unsavedIndicator = null;
     this.onUndoCallback = null;
     this.onRedoCallback = null;
@@ -375,5 +433,6 @@ export class MainSidebar {
     this.onClearDraftsCallback = null;
     this.onExportCleanCallback = null;
     this.onExportCriticCallback = null;
+    this.onSubmitReviewCallback = null;
   }
 }

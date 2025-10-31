@@ -25,6 +25,9 @@ export interface PullRequest {
   createdAt: string;
   updatedAt: string;
   url: string;
+  headRef?: string;
+  baseRef?: string;
+  draft?: boolean;
 }
 
 export interface Issue {

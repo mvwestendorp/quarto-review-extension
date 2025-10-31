@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DocumentSearch } from '@modules/ui/search-find';
+import { UI_CONSTANTS } from '@modules/ui/constants';
 
 describe('DocumentSearch', () => {
   let search: DocumentSearch;
@@ -768,4 +769,5 @@ describe('DocumentSearch', () => {
       }).not.toThrow();
     });
   });
+
 });

@@ -324,10 +324,6 @@ describe('TranslationState', () => {
     it('should notify listeners on changes', () => {
       let notified = false;
 
-      state.subscribe(() => {
-        notified = true;
-      });
-
       const sentences: Sentence[] = [
         {
           id: 's1',
@@ -340,6 +336,10 @@ describe('TranslationState', () => {
         },
       ];
       state.initialize(sentences);
+
+      state.subscribe(() => {
+        notified = true;
+      });
 
       const pair: TranslationPair = {
         id: 'p1',
@@ -363,16 +363,24 @@ describe('TranslationState', () => {
     it('should allow unsubscribing', () => {
       let callCount = 0;
 
+      const sentences: Sentence[] = [
+        {
+          id: 's1',
+          elementId: 'e1',
+          content: 'Hello',
+          language: 'en',
+          startOffset: 0,
+          endOffset: 5,
+          hash: 'h1',
+        },
+      ];
+      state.initialize(sentences);
+
       const unsubscribe = state.subscribe(() => {
         callCount++;
       });
 
-      state.initialize([]);
-      expect(callCount).toBe(1);
-
-      unsubscribe();
-
-      const pair: TranslationPair = {
+      const pair1: TranslationPair = {
         id: 'p1',
         sourceId: 's1',
         targetId: 't1',
@@ -386,7 +394,26 @@ describe('TranslationState', () => {
         status: 'synced',
         isManuallyEdited: false,
       };
-      state.addTranslationPair(pair);
+      state.addTranslationPair(pair1);
+      expect(callCount).toBe(1);
+
+      unsubscribe();
+
+      const pair2: TranslationPair = {
+        id: 'p2',
+        sourceId: 's1',
+        targetId: 't2',
+        sourceText: 'Hello',
+        targetText: 'Bonjour',
+        sourceLanguage: 'en',
+        targetLanguage: 'fr',
+        method: 'automatic',
+        timestamp: Date.now(),
+        lastModified: Date.now(),
+        status: 'synced',
+        isManuallyEdited: false,
+      };
+      state.addTranslationPair(pair2);
 
       expect(callCount).toBe(1); // Should not increase after unsubscribe
     });

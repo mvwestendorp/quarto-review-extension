@@ -13,6 +13,7 @@ import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import { UserModule } from '@modules/user';
 import { debugLogger, type DebugConfig } from '@utils/debug';
 import { QmdExportService } from '@modules/export';
+import GitReviewService from '@modules/git/review-service';
 import type { ReviewGitConfig } from '@/types';
 
 // Export debug logger and configuration
@@ -82,6 +83,7 @@ export class QuartoReview {
   private git: GitModule;
   private localDrafts: LocalDraftPersistence;
   private exporter: QmdExportService;
+  private reviewService?: GitReviewService;
   public user: UserModule; // Public so it can be accessed for permissions
   private config: QuartoReviewConfig;
   private autoSaveInterval?: number;
@@ -111,6 +113,9 @@ export class QuartoReview {
     this.exporter = new QmdExportService(this.changes, {
       git: this.git,
     });
+    if (this.git.isEnabled()) {
+      this.reviewService = new GitReviewService(this.git, this.exporter);
+    }
     this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore());
     this.ui = new UIModule({
       changes: this.changes,
@@ -119,6 +124,8 @@ export class QuartoReview {
       inlineEditing: true, // Enable inline editing mode by default
       persistence: this.localDrafts,
       exporter: this.exporter,
+      reviewService: this.reviewService,
+      user: this.user,
     });
 
     this.initialize();

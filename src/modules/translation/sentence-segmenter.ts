@@ -59,18 +59,18 @@ export class SentenceSegmenter {
     const sentencePattern = /(?<=[.!?])\s+(?=[A-Z])|(?<=[.!?])$/gm;
 
     // First, protect common abbreviations
-    let protected = text;
+    let protectedText = text;
     const abbreviations = this.getAbbreviations(language);
 
     abbreviations.forEach((abbr) => {
       const regex = new RegExp(`\\b${abbr}\\.`, 'gi');
-      protected = protected.replace(regex, (match) =>
+      protectedText = protectedText.replace(regex, (match) =>
         match.replace('.', '<!DOT!>')
       );
     });
 
     // Split on sentence boundaries
-    const sentences = protected
+    const sentences = protectedText
       .split(sentencePattern)
       .map((s) => s.replace(/<!DOT!>/g, '.').trim())
       .filter((s) => s.length > 0);

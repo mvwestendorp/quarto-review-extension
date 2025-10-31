@@ -213,6 +213,9 @@ export class GitLabProvider extends BaseProvider {
       createdAt: mr.created_at,
       updatedAt: mr.updated_at,
       url: mr.web_url,
+      headRef: mr.source_branch,
+      baseRef: mr.target_branch,
+      draft: mr.draft,
     };
   }
 
@@ -250,6 +253,9 @@ interface GitLabMergeRequest {
   created_at: string;
   updated_at: string;
   web_url: string;
+  source_branch: string;
+  target_branch: string;
+  draft?: boolean;
 }
 
 interface GitLabIssue {
