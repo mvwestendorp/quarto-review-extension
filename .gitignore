@@ -25,6 +25,8 @@ example/_extensions/
 # Generated extension assets
 _extensions/review/assets/review.js
 _extensions/review/assets/review.js.map
+_extensions/review/assets/*.umd.cjs
+_extensions/review/assets/dist/
 
 # Environment files
 .env
