@@ -17,7 +17,8 @@ export interface CommentsSidebarCallbacks {
  */
 export class CommentsSidebar {
   private element: HTMLElement | null = null;
-  private isVisible = false;
+  private toggleBtn: HTMLButtonElement | null = null;
+  private collapsed = true;
   private sections: SectionCommentSnapshot[] = [];
   private callbacks: CommentsSidebarCallbacks | null = null;
 
@@ -36,38 +37,26 @@ export class CommentsSidebar {
 
   show(): void {
     this.ensureElementCreated();
-    if (!this.element) return;
-
-    if (!this.element.parentNode) {
-      document.body.appendChild(this.element);
-    }
-
-    this.element.classList.add('review-sidebar-open');
-    this.isVisible = true;
-    this.element.setAttribute('aria-hidden', 'false');
+    this.setCollapsed(false);
+    this.refresh();
     logger.debug('Comments sidebar shown');
   }
 
   hide(): void {
-    if (!this.element) return;
-
-    this.element.classList.remove('review-sidebar-open');
-    this.isVisible = false;
-    this.element.setAttribute('aria-hidden', 'true');
+    this.setCollapsed(true);
     logger.debug('Comments sidebar hidden');
   }
 
   toggle(): void {
-    if (this.isVisible) {
-      this.hide();
-    } else {
-      this.show();
+    this.ensureElementCreated();
+    this.setCollapsed(!this.collapsed);
+    if (!this.collapsed) {
       this.refresh();
     }
   }
 
   getIsVisible(): boolean {
-    return this.isVisible;
+    return !this.collapsed;
   }
 
   updateSections(
@@ -130,38 +119,89 @@ export class CommentsSidebar {
     }
     this.sections = [];
     this.callbacks = null;
-    this.isVisible = false;
+    this.toggleBtn = null;
+    this.collapsed = true;
+    document.body.classList.remove('review-comments-sidebar-open');
   }
 
   private ensureElementCreated(): void {
     if (this.element) return;
 
     const sidebar = document.createElement('div');
-    sidebar.className = 'review-comments-sidebar';
+    sidebar.className =
+      'review-comments-sidebar review-persistent-sidebar review-sidebar-collapsed';
     sidebar.setAttribute('role', 'region');
     sidebar.setAttribute('aria-label', 'Comments');
+    sidebar.setAttribute('aria-hidden', 'true');
 
     const header = document.createElement('div');
-    header.className = 'review-comments-sidebar-header';
+    header.className = 'review-sidebar-header';
+    header.setAttribute('data-sidebar-label', 'Comments');
 
-    const title = document.createElement('h2');
+    const title = document.createElement('h3');
     title.textContent = 'Comments';
     header.appendChild(title);
 
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'review-comments-sidebar-close';
-    closeBtn.setAttribute('aria-label', 'Close comments');
-    closeBtn.textContent = '×';
-    closeBtn.addEventListener('click', () => this.hide());
-    header.appendChild(closeBtn);
+    this.toggleBtn = document.createElement('button');
+    this.toggleBtn.className = 'review-btn review-btn-icon';
+    this.toggleBtn.setAttribute('data-action', 'toggle-comments-sidebar');
+    this.toggleBtn.setAttribute('aria-label', 'Expand comments panel');
+    this.toggleBtn.setAttribute('title', 'Expand comments panel');
+    this.toggleBtn.setAttribute('aria-expanded', 'false');
+    const chevron = document.createElement('span');
+    chevron.className = 'review-icon-chevron';
+    chevron.textContent = '‹';
+    this.toggleBtn.appendChild(chevron);
+    this.toggleBtn.addEventListener('click', () => this.toggle());
+    header.appendChild(this.toggleBtn);
 
     sidebar.appendChild(header);
 
     const content = document.createElement('div');
-    content.className = 'review-comments-sidebar-content';
+    content.className = 'review-sidebar-body review-comments-sidebar-body';
+
+    const listContainer = document.createElement('div');
+    listContainer.className = 'review-comments-sidebar-content';
+    content.appendChild(listContainer);
+
     sidebar.appendChild(content);
 
     this.element = sidebar;
+    document.body.appendChild(sidebar);
+    this.setCollapsed(true, false);
+  }
+
+  private setCollapsed(collapsed: boolean, updateBodyClass = true): void {
+    if (!this.element) return;
+    this.collapsed = collapsed;
+    this.element.classList.toggle('review-sidebar-collapsed', collapsed);
+    this.element.setAttribute('aria-hidden', collapsed ? 'true' : 'false');
+
+    if (updateBodyClass && document.body) {
+      document.body.classList.toggle(
+        'review-comments-sidebar-open',
+        !collapsed
+      );
+    }
+
+    if (this.toggleBtn) {
+      this.toggleBtn.setAttribute(
+        'title',
+        collapsed ? 'Expand comments panel' : 'Collapse comments panel'
+      );
+      this.toggleBtn.setAttribute(
+        'aria-label',
+        collapsed ? 'Expand comments panel' : 'Collapse comments panel'
+      );
+      this.toggleBtn.setAttribute(
+        'aria-expanded',
+        collapsed ? 'false' : 'true'
+      );
+      const chevron = this.toggleBtn.querySelector('.review-icon-chevron');
+      if (chevron) {
+        chevron.textContent = collapsed ? '‹' : '›';
+      }
+    }
   }
 
   private renderComment(

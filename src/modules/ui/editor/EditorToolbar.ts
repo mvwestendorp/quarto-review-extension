@@ -583,6 +583,7 @@ export class EditorToolbar {
         'aria-label',
         this.isCollapsed ? 'Expand toolbar' : 'Collapse toolbar'
       );
+      toggleBtn.textContent = this.isCollapsed ? '⋯' : '−';
     }
   }
 
