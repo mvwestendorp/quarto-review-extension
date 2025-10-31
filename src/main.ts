@@ -9,6 +9,7 @@ import { CommentsModule } from '@modules/comments';
 import { UIModule } from '@modules/ui';
 import { registerSupplementalEditableSegments } from '@modules/ui/segment-preprocessor';
 import { GitModule } from '@modules/git';
+import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import { UserModule } from '@modules/user';
 import { debugLogger, type DebugConfig } from '@utils/debug';
 import type { ReviewGitConfig } from '@/types';
@@ -73,6 +74,7 @@ export class QuartoReview {
   private comments: CommentsModule;
   private ui: UIModule;
   private git: GitModule;
+  private localDrafts: LocalDraftPersistence;
   public user: UserModule; // Public so it can be accessed for permissions
   private config: QuartoReviewConfig;
   private autoSaveInterval?: number;
@@ -99,11 +101,13 @@ export class QuartoReview {
     this.comments = new CommentsModule();
     this.user = new UserModule();
     this.git = new GitModule(this.config.git);
+    this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore());
     this.ui = new UIModule({
       changes: this.changes,
       markdown: this.markdown,
       comments: this.comments,
       inlineEditing: true, // Enable inline editing mode by default
+      persistence: this.localDrafts,
     });
 
     this.initialize();

@@ -661,8 +661,13 @@ export class UIModule {
       return;
     }
     try {
-      const documentMarkdown = this.config.changes.toMarkdown();
-      void this.localPersistence.saveDraft(documentMarkdown, message);
+      const elements = this.config.changes.getCurrentState();
+      const payload = elements.map((elem) => ({
+        id: elem.id,
+        content: elem.content,
+        metadata: elem.metadata,
+      }));
+      void this.localPersistence.saveDraft(payload, message);
     } catch (error) {
       logger.warn('Failed to persist local draft', error);
     }
@@ -673,38 +678,42 @@ export class UIModule {
       return;
     }
     try {
-      const draft = await this.localPersistence.loadDraft();
-      if (!draft) {
+      const draftPayload = await this.localPersistence.loadDraft();
+      if (!draftPayload) {
         return;
       }
-      const current = this.config.changes.toMarkdown();
-      if (draft.trim() === current.trim()) {
-        return;
-      }
-
-      const elements = this.config.changes.getCurrentState();
-      if (elements.length === 0) {
+      const currentState = this.config.changes.getCurrentState();
+      if (currentState.length === 0) {
         return;
       }
 
-      const firstId = elements[0]?.id;
-      if (!firstId) {
-        return;
-      }
+      const currentMap = new Map(
+        currentState.map((elem) => [elem.id, elem.content])
+      );
 
-      const firstElementMetadata = elements[0]?.metadata ?? {
-        type: 'Para',
-      };
-
-      const segments = this.segmentContentIntoElements(draft, {
-        type: firstElementMetadata.type,
-        level: firstElementMetadata.level,
-        attributes: firstElementMetadata.attributes,
-        classes: firstElementMetadata.classes,
+      const hasDifference = draftPayload.elements.some((entry) => {
+        const currentContent = currentMap.get(entry.id);
+        return currentContent !== entry.content;
       });
 
-      this.config.changes.replaceElementWithSegments(firstId, segments);
-      this.ensureSegmentDom([firstId], segments, []);
+      if (!hasDifference) {
+        return;
+      }
+
+      draftPayload.elements.forEach((entry) => {
+        const element = this.config.changes.getElementById(entry.id);
+        if (!element) {
+          return;
+        }
+        const segments = this.segmentContentIntoElements(
+          entry.content,
+          (entry.metadata as ElementMetadata) ?? element.metadata
+        );
+        const { elementIds, removedIds } =
+          this.config.changes.replaceElementWithSegments(entry.id, segments);
+        this.ensureSegmentDom(elementIds, segments, removedIds);
+      });
+
       this.refresh();
       this.showNotification(
         'Restored local draft from previous session.',
@@ -729,6 +738,11 @@ export class UIModule {
     await this.localPersistence.clearAll();
     this.historyStorage.clearAll();
     this.showNotification('Local drafts cleared.', 'success');
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 150);
+    }
   }
 
   private createEditorModal(_content: string, type: string): HTMLElement {

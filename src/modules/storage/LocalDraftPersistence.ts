@@ -8,6 +8,17 @@ export interface LocalDraftPersistenceOptions {
   defaultMessage?: string;
 }
 
+export interface DraftElementPayload {
+  id: string;
+  content: string;
+  metadata?: unknown;
+}
+
+interface DraftPayload {
+  savedAt: string;
+  elements: DraftElementPayload[];
+}
+
 export class LocalDraftPersistence {
   private readonly filename: string;
   private readonly defaultMessage: string;
@@ -20,11 +31,19 @@ export class LocalDraftPersistence {
     this.defaultMessage = options.defaultMessage ?? 'Local draft update';
   }
 
-  public async saveDraft(content: string, message?: string): Promise<void> {
+  public async saveDraft(
+    elements: DraftElementPayload[],
+    message?: string
+  ): Promise<void> {
     try {
+      const payload: DraftPayload = {
+        savedAt: new Date().toISOString(),
+        elements,
+      };
+      const serialized = JSON.stringify(payload);
       await this.store.saveFile(
         this.filename,
-        content,
+        serialized,
         message ?? this.defaultMessage
       );
       logger.debug('Saved local draft', { filename: this.filename });
@@ -42,13 +61,17 @@ export class LocalDraftPersistence {
     }
   }
 
-  public async loadDraft(): Promise<string | null> {
+  public async loadDraft(): Promise<DraftPayload | null> {
     try {
       const source = await this.store.getSource(this.filename);
       if (!source) {
         return null;
       }
-      return source.content;
+      const parsed = JSON.parse(source.content) as DraftPayload;
+      if (!parsed?.elements?.length) {
+        return null;
+      }
+      return parsed;
     } catch (error) {
       logger.warn('Failed to load local draft', error);
       return null;
