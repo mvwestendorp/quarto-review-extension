@@ -27,6 +27,322 @@ local context = {
   element_counters = {}
 }
 
+local IGNORE_DIRECTORIES = {
+  ['.git'] = true,
+  ['.quarto'] = true,
+  ['_site'] = true,
+  ['_output'] = true,
+  ['node_modules'] = true,
+  ['.venv'] = true,
+  ['__pycache__'] = true,
+  ['.Rproj.user'] = true,
+  ['.pytest_cache'] = true,
+  ['.idea'] = true,
+  ['.vscode'] = true,
+  ['_extensions'] = true
+}
+
+local function to_forward_slashes(path_str)
+  return (path_str or ''):gsub('\\', '/')
+end
+
+local function normalize_path(path_str)
+  if not path_str or path_str == '' then
+    return '.'
+  end
+  path_str = to_forward_slashes(path_str)
+  local drive = path_str:match('^([A-Za-z]:)')
+  local remainder = path_str
+  if drive then
+    remainder = remainder:sub(#drive + 1)
+    if remainder:sub(1, 1) == '/' then
+      remainder = remainder:sub(2)
+    end
+  end
+  local is_absolute = path_str:sub(1, 1) == '/' or drive ~= nil
+  local segments = {}
+  for segment in remainder:gmatch('[^/]+') do
+    if segment == '..' then
+      if #segments > 0 then
+        table.remove(segments)
+      end
+    elseif segment ~= '.' and segment ~= '' then
+      table.insert(segments, segment)
+    end
+  end
+  local normalized = table.concat(segments, '/')
+  if is_absolute then
+    if drive then
+      normalized = drive .. (normalized ~= '' and '/' .. normalized or '/')
+    else
+      normalized = '/' .. normalized
+    end
+  elseif normalized == '' then
+    normalized = '.'
+  end
+  return normalized
+end
+
+local function join_paths(base, child)
+  if not child or child == '' then
+    return normalize_path(base or '.')
+  end
+  if child:sub(1, 1) == '/' or child:match('^[A-Za-z]:') then
+    return normalize_path(child)
+  end
+  if not base or base == '' or base == '.' then
+    return normalize_path(child)
+  end
+  local prefix = normalize_path(base)
+  if prefix == '/' then
+    return normalize_path('/' .. child)
+  end
+  return normalize_path(prefix .. '/' .. child)
+end
+
+local function parent_directory(path_str)
+  local normalized = normalize_path(path_str)
+  if normalized == '/' then
+    return '/'
+  end
+  local parent = normalized:match('^(.*)/[^/]*$')
+  if not parent or parent == '' then
+    return '.'
+  end
+  return parent
+end
+
+local function make_relative(full, base)
+  local norm_full = normalize_path(full)
+  local norm_base = normalize_path(base)
+  if norm_base == '.' then
+    return norm_full
+  end
+  if norm_base ~= '/' and norm_full:sub(1, #norm_base + 1) == norm_base .. '/' then
+    return norm_full:sub(#norm_base + 2)
+  elseif norm_base == '/' and norm_full:sub(1, 1) == '/' then
+    local rel = norm_full:sub(2)
+    return rel ~= '' and rel or norm_full
+  elseif norm_full == norm_base then
+    local last = norm_full:match('[^/]+$')
+    return last or norm_full
+  end
+  return norm_full
+end
+
+local function get_working_directory()
+  if pandoc.system and pandoc.system.get_working_directory then
+    return normalize_path(pandoc.system.get_working_directory())
+  end
+  return '.'
+end
+
+local function to_absolute_path(path_str)
+  if not path_str then
+    return nil
+  end
+  if path_str:sub(1, 1) == '/' or path_str:match('^[A-Za-z]:') then
+    return normalize_path(path_str)
+  end
+  local cwd = get_working_directory()
+  return normalize_path(join_paths(cwd, path_str))
+end
+
+local function file_exists(path_str)
+  local fh = io.open(path_str, 'rb')
+  if fh then
+    fh:close()
+    return true
+  end
+  return false
+end
+
+local function read_file(path_str)
+  local fh = io.open(path_str, 'rb')
+  if not fh then
+    return nil
+  end
+  local content = fh:read('*a')
+  fh:close()
+  if not content then
+    return nil
+  end
+  return content:gsub('\r\n', '\n')
+end
+
+local function get_primary_input_file()
+  if PANDOC_STATE and PANDOC_STATE.input_files and #PANDOC_STATE.input_files > 0 then
+    return PANDOC_STATE.input_files[1]
+  end
+  if quarto and quarto.doc and quarto.doc.input_file then
+    return quarto.doc.input_file
+  end
+  return nil
+end
+
+local function detect_project_root_from_extension()
+  local info = debug.getinfo(1, 'S')
+  if not info or not info.source then
+    return nil
+  end
+  local source_path = info.source
+  if source_path:sub(1, 1) == '@' then
+    source_path = source_path:sub(2)
+  end
+  source_path = normalize_path(source_path)
+  local marker = '/_extensions/'
+  local idx = source_path:find(marker, 1, true)
+  if idx then
+    return normalize_path(source_path:sub(1, idx - 1))
+  end
+  return nil
+end
+
+local function detect_project_root()
+  if quarto and quarto.project and quarto.project.directory and quarto.project.directory ~= '' then
+    return normalize_path(to_forward_slashes(quarto.project.directory))
+  end
+  local env_dir = os.getenv('QUARTO_PROJECT_DIR') or os.getenv('QUARTO_PROJECT_PATH')
+  if env_dir and env_dir ~= '' then
+    return normalize_path(to_forward_slashes(env_dir))
+  end
+  local from_extension = detect_project_root_from_extension()
+  if from_extension then
+    return from_extension
+  end
+  return nil
+end
+
+local function find_project_root(start_dir)
+  if not start_dir then
+    return '.'
+  end
+  local dir = normalize_path(start_dir)
+  local last = nil
+  while dir and dir ~= last do
+    if file_exists(join_paths(dir, '_quarto.yml')) or file_exists(join_paths(dir, '_quarto.yaml')) then
+      return dir
+    end
+    last = dir
+    local next_dir = parent_directory(dir)
+    if not next_dir or next_dir == dir then
+      break
+    end
+    dir = next_dir
+  end
+  return start_dir
+end
+
+local function should_skip_directory(name)
+  return name == '.' or name == '..' or IGNORE_DIRECTORIES[name] == true
+end
+
+local function collect_project_sources()
+  local sources = {}
+  local input_file = get_primary_input_file()
+  local abs_input = input_file and to_absolute_path(input_file)
+  local start_dir = abs_input and parent_directory(abs_input) or get_working_directory()
+  local project_root = detect_project_root() or (start_dir and find_project_root(start_dir)) or start_dir
+  project_root = normalize_path(project_root or '.')
+
+  local function add_source(full_path)
+    if not full_path then
+      return
+    end
+    local content = read_file(full_path)
+    if content then
+      local relative = make_relative(full_path, project_root)
+      if project_root ~= '.' and relative == normalize_path(full_path) then
+        return
+      end
+      if not sources[relative] then
+        sources[relative] = content
+      end
+    end
+  end
+
+  -- Always include primary input file
+  if abs_input then
+    add_source(abs_input)
+  end
+
+  -- Include project configuration files if present
+  local project_yaml = join_paths(project_root, '_quarto.yml')
+  if file_exists(project_yaml) then
+    add_source(project_yaml)
+  end
+  local project_yaml_alt = join_paths(project_root, '_quarto.yaml')
+  if file_exists(project_yaml_alt) then
+    add_source(project_yaml_alt)
+  end
+
+  local function list_directory(path)
+    local ok, entries = pcall(pandoc.system.list_directory, path)
+    if not ok or type(entries) ~= 'table' then
+      return nil
+    end
+    table.sort(entries)
+    return entries
+  end
+
+  local function scan(dir, entries)
+    entries = entries or list_directory(dir)
+    if not entries then
+      return
+    end
+    for _, entry in ipairs(entries) do
+      if not should_skip_directory(entry) then
+        local full = join_paths(dir, entry)
+        local sub_entries = list_directory(full)
+        if sub_entries then
+          if not IGNORE_DIRECTORIES[entry] then
+            scan(full, sub_entries)
+          end
+        elseif entry:match('%.qmd$') then
+          add_source(full)
+        end
+      end
+    end
+  end
+
+  if project_root then
+    scan(project_root)
+  end
+
+  return sources, project_root
+end
+
+local function build_embedded_sources_script(sources)
+  if not sources or next(sources) == nil then
+    return nil
+  end
+  local timestamp = os.date('!%Y-%m-%dT%H:%M:%SZ')
+  local base_version = tostring(os.time())
+  local payload = {
+    timestamp = timestamp,
+    version = base_version,
+    sources = {}
+  }
+  local index = 0
+  local keys = {}
+  for filename, _ in pairs(sources) do
+    table.insert(keys, filename)
+  end
+  table.sort(keys)
+  for _, filename in ipairs(keys) do
+    local content = sources[filename]
+    index = index + 1
+    payload.sources[filename] = {
+      content = content,
+      originalContent = content,
+      lastModified = timestamp,
+      version = base_version .. '-' .. tostring(index)
+    }
+  end
+  local json = table_to_json(payload):gsub('</', '<\\/')
+  return '<script id="embedded-sources" type="application/json">' .. json .. '</script>'
+end
+
 local function sanitize_identifier(value)
   if not value or value == '' then
     return ''
@@ -252,7 +568,13 @@ end
 function table_to_json(tbl)
   local function encode_value(v)
     if type(v) == 'string' then
-      return '"' .. v:gsub('"', '\\"') .. '"'
+      local escaped = v
+        :gsub('\\', '\\\\')
+        :gsub('"', '\\"')
+        :gsub('\r', '\\r')
+        :gsub('\n', '\\n')
+        :gsub('\t', '\\t')
+      return '"' .. escaped .. '"'
     elseif type(v) == 'number' then
       return tostring(v)
     elseif type(v) == 'boolean' then
@@ -573,11 +895,11 @@ function Meta(meta)
       autoSave = false
     }
 
-  -- Add debug config if present
-  local debug_config = build_debug_config(meta)
-  if debug_config then
-    init_config.debug = debug_config
-  end
+    -- Add debug config if present
+    local debug_config = build_debug_config(meta)
+    if debug_config then
+      init_config.debug = debug_config
+    end
 
     -- Add git configuration if present
     if meta.review and meta.review.git then
@@ -587,8 +909,10 @@ function Meta(meta)
       end
     end
 
-  -- Convert config to JSON string (with fallback encoding)
-  local config_json = table_to_json(init_config)
+    -- Convert config to JSON string (with fallback encoding)
+    local project_sources = collect_project_sources()
+    local config_json = table_to_json(init_config)
+    local embedded_sources_script = build_embedded_sources_script(project_sources)
 
     -- Build title wrapping script if title exists
     local title_id = config.id_prefix .. config.id_separator .. 'document-title'
@@ -612,10 +936,14 @@ function Meta(meta)
 ]]
 
     -- Add JS and initialization div to body
-    quarto.doc.include_text("after-body", title_script .. [[
+    local after_body = title_script .. [[
 <script type="module" src="]] .. ext_path .. [[/review.js"></script>
 <div data-review data-review-config=']] .. config_json .. [['></div>
-]])
+]]
+    if embedded_sources_script then
+      after_body = after_body .. embedded_sources_script .. "\n"
+    end
+    quarto.doc.include_text("after-body", after_body)
   end
 
   return meta
