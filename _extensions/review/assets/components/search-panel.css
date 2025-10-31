@@ -1,0 +1,206 @@
+/**
+ * Component: Search & Find Panel
+ *
+ * Document search and find panel UI.
+ */
+
+.review-search-panel {
+  position: fixed;
+  top: 100px;
+  left: 20px;
+  right: 380px; /* 360px sidebar + 20px gap */
+  z-index: calc(var(--review-z-toolbar) + 3);
+  max-width: 600px;
+  width: auto;
+  background: var(--review-color-surface);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.15);
+  border-radius: 12px;
+  box-shadow:
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  animation: review-search-slide-in 0.2s ease;
+}
+
+.review-search-panel.review-search-closing {
+  animation: review-search-slide-out 0.2s ease;
+}
+
+.review-search-container {
+  padding: 12px;
+}
+
+.review-search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.review-search-input {
+  flex: 1;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.review-search-input:focus {
+  outline: none;
+  border-color: var(--review-color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--review-color-primary-rgb), 0.1);
+}
+
+.review-search-close {
+  background: none;
+  border: none;
+  color: var(--review-color-subtle);
+  cursor: pointer;
+  font-size: 20px;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.review-search-close:hover {
+  background-color: var(--review-color-surface-alt);
+  color: var(--review-color-muted);
+}
+
+.review-search-controls {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.review-search-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  border-radius: 6px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--review-color-muted);
+}
+
+.review-search-checkbox:hover {
+  border-color: var(--review-color-primary);
+  background-color: rgba(var(--review-color-primary-rgb), 0.08);
+}
+
+.review-search-checkbox input[type='checkbox'] {
+  display: none;
+}
+
+.review-search-checkbox input[type='checkbox']:checked + span {
+  color: var(--review-color-primary);
+}
+
+.review-search-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  background-color: var(--review-color-surface-alt);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--review-color-muted);
+  font-weight: 500;
+}
+
+.review-search-nav-btn {
+  background: none;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: var(--review-color-muted);
+}
+
+.review-search-nav-btn:hover:not(:disabled) {
+  background-color: white;
+  border-color: var(--review-color-primary);
+  color: var(--review-color-primary);
+}
+
+.review-search-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.review-search-counter {
+  min-width: 50px;
+  text-align: center;
+}
+
+.review-search-no-results .review-search-input {
+  border-color: var(--review-color-danger);
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+/* Highlight in document */
+.review-search-highlight {
+  background-color: var(--review-color-warning);
+  color: var(--review-color-warning);
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-weight: 500;
+}
+
+.review-search-has-match {
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  background-color: rgba(251, 191, 36, 0.08);
+}
+
+.review-search-current-match {
+  border: 1px solid var(--review-color-warning);
+  background-color: rgba(251, 191, 36, 0.15);
+  box-shadow: 0 0 0 3px rgba(var(--review-color-warning-rgb), 0.1);
+}
+
+@media (max-width: 1024px) {
+  .review-search-panel {
+    right: 320px; /* 300px sidebar + 20px gap */
+  }
+}
+
+@media (max-width: 768px) {
+  .review-search-panel {
+    right: 280px; /* 260px sidebar + 20px gap */
+  }
+}
+
+@media (max-width: 640px) {
+  .review-search-panel {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    top: 60px;
+  }
+
+  .review-search-controls {
+    flex-wrap: wrap;
+  }
+
+  .review-search-checkbox span {
+    display: none;
+  }
+}

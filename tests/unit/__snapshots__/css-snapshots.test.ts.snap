@@ -1,0 +1,184 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CSS Snapshots - Button Components > icon button style snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderRadius": "8px",
+  "color": "var(--review-color-muted)",
+  "cursor": "pointer",
+  "fontSize": "20px",
+  "padding": "6px 8px",
+  "transition": "all 0.2s ease",
+}
+`;
+
+exports[`CSS Snapshots - Button Components > pill button style snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderColor": "rgba(59, 130, 246, 0.25)",
+  "borderRadius": "999px",
+  "boxShadow": "var(--review-shadow-sm)",
+  "color": "var(--review-color-primary-contrast)",
+  "fontSize": "13px",
+  "fontWeight": "500",
+  "padding": "6px 14px",
+  "transition": "transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease",
+}
+`;
+
+exports[`CSS Snapshots - Button Components > primary button style snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderRadius": "var(--review-radius-sm)",
+  "borderWidth": "medium",
+  "color": "rgb(255, 255, 255)",
+  "cursor": "pointer",
+  "fontSize": "14px",
+  "fontWeight": "600",
+  "padding": "8px 16px",
+  "transition": "all var(--review-transition-fast)",
+}
+`;
+
+exports[`CSS Snapshots - Button Components > secondary button style snapshot matches 1`] = `
+{
+  "backgroundColor": "rgb(255, 255, 255)",
+  "borderColor": "",
+  "borderRadius": "var(--review-radius-sm)",
+  "borderWidth": "",
+  "boxShadow": "var(--review-shadow-sm)",
+  "color": "var(--review-color-text-on-light)",
+  "cursor": "pointer",
+  "fontSize": "14px",
+  "fontWeight": "600",
+  "padding": "8px 16px",
+}
+`;
+
+exports[`CSS Snapshots - Modal Components > modal backdrop snapshot matches 1`] = `
+{
+  "backdropFilter": undefined,
+  "backgroundColor": "rgba(15, 23, 42, 0.3)",
+  "display": "flex",
+  "position": "fixed",
+  "zIndex": "var(--review-z-notification)",
+}
+`;
+
+exports[`CSS Snapshots - Modal Components > modal container snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderColor": "",
+  "borderRadius": "16px",
+  "borderWidth": "",
+  "boxShadow": "var(--review-shadow-2xl)",
+  "display": "flex",
+  "flexDirection": "column",
+}
+`;
+
+exports[`CSS Snapshots - Modal Components > modal footer snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderTopColor": "rgb(0, 0, 0)",
+  "borderTopWidth": "",
+  "display": "flex",
+  "justifyContent": "flex-end",
+  "padding": "16px 24px",
+}
+`;
+
+exports[`CSS Snapshots - Modal Components > modal header snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderBottomColor": "rgb(0, 0, 0)",
+  "borderBottomWidth": "",
+  "display": "flex",
+  "padding": "16px 24px",
+}
+`;
+
+exports[`CSS Snapshots - Sidebar Components > sidebar header snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderBottomColor": "rgb(0, 0, 0)",
+  "borderBottomWidth": "",
+  "borderRadius": "",
+  "display": "block",
+  "padding": "",
+}
+`;
+
+exports[`CSS Snapshots - Sidebar Components > sidebar snapshot matches 1`] = `
+{
+  "backdropFilter": undefined,
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderColor": "",
+  "borderRadius": "",
+  "boxShadow": "",
+  "display": "block",
+  "position": "fixed",
+}
+`;
+
+exports[`CSS Snapshots - State Transitions > button base state snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "boxShadow": "0 4px 6px -1px rgba(var(--review-color-primary-rgb), 0.3)",
+  "cursor": "pointer",
+  "opacity": "",
+  "transform": "",
+}
+`;
+
+exports[`CSS Snapshots - State Transitions > button transition property snapshot matches 1`] = `"all var(--review-transition-fast)"`;
+
+exports[`CSS Snapshots - State Transitions > disabled button state snapshot matches 1`] = `
+{
+  "backgroundColor": "var(--review-color-surface-alt)",
+  "boxShadow": "none",
+  "cursor": "not-allowed",
+  "opacity": "0.6",
+}
+`;
+
+exports[`CSS Snapshots - Toolbar Components > editor toolbar button snapshot matches 1`] = `
+{
+  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "borderColor": "",
+  "borderRadius": "6px",
+  "boxShadow": "var(--review-shadow-sm)",
+  "color": "var(--review-color-primary)",
+  "cursor": "pointer",
+  "fontSize": "12px",
+  "fontWeight": "600",
+  "padding": "6px 10px",
+}
+`;
+
+exports[`CSS Snapshots - Toolbar Components > editor toolbar snapshot matches 1`] = `
+{
+  "backdropFilter": undefined,
+  "backgroundColor": "rgba(255, 255, 255, 0.95)",
+  "borderColor": "",
+  "borderRadius": "12px",
+  "boxShadow": "var(--review-shadow-lg)",
+  "display": "grid",
+  "padding": "6px",
+}
+`;
+
+exports[`CSS Snapshots - Toolbar Components > main toolbar snapshot matches 1`] = `
+{
+  "backdropFilter": undefined,
+  "backgroundColor": "rgba(255, 255, 255, 0.95)",
+  "borderColor": "",
+  "borderRadius": "20px",
+  "boxShadow": "var(--review-shadow-lg)",
+  "display": "flex",
+  "padding": "16px 20px",
+  "position": "fixed",
+}
+`;

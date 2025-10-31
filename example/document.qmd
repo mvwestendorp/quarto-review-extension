@@ -1,0 +1,118 @@
+---
+title: "Example Document with Review Extension"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+    code-fold: true
+---
+
+# Introduction {#sec-intro}
+
+This is an example document demonstrating the **Quarto Review Extension**. Click on any paragraph, heading, or code block to edit it directly in your browser.
+
+## Features
+
+The review extension provides several powerful features:
+
+- **In-browser editing**: Click any element to edit with a live preview
+- **Change tracking**: All edits are tracked as operations
+- **CriticMarkup support**: Use standard markup for annotations
+- **Git integration**: Save changes directly to your repository
+
+## How to Use
+
+### Editing Content
+
+Simply click on any text element to open the editor. The editor provides:
+
+1. A textarea for editing markdown
+2. Live preview of your changes
+3. Save and cancel buttons
+
+### Using CriticMarkup
+
+You can use CriticMarkup syntax for annotations:
+
+- Addition: `{++new text++}`
+- Deletion: `{--old text--}`
+- Substitution: `{~~old~>new~~}`
+- Comment: `{>>This is a comment<<}`
+- Highlight: `{==important text==}{>>with note<<}`
+
+Here's an example with {==highlighted text==}.
+
+## Lists
+
+### Bullet List
+
+- First item
+- Second item with some {++added text++}
+- Third item
+
+### Nested Bullet List
+
+- First item
+- Second item with some
+- Third item
+  - Nested item
+  - Another nested item
+
+
+### Ordered List
+
+1. Step one
+2. Step two
+3. Step three
+
+## Collaboration
+
+The review extension supports multiple users with different permission levels:
+
+::: {.callout-note}
+## Permission Levels
+
+- **Viewer**: Can view and comment
+- **Editor**: Can view, comment, and edit
+- **Admin**: Full access including merge permissions
+:::
+
+## Technical Details
+
+### Architecture
+
+The extension uses a modular architecture:
+
+- **Changes Module**: Tracks operations in-memory
+- **Markdown Module**: Converts markdown to HTML
+- **Comments Module**: Handles CriticMarkup annotations
+- **Git Module**: Provides version control integration
+- **UI Module**: Stateless rendering layer
+
+```{r}
+print("Some code that is not editable.")
+```
+
+### Git Providers
+
+The extension supports multiple git providers:
+
+| Provider | Support |
+|----------|---------|
+| GitHub   | ✅ |
+| GitLab   | ✅ |
+| Gitea    | ✅ |
+| Forgejo  | ✅ |
+| Local    | ✅ |
+
+More text
+
+```{r}
+#| label: fig-cars
+#| fig-cap: "A caption for a figure should be editable"
+plot(cars)
+```
+
+## Conclusion
+
+This example demonstrates the capabilities of the Quarto Review Extension. Try clicking on different elements to see the editing functionality in action!

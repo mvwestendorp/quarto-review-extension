@@ -1,0 +1,90 @@
+/**
+ * CriticMarkup: Base Styles
+ *
+ * Basic styling for CriticMarkup syntax elements (additions, deletions, etc.).
+ */
+
+/* Basic CriticMarkup comment styling */
+.review-comment {
+  background-color: rgba(var(--review-color-warning-rgb), 0.2);
+  border-left: 3px solid var(--review-color-warning);
+  padding: 8px 12px;
+  margin: 4px 0;
+  border-radius: var(--review-radius-xs);
+}
+
+.review-comment-resolved {
+  opacity: 0.6;
+  background-color: var(--review-color-surface-alt);
+  border-left-color: var(--review-color-subtle);
+}
+
+/* Additions - green background with underline */
+.critic-addition {
+  background-color: rgba(var(--review-color-success-rgb), 0.2);
+  text-decoration: none;
+}
+
+/* Deletions - red background with strikethrough */
+.critic-deletion {
+  background-color: rgba(var(--review-color-danger-rgb), 0.2);
+  text-decoration: line-through;
+}
+
+/* Substitutions - yellow background */
+.critic-substitution {
+  background-color: rgba(var(--review-color-warning-rgb), 0.2);
+}
+
+/* Critic comment indicator */
+.critic-comment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  margin: 0 4px;
+  border-radius: 999px;
+  background-color: rgba(var(--review-color-primary-rgb), 0.15);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.4);
+  color: transparent;
+  cursor: pointer;
+}
+
+.critic-comment::after {
+  content: '💬';
+  color: var(--review-color-primary-darker);
+  font-size: 0.85em;
+}
+
+/* Highlights - yellow background */
+.critic-highlight {
+  background-color: rgba(var(--review-color-warning-rgb), 0.3);
+}
+
+/* Hide standalone comment spans */
+[data-critic-type='comment'][aria-hidden='true'] {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+}
+
+.critic-comment[data-critic-type='comment'] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+span[data-critic-type='comment'] {
+  display: inline;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  font-size: 0;
+  line-height: 0;
+}

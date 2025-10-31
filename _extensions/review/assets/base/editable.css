@@ -1,0 +1,97 @@
+/**
+ * Base: Editable Elements
+ *
+ * Styles for editable document sections and elements.
+ */
+
+/* Editable elements */
+.review-editable,
+section[data-review-id] {
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: var(--review-radius-xs);
+  padding: 4px;
+  margin: 2px 0;
+}
+
+.review-editable:hover,
+section[data-review-id]:hover {
+  background-color: rgba(var(--review-color-primary-rgb), 0.1);
+  outline: 1px solid rgba(var(--review-color-primary-rgb), 0.3);
+}
+
+.review-editable.review-active,
+section[data-review-id].review-active {
+  background-color: rgba(var(--review-color-primary-rgb), 0.15);
+  outline: 2px solid rgba(var(--review-color-primary-rgb), 0.5);
+}
+
+/* Modified elements */
+.review-editable[data-review-modified='true'] {
+  background-color: rgba(var(--review-color-warning-rgb), 0.1);
+}
+
+.review-editable[data-review-modified='true']:hover {
+  background-color: rgba(var(--review-color-warning-rgb), 0.15);
+}
+
+/* Inserted elements */
+.review-editable[data-review-origin='client'] {
+  background-color: rgba(var(--review-color-success-rgb), 0.1);
+  border-left: 3px solid rgba(var(--review-color-success-rgb), 0.5);
+}
+
+/* Deleted elements (marked for deletion) */
+.review-editable[data-review-deleted='true'] {
+  opacity: 0.5;
+  text-decoration: line-through;
+  background-color: rgba(var(--review-color-danger-rgb), 0.1);
+}
+
+/* Section wrapper and highlighting */
+[data-review-id] {
+  position: relative;
+}
+
+.review-comment-section-highlight {
+  outline: 2px solid rgba(var(--review-color-primary-rgb), 0.4);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(var(--review-color-primary-rgb), 0.12);
+  border-radius: 6px;
+  transition: box-shadow 0.2s ease, outline-color 0.2s ease;
+}
+
+.review-section-wrapper {
+  position: relative;
+  display: block;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border-radius: 6px;
+}
+
+.review-section-editing {
+  background: rgba(var(--review-color-primary-rgb), 0.12);
+}
+
+section[data-review-id],
+div[data-review-id],
+p[data-review-id] {
+  min-height: 1.5em;
+}
+
+.review-has-section-comment {
+  position: relative;
+}
+
+/* Hover state utility */
+.review-hover {
+  background-color: rgba(var(--review-color-primary-rgb), 0.05) !important;
+}
+
+.review-editable-inline {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  cursor: text;
+}

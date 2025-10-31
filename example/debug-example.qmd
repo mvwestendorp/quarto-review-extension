@@ -1,0 +1,174 @@
+---
+title: "Debug Mode Example"
+format: html
+---
+
+# Quarto Review Extension - Debug Mode Example
+
+This document demonstrates how to enable debug mode for the Quarto Review extension. Debug output will appear in your browser's Developer Console.
+
+## How to View Debug Output
+
+1. **Open Developer Console:**
+   - Windows/Linux: Press `F12` or `Ctrl+Shift+I`
+   - macOS: Press `Cmd+Option+I`
+
+2. **Go to Console Tab:**
+   - Click the "Console" tab in Developer Tools
+
+3. **Look for Debug Messages:**
+   - Messages will show module name, timestamp, and debug info
+   - Example: `[DEBUG] [17:45:23.456] [UIModule] Component initialized`
+
+## Try These Actions
+
+### Edit Text
+Click on any paragraph to edit it. You should see debug messages like:
+- `Opening editor for [element-id]`
+- `Markdown updated: [content]`
+
+Example paragraph:
+This is a paragraph you can edit. Double-click to open the editor and watch the debug output.
+
+### Make Comments
+Single-click to add a comment. Watch for:
+- `Comment composer opened`
+- `Comment added: [timestamp]`
+
+### Use Search
+Press `Cmd+F` (or `Ctrl+F`) to search. Look for:
+- `Search panel opened`
+- `Matches found: [count]`
+
+## Debug Configuration
+
+This document uses this configuration:
+
+```yaml
+review:
+  debug:
+    enabled: true
+    level: debug
+    modules:
+      - UIModule
+      - ChangesModule
+    format-timestamp: true
+```
+
+### Configuration Explained
+
+- **enabled: true** - Debug mode is active
+- **level: debug** - Show detailed information (not just errors/warnings)
+- **modules** - Only log these modules to reduce noise
+- **format-timestamp: true** - Include time in each message
+
+## Different Debug Levels
+
+Change `level` to see different amounts of output:
+
+```yaml
+# Just errors and warnings
+level: warn
+
+# General information only
+level: info
+
+# Detailed debugging info (current)
+level: debug
+
+# Everything (most verbose)
+level: trace
+```
+
+## Available Modules
+
+You can configure which modules to log:
+
+```yaml
+modules:
+  - UIModule              # User interface
+  - ChangesModule         # Change tracking
+  - CommentsModule        # Comments
+  - MarkdownModule        # Markdown rendering
+  - GitModule             # Git operations
+  - UserModule            # Authentication
+  - KeyboardShortcuts     # Keyboard commands
+  - DocumentSearch        # Search functionality
+```
+
+## Exclude Specific Modules
+
+Reduce noise by excluding certain modules:
+
+```yaml
+exclude-modules:
+  - GitModule         # Git often very verbose
+  - KeyboardShortcuts # Too many events
+```
+
+## Performance Note
+
+Debug mode has minimal performance impact:
+- Only enabled when `enabled: true`
+- Filtering reduces overhead
+- Can be disabled quickly for testing
+
+When done debugging, remove the `review.debug` section from your YAML.
+
+## Example: Editing Content
+
+Try editing this bullet list and watch the debug output:
+
+- Item one: Try editing this text
+- Item two: Double-click to enter edit mode
+- Item three: Watch the console for debug messages
+
+## Example: Adding Comments
+
+Try adding a comment:
+
+Single-click on any text element and select "Add comment" from the quick menu. The console will show comment-related debug messages.
+
+## Example: Using Search
+
+1. Press `Cmd+F` (or `Ctrl+F`)
+2. Type a word to search for
+3. Watch the console for search debug output
+
+## More Debug Options
+
+For complete documentation, see: `docs/user/DEBUG.md`
+
+### Quick Commands
+
+If you need to change debug settings after loading:
+
+```javascript
+// In browser console:
+
+// Enable debug mode
+window.debugLogger.enable('debug')
+
+// Disable debug mode
+window.debugLogger.disable()
+
+// Change configuration
+window.debugLogger.setConfig({
+  modules: ['UIModule'],
+  level: 'trace'
+})
+
+// Show debug help
+window.printDebugHelp()
+```
+
+## Next Steps
+
+1. ✅ Open Developer Console (F12)
+2. ✅ Try editing content above
+3. ✅ Watch debug messages appear
+4. ✅ Try different actions (comments, search, etc.)
+5. ✅ Modify the `review.debug` config to try different settings
+6. ✅ Read `docs/user/DEBUG.md` for complete documentation
+
+Happy debugging! 🐛

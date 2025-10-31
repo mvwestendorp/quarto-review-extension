@@ -1,0 +1,209 @@
+/**
+ * Component: Buttons
+ *
+ * Button base styles and variants (primary, secondary, pill, icon, disabled).
+ */
+
+/* Button base */
+.review-btn {
+  padding: 8px 16px;
+  border-radius: var(--review-radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--review-transition-fast);
+  font-family: var(--review-font-family-sans);
+}
+
+/* Primary variant */
+.review-btn-primary {
+  background: linear-gradient(
+    135deg,
+    var(--review-color-primary),
+    var(--review-color-primary-dark)
+  );
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 6px -1px rgba(var(--review-color-primary-rgb), 0.3);
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.review-btn-primary:hover {
+  background: linear-gradient(
+    135deg,
+    var(--review-color-primary-dark),
+    var(--review-color-primary-darker)
+  );
+  box-shadow: 0 12px 20px -8px rgba(var(--review-color-primary-rgb), 0.4);
+  transform: translateY(-2px);
+}
+
+.review-btn-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px -1px rgba(var(--review-color-primary-rgb), 0.2);
+}
+
+.review-btn-primary:focus-visible {
+  outline: 2px solid var(--review-color-primary);
+  outline-offset: 2px;
+}
+
+/* Secondary variant */
+.review-btn-secondary {
+  background: #ffffff;
+  color: var(--review-color-text-on-light);
+  border: 2px solid var(--review-color-border);
+  font-weight: 600;
+  box-shadow: var(--review-shadow-sm);
+}
+
+.review-btn-secondary:hover {
+  background: var(--review-color-bg-hover-light);
+  border-color: var(--review-color-primary);
+  box-shadow: var(--review-shadow-md);
+  transform: translateY(-1px);
+  color: var(--review-color-primary-darker);
+}
+
+.review-btn-secondary:active {
+  background: var(--review-color-bg-active-light);
+  box-shadow: var(--review-shadow-sm);
+  transform: translateY(0);
+}
+
+.review-btn-secondary:focus-visible {
+  outline: 2px solid var(--review-color-primary);
+  outline-offset: 2px;
+}
+
+/* Pill variant */
+.review-btn-pill {
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  background: linear-gradient(
+    135deg,
+    rgba(248, 250, 252, 0.95),
+    rgba(237, 242, 255, 0.9)
+  );
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  box-shadow: var(--review-shadow-sm);
+  font-weight: 500;
+  color: var(--review-color-primary-contrast);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.review-btn-pill:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(237, 242, 255, 0.95),
+    rgba(229, 237, 255, 0.9)
+  );
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: var(--review-shadow-md);
+  transform: translateY(-2px);
+  color: var(--review-color-primary-darker);
+}
+
+.review-btn-pill:active {
+  transform: translateY(0);
+  box-shadow: var(--review-shadow-sm);
+}
+
+.review-btn-pill:focus-visible {
+  outline: 2px solid var(--review-color-primary);
+  outline-offset: 2px;
+}
+
+/* Small button */
+.review-btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Icon button */
+.review-btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--review-color-muted);
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px 8px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.review-btn-icon:hover {
+  color: var(--review-color-primary-darker);
+  background-color: var(--review-color-active-bg);
+  box-shadow: var(--review-shadow-sm);
+}
+
+.review-btn-icon:active {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+.review-btn-icon:focus-visible {
+  outline: 2px solid var(--review-color-primary);
+  outline-offset: 2px;
+}
+
+.review-btn-danger {
+  background: rgba(220, 38, 38, 0.12);
+  color: rgb(185, 28, 28);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.review-btn-danger:hover {
+  background: rgba(220, 38, 38, 0.18);
+  color: rgb(153, 27, 27);
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+.review-btn-danger:active {
+  background: rgba(220, 38, 38, 0.25);
+}
+
+/* Block button */
+.review-btn-block {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.review-btn-block:last-child {
+  margin-bottom: 0;
+}
+
+/* Disabled state */
+.review-btn[disabled],
+.review-btn.review-btn-disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+  border-color: var(--review-color-border-subtle) !important;
+  background-color: var(--review-color-surface-alt) !important;
+  color: var(--review-color-subtle) !important;
+  position: relative;
+}
+
+.review-btn[disabled]::after,
+.review-btn.review-btn-disabled::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px dashed var(--review-color-border-subtle);
+  pointer-events: none;
+}

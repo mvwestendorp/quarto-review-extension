@@ -1,0 +1,55 @@
+name: Sync review fixtures
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Relative path to exported QMD artefacts"
+        default: "dist/export"
+        required: true
+      branch:
+        description: "Target branch in fixtures repo"
+        default: "review/live"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Configure git credentials
+        if: env.REVIEW_REPO_TOKEN != ''
+        env:
+          REVIEW_REPO_TOKEN: ${{ secrets.REVIEW_REPO_TOKEN }}
+        run: |
+          git config --global user.name "${GIT_AUTHOR_NAME:-Review Bot}"
+          git config --global user.email "${GIT_AUTHOR_EMAIL:-review-bot@example.com}"
+          git config --global url."https://${REVIEW_REPO_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+      - name: Sync fixtures
+        run: |
+          npm run fixtures:sync -- \
+            --source "${{ github.event.inputs.source }}" \
+            --branch "${{ github.event.inputs.branch }}" \
+            --message "chore(review): sync via workflow"
+
+      - name: Push changes
+        if: env.REVIEW_REPO_TOKEN != ''
+        working-directory: fixtures/github
+        run: git push origin "${{ github.event.inputs.branch }}"
+
+      - name: Manual push reminder
+        if: env.REVIEW_REPO_TOKEN == ''
+        run: |
+          echo "::notice title=Manual push required::Review fixtures committed locally."
+          echo "::notice::Switch to fixtures/github and push the branch: git push origin '${{ github.event.inputs.branch }}'"
