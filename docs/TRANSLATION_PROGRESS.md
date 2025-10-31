@@ -87,12 +87,12 @@ The translation module core infrastructure has been fully implemented with compr
 ### 3. Testing (100%)
 
 **Test Files Created:**
-- `tests/unit/translation-sentence-segmenter.test.ts` (17 tests)
+- `tests/unit/translation-sentence-segmenter.test.ts` (19 tests)
 - `tests/unit/translation-state.test.ts` (17 tests)
 - `tests/unit/translation-alignment.test.ts` (16 tests)
-- `tests/unit/translation-providers.test.ts` (14 tests)
+- `tests/unit/translation-providers.test.ts` (24 tests)
 
-**Total:** 64+ comprehensive test cases
+**Total:** 76 comprehensive test cases
 
 **Coverage Areas:**
 - ✅ Sentence segmentation (simple, abbreviations, languages)
@@ -182,15 +182,15 @@ The translation module core infrastructure has been fully implemented with compr
 All core infrastructure tests passing:
 ```
 ✓ tests/unit/translation-alignment.test.ts (16 tests) 20ms
-✓ tests/unit/translation-state.test.ts (17 tests) 35ms
-✓ tests/unit/translation-sentence-segmenter.test.ts (17 tests)
-✓ tests/unit/translation-providers.test.ts (14 tests)
+✓ tests/unit/translation-state.test.ts (17 tests) 19ms
+✓ tests/unit/translation-sentence-segmenter.test.ts (19 tests) 24ms
+✓ tests/unit/translation-providers.test.ts (24 tests) 327ms
 
 Test Files  4 passed (4)
-Tests       64 passed (64)
+Tests       76 passed (76)
 ```
 
-**Note:** Local AI provider tests require `npm install` to download `@xenova/transformers` package.
+**Dependencies installed:** `@xenova/transformers@^2.17.2` installed and working.
 
 ## 🔧 Technical Decisions
 
@@ -219,15 +219,16 @@ Branch commits:
 1. `feat(translation): implement core translation infrastructure` (1848 lines)
 2. `feat(translation): add dependencies and comprehensive tests` (1499 lines)
 3. `fix(translation): fix reserved word and test issues`
+4. `fix(translation): add common abbreviations to sentence segmenter` (687 lines)
 
-Total: ~3400 lines of new code + tests
+Total: ~4000 lines of new code + tests
 
 ## 🚀 Next Steps
 
 ### Immediate Priority
-1. Install dependencies: `npm install`
-2. Run tests: `npm test translation`
-3. Verify all tests pass
+1. ✅ Install dependencies: `npm install` - COMPLETED
+2. ✅ Run tests: `npm test translation` - COMPLETED (76/76 passing)
+3. ✅ Verify all tests pass - COMPLETED
 
 ### Short Term (UI Implementation)
 1. Create TranslationView component
