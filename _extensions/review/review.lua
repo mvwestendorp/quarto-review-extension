@@ -4,10 +4,11 @@ Adds deterministic IDs to elements for review functionality
 ]]--
 
 local config = {
-  id_prefix = "review",
+  id_prefix = "",  -- Will be set to filename by detect_document_identifier
   id_separator = ".",
   enabled = true,
   debug = false,
+  document_prefix_applied = false,
   editable_elements = {
     Para = true,
     Header = true,
@@ -26,6 +27,89 @@ local context = {
   element_counters = {}
 }
 
+local function sanitize_identifier(value)
+  if not value or value == '' then
+    return ''
+  end
+
+  -- Step 1: Normalize path separators (backslash to forward slash) for cross-platform support
+  -- This handles both Windows and Unix paths
+  local normalized = value:gsub('\\', '/')
+
+  -- Step 2: Strip Quarto temporary directories
+  -- Quarto uses random temp directories like:
+  -- - /tmp/quarto-input-abc123/... (absolute)
+  -- - /tmp/quarto-session-xyz789/... (absolute)
+  -- - quarto-input-abc123/... (relative, at start)
+  -- We match both absolute paths (with leading /) and relative paths (at start)
+
+  -- First, handle absolute paths or paths with leading content
+  normalized = normalized:gsub('^.*/quarto%-input[^/]+/', '')
+  normalized = normalized:gsub('^.*/quarto%-session[^/]+/', '')
+
+  -- Then, handle relative paths that start with quarto dirs
+  normalized = normalized:gsub('^quarto%-input[^/]+/', '')
+  normalized = normalized:gsub('^quarto%-session[^/]+/', '')
+
+  -- Step 3: Strip leading ./ relative path marker
+  normalized = normalized:gsub('^%./', '')
+
+  -- Step 4: Remove file extension (handles single extension like .qmd, .md, etc.)
+  local without_extension = normalized:gsub('%.%w+$', '')
+
+  -- Step 5: Replace all forward slashes with hyphens
+  -- This converts directory structure to valid ID characters
+  -- e.g., "chapters/intro" -> "chapters-intro"
+  -- e.g., "docs/api/reference" -> "docs-api-reference"
+  local with_hyphens = without_extension:gsub('/', '-')
+
+  -- Step 6: Normalize to valid ID characters
+  -- Convert to lowercase and replace any non-word, non-hyphen chars with hyphens
+  -- This handles spaces, underscores, special characters, etc.
+  local sanitized = with_hyphens:lower():gsub('[^%w%-]', '-')
+
+  -- Step 7: Clean up multiple consecutive hyphens
+  -- Reduces "my---doc" to "my-doc"
+  sanitized = sanitized:gsub('%-+', '-')
+
+  -- Step 8: Remove leading and trailing hyphens
+  -- Clean up edge cases from previous steps
+  sanitized = sanitized:gsub('^%-+', ''):gsub('%-+$', '')
+
+  -- Step 9: Fallback to 'document' if result is empty
+  -- This handles edge cases like ".qmd", "---", whitespace-only paths
+  if sanitized == '' then
+    sanitized = 'document'
+  end
+
+  return sanitized
+end
+
+local function detect_document_identifier(meta)
+  -- Priority 1: User-specified document ID in review metadata
+  if meta.review and meta.review['document-id'] then
+    return pandoc.utils.stringify(meta.review['document-id'])
+  end
+
+  -- Priority 2-4: Actual file paths (preferred over title)
+  -- These are the most reliable for uniqueness
+  if quarto and quarto.doc and quarto.doc.output_file then
+    return quarto.doc.output_file
+  end
+  if PANDOC_STATE and PANDOC_STATE.input_files and #PANDOC_STATE.input_files > 0 then
+    return PANDOC_STATE.input_files[1]
+  end
+  if quarto and quarto.doc and quarto.doc.input_file then
+    return quarto.doc.input_file
+  end
+
+  -- NOTE: Deliberately NOT falling back to meta.title
+  -- Using the document title would create non-unique IDs for documents with the same title
+  -- Better to use a generic fallback than to create problematic IDs
+
+  return nil
+end
+
 --[[
 NOTE: Nested list handling limitation
 
@@ -43,12 +127,14 @@ The solution is handled on the UI side:
 
 -- Load configuration from metadata
 function load_config(meta)
+  -- Store custom prefix if provided
+  local custom_prefix = nil
   if meta.review then
     if meta.review.enabled ~= nil then
       config.enabled = meta.review.enabled
     end
     if meta.review['id-prefix'] then
-      config.id_prefix = pandoc.utils.stringify(meta.review['id-prefix'])
+      custom_prefix = pandoc.utils.stringify(meta.review['id-prefix'])
     end
     if meta.review['id-separator'] then
       config.id_separator = pandoc.utils.stringify(meta.review['id-separator'])
@@ -56,6 +142,38 @@ function load_config(meta)
     if meta.review.debug ~= nil then
       config.debug = meta.review.debug
     end
+  end
+
+  if not config.document_prefix_applied then
+    -- ALWAYS process filename first, then add custom prefix
+    local identifier = detect_document_identifier(meta)
+    debug_print('Detected document identifier: ' .. tostring(identifier))
+    local filename_prefix = sanitize_identifier(identifier)
+
+    -- Build prefix with filename FIRST, then any custom prefix
+    if filename_prefix ~= '' then
+      -- Start with filename as primary prefix
+      config.id_prefix = filename_prefix
+      debug_print('Applying filename prefix: ' .. filename_prefix)
+
+      -- Add custom prefix if provided
+      if custom_prefix and #custom_prefix > 0 then
+        config.id_prefix = table.concat({config.id_prefix, custom_prefix}, config.id_separator)
+        debug_print('Added custom prefix: ' .. custom_prefix)
+      end
+    else
+      -- Fallback: if filename detection failed, use custom prefix or default
+      if custom_prefix and #custom_prefix > 0 then
+        config.id_prefix = custom_prefix
+        debug_print('No valid filename, using custom prefix: ' .. custom_prefix)
+      else
+        config.id_prefix = 'review'
+        debug_print('No valid filename and no custom prefix, using default: review')
+      end
+    end
+
+    config.document_prefix_applied = true
+    debug_print('Final id prefix: ' .. config.id_prefix)
   end
 end
 
@@ -434,6 +552,12 @@ end
 
 -- Meta filter to load config and inject resources
 function Meta(meta)
+  config.document_prefix_applied = false
+  config.id_prefix = ""  -- Reset to empty, will be populated with filename
+  context.section_stack = {}
+  context.section_counters = {}
+  context.element_counters = {}
+
   load_config(meta)
 
   -- Only inject resources for HTML format
@@ -466,8 +590,29 @@ function Meta(meta)
   -- Convert config to JSON string (with fallback encoding)
   local config_json = table_to_json(init_config)
 
+    -- Build title wrapping script if title exists
+    local title_id = config.id_prefix .. config.id_separator .. 'document-title'
+    local title_script = [[
+<script>
+  // Wrap the document title with review attributes
+  document.addEventListener('DOMContentLoaded', function() {
+    const titleEl = document.querySelector('h1.title');
+    if (titleEl && !titleEl.hasAttribute('data-review-id')) {
+      // Extract the title text content for markdown
+      const titleMarkdown = titleEl.textContent;
+
+      titleEl.setAttribute('data-review-id', ']] .. title_id .. [[');
+      titleEl.setAttribute('data-review-type', 'Title');
+      titleEl.setAttribute('data-review-origin', 'source');
+      titleEl.setAttribute('data-review-markdown', titleMarkdown);
+      titleEl.classList.add('review-editable');
+    }
+  });
+</script>
+]]
+
     -- Add JS and initialization div to body
-    quarto.doc.include_text("after-body", [[
+    quarto.doc.include_text("after-body", title_script .. [[
 <script type="module" src="]] .. ext_path .. [[/review.js"></script>
 <div data-review data-review-config=']] .. config_json .. [['></div>
 ]])
