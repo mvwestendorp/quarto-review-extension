@@ -1,0 +1,80 @@
+name: Update review fixtures
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Configure git credentials
+        env:
+          REVIEW_REPO_TOKEN: ${{ secrets.REVIEW_REPO_TOKEN }}
+        run: |
+          if [ -z "${REVIEW_REPO_TOKEN}" ]; then
+            echo "::warning::REVIEW_REPO_TOKEN is not set; workflow will sync but not push."
+            exit 0
+          fi
+          git config --global user.name "Review Bot"
+          git config --global user.email "review-bot@example.com"
+          git config --global url."https://${REVIEW_REPO_TOKEN}@github.com/".insteadOf "https://github.com/"
+
+      - name: Render fixtures
+        run: npm run fixtures:render
+
+      - name: Export reviewed QMD files
+        run: |
+          if npm run export:qmd --if-present; then
+            echo "Export complete."
+          else
+            echo "::notice::No export script defined; ensure exports exist before sync."
+          fi
+
+      - name: Sync fixtures repository
+        run: |
+          if [ -n "${{ secrets.REVIEW_REPO_TOKEN }}" ]; then
+            npm run fixtures:sync -- --source dist/export --branch review/live --message "chore(review): sync after merge ${{ github.sha }}"
+          else
+            echo "::notice::Skipping sync because REVIEW_REPO_TOKEN is unset."
+          fi
+
+      - name: Push fixtures branch
+        if: ${{ secrets.REVIEW_REPO_TOKEN != '' }}
+        working-directory: fixtures/github
+        run: git push origin review/live
+
+      - name: Commit submodule pointer
+        if: ${{ secrets.REVIEW_REPO_TOKEN != '' }}
+        run: |
+          git add fixtures/github
+          git commit -m "chore(fixtures): bump after ${{ github.sha }}" || echo "No pointer update"
+
+      - name: Push pointer
+        if: ${{ secrets.REVIEW_REPO_TOKEN != '' }}
+        run: git push origin main || true
+
+      - name: Trigger fixtures publish workflow
+        if: ${{ secrets.REVIEW_REPO_TOKEN != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: 'github',
+              workflow_id: 'deploy.yml',
+              ref: 'main'
+            });
+          github-token: ${{ secrets.REVIEW_REPO_TOKEN }}
