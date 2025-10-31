@@ -8,6 +8,11 @@ This repository embeds a GitHub demo project under `fixtures/github`. The demo s
 - **Review branch**: branch in the fixtures repo that accumulates reviewer changes (defaults to `review/live`).
 - **Pages branch**: branch used for GitHub Pages (e.g. `gh-pages`), generated from QMD sources.
 
+> **Prerequisite checklist**
+> 1. Enable GitHub Pages in the fixtures repo (Settings ▸ Pages ▸ Build and deployment ▸ GitHub Actions).
+> 2. Add a secret named `REVIEW_REPO_TOKEN` to this repository (or an organisation secret) containing a PAT/GitHub App token with `contents:write` access to the fixtures repo.  
+>    This allows the `review-sync` workflow to push changes automatically. If the secret is omitted, the workflow will leave the commit staged locally and remind you to push manually.
+
 ### Local Setup
 
 ```bash
