@@ -94,6 +94,14 @@ export class SentenceSegmenter {
       'etc',
       'i.e',
       'e.g',
+      'Mt',
+      'St',
+      'Ave',
+      'Blvd',
+      'Inc',
+      'Ltd',
+      'Corp',
+      'Co',
     ];
 
     switch (language) {
