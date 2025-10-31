@@ -14,12 +14,16 @@ export class MainSidebar {
   private trackedChangesToggle: HTMLInputElement | null = null;
   private toggleBtn: HTMLButtonElement | null = null;
   private unsavedIndicator: HTMLElement | null = null;
+  private exportCleanBtn: HTMLButtonElement | null = null;
+  private exportCriticBtn: HTMLButtonElement | null = null;
 
   private onUndoCallback: (() => void) | null = null;
   private onRedoCallback: (() => void) | null = null;
   private onTrackedChangesCallback: ((enabled: boolean) => void) | null = null;
   private onToggleSidebarCallback: (() => void) | null = null;
   private onClearDraftsCallback: (() => void) | null = null;
+  private onExportCleanCallback: (() => void) | null = null;
+  private onExportCriticCallback: (() => void) | null = null;
 
   /**
    * Lazily create (or return) the sidebar element.
@@ -135,6 +139,54 @@ export class MainSidebar {
     viewSection.appendChild(trackedLabel);
     body.appendChild(viewSection);
 
+    const exportSection = document.createElement('div');
+    exportSection.className = 'review-sidebar-section';
+
+    const exportTitle = document.createElement('h4');
+    exportTitle.textContent = 'Export';
+    exportSection.appendChild(exportTitle);
+
+    this.exportCleanBtn = document.createElement('button');
+    this.exportCleanBtn.className =
+      'review-btn review-btn-primary review-btn-block';
+    this.exportCleanBtn.setAttribute('data-action', 'export-qmd-clean');
+    this.exportCleanBtn.setAttribute(
+      'title',
+      'Export QMD with accepted changes applied'
+    );
+    this.exportCleanBtn.setAttribute(
+      'aria-label',
+      'Export QMD with accepted changes applied'
+    );
+    this.exportCleanBtn.textContent = '🗂 Export Clean QMD';
+    this.exportCleanBtn.disabled = true;
+    this.exportCleanBtn.addEventListener('click', () => {
+      this.onExportCleanCallback?.();
+    });
+    exportSection.appendChild(this.exportCleanBtn);
+
+    this.exportCriticBtn = document.createElement('button');
+    this.exportCriticBtn.className =
+      'review-btn review-btn-secondary review-btn-block';
+    this.exportCriticBtn.setAttribute('data-action', 'export-qmd-critic');
+    this.exportCriticBtn.setAttribute(
+      'title',
+      'Export QMD with CriticMarkup annotations'
+    );
+    this.exportCriticBtn.setAttribute(
+      'aria-label',
+      'Export QMD with CriticMarkup annotations'
+    );
+    this.exportCriticBtn.textContent = '📝 Export with CriticMarkup';
+    this.exportCriticBtn.disabled = true;
+    this.exportCriticBtn.addEventListener('click', () => {
+      this.onExportCriticCallback?.();
+    });
+    exportSection.appendChild(this.exportCriticBtn);
+
+    body.appendChild(exportSection);
+    this.updateExportButtonStates();
+
     // Comments section hint
     const commentsSection = document.createElement('div');
     commentsSection.className = 'review-sidebar-section';
@@ -218,6 +270,26 @@ export class MainSidebar {
     return this.trackedChangesToggle?.checked ?? false;
   }
 
+  private updateExportButtonStates(): void {
+    const cleanEnabled = typeof this.onExportCleanCallback === 'function';
+    if (this.exportCleanBtn) {
+      this.exportCleanBtn.disabled = !cleanEnabled;
+      this.exportCleanBtn.classList.toggle(
+        'review-btn-disabled',
+        !cleanEnabled
+      );
+    }
+
+    const criticEnabled = typeof this.onExportCriticCallback === 'function';
+    if (this.exportCriticBtn) {
+      this.exportCriticBtn.disabled = !criticEnabled;
+      this.exportCriticBtn.classList.toggle(
+        'review-btn-disabled',
+        !criticEnabled
+      );
+    }
+  }
+
   onUndo(callback: () => void): void {
     this.onUndoCallback = callback;
   }
@@ -236,6 +308,16 @@ export class MainSidebar {
 
   onClearDrafts(callback: () => void): void {
     this.onClearDraftsCallback = callback;
+  }
+
+  onExportClean(callback?: () => void): void {
+    this.onExportCleanCallback = callback ?? null;
+    this.updateExportButtonStates();
+  }
+
+  onExportCritic(callback?: () => void): void {
+    this.onExportCriticCallback = callback ?? null;
+    this.updateExportButtonStates();
   }
 
   /**
@@ -283,11 +365,15 @@ export class MainSidebar {
     this.redoBtn = null;
     this.trackedChangesToggle = null;
     this.toggleBtn = null;
+    this.exportCleanBtn = null;
+    this.exportCriticBtn = null;
     this.unsavedIndicator = null;
     this.onUndoCallback = null;
     this.onRedoCallback = null;
     this.onTrackedChangesCallback = null;
     this.onToggleSidebarCallback = null;
     this.onClearDraftsCallback = null;
+    this.onExportCleanCallback = null;
+    this.onExportCriticCallback = null;
   }
 }

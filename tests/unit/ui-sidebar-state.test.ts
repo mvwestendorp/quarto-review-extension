@@ -17,6 +17,8 @@ const {
     onTrackedChangesToggle: ReturnType<typeof vi.fn>;
     onToggleSidebar: ReturnType<typeof vi.fn>;
     onClearDrafts: ReturnType<typeof vi.fn>;
+    onExportClean: ReturnType<typeof vi.fn>;
+    onExportCritic: ReturnType<typeof vi.fn>;
     setCollapsed: ReturnType<typeof vi.fn>;
     setTrackedChangesVisible: ReturnType<typeof vi.fn>;
     updateUndoRedoState: ReturnType<typeof vi.fn>;
@@ -39,6 +41,8 @@ const {
       onTrackedChangesToggle: vi.fn(),
       onToggleSidebar: vi.fn(),
       onClearDrafts: vi.fn(),
+      onExportClean: vi.fn(),
+      onExportCritic: vi.fn(),
       setCollapsed: vi.fn(),
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),

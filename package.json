@@ -33,7 +33,9 @@
     "security:check": "npm audit --audit-level=high",
     "security:report": "npm audit --json > audit-report.json || true",
     "size:check": "size-limit",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "fixtures:render": "bash scripts/fixtures/render-review.sh",
+    "fixtures:sync": "bash scripts/fixtures/sync-review.sh"
   },
   "keywords": [
     "quarto",

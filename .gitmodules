@@ -1,0 +1,3 @@
+[submodule "fixtures/github"]
+	path = fixtures/github
+	url = git@github.com:mvwestendorp/quarto-review-extension.git

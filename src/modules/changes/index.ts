@@ -605,6 +605,17 @@ export class ChangesModule {
   }
 
   /**
+   * Convert current state to markdown with CriticMarkup annotations applied.
+   * This uses the element baselines to render tracked insertions/deletions.
+   */
+  public toTrackedMarkdown(): string {
+    const elements = this.getCurrentState();
+    return elements
+      .map((element) => this.getElementContentWithTrackedChanges(element.id))
+      .join('\n\n');
+  }
+
+  /**
    * Remove nested review-editable wrappers (Pandoc div fences) that appear inside lists.
    * These wrappers are only present to keep Lua filter metadata and should not surface in the editor.
    */

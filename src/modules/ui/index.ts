@@ -36,6 +36,7 @@ import {
   normalizeContentForComparison,
 } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
+import { QmdExportService, type ExportFormat } from '@modules/export';
 
 // CriticMarkup components are now handled by MilkdownEditor module
 import { ChangeSummaryDashboard } from './change-summary';
@@ -56,6 +57,7 @@ export interface UIConfig {
   comments: CommentsModule;
   inlineEditing?: boolean; // Use inline editing instead of modal
   persistence?: LocalDraftPersistence;
+  exporter?: QmdExportService;
 }
 
 interface HeadingReferenceInfo {
@@ -78,6 +80,7 @@ export class UIModule {
 
   // Configuration
   private changeSummaryDashboard: ChangeSummaryDashboard | null = null;
+  private exporter?: QmdExportService;
 
   // Module instances (for Phase 3 integration - will be used when code replacement completes)
   private editorLifecycle: EditorLifecycle;
@@ -94,6 +97,7 @@ export class UIModule {
 
   constructor(config: UIConfig) {
     this.config = config;
+    this.exporter = config.exporter;
     this.localPersistence = config.persistence;
     logger.debug(
       'Initialized with tracked changes:',
@@ -158,6 +162,21 @@ export class UIModule {
         this.refresh();
       }
     });
+    const enableExport = Boolean(this.exporter);
+    this.mainSidebarModule.onExportClean(
+      enableExport
+        ? () => {
+            void this.handleExportQmd('clean');
+          }
+        : undefined
+    );
+    this.mainSidebarModule.onExportCritic(
+      enableExport
+        ? () => {
+            void this.handleExportQmd('critic');
+          }
+        : undefined
+    );
     this.mainSidebarModule.onTrackedChangesToggle((enabled) => {
       this.toggleTrackedChanges(enabled);
     });
@@ -742,6 +761,25 @@ export class UIModule {
       window.setTimeout(() => {
         window.location.reload();
       }, 150);
+    }
+  }
+
+  private async handleExportQmd(format: ExportFormat): Promise<void> {
+    if (!this.exporter) {
+      this.showNotification('Export service is not configured.', 'error');
+      return;
+    }
+
+    try {
+      const result = await this.exporter.exportToQmd({ format });
+      const message =
+        result.fileCount === 1
+          ? `Exported ${result.filenames[0]}`
+          : `Exported ${result.fileCount} files to ${result.downloadedAs}`;
+      this.showNotification(message, 'success');
+    } catch (error) {
+      logger.error('Failed to export QMD files', error);
+      this.showNotification('Failed to export QMD files.', 'error');
     }
   }
 

@@ -53,6 +53,8 @@ const {
       onShowComments: vi.fn(),
       onToggleSidebar: vi.fn(),
       onClearDrafts: vi.fn(),
+      onExportClean: vi.fn(),
+      onExportCritic: vi.fn(),
       setCollapsed: vi.fn(),
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),

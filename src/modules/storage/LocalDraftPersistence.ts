@@ -2,6 +2,7 @@ import { EmbeddedSourceStore } from '@modules/git/fallback';
 import { createModuleLogger } from '@utils/debug';
 
 const logger = createModuleLogger('LocalDraftPersistence');
+const LEGACY_DRAFT_FILENAME = 'document.qmd';
 
 export interface LocalDraftPersistenceOptions {
   filename?: string;
@@ -27,7 +28,7 @@ export class LocalDraftPersistence {
     private readonly store: EmbeddedSourceStore,
     options: LocalDraftPersistenceOptions = {}
   ) {
-    this.filename = options.filename ?? 'document.qmd';
+    this.filename = options.filename ?? 'review-draft.json';
     this.defaultMessage = options.defaultMessage ?? 'Local draft update';
   }
 
@@ -63,13 +64,30 @@ export class LocalDraftPersistence {
 
   public async loadDraft(): Promise<DraftPayload | null> {
     try {
-      const source = await this.store.getSource(this.filename);
+      let source = await this.store.getSource(this.filename);
+      let migratedFromLegacy = false;
       if (!source) {
-        return null;
+        source = await this.store.getSource(LEGACY_DRAFT_FILENAME);
+        if (!source) {
+          return null;
+        }
+        migratedFromLegacy = true;
       }
       const parsed = JSON.parse(source.content) as DraftPayload;
       if (!parsed?.elements?.length) {
         return null;
+      }
+
+      if (migratedFromLegacy) {
+        try {
+          await this.store.saveFile(
+            this.filename,
+            source.content,
+            source.commitMessage ?? this.defaultMessage
+          );
+        } catch (migrationError) {
+          logger.warn('Failed to migrate legacy draft storage', migrationError);
+        }
       }
       return parsed;
     } catch (error) {
