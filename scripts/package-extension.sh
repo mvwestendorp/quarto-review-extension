@@ -37,6 +37,12 @@ if ! $SKIP_BUILD; then
   popd >/dev/null
 fi
 
+SOURCEMAP_PATH="$ROOT_DIR/_extensions/review/assets/review.js.map"
+if [[ -f "$SOURCEMAP_PATH" ]]; then
+  echo "Removing sourcemap $SOURCEMAP_PATH from package"
+  rm "$SOURCEMAP_PATH"
+fi
+
 if [[ ! -d "$ROOT_DIR/_extensions/review" ]]; then
   echo "Extension directory not found at _extensions/review" >&2
   exit 1
