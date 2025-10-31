@@ -6,6 +6,8 @@ const createChangesStub = () => ({
   initializeFromDOM: vi.fn(),
   undo: vi.fn().mockReturnValue(false),
   redo: vi.fn().mockReturnValue(false),
+  canUndo: vi.fn().mockReturnValue(false),
+  canRedo: vi.fn().mockReturnValue(false),
   getCurrentState: vi.fn().mockReturnValue([
     {
       id: 'section-1',

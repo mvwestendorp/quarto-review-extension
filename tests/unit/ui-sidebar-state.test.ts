@@ -233,6 +233,8 @@ const createStubConfig = (): UIConfig => ({
 });
 
 describe('UIModule sidebar state handling', () => {
+  let reloadSpy: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     resetMainSidebarMocks();
     resetHistoryStorageMocks();
@@ -241,6 +243,14 @@ describe('UIModule sidebar state handling', () => {
       cb(0);
       return 0;
     });
+
+    // Mock window.location.reload for all tests
+    reloadSpy = vi.fn();
+    vi.stubGlobal('location', {
+      ...window.location,
+      reload: reloadSpy,
+    });
+    reloadSpy.mockClear();
   });
 
   afterEach(() => {
@@ -276,6 +286,7 @@ describe('UIModule sidebar state handling', () => {
   });
 
   it('clears local drafts when confirmation is accepted', async () => {
+    vi.useFakeTimers();
     const config = createStubConfig();
     const ui = new UIModule(config);
     const mainSidebar = getMainSidebarInstances()[0];
@@ -285,18 +296,20 @@ describe('UIModule sidebar state handling', () => {
     expect(clearCallback).toBeInstanceOf(Function);
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const originalReload = window.location.reload;
-    (window.location as any).reload = vi.fn();
 
-    await clearCallback();
+    const clearPromise = clearCallback();
+    await clearPromise;
+
+    // Advance timers to trigger the setTimeout for reload
+    vi.advanceTimersByTime(150);
 
     expect(confirmSpy).toHaveBeenCalled();
     expect(config.persistence.clearAll).toHaveBeenCalled();
     const historyInstance = getHistoryStorageInstances()[0];
     expect(historyInstance.clearAll).toHaveBeenCalled();
-    expect(window.location.reload).toHaveBeenCalled();
+    expect(reloadSpy).toHaveBeenCalled();
     confirmSpy.mockRestore();
-    (window.location as any).reload = originalReload;
+    vi.useRealTimers();
   });
 
   it('does not clear local drafts when confirmation is declined', async () => {
@@ -309,8 +322,6 @@ describe('UIModule sidebar state handling', () => {
     expect(clearCallback).toBeInstanceOf(Function);
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const originalReload = window.location.reload;
-    (window.location as any).reload = vi.fn();
 
     await clearCallback();
 
@@ -319,6 +330,5 @@ describe('UIModule sidebar state handling', () => {
     const historyInstance = getHistoryStorageInstances()[0];
     expect(historyInstance.clearAll).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
-    (window.location as any).reload = originalReload;
   });
 });
