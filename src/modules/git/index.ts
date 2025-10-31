@@ -53,6 +53,10 @@ export class GitModule {
     return this.provider;
   }
 
+  public getFallbackStore(): EmbeddedSourceStore {
+    return this.fallbackStore;
+  }
+
   public async submitReview(payload: ReviewSubmissionPayload): Promise<void> {
     if (!this.integration) {
       throw new Error('Git integration is not configured');

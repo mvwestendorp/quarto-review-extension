@@ -159,6 +159,22 @@
   outline-offset: 2px;
 }
 
+.review-btn-danger {
+  background: rgba(220, 38, 38, 0.12);
+  color: rgb(185, 28, 28);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.review-btn-danger:hover {
+  background: rgba(220, 38, 38, 0.18);
+  color: rgb(153, 27, 27);
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+.review-btn-danger:active {
+  background: rgba(220, 38, 38, 0.25);
+}
+
 /* Block button */
 .review-btn-block {
   width: 100%;

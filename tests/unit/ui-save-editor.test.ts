@@ -52,6 +52,7 @@ const {
       onTrackedChangesToggle: vi.fn(),
       onShowComments: vi.fn(),
       onToggleSidebar: vi.fn(),
+      onClearDrafts: vi.fn(),
       setCollapsed: vi.fn(),
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),
@@ -173,14 +174,23 @@ vi.mock('@modules/ui/change-summary', () => ({
 
 const createStubConfig = (
   contentStore: Map<string, string>
-): UIConfig & { changeMocks: { [key: string]: ReturnType<typeof vi.fn> } } => {
+): UIConfig & {
+  changeMocks: { [key: string]: ReturnType<typeof vi.fn> };
+  persistenceMocks: { [key: string]: ReturnType<typeof vi.fn> };
+} => {
   const changeMocks = {
     replaceElementWithSegments: vi.fn(),
+    toMarkdown: vi.fn().mockReturnValue('Full markdown content'),
   };
   changeMocks.replaceElementWithSegments.mockReturnValue({
     elementIds: [],
     removedIds: [],
   });
+
+  const persistenceMocks = {
+    saveDraft: vi.fn(),
+    clearAll: vi.fn(),
+  };
 
   const markdownModule = new MarkdownModule();
 
@@ -202,6 +212,7 @@ const createStubConfig = (
       canRedo: vi.fn().mockReturnValue(false),
       hasUnsavedOperations: vi.fn().mockReturnValue(false),
       markAsSaved: vi.fn(),
+      toMarkdown: changeMocks.toMarkdown,
     } as any,
     markdown: {
       render: vi.fn((input) => markdownModule.render(input)),
@@ -218,7 +229,9 @@ const createStubConfig = (
       refresh: vi.fn(),
     } as any,
     inlineEditing: false,
+    persistence: persistenceMocks as any,
     changeMocks,
+    persistenceMocks,
   } as any;
 };
 
@@ -502,5 +515,42 @@ describe('UIModule.saveEditor comment handling', () => {
     expect(notificationSpy).toHaveBeenCalled();
 
     notificationSpy.mockRestore();
+  });
+
+  it('preserves segment content when no edits are made', () => {
+    const contentStore = new Map<string, string>([
+      ['section-1', 'Original content'],
+    ]);
+    const config = createStubConfig(contentStore);
+    const ui = new UIModule(config as UIConfig);
+
+    const consumeSpy = getCommentControllerStub()?.consumeSectionCommentMarkup;
+    consumeSpy?.mockReturnValue(undefined);
+
+    config.changeMocks.replaceElementWithSegments.mockReturnValue({
+      elementIds: ['section-1'],
+      removedIds: [],
+    });
+
+    (ui as any).ensureSegmentDom = vi.fn();
+    (ui as any).updateHeadingReferencesAfterSave = vi.fn();
+    (ui as any).closeEditor = vi.fn();
+    (ui as any).refresh = vi.fn();
+
+    (ui as any).editorState.currentElementId = 'section-1';
+    (ui as any).editorState.currentEditorContent = 'Original content';
+    (ui as any).editorState.milkdownEditor = {} as any;
+
+    (ui as any).saveEditor();
+
+    expect(config.changeMocks.replaceElementWithSegments).toHaveBeenCalledTimes(1);
+    const savedSegments = config.changeMocks.replaceElementWithSegments.mock
+      .calls[0][1];
+    expect(savedSegments).toHaveLength(1);
+    expect(savedSegments[0]?.content).toBe('Original content');
+    expect(config.persistenceMocks.saveDraft).toHaveBeenCalledWith(
+      'Full markdown content',
+      undefined
+    );
   });
 });

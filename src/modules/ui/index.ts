@@ -44,6 +44,7 @@ import { initializeDebugTools } from '@utils/debug-tools';
 import type { ChangesModule } from '@modules/changes';
 import type { MarkdownModule } from '@modules/markdown';
 import type { CommentsModule } from '@modules/comments';
+import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import type { Element as ReviewElement, ElementMetadata } from '@/types';
 import { UI_CONSTANTS, getAnimationDuration } from './constants';
 
@@ -54,6 +55,7 @@ export interface UIConfig {
   markdown: MarkdownModule;
   comments: CommentsModule;
   inlineEditing?: boolean; // Use inline editing instead of modal
+  persistence?: LocalDraftPersistence;
 }
 
 interface HeadingReferenceInfo {
@@ -88,9 +90,11 @@ export class UIModule {
   private commentController: CommentController;
   private historyStorage: EditorHistoryStorage;
   private globalShortcutsBound = false;
+  private localPersistence?: LocalDraftPersistence;
 
   constructor(config: UIConfig) {
     this.config = config;
+    this.localPersistence = config.persistence;
     logger.debug(
       'Initialized with tracked changes:',
       this.editorState.showTrackedChanges
@@ -157,16 +161,11 @@ export class UIModule {
     this.mainSidebarModule.onTrackedChangesToggle((enabled) => {
       this.toggleTrackedChanges(enabled);
     });
-    this.mainSidebarModule.onShowComments(() => {
-      const isVisible = this.commentsSidebarModule?.getIsVisible();
-      if (!isVisible) {
-        this.refreshCommentUI({ showSidebar: true });
-      } else {
-        this.commentsSidebarModule?.toggle();
-      }
-    });
     this.mainSidebarModule.onToggleSidebar(() => {
       this.toggleSidebarCollapsed();
+    });
+    this.mainSidebarModule.onClearDrafts(() => {
+      void this.confirmAndClearLocalDrafts();
     });
 
     this.cacheInitialHeadingReferences();
@@ -175,6 +174,10 @@ export class UIModule {
     requestAnimationFrame(() => {
       this.refreshCommentUI();
     });
+
+    if (this.localPersistence) {
+      void this.restoreLocalDraft();
+    }
   }
 
   /**
@@ -456,6 +459,7 @@ export class UIModule {
     content: string,
     diffHighlights: DiffHighlightRange[] = []
   ): Promise<void> {
+    this.editorState.currentEditorContent = content;
     try {
       // Determine the element type to configure toolbar/context behaviour.
       const elementId = this.editorState.currentElementId;
@@ -646,8 +650,85 @@ export class UIModule {
       logger.debug('No meaningful content change detected for primary segment');
     }
 
+    this.persistDocument();
+
     this.closeEditor();
     this.refresh();
+  }
+
+  private persistDocument(message?: string): void {
+    if (!this.localPersistence) {
+      return;
+    }
+    try {
+      const documentMarkdown = this.config.changes.toMarkdown();
+      void this.localPersistence.saveDraft(documentMarkdown, message);
+    } catch (error) {
+      logger.warn('Failed to persist local draft', error);
+    }
+  }
+
+  private async restoreLocalDraft(): Promise<void> {
+    if (!this.localPersistence) {
+      return;
+    }
+    try {
+      const draft = await this.localPersistence.loadDraft();
+      if (!draft) {
+        return;
+      }
+      const current = this.config.changes.toMarkdown();
+      if (draft.trim() === current.trim()) {
+        return;
+      }
+
+      const elements = this.config.changes.getCurrentState();
+      if (elements.length === 0) {
+        return;
+      }
+
+      const firstId = elements[0]?.id;
+      if (!firstId) {
+        return;
+      }
+
+      const firstElementMetadata = elements[0]?.metadata ?? {
+        type: 'Para',
+      };
+
+      const segments = this.segmentContentIntoElements(draft, {
+        type: firstElementMetadata.type,
+        level: firstElementMetadata.level,
+        attributes: firstElementMetadata.attributes,
+        classes: firstElementMetadata.classes,
+      });
+
+      this.config.changes.replaceElementWithSegments(firstId, segments);
+      this.ensureSegmentDom([firstId], segments, []);
+      this.refresh();
+      this.showNotification(
+        'Restored local draft from previous session.',
+        'info'
+      );
+    } catch (error) {
+      logger.warn('Failed to restore local draft', error);
+    }
+  }
+
+  private async confirmAndClearLocalDrafts(): Promise<void> {
+    if (!this.localPersistence) {
+      this.showNotification('Local draft storage is not available.', 'error');
+      return;
+    }
+    const confirmed = window.confirm(
+      'This will remove all locally saved drafts and editor history. This action cannot be undone. Continue?'
+    );
+    if (!confirmed) {
+      return;
+    }
+    await this.localPersistence.clearAll();
+    this.historyStorage.clearAll();
+    this.showNotification('Local drafts cleared.', 'success');
   }
 
   private createEditorModal(_content: string, type: string): HTMLElement {

@@ -5,7 +5,7 @@
  * and never attempts to parse or convert HTML back to markdown.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ChangesModule } from '@/modules/changes';
 import { UIModule } from '@/modules/ui';
 import { MarkdownModule } from '@/modules/markdown';
@@ -68,7 +68,11 @@ describe('No HTML to Markdown Conversion', () => {
     const changes = new ChangesModule();
     const markdown = new MarkdownModule();
     const comments = new CommentsModule();
-    const ui = new UIModule({ changes, markdown, comments });
+    const persistence = {
+      saveDraft: vi.fn().mockResolvedValue(undefined),
+      clearAll: vi.fn().mockResolvedValue(undefined),
+    };
+    const ui = new UIModule({ changes, markdown, comments, persistence });
 
     expect(() => {
       ui.openEditor('test-para-1');

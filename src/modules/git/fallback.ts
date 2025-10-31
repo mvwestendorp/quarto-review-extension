@@ -106,6 +106,15 @@ export class EmbeddedSourceStore {
     this.storage.removeItem(this.storageKey);
   }
 
+  public async clearAll(): Promise<void> {
+    await this.readyPromise;
+    this.sources.clear();
+    this.updateEmbeddedSources();
+    if (this.storage) {
+      this.storage.removeItem(this.storageKey);
+    }
+  }
+
   private async initialize(): Promise<void> {
     this.loadFromDocument();
     this.loadFromLocalStorage();

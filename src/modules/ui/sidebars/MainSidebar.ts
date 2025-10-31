@@ -12,15 +12,14 @@ export class MainSidebar {
   private undoBtn: HTMLButtonElement | null = null;
   private redoBtn: HTMLButtonElement | null = null;
   private trackedChangesToggle: HTMLInputElement | null = null;
-  private commentsBtn: HTMLButtonElement | null = null;
   private toggleBtn: HTMLButtonElement | null = null;
   private unsavedIndicator: HTMLElement | null = null;
 
   private onUndoCallback: (() => void) | null = null;
   private onRedoCallback: (() => void) | null = null;
   private onTrackedChangesCallback: ((enabled: boolean) => void) | null = null;
-  private onShowCommentsCallback: (() => void) | null = null;
   private onToggleSidebarCallback: (() => void) | null = null;
+  private onClearDraftsCallback: (() => void) | null = null;
 
   /**
    * Lazily create (or return) the sidebar element.
@@ -37,6 +36,7 @@ export class MainSidebar {
 
     const header = document.createElement('div');
     header.className = 'review-sidebar-header';
+    header.setAttribute('data-sidebar-label', 'Review');
 
     const title = document.createElement('h3');
     title.textContent = 'Review Tools';
@@ -135,7 +135,7 @@ export class MainSidebar {
     viewSection.appendChild(trackedLabel);
     body.appendChild(viewSection);
 
-    // Comments section
+    // Comments section hint
     const commentsSection = document.createElement('div');
     commentsSection.className = 'review-sidebar-section';
 
@@ -143,17 +143,31 @@ export class MainSidebar {
     commentsTitle.textContent = 'Comments';
     commentsSection.appendChild(commentsTitle);
 
-    this.commentsBtn = document.createElement('button');
-    this.commentsBtn.className =
-      'review-btn review-btn-primary review-btn-block';
-    this.commentsBtn.setAttribute('data-action', 'show-comments');
-    this.commentsBtn.textContent = '💬 View Comments';
-    this.commentsBtn.addEventListener('click', () => {
-      this.onShowCommentsCallback?.();
-    });
-    commentsSection.appendChild(this.commentsBtn);
+    const commentsInfo = document.createElement('p');
+    commentsInfo.className = 'review-help-text';
+    commentsInfo.textContent =
+      'Open the comments panel to browse feedback and respond inline.';
+    commentsSection.appendChild(commentsInfo);
 
     body.appendChild(commentsSection);
+
+    const storageSection = document.createElement('div');
+    storageSection.className = 'review-sidebar-section';
+
+    const storageTitle = document.createElement('h4');
+    storageTitle.textContent = 'Storage';
+    storageSection.appendChild(storageTitle);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'review-btn review-btn-danger review-btn-block';
+    clearBtn.setAttribute('data-action', 'clear-local-drafts');
+    clearBtn.textContent = 'Clear local drafts';
+    clearBtn.addEventListener('click', () => {
+      this.onClearDraftsCallback?.();
+    });
+    storageSection.appendChild(clearBtn);
+
+    body.appendChild(storageSection);
 
     // Help section (static guidance)
     const helpSection = document.createElement('div');
@@ -216,12 +230,12 @@ export class MainSidebar {
     this.onTrackedChangesCallback = callback;
   }
 
-  onShowComments(callback: () => void): void {
-    this.onShowCommentsCallback = callback;
-  }
-
   onToggleSidebar(callback: () => void): void {
     this.onToggleSidebarCallback = callback;
+  }
+
+  onClearDrafts(callback: () => void): void {
+    this.onClearDraftsCallback = callback;
   }
 
   /**
@@ -268,13 +282,12 @@ export class MainSidebar {
     this.undoBtn = null;
     this.redoBtn = null;
     this.trackedChangesToggle = null;
-    this.commentsBtn = null;
     this.toggleBtn = null;
     this.unsavedIndicator = null;
     this.onUndoCallback = null;
     this.onRedoCallback = null;
     this.onTrackedChangesCallback = null;
-    this.onShowCommentsCallback = null;
     this.onToggleSidebarCallback = null;
+    this.onClearDraftsCallback = null;
   }
 }

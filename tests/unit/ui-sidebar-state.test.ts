@@ -6,14 +6,17 @@ const {
   getMainSidebarInstances,
   getMainSidebarConstructor,
   resetMainSidebarMocks,
+  getHistoryStorageInstances,
+  resetHistoryStorageMocks,
+  getHistoryStorageConstructor,
 } = vi.hoisted(() => {
   type MockMainSidebar = {
     create: ReturnType<typeof vi.fn>;
     onUndo: ReturnType<typeof vi.fn>;
     onRedo: ReturnType<typeof vi.fn>;
     onTrackedChangesToggle: ReturnType<typeof vi.fn>;
-    onShowComments: ReturnType<typeof vi.fn>;
     onToggleSidebar: ReturnType<typeof vi.fn>;
+    onClearDrafts: ReturnType<typeof vi.fn>;
     setCollapsed: ReturnType<typeof vi.fn>;
     setTrackedChangesVisible: ReturnType<typeof vi.fn>;
     updateUndoRedoState: ReturnType<typeof vi.fn>;
@@ -22,6 +25,7 @@ const {
   };
 
   const instances: MockMainSidebar[] = [];
+  const historyInstances: any[] = [];
 
   const constructor = vi.fn(function MockMainSidebar(this: unknown) {
     const instance: MockMainSidebar = {
@@ -33,8 +37,8 @@ const {
       onUndo: vi.fn(),
       onRedo: vi.fn(),
       onTrackedChangesToggle: vi.fn(),
-      onShowComments: vi.fn(),
       onToggleSidebar: vi.fn(),
+      onClearDrafts: vi.fn(),
       setCollapsed: vi.fn(),
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),
@@ -45,6 +49,22 @@ const {
     return instance;
   });
 
+  const historyConstructor = vi.fn(function MockEditorHistoryStorage(this: unknown) {
+    const instance = {
+      save: vi.fn(),
+      get: vi.fn().mockReturnValue({
+        elementId: '',
+        states: [],
+        lastUpdated: Date.now(),
+      }),
+      list: vi.fn().mockReturnValue([]),
+      clear: vi.fn(),
+      clearAll: vi.fn(),
+    };
+    historyInstances.push(instance);
+    return instance;
+  });
+
   return {
     getMainSidebarInstances: () => instances,
     getMainSidebarConstructor: () => constructor,
@@ -52,6 +72,12 @@ const {
       instances.length = 0;
       constructor.mockClear();
     },
+    getHistoryStorageInstances: () => historyInstances,
+    resetHistoryStorageMocks: () => {
+      historyInstances.length = 0;
+      historyConstructor.mockClear();
+    },
+    getHistoryStorageConstructor: () => historyConstructor,
   };
 });
 
@@ -79,19 +105,7 @@ vi.mock('@modules/ui/editor/EditorToolbar', () => ({
 }));
 
 vi.mock('@modules/ui/editor/EditorHistoryStorage', () => ({
-  EditorHistoryStorage: vi.fn(function MockEditorHistoryStorage(this: unknown) {
-    return {
-      save: vi.fn(),
-      get: vi.fn().mockReturnValue({
-        elementId: '',
-        states: [],
-        lastUpdated: Date.now(),
-      }),
-      list: vi.fn().mockReturnValue([]),
-      clear: vi.fn(),
-      clearAll: vi.fn(),
-    };
-  }),
+  EditorHistoryStorage: getHistoryStorageConstructor(),
 }));
 
 vi.mock('@modules/ui/comments/CommentsSidebar', () => ({
@@ -198,6 +212,7 @@ const createStubConfig = (): UIConfig => ({
     initializeFromDOM: vi.fn(),
     canUndo: vi.fn().mockReturnValue(false),
     canRedo: vi.fn().mockReturnValue(false),
+    toMarkdown: vi.fn().mockReturnValue('Full markdown content'),
   } as any,
   markdown: {
     render: vi.fn(),
@@ -210,11 +225,16 @@ const createStubConfig = (): UIConfig => ({
     refresh: vi.fn(),
   } as any,
   inlineEditing: false,
+  persistence: {
+    saveDraft: vi.fn(),
+    clearAll: vi.fn(),
+  } as any,
 });
 
 describe('UIModule sidebar state handling', () => {
   beforeEach(() => {
     resetMainSidebarMocks();
+    resetHistoryStorageMocks();
     document.body.innerHTML = '';
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
       cb(0);
@@ -252,5 +272,45 @@ describe('UIModule sidebar state handling', () => {
     ).toBe(false);
     expect(mainSidebar?.setCollapsed).toHaveBeenLastCalledWith(false);
     expect((ui as any).uiState.isSidebarCollapsed).toBe(false);
+  });
+
+  it('clears local drafts when confirmation is accepted', async () => {
+    const config = createStubConfig();
+    const ui = new UIModule(config);
+    const mainSidebar = getMainSidebarInstances()[0];
+    expect(mainSidebar).toBeDefined();
+
+    const clearCallback = mainSidebar?.onClearDrafts.mock.calls[0]?.[0];
+    expect(clearCallback).toBeInstanceOf(Function);
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    await clearCallback();
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(config.persistence.clearAll).toHaveBeenCalled();
+    const historyInstance = getHistoryStorageInstances()[0];
+    expect(historyInstance.clearAll).toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('does not clear local drafts when confirmation is declined', async () => {
+    const config = createStubConfig();
+    const ui = new UIModule(config);
+    const mainSidebar = getMainSidebarInstances()[0];
+    expect(mainSidebar).toBeDefined();
+
+    const clearCallback = mainSidebar?.onClearDrafts.mock.calls[0]?.[0];
+    expect(clearCallback).toBeInstanceOf(Function);
+
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    await clearCallback();
+
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(config.persistence.clearAll).not.toHaveBeenCalled();
+    const historyInstance = getHistoryStorageInstances()[0];
+    expect(historyInstance.clearAll).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
   });
 });

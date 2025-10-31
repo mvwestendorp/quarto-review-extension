@@ -71,26 +71,12 @@ body.review-sidebar-collapsed-mode .review-persistent-sidebar {
   text-overflow: ellipsis;
 }
 
-/* Hide header and body when collapsed, but button will be visible via absolute positioning */
-.review-sidebar-collapsed .review-sidebar-header,
+/* Collapsed state refinements */
 .review-sidebar-collapsed .review-sidebar-body,
-body.review-sidebar-collapsed-mode .review-sidebar-header,
 body.review-sidebar-collapsed-mode .review-sidebar-body {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
+  display: none;
 }
 
-.review-sidebar-collapsed .review-sidebar-header h3,
-.review-sidebar-collapsed .review-sidebar-body h4,
-.review-sidebar-collapsed .review-sidebar-body p,
-body.review-sidebar-collapsed-mode .review-sidebar-header h3,
-body.review-sidebar-collapsed-mode .review-sidebar-body h4,
-body.review-sidebar-collapsed-mode .review-sidebar-body p {
-  opacity: 0;
-}
-
-/* Toggle button always visible even when header is hidden */
 .review-sidebar-header .review-btn-icon {
   position: relative;
   z-index: 10;
@@ -107,14 +93,64 @@ body.review-sidebar-collapsed-mode .review-sidebar-header .review-btn-icon {
   pointer-events: auto;
 }
 
-/* Enhanced hover state for collapsed sidebar button */
-.review-persistent-sidebar.review-sidebar-collapsed .review-sidebar-header .review-btn-icon:hover {
-  background-color: rgba(var(--review-color-primary-rgb), 0.15);
-  color: var(--review-color-primary);
-  transform: scale(1.1);
+.review-persistent-sidebar.review-sidebar-collapsed {
+  width: 48px;
+  align-items: center;
+  padding: 12px 4px;
+  gap: 0;
 }
 
-.review-persistent-sidebar.review-sidebar-collapsed .review-sidebar-header .review-btn-icon:active {
+.review-sidebar-collapsed .review-sidebar-header,
+body.review-sidebar-collapsed-mode .review-sidebar-header {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  flex: 1;
+  padding: 8px 4px;
+  background: transparent;
+  border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 100%;
+}
+
+.review-sidebar-collapsed .review-sidebar-header::after,
+body.review-sidebar-collapsed-mode .review-sidebar-header::after {
+  content: attr(data-sidebar-label);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--review-color-muted);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.review-sidebar-collapsed .review-sidebar-header h3,
+body.review-sidebar-collapsed-mode .review-sidebar-header h3 {
+  display: none;
+}
+
+.review-sidebar-collapsed .review-sidebar-header .review-btn-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  background: rgba(var(--review-color-primary-rgb), 0.1);
+  box-shadow: var(--review-shadow-sm);
+  color: var(--review-color-primary);
+}
+
+.review-sidebar-collapsed .review-sidebar-header .review-btn-icon:hover {
+  background-color: rgba(var(--review-color-primary-rgb), 0.18);
+  color: var(--review-color-primary-darker);
+  transform: scale(1.05);
+}
+
+.review-sidebar-collapsed .review-sidebar-header .review-btn-icon:active {
   transform: scale(0.95);
 }
 
@@ -226,11 +262,7 @@ body.review-sidebar-collapsed-mode .review-icon-chevron {
 
   /* Enhanced button visibility on mobile collapsed state */
   .review-persistent-sidebar.review-sidebar-collapsed .review-sidebar-header .review-btn-icon {
-    padding: 8px 6px;
-    font-size: 18px;
-  }
-
-  .review-persistent-sidebar.review-sidebar-collapsed .review-sidebar-header .review-btn-icon:hover {
-    background-color: rgba(var(--review-color-primary-rgb), 0.2);
+    width: 34px;
+    height: 34px;
   }
 }

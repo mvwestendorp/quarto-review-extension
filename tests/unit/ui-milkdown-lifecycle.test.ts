@@ -133,6 +133,7 @@ vi.mock('@modules/ui/sidebars/MainSidebar', () => ({
       onTrackedChangesToggle: vi.fn(),
       onShowComments: vi.fn(),
       onToggleSidebar: vi.fn(),
+      onClearDrafts: vi.fn(),
       setCollapsed: vi.fn(),
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),
@@ -166,6 +167,7 @@ const createStubConfig = (): UIConfig => ({
     initializeFromDOM: vi.fn(),
     canUndo: vi.fn().mockReturnValue(false),
     canRedo: vi.fn().mockReturnValue(false),
+    toMarkdown: vi.fn().mockReturnValue('Full markdown content'),
   } as any,
   markdown: {
     render: vi.fn(),
@@ -178,6 +180,10 @@ const createStubConfig = (): UIConfig => ({
     refresh: vi.fn(),
   } as any,
   inlineEditing: false,
+  persistence: {
+    saveDraft: vi.fn(),
+    clearAll: vi.fn(),
+  } as any,
 });
 
 describe('UIModule Milkdown lifecycle handling', () => {

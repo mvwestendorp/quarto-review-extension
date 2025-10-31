@@ -15,12 +15,16 @@ yarn-debug.log*
 yarn-error.log*
 
 # Quarto artifacts
-*.html
+example/_output/
 *_files/
-/.quarto/
+**/.quarto/
 _site/
 _book/
 example/_extensions/
+
+# Generated extension assets
+_extensions/review/assets/review.js
+_extensions/review/assets/review.js.map
 
 # Environment files
 .env

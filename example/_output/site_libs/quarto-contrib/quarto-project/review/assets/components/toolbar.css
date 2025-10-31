@@ -318,7 +318,8 @@
 }
 
 /* Always show expand button */
-.review-editor-toolbar.review-editor-toolbar-collapsed .review-editor-toolbar-toggle {
+.review-editor-toolbar.review-editor-toolbar-collapsed .review-editor-toolbar-toggle,
+.review-editor-toolbar:not(.review-editor-toolbar-collapsed) .review-editor-toolbar-toggle {
   display: flex;
 }
 
@@ -326,11 +327,6 @@
 .review-editor-toolbar:not(.review-editor-toolbar-collapsed) {
   grid-auto-flow: column;
   grid-template-rows: repeat(4, auto);
-}
-
-/* Hide expand button in expanded state */
-.review-editor-toolbar:not(.review-editor-toolbar-collapsed) .review-editor-toolbar-toggle {
-  display: none;
 }
 
 /* Show all buttons in expanded state */
