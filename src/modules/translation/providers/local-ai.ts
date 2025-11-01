@@ -68,12 +68,20 @@ export class LocalAIProvider extends TranslationProvider {
     }
 
     // Auto-detect
-    if (typeof navigator === 'undefined' || !navigator.gpu) {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+
+    // Type assertion for WebGPU API
+    const nav = navigator as Navigator & {
+      gpu?: { requestAdapter: () => Promise<unknown> };
+    };
+    if (!nav.gpu) {
       return false;
     }
 
     try {
-      const adapter = await navigator.gpu.requestAdapter();
+      const adapter = await nav.gpu.requestAdapter();
       return adapter !== null;
     } catch {
       return false;

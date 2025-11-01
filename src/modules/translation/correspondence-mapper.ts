@@ -23,15 +23,22 @@ export class CorrespondenceMapper {
     );
 
     const alignment = this.alignmentAlgorithm.findBestAlignment(scores);
+    const pairs: TranslationPair[] = [];
 
-    return alignment.map(([srcIdx, tgtIdx]) => {
+    for (const [srcIdx, tgtIdx] of alignment) {
       const source = sourceSentences[srcIdx];
       const target = targetSentences[tgtIdx];
+
+      // Skip if either sentence is undefined
+      if (!source || !target) {
+        continue;
+      }
+
       const alignmentScore =
         scores.find((s) => s.sourceIndex === srcIdx && s.targetIndex === tgtIdx)
           ?.score || 0;
 
-      return {
+      pairs.push({
         id: this.generatePairId(source.id, target.id),
         sourceId: source.id,
         targetId: target.id,
@@ -45,8 +52,10 @@ export class CorrespondenceMapper {
         lastModified: Date.now(),
         status: 'synced',
         isManuallyEdited: false,
-      };
-    });
+      });
+    }
+
+    return pairs;
   }
 
   /**
@@ -63,15 +72,22 @@ export class CorrespondenceMapper {
     );
 
     const alignment = this.alignmentAlgorithm.findFlexibleAlignment(scores);
+    const pairs: TranslationPair[] = [];
 
-    return alignment.map(([srcIdx, tgtIdx]) => {
+    for (const [srcIdx, tgtIdx] of alignment) {
       const source = sourceSentences[srcIdx];
       const target = targetSentences[tgtIdx];
+
+      // Skip if either sentence is undefined
+      if (!source || !target) {
+        continue;
+      }
+
       const alignmentScore =
         scores.find((s) => s.sourceIndex === srcIdx && s.targetIndex === tgtIdx)
           ?.score || 0;
 
-      return {
+      pairs.push({
         id: this.generatePairId(source.id, target.id),
         sourceId: source.id,
         targetId: target.id,
@@ -85,8 +101,10 @@ export class CorrespondenceMapper {
         lastModified: Date.now(),
         status: 'synced',
         isManuallyEdited: false,
-      };
-    });
+      });
+    }
+
+    return pairs;
   }
 
   /**

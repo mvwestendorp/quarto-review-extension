@@ -59,7 +59,7 @@ export class TranslationModule {
     // Segment all elements into sentences
     const sourceSentences: Sentence[] = [];
 
-    elements.forEach((element) => {
+    elements.forEach((element: { id: string; content: string }) => {
       const sentences = this.segmenter.segmentText(
         element.content,
         this.config.config.sourceLanguage,
@@ -105,18 +105,23 @@ export class TranslationModule {
     );
 
     // Create target sentences
-    const targetSentences: Sentence[] = translatedTexts.map((text, index) => {
-      const sourceSentence = doc.sourceSentences[index];
-      return {
-        id: `trans-${sourceSentence.id}`,
-        elementId: sourceSentence.elementId,
-        content: text,
-        language: this.config.config.targetLanguage,
-        startOffset: 0,
-        endOffset: text.length,
-        hash: this.hashContent(text),
-      };
-    });
+    const targetSentences: Sentence[] = translatedTexts
+      .map((text, index) => {
+        const sourceSentence = doc.sourceSentences[index];
+        if (!sourceSentence) {
+          return null;
+        }
+        return {
+          id: `trans-${sourceSentence.id}`,
+          elementId: sourceSentence.elementId,
+          content: text,
+          language: this.config.config.targetLanguage,
+          startOffset: 0,
+          endOffset: text.length,
+          hash: this.hashContent(text),
+        };
+      })
+      .filter((sentence): sentence is Sentence => sentence !== null);
 
     // Add target sentences to state
     this.state.addTargetSentences(targetSentences);

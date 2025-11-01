@@ -377,7 +377,10 @@ export class TranslationView {
   /**
    * Unhover from a sentence
    */
-  private unhoverSentence(sentenceId: string, side: 'source' | 'target'): void {
+  private unhoverSentence(
+    _sentenceId: string,
+    side: 'source' | 'target'
+  ): void {
     if (side === 'source') {
       this.hoveredSourceId = null;
     } else {
