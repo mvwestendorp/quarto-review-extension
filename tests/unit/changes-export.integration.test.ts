@@ -67,4 +67,31 @@ describe('ChangesModule markdown export integration', () => {
     const critic = changes.toTrackedMarkdown();
     expect(critic).toContain('{>>comment text<<}');
   });
+
+  it('retains code chunk options when exporting clean markdown', () => {
+    const codeMetadata: ElementMetadata = {
+      type: 'CodeBlock',
+    };
+    const codeElement: Element = {
+      id: 'code-1',
+      content: [
+        '```{r}',
+        '#| label: fig-cars',
+        '#| fig-cap: "A caption for a figure should be editable"',
+        'plot(cars)',
+        '```',
+      ].join('\n'),
+      metadata: codeMetadata,
+    };
+    changes = buildChanges([codeElement]);
+
+    const clean = changes.toCleanMarkdown();
+    expect(clean).toContain('#| label: fig-cars');
+    expect(clean).toContain('#| fig-cap: "A caption for a figure should be editable"');
+    expect(clean).toContain('plot(cars)');
+
+    const critic = changes.toTrackedMarkdown();
+    expect(critic).toContain('#| label: fig-cars');
+    expect(critic).toContain('#| fig-cap: "A caption for a figure should be editable"');
+  });
 });
