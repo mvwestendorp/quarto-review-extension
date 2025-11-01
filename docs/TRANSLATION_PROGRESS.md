@@ -6,7 +6,7 @@
 
 ## Summary
 
-The translation module is now feature-complete with both core infrastructure and UI components fully implemented. All TypeScript compilation errors have been resolved. Ready for integration testing and deployment.
+The translation module is now feature-complete with core infrastructure, UI components, and export service fully implemented. All TypeScript compilation errors have been resolved. Includes 95 comprehensive tests, all passing. Ready for integration testing and deployment.
 
 ## ✅ Completed
 
@@ -91,8 +91,9 @@ The translation module is now feature-complete with both core infrastructure and
 - `tests/unit/translation-state.test.ts` (17 tests)
 - `tests/unit/translation-alignment.test.ts` (16 tests)
 - `tests/unit/translation-providers.test.ts` (24 tests)
+- `tests/unit/translation-export.test.ts` (19 tests)
 
-**Total:** 76 comprehensive test cases
+**Total:** 95 comprehensive test cases
 
 **Coverage Areas:**
 - ✅ Sentence segmentation (simple, abbreviations, languages)
@@ -104,6 +105,11 @@ The translation module is now feature-complete with both core infrastructure and
 - ✅ Translation engine routing
 - ✅ Edge cases (empty inputs, errors, Unicode)
 - ✅ Observable patterns (subscribe/unsubscribe)
+- ✅ Export bundle creation (unified and separated)
+- ✅ Document reconstruction from sentences
+- ✅ Metadata file generation
+- ✅ ZIP archive creation
+- ✅ Language mode filtering (source, target, both)
 
 ### 4. UI Components (100%)
 
@@ -139,19 +145,55 @@ The translation module is now feature-complete with both core infrastructure and
 - Hover and selection states with visual feedback
 - Integrated into main CSS build system
 
+### 5. Export Service (100%)
+
+#### TranslationExportService (`src/modules/translation/export/TranslationExportService.ts` - 478 lines)
+- Base export service for all export strategies
+- Document reconstruction from sentences
+- Metadata preservation (.translation-metadata.json)
+- Correspondence mapping export (.translation-mapping.json)
+- ZIP archive creation for multiple files
+- Browser download triggering
+- Configurable export options
+
+#### UnifiedExporter (`src/modules/translation/export/UnifiedExporter.ts` - 356 lines)
+- Single Quarto project with language conditionals
+- Quarto div-based conditional content
+- Multi-language _quarto.yml configuration
+- JavaScript-based language switcher
+- CSS for hiding/showing language-specific content
+- Support for both languages in same document
+
+#### SeparatedExporter (`src/modules/translation/export/SeparatedExporter.ts` - 387 lines)
+- Separate Quarto projects for each language
+- Nested directory structure (en/, nl/, etc.)
+- Individual _quarto.yml for each language
+- Language-specific README.md files
+- Cross-language navigation links
+- Shared styles (styles-shared.css)
+- Root README with project overview
+
+#### Export Types (`src/modules/translation/export/types.ts` - 133 lines)
+- Export strategy types (unified, separated)
+- Language mode options (source, target, both)
+- Export file interfaces
+- Metadata structures
+- Export result types
+
 ## 🚧 Remaining Work
 
-### 1. Core Module Fixes (In Progress)
-- [ ] Fix TypeScript errors in correspondence-mapper.ts (type guards)
-- [ ] Fix TypeScript errors in translation/index.ts (any types)
-- [ ] Fix WebGPU type definitions in local-ai.ts
-- [ ] Add missing type guards for possibly undefined values
+### 1. Core Module Fixes ✅ COMPLETED
+- [x] Fix TypeScript errors in correspondence-mapper.ts (type guards)
+- [x] Fix TypeScript errors in translation/index.ts (any types)
+- [x] Fix WebGPU type definitions in local-ai.ts
+- [x] Add missing type guards for possibly undefined values
 
-### 2. Export Service (Not Started)
-- [ ] TranslationExportService base
-- [ ] UnifiedExporter (single project with Quarto conditionals)
-- [ ] SeparatedExporter (individual language projects)
-- [ ] Metadata preservation in exports
+### 2. Export Service ✅ COMPLETED
+- [x] TranslationExportService base
+- [x] UnifiedExporter (single project with Quarto conditionals)
+- [x] SeparatedExporter (individual language projects)
+- [x] Metadata preservation in exports
+- [x] Comprehensive test coverage (19 tests)
 
 ### 3. Integration (Not Started)
 - [ ] Add to `src/main.ts` configuration
@@ -312,5 +354,5 @@ Total: ~7800 lines of new code + tests + CSS
 
 ---
 
-**Status:** ✅ Core infrastructure and UI components complete
-**Next:** Fix remaining TypeScript errors in core module, then integration
+**Status:** ✅ Core infrastructure, UI components, and export service complete
+**Next:** Integration with main application
