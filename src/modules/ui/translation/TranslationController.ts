@@ -6,6 +6,7 @@
 import { createModuleLogger } from '@utils/debug';
 import { TranslationView } from './TranslationView';
 import { TranslationToolbar } from './TranslationToolbar';
+import { TranslationSettings } from './TranslationSettings';
 import { TranslationModule } from '@modules/translation';
 import type {
   TranslationModuleConfig,
@@ -26,6 +27,7 @@ export interface TranslationControllerConfig {
 export class TranslationController {
   private config: TranslationControllerConfig;
   private translationModule: TranslationModule;
+  private settings: TranslationSettings;
   private view: TranslationView | null = null;
   private toolbar: TranslationToolbar | null = null;
   private container: HTMLElement;
@@ -36,6 +38,10 @@ export class TranslationController {
   constructor(config: TranslationControllerConfig) {
     this.config = config;
     this.container = config.container;
+    this.settings = new TranslationSettings();
+
+    // Load user settings and apply them to the config
+    this.applyUserSettings(config.translationModuleConfig);
 
     // Initialize translation module
     this.translationModule = new TranslationModule(
@@ -45,7 +51,42 @@ export class TranslationController {
     logger.info('TranslationController initialized', {
       sourceLanguage: config.translationModuleConfig.config.sourceLanguage,
       targetLanguage: config.translationModuleConfig.config.targetLanguage,
+      userSettings: this.settings.getAll(),
     });
+  }
+
+  /**
+   * Apply saved user settings to the translation module config
+   */
+  private applyUserSettings(config: TranslationModuleConfig): void {
+    const savedSettings = this.settings.getAll();
+
+    if (savedSettings.provider) {
+      config.config.defaultProvider = savedSettings.provider;
+    }
+
+    if (savedSettings.sourceLanguage) {
+      config.config.sourceLanguage = savedSettings.sourceLanguage;
+    }
+
+    if (savedSettings.targetLanguage) {
+      config.config.targetLanguage = savedSettings.targetLanguage;
+    }
+
+    if (savedSettings.autoTranslateOnEdit !== undefined) {
+      config.config.autoTranslateOnEdit = savedSettings.autoTranslateOnEdit;
+    }
+
+    if (savedSettings.showCorrespondenceLines !== undefined) {
+      config.config.showCorrespondenceLines =
+        savedSettings.showCorrespondenceLines;
+    }
+
+    if (savedSettings.highlightOnHover !== undefined) {
+      config.config.highlightOnHover = savedSettings.highlightOnHover;
+    }
+
+    logger.debug('User settings applied to translation config', savedSettings);
   }
 
   /**
@@ -239,8 +280,8 @@ export class TranslationController {
    */
   private changeProvider(provider: string): void {
     logger.info('Changing provider', { provider });
-    // Provider change is handled by the translation module via config
     this.config.translationModuleConfig.config.defaultProvider = provider;
+    this.settings.setSetting('provider', provider);
   }
 
   /**
@@ -250,6 +291,7 @@ export class TranslationController {
     logger.info('Changing source language', { language });
 
     this.config.translationModuleConfig.config.sourceLanguage = language;
+    this.settings.setSetting('sourceLanguage', language);
 
     // Reinitialize with new language
     const document = this.translationModule.getDocument();
@@ -266,6 +308,7 @@ export class TranslationController {
     logger.info('Changing target language', { language });
 
     this.config.translationModuleConfig.config.targetLanguage = language;
+    this.settings.setSetting('targetLanguage', language);
 
     // Reinitialize with new language
     this.showNotification(`Target language changed to ${language}`, 'info');
@@ -286,6 +329,12 @@ export class TranslationController {
     this.config.translationModuleConfig.config.sourceLanguage = targetLanguage;
     this.config.translationModuleConfig.config.targetLanguage = sourceLanguage;
 
+    // Save both languages to settings
+    this.settings.setMultiple({
+      sourceLanguage: targetLanguage,
+      targetLanguage: sourceLanguage,
+    });
+
     this.toolbar?.updateLanguages(targetLanguage, sourceLanguage);
 
     this.showNotification('Languages swapped', 'info');
@@ -297,6 +346,7 @@ export class TranslationController {
   private toggleAutoTranslate(enabled: boolean): void {
     logger.info('Toggling auto-translate', { enabled });
     this.config.translationModuleConfig.config.autoTranslateOnEdit = enabled;
+    this.settings.setSetting('autoTranslateOnEdit', enabled);
   }
 
   /**
@@ -306,6 +356,7 @@ export class TranslationController {
     logger.info('Toggling correspondence lines', { enabled });
     this.config.translationModuleConfig.config.showCorrespondenceLines =
       enabled;
+    this.settings.setSetting('showCorrespondenceLines', enabled);
     this.view?.refresh();
   }
 
