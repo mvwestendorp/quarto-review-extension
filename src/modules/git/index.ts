@@ -17,6 +17,7 @@ export class GitModule {
   private readonly provider?: BaseProvider;
   private readonly integration?: GitIntegrationService;
   private readonly fallbackStore: EmbeddedSourceStore;
+  private authToken?: string;
 
   constructor(rawConfig?: ReviewGitConfig) {
     this.resolution = resolveGitConfig(rawConfig);
@@ -28,7 +29,16 @@ export class GitModule {
     }
 
     try {
+      const initialToken =
+        this.resolution?.config.auth?.mode === 'pat'
+          ? this.resolution.config.auth?.token
+          : undefined;
+      this.authToken = initialToken;
+
       this.provider = createProvider(this.resolution.config);
+      if (initialToken) {
+        this.provider.updateAuthToken(initialToken);
+      }
       this.integration = new GitIntegrationService(
         this.provider,
         this.resolution.config
@@ -52,6 +62,18 @@ export class GitModule {
 
   public getProvider(): BaseProvider | undefined {
     return this.provider;
+  }
+
+  public requiresAuthToken(): boolean {
+    const authMode = this.resolution?.config.auth?.mode;
+    return authMode === 'pat' && !this.authToken;
+  }
+
+  public setAuthToken(token?: string): void {
+    this.authToken = token;
+    if (this.provider) {
+      this.provider.updateAuthToken(token);
+    }
   }
 
   public getFallbackStore(): EmbeddedSourceStore {

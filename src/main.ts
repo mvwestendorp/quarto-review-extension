@@ -14,6 +14,10 @@ import { UserModule } from '@modules/user';
 import { debugLogger, type DebugConfig } from '@utils/debug';
 import { QmdExportService } from '@modules/export';
 import GitReviewService from '@modules/git/review-service';
+import {
+  TranslationModule,
+  type TranslationConfig,
+} from '@modules/translation';
 import type { ReviewGitConfig } from '@/types';
 
 // Export debug logger and configuration
@@ -52,6 +56,11 @@ export {
   type ExportFormat,
   type ExportOptions,
 } from '@modules/export';
+export {
+  TranslationModule,
+  type TranslationConfig,
+  type Language,
+} from '@modules/translation';
 
 /**
  * Configuration options for Quarto Review extension
@@ -69,6 +78,8 @@ export interface QuartoReviewConfig {
   enableComments?: boolean;
   /** Enable translation support */
   enableTranslation?: boolean;
+  /** Translation configuration */
+  translation?: Partial<TranslationConfig>;
   /** Debug configuration for development */
   debug?: Partial<DebugConfig>;
   /** Markdown rendering configuration */
@@ -84,6 +95,7 @@ export class QuartoReview {
   private localDrafts: LocalDraftPersistence;
   private exporter: QmdExportService;
   private reviewService?: GitReviewService;
+  private translation?: TranslationModule;
   public user: UserModule; // Public so it can be accessed for permissions
   private config: QuartoReviewConfig;
   private autoSaveInterval?: number;
@@ -117,6 +129,32 @@ export class QuartoReview {
       this.reviewService = new GitReviewService(this.git, this.exporter);
     }
     this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore());
+
+    // Initialize translation module if enabled
+    if (this.config.enableTranslation) {
+      const translationConfig: TranslationConfig = {
+        enabled: true,
+        sourceLanguage: this.config.translation?.sourceLanguage || 'en',
+        targetLanguage: this.config.translation?.targetLanguage || 'nl',
+        defaultProvider: this.config.translation?.defaultProvider || 'manual',
+        autoTranslateOnEdit:
+          this.config.translation?.autoTranslateOnEdit ?? false,
+        autoTranslateOnLoad:
+          this.config.translation?.autoTranslateOnLoad ?? false,
+        showCorrespondenceLines:
+          this.config.translation?.showCorrespondenceLines ?? true,
+        highlightOnHover: this.config.translation?.highlightOnHover ?? true,
+        providers: this.config.translation?.providers || {},
+      };
+
+      this.translation = new TranslationModule({
+        config: translationConfig,
+        changes: this.changes,
+        markdown: this.markdown,
+        exporter: this.exporter,
+      });
+    }
+
     this.ui = new UIModule({
       changes: this.changes,
       markdown: this.markdown,
@@ -126,14 +164,20 @@ export class QuartoReview {
       exporter: this.exporter,
       reviewService: this.reviewService,
       user: this.user,
+      translation: this.translation,
     });
 
     this.initialize();
   }
 
-  private initialize(): void {
+  private async initialize(): Promise<void> {
     // Parse the rendered HTML to extract original elements
     this.changes.initializeFromDOM();
+
+    // Initialize translation if enabled
+    if (this.translation) {
+      await this.translation.initialize();
+    }
 
     // Set up UI event listeners
     this.ui.attachEventListeners();
@@ -178,8 +222,19 @@ export class QuartoReview {
       clearInterval(this.autoSaveInterval);
       this.autoSaveInterval = undefined;
     }
+    // Destroy translation module if enabled
+    if (this.translation) {
+      this.translation.destroy();
+    }
     // Destroy UI module and all its submodules
     this.ui.destroy();
+  }
+
+  /**
+   * Get translation module (if enabled)
+   */
+  public getTranslation(): TranslationModule | undefined {
+    return this.translation;
   }
 }
 

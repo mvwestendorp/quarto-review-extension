@@ -15,8 +15,6 @@ export default defineConfig({
         'dist/**',
         'node_modules/**',
         // Exclude stub providers with intentional notImplemented() methods
-        'src/modules/git/providers/gitea.ts',
-        'src/modules/git/providers/gitlab.ts',
         'src/modules/git/providers/local.ts',
       ],
       // Quality thresholds - fail if coverage drops below these

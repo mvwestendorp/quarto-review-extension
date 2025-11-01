@@ -171,6 +171,17 @@ export abstract class BaseProvider {
   abstract hasWriteAccess(): Promise<boolean>;
 
   /**
+   * Update the active authentication token (e.g. PAT provided at runtime).
+   */
+  public updateAuthToken(token?: string): void {
+    if (this.config.auth?.mode === 'pat') {
+      this.config.auth.token = token;
+    } else {
+      this.config.token = token;
+    }
+  }
+
+  /**
    * Perform a raw API request.
    */
   protected async request<T = unknown>(

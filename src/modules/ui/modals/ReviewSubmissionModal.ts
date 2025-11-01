@@ -1,7 +1,3 @@
-import { createModuleLogger } from '@utils/debug';
-
-const logger = createModuleLogger('ReviewSubmissionModal');
-
 export interface ReviewSubmissionInitialValues {
   reviewer: string;
   branchName: string;
@@ -10,15 +6,16 @@ export interface ReviewSubmissionInitialValues {
   pullRequestTitle: string;
   pullRequestBody: string;
   draft: boolean;
+  requirePat: boolean;
+  patToken?: string;
 }
 
-export interface ReviewSubmissionFormValues
-  extends ReviewSubmissionInitialValues {}
+export type ReviewSubmissionFormValues = ReviewSubmissionInitialValues;
 
 export class ReviewSubmissionModal {
-  private activeResolve: ((
-    value: ReviewSubmissionFormValues | null
-  ) => void) | null = null;
+  private activeResolve:
+    | ((value: ReviewSubmissionFormValues | null) => void)
+    | null = null;
   private container: HTMLElement | null = null;
   private keydownHandler: ((event: KeyboardEvent) => void) | null = null;
 
@@ -50,6 +47,17 @@ export class ReviewSubmissionModal {
 
     const form = document.createElement('form');
     form.className = 'review-review-form';
+    const patSection = initial.requirePat
+      ? `
+        <label class="review-form-label">
+          <span>Personal access token</span>
+          <input name="patToken" type="password" value="${
+            initial.patToken ? escapeHtml(initial.patToken) : ''
+          }" autocomplete="new-password" placeholder="Enter token for this session" />
+          <small class="review-form-help">The token is used only for this submission and is not stored in the document.</small>
+        </label>`
+      : '';
+
     form.innerHTML = `
       <div class="review-editor-header">
         <h3>Submit Review</h3>
@@ -80,10 +88,12 @@ export class ReviewSubmissionModal {
           <span>Pull request description</span>
           <textarea name="pullRequestBody" rows="4">${escapeHtml(initial.pullRequestBody)}</textarea>
         </label>
+        ${patSection}
         <label class="review-form-checkbox">
           <input name="draft" type="checkbox" ${initial.draft ? 'checked' : ''} />
           <span>Create as draft pull request</span>
         </label>
+        <div class="review-form-error" data-error style="display:none;"></div>
       </div>
       <div class="review-editor-footer">
         <button type="button" class="review-btn review-btn-secondary" data-action="cancel">Cancel</button>
@@ -93,12 +103,9 @@ export class ReviewSubmissionModal {
 
     form.addEventListener('submit', (event) => {
       event.preventDefault();
-      try {
-        const result = this.readFormValues(form, initial);
+      const result = this.readFormValues(form, initial);
+      if (result) {
         this.close(result);
-      } catch (error) {
-        logger.error('Failed to read review submission form values', error);
-        this.close(null);
       }
     });
 
@@ -120,7 +127,15 @@ export class ReviewSubmissionModal {
   private readFormValues(
     form: HTMLFormElement,
     initial: ReviewSubmissionInitialValues
-  ): ReviewSubmissionFormValues {
+  ): ReviewSubmissionFormValues | null {
+    const errorElement = form.querySelector(
+      '[data-error]'
+    ) as HTMLElement | null;
+    if (errorElement) {
+      errorElement.style.display = 'none';
+      errorElement.textContent = '';
+    }
+
     const getValue = (name: string, fallback: string): string => {
       const element = form.elements.namedItem(name) as
         | HTMLInputElement
@@ -130,7 +145,27 @@ export class ReviewSubmissionModal {
       return value?.length ? value : fallback;
     };
 
-    const draftInput = form.elements.namedItem('draft') as HTMLInputElement | null;
+    const draftInput = form.elements.namedItem(
+      'draft'
+    ) as HTMLInputElement | null;
+
+    let patToken: string | undefined;
+    if (initial.requirePat) {
+      const patInput = form.elements.namedItem(
+        'patToken'
+      ) as HTMLInputElement | null;
+      const value = patInput?.value?.trim();
+      if (!value) {
+        if (errorElement) {
+          errorElement.textContent =
+            'A personal access token is required to submit this review.';
+          errorElement.style.display = 'block';
+        }
+        patInput?.focus();
+        return null;
+      }
+      patToken = value;
+    }
 
     return {
       reviewer: getValue('reviewer', initial.reviewer),
@@ -140,6 +175,8 @@ export class ReviewSubmissionModal {
       pullRequestTitle: getValue('pullRequestTitle', initial.pullRequestTitle),
       pullRequestBody: getValue('pullRequestBody', initial.pullRequestBody),
       draft: Boolean(draftInput?.checked),
+      requirePat: initial.requirePat,
+      patToken,
     };
   }
 

@@ -65,6 +65,7 @@ export interface UIConfig {
   exporter?: QmdExportService;
   reviewService?: GitReviewService;
   user?: UserModule;
+  translation?: import('@modules/translation').TranslationModule;
 }
 
 interface HeadingReferenceInfo {
@@ -807,7 +808,10 @@ export class UIModule {
 
   private async handleSubmitReview(): Promise<void> {
     if (!this.reviewService) {
-      this.showNotification('Git review submission is not configured.', 'error');
+      this.showNotification(
+        'Git review submission is not configured.',
+        'error'
+      );
       return;
     }
     if (this.isSubmittingReview) {
@@ -821,8 +825,8 @@ export class UIModule {
       ? 'critic'
       : 'clean';
 
-    const modal = this.getReviewSubmissionModal();
     const initialValues = this.buildReviewInitialValues(reviewer, baseBranch);
+    const modal = this.getReviewSubmissionModal();
     const formValues = await modal.open(initialValues);
     if (!formValues) {
       return;
@@ -838,6 +842,13 @@ export class UIModule {
     const resolvedTitle =
       formValues.pullRequestTitle.trim() || initialValues.pullRequestTitle;
     const resolvedBody = formValues.pullRequestBody.trim();
+    const patToken = formValues.patToken;
+
+    if (formValues.requirePat) {
+      this.reviewService.updateAuthToken(patToken);
+    } else if (patToken) {
+      this.reviewService.updateAuthToken(patToken);
+    }
 
     const loading = this.showLoading('Submitting review to Git…');
     this.isSubmittingReview = true;
@@ -873,7 +884,9 @@ export class UIModule {
       this.hideLoading(loading);
       this.isSubmittingReview = false;
       this.mainSidebarModule.setSubmitReviewPending(false);
-      this.mainSidebarModule.setSubmitReviewEnabled(Boolean(this.reviewService));
+      this.mainSidebarModule.setSubmitReviewEnabled(
+        Boolean(this.reviewService)
+      );
     }
   }
 
@@ -883,10 +896,7 @@ export class UIModule {
       return 'Reviewer';
     }
     return (
-      user.name?.trim() ||
-      user.email?.trim() ||
-      user.id?.trim() ||
-      'Reviewer'
+      user.name?.trim() || user.email?.trim() || user.id?.trim() || 'Reviewer'
     );
   }
 
@@ -903,6 +913,7 @@ export class UIModule {
     reviewer: string,
     baseBranch: string
   ): ReviewSubmissionInitialValues {
+    const requirePat = this.reviewService!.requiresAuthToken();
     return {
       reviewer,
       baseBranch,
@@ -911,6 +922,8 @@ export class UIModule {
       pullRequestTitle: `Review updates from ${reviewer}`,
       pullRequestBody: this.buildPullRequestBody(reviewer),
       draft: false,
+      requirePat,
+      patToken: '',
     };
   }
 
@@ -932,9 +945,7 @@ export class UIModule {
       .replace(/[:.]/g, '-')
       .replace('T', '-')
       .slice(0, 19);
-    const raw = slug
-      ? `review/${slug}-${timestamp}`
-      : `review/${timestamp}`;
+    const raw = slug ? `review/${slug}-${timestamp}` : `review/${timestamp}`;
     return this.sanitizeBranchName(raw);
   }
 
@@ -942,7 +953,7 @@ export class UIModule {
     const cleaned = name
       .trim()
       .replace(/\s+/g, '-')
-      .replace(/[^A-Za-z0-9._\/-]+/g, '-')
+      .replace(/[^A-Za-z0-9._/-]+/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-+|-+$/g, '');
     return cleaned || 'review-branch';

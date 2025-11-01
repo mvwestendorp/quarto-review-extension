@@ -318,7 +318,8 @@ export class MainSidebar {
   private updateSubmitReviewButtonState(): void {
     if (!this.submitReviewBtn) return;
     const hasHandler = typeof this.onSubmitReviewCallback === 'function';
-    const canClick = hasHandler && this.submitReviewEnabled && !this.submitReviewPending;
+    const canClick =
+      hasHandler && this.submitReviewEnabled && !this.submitReviewPending;
     this.submitReviewBtn.disabled = !canClick;
     this.submitReviewBtn.classList.toggle('review-btn-disabled', !canClick);
   }

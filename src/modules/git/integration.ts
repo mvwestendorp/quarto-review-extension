@@ -11,7 +11,7 @@ export interface ReviewFileChange {
   message?: string;
 }
 
-export interface ReviewComment extends ReviewCommentInput {}
+export type ReviewComment = ReviewCommentInput;
 
 export interface ReviewPullRequestOptions {
   title: string;
@@ -179,8 +179,7 @@ export class GitIntegrationService {
 
     for (const file of files) {
       const path = file.path.trim();
-      const commitMessage =
-        file.message || defaultMessage || `Update ${path}`;
+      const commitMessage = file.message || defaultMessage || `Update ${path}`;
 
       const existing = await this.provider
         .getFileContent(path, branchName)
@@ -248,9 +247,7 @@ export class GitIntegrationService {
     branchName: string
   ): Promise<PullRequest | null> {
     const pulls = await this.provider.listPullRequests('open');
-    const match = pulls.find(
-      (pr) => pr.headRef && pr.headRef === branchName
-    );
+    const match = pulls.find((pr) => pr.headRef && pr.headRef === branchName);
     return match ?? null;
   }
 

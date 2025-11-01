@@ -54,12 +54,15 @@ export class TranslationModule {
    */
   async initialize(): Promise<void> {
     // Get current document elements from ChangesModule
-    const elements = this.config.changes.getCurrentState();
+    const elements = this.config.changes.getCurrentState() as Array<{
+      id: string;
+      content: string;
+    }>;
 
     // Segment all elements into sentences
     const sourceSentences: Sentence[] = [];
 
-    elements.forEach((element: { id: string; content: string }) => {
+    elements.forEach((element) => {
       const sentences = this.segmenter.segmentText(
         element.content,
         this.config.config.sourceLanguage,
@@ -105,23 +108,29 @@ export class TranslationModule {
     );
 
     // Create target sentences
-    const targetSentences: Sentence[] = translatedTexts
-      .map((text, index) => {
+    const targetSentences: Sentence[] = translatedTexts.reduce<Sentence[]>(
+      (accumulator, text, index) => {
         const sourceSentence = doc.sourceSentences[index];
         if (!sourceSentence) {
-          return null;
+          return accumulator;
         }
-        return {
+
+        const translated = text ?? '';
+        const targetSentence: Sentence = {
           id: `trans-${sourceSentence.id}`,
           elementId: sourceSentence.elementId,
-          content: text,
+          content: translated,
           language: this.config.config.targetLanguage,
           startOffset: 0,
-          endOffset: text.length,
-          hash: this.hashContent(text),
+          endOffset: translated.length,
+          hash: this.hashContent(translated),
         };
-      })
-      .filter((sentence): sentence is Sentence => sentence !== null);
+
+        accumulator.push(targetSentence);
+        return accumulator;
+      },
+      []
+    );
 
     // Add target sentences to state
     this.state.addTargetSentences(targetSentences);

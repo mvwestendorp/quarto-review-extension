@@ -23,39 +23,13 @@ export class CorrespondenceMapper {
     );
 
     const alignment = this.alignmentAlgorithm.findBestAlignment(scores);
-    const pairs: TranslationPair[] = [];
-
-    for (const [srcIdx, tgtIdx] of alignment) {
-      const source = sourceSentences[srcIdx];
-      const target = targetSentences[tgtIdx];
-
-      // Skip if either sentence is undefined
-      if (!source || !target) {
-        continue;
-      }
-
-      const alignmentScore =
-        scores.find((s) => s.sourceIndex === srcIdx && s.targetIndex === tgtIdx)
-          ?.score || 0;
-
-      pairs.push({
-        id: this.generatePairId(source.id, target.id),
-        sourceId: source.id,
-        targetId: target.id,
-        sourceText: source.content,
-        targetText: target.content,
-        sourceLanguage: source.language,
-        targetLanguage: target.language,
-        method,
-        alignmentScore,
-        timestamp: Date.now(),
-        lastModified: Date.now(),
-        status: 'synced',
-        isManuallyEdited: false,
-      });
-    }
-
-    return pairs;
+    return this.buildPairs(
+      alignment,
+      sourceSentences,
+      targetSentences,
+      scores,
+      method
+    );
   }
 
   /**
@@ -72,39 +46,13 @@ export class CorrespondenceMapper {
     );
 
     const alignment = this.alignmentAlgorithm.findFlexibleAlignment(scores);
-    const pairs: TranslationPair[] = [];
-
-    for (const [srcIdx, tgtIdx] of alignment) {
-      const source = sourceSentences[srcIdx];
-      const target = targetSentences[tgtIdx];
-
-      // Skip if either sentence is undefined
-      if (!source || !target) {
-        continue;
-      }
-
-      const alignmentScore =
-        scores.find((s) => s.sourceIndex === srcIdx && s.targetIndex === tgtIdx)
-          ?.score || 0;
-
-      pairs.push({
-        id: this.generatePairId(source.id, target.id),
-        sourceId: source.id,
-        targetId: target.id,
-        sourceText: source.content,
-        targetText: target.content,
-        sourceLanguage: source.language,
-        targetLanguage: target.language,
-        method,
-        alignmentScore,
-        timestamp: Date.now(),
-        lastModified: Date.now(),
-        status: 'synced',
-        isManuallyEdited: false,
-      });
-    }
-
-    return pairs;
+    return this.buildPairs(
+      alignment,
+      sourceSentences,
+      targetSentences,
+      scores,
+      method
+    );
   }
 
   /**
@@ -158,6 +106,51 @@ export class CorrespondenceMapper {
    */
   private generatePairId(sourceId: string, targetId: string): string {
     return `pair-${sourceId}-${targetId}`;
+  }
+
+  private buildPairs(
+    alignment: Array<[number, number]>,
+    sourceSentences: Sentence[],
+    targetSentences: Sentence[],
+    scores: Array<{ sourceIndex: number; targetIndex: number; score: number }>,
+    method: TranslationMethod
+  ): TranslationPair[] {
+    const pairs: TranslationPair[] = [];
+
+    for (const [srcIdx, tgtIdx] of alignment) {
+      const sourceSentence = sourceSentences[srcIdx];
+      const targetSentence = targetSentences[tgtIdx];
+
+      if (!sourceSentence || !targetSentence) {
+        continue;
+      }
+
+      const alignmentScore =
+        scores.find(
+          (score) =>
+            score.sourceIndex === srcIdx && score.targetIndex === tgtIdx
+        )?.score ?? 0;
+
+      const timestamp = Date.now();
+
+      pairs.push({
+        id: this.generatePairId(sourceSentence.id, targetSentence.id),
+        sourceId: sourceSentence.id,
+        targetId: targetSentence.id,
+        sourceText: sourceSentence.content,
+        targetText: targetSentence.content,
+        sourceLanguage: sourceSentence.language,
+        targetLanguage: targetSentence.language,
+        method,
+        alignmentScore,
+        timestamp,
+        lastModified: timestamp,
+        status: 'synced',
+        isManuallyEdited: false,
+      });
+    }
+
+    return pairs;
   }
 
   /**

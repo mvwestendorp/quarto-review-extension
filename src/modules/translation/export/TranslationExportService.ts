@@ -35,10 +35,12 @@ export interface TranslationExportServiceConfig {
  * Provides common functionality for all export strategies
  */
 export class TranslationExportService {
-  private readonly primaryFilename: string;
-  private readonly projectName: string;
+  protected readonly primaryFilename: string;
+  protected readonly projectName: string;
+  protected readonly config: TranslationExportServiceConfig;
 
-  constructor(private config: TranslationExportServiceConfig = {}) {
+  constructor(config: TranslationExportServiceConfig = {}) {
+    this.config = config;
     this.primaryFilename = config.primaryFilename || 'document.qmd';
     this.projectName = config.projectName || this.deriveProjectName();
   }

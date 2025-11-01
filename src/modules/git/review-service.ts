@@ -6,7 +6,7 @@ import type {
   ReviewComment,
 } from './integration';
 import QmdExportService, { type ExportFormat } from '@modules/export';
-import type { ResolvedGitConfig } from './types';
+import type { ResolvedGitConfig, GitProviderType } from './types';
 
 export interface SubmitReviewOptions {
   reviewer: string;
@@ -30,6 +30,14 @@ export interface ReviewSubmissionContext {
 }
 
 export class GitReviewService {
+  private static readonly SUPPORTED_PROVIDERS: GitProviderType[] = [
+    'github',
+    'gitlab',
+    'gitea',
+    'forgejo',
+    'azure-devops',
+  ];
+
   constructor(
     private readonly git: GitModule,
     private readonly exporter: QmdExportService
@@ -39,11 +47,34 @@ export class GitReviewService {
     return this.git.getConfig()?.repository ?? null;
   }
 
+  public requiresAuthToken(): boolean {
+    if (typeof this.git.requiresAuthToken === 'function') {
+      return this.git.requiresAuthToken();
+    }
+    return false;
+  }
+
+  public updateAuthToken(token?: string): void {
+    if (typeof this.git.setAuthToken === 'function') {
+      this.git.setAuthToken(token);
+    }
+  }
+
   public async submitReview(
     options: SubmitReviewOptions
   ): Promise<ReviewSubmissionContext> {
     if (!this.git.isEnabled()) {
       throw new Error('Git integration is not configured');
+    }
+
+    const providerType = this.git.getConfig()?.provider;
+    if (
+      providerType &&
+      !GitReviewService.SUPPORTED_PROVIDERS.includes(providerType)
+    ) {
+      throw new Error(
+        `Automated review submission is not yet supported for ${providerType}.`
+      );
     }
 
     const bundle = await this.exporter.createBundle({
@@ -72,12 +103,16 @@ export class GitReviewService {
       comments: options.comments,
     };
 
-    const result = await this.git.submitReview(payload);
-
-    return {
-      bundle,
-      result,
-    };
+    try {
+      const result = await this.git.submitReview(payload);
+      return {
+        bundle,
+        result,
+      };
+    } catch (error) {
+      await this.persistFallback(bundle, payload, error as Error);
+      throw error;
+    }
   }
 
   private toReviewFiles(
@@ -89,6 +124,37 @@ export class GitReviewService {
       content: file.content,
       message: commitMessage,
     }));
+  }
+
+  private async persistFallback(
+    bundle: Awaited<ReturnType<QmdExportService['createBundle']>>,
+    payload: ReviewSubmissionPayload,
+    error: Error
+  ): Promise<void> {
+    const store = this.git.getFallbackStore?.();
+    if (!store || typeof store.saveFile !== 'function') {
+      return;
+    }
+    try {
+      const timestamp = new Date().toISOString();
+      const filename = `review-fallback-${timestamp}.json`;
+      const record = {
+        timestamp,
+        error: error.message ?? String(error),
+        payload,
+        files: bundle.files.map((file) => ({
+          filename: file.filename,
+          origin: file.origin,
+        })),
+      };
+      await store.saveFile(
+        filename,
+        JSON.stringify(record, null, 2),
+        `Fallback review payload (${payload.pullRequest.title})`
+      );
+    } catch (persistError) {
+      console.warn('Failed to persist fallback review payload:', persistError);
+    }
   }
 }
 
