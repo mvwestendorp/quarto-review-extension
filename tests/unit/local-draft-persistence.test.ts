@@ -22,7 +22,20 @@ describe('LocalDraftPersistence', () => {
           metadata: { type: 'Para' },
         },
       ],
-      'Custom message'
+      {
+        message: 'Custom message',
+        comments: [
+          {
+            id: 'comment-1',
+            elementId: 'section-1',
+            content: 'Note',
+            userId: 'alice',
+            timestamp: 1,
+            resolved: false,
+            type: 'comment',
+          },
+        ],
+      }
     );
 
     expect(store.saveFile).toHaveBeenCalledWith(
@@ -30,6 +43,9 @@ describe('LocalDraftPersistence', () => {
       expect.stringContaining('Updated content'),
       'Custom message'
     );
+
+    const serialized = store.saveFile.mock.calls[0]?.[1] ?? '';
+    expect(serialized).toContain('"comments"');
   });
 
   it('clears drafts via embedded source store', async () => {

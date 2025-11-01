@@ -284,6 +284,17 @@ describe('stripCriticMarkup', () => {
     expect(result).toBe('Hello world');
   });
 
+  it('should convert comments to HTML when requested', () => {
+    const content = 'Hello {>>note<<}world';
+    const result = stripCriticMarkup(content, true, {
+      preserveCommentsAsHtml: true,
+    });
+
+    expect(result).toContain('Hello ');
+    expect(result).toContain('world');
+    expect(result).toContain('<!-- review-comment note -->');
+  });
+
   it('should strip highlights', () => {
     const content = 'Hello {==highlighted==}world';
     const result = stripCriticMarkup(content, true);

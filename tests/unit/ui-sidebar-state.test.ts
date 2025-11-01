@@ -26,6 +26,9 @@ const {
     setTrackedChangesVisible: ReturnType<typeof vi.fn>;
     updateUndoRedoState: ReturnType<typeof vi.fn>;
     setHasUnsavedChanges: ReturnType<typeof vi.fn>;
+    onToggleTranslation: ReturnType<typeof vi.fn>;
+    setTranslationEnabled: ReturnType<typeof vi.fn>;
+    setTranslationActive: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
   };
 
@@ -53,6 +56,9 @@ const {
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),
       setHasUnsavedChanges: vi.fn(),
+      onToggleTranslation: vi.fn(),
+      setTranslationEnabled: vi.fn(),
+      setTranslationActive: vi.fn(),
       destroy: vi.fn(),
     };
     instances.push(instance);

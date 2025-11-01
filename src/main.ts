@@ -99,6 +99,7 @@ export class QuartoReview {
   public user: UserModule; // Public so it can be accessed for permissions
   private config: QuartoReviewConfig;
   private autoSaveInterval?: number;
+  private readonly draftFilename: string;
 
   constructor(config: QuartoReviewConfig = {}) {
     this.config = {
@@ -128,7 +129,10 @@ export class QuartoReview {
     if (this.git.isEnabled()) {
       this.reviewService = new GitReviewService(this.git, this.exporter);
     }
-    this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore());
+    this.draftFilename = this.deriveDraftFilename();
+    this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore(), {
+      filename: this.draftFilename,
+    });
 
     // Initialize translation module if enabled
     if (this.config.enableTranslation) {
@@ -168,6 +172,28 @@ export class QuartoReview {
     });
 
     this.initialize();
+  }
+
+  private deriveDraftFilename(): string {
+    const explicit = this.config.git?.sourceFile;
+    const candidate = explicit || this.getCurrentPathSlug();
+    if (!candidate) {
+      return 'review-draft.json';
+    }
+    const slug = candidate
+      .toLowerCase()
+      .replace(/[^a-z0-9._-]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .replace(/--+/g, '-');
+    return slug ? `review-draft-${slug}.json` : 'review-draft.json';
+  }
+
+  private getCurrentPathSlug(): string {
+    if (typeof window === 'undefined') {
+      return '';
+    }
+    const path = window.location?.pathname ?? '';
+    return path ? path.replace(/\/+$/, '') || '/' : '';
   }
 
   private async initialize(): Promise<void> {

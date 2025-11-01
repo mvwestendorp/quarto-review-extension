@@ -20,6 +20,8 @@ export class MainSidebar {
   private readonly submitReviewLabel = '🚀 Submit Review';
   private submitReviewEnabled = false;
   private submitReviewPending = false;
+  private translationBtn: HTMLButtonElement | null = null;
+  private translationEnabled = false;
 
   private onUndoCallback: (() => void) | null = null;
   private onRedoCallback: (() => void) | null = null;
@@ -29,6 +31,7 @@ export class MainSidebar {
   private onExportCleanCallback: (() => void) | null = null;
   private onExportCriticCallback: (() => void) | null = null;
   private onSubmitReviewCallback: (() => void) | null = null;
+  private onToggleTranslationCallback: (() => void) | null = null;
 
   /**
    * Lazily create (or return) the sidebar element.
@@ -226,7 +229,33 @@ export class MainSidebar {
       'Open the comments panel to browse feedback and respond inline.';
     commentsSection.appendChild(commentsInfo);
 
-    body.appendChild(commentsSection);
+    // body.appendChild(commentsSection);
+
+    // Translation section
+    const translationSection = document.createElement('div');
+    translationSection.className = 'review-sidebar-section';
+
+    const translationTitle = document.createElement('h4');
+    translationTitle.textContent = 'Translation';
+    translationSection.appendChild(translationTitle);
+
+    this.translationBtn = document.createElement('button');
+    this.translationBtn.className =
+      'review-btn review-btn-secondary review-btn-block';
+    this.translationBtn.setAttribute('data-action', 'toggle-translation');
+    this.translationBtn.setAttribute(
+      'title',
+      'Open translation UI for document translation'
+    );
+    this.translationBtn.setAttribute('aria-label', 'Toggle translation UI');
+    this.translationBtn.textContent = '🌐 Open Translation';
+    this.translationBtn.disabled = true;
+    this.translationBtn.addEventListener('click', () => {
+      this.onToggleTranslationCallback?.();
+    });
+    translationSection.appendChild(this.translationBtn);
+
+    body.appendChild(translationSection);
 
     const storageSection = document.createElement('div');
     storageSection.className = 'review-sidebar-section';
@@ -257,7 +286,7 @@ export class MainSidebar {
         <strong>💬 badge</strong> to review comments
       </p>
     `;
-    body.appendChild(helpSection);
+    //body.appendChild(helpSection);
 
     container.appendChild(body);
 
@@ -378,6 +407,42 @@ export class MainSidebar {
     this.updateSubmitReviewButtonState();
   }
 
+  onToggleTranslation(callback?: () => void): void {
+    this.onToggleTranslationCallback = callback ?? null;
+    this.translationEnabled = Boolean(callback);
+    this.updateTranslationButtonState();
+  }
+
+  setTranslationEnabled(enabled: boolean): void {
+    this.translationEnabled = enabled;
+    this.updateTranslationButtonState();
+  }
+
+  setTranslationActive(active: boolean): void {
+    if (!this.translationBtn) return;
+
+    if (active) {
+      this.translationBtn.textContent = '🌐 Close Translation';
+      this.translationBtn.setAttribute('title', 'Close translation UI');
+      this.translationBtn.classList.add('review-btn-active');
+    } else {
+      this.translationBtn.textContent = '🌐 Open Translation';
+      this.translationBtn.setAttribute(
+        'title',
+        'Open translation UI for document translation'
+      );
+      this.translationBtn.classList.remove('review-btn-active');
+    }
+  }
+
+  private updateTranslationButtonState(): void {
+    if (!this.translationBtn) return;
+    const hasHandler = typeof this.onToggleTranslationCallback === 'function';
+    const canClick = hasHandler && this.translationEnabled;
+    this.translationBtn.disabled = !canClick;
+    this.translationBtn.classList.toggle('review-btn-disabled', !canClick);
+  }
+
   /**
    * Update the toggle button to reflect the collapsed state managed by UIModule.
    */
@@ -426,6 +491,7 @@ export class MainSidebar {
     this.exportCleanBtn = null;
     this.exportCriticBtn = null;
     this.submitReviewBtn = null;
+    this.translationBtn = null;
     this.unsavedIndicator = null;
     this.onUndoCallback = null;
     this.onRedoCallback = null;
@@ -435,5 +501,6 @@ export class MainSidebar {
     this.onExportCleanCallback = null;
     this.onExportCriticCallback = null;
     this.onSubmitReviewCallback = null;
+    this.onToggleTranslationCallback = null;
   }
 }

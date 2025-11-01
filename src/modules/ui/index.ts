@@ -53,6 +53,8 @@ import type { CommentsModule } from '@modules/comments';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import type { Element as ReviewElement, ElementMetadata } from '@/types';
 import { UI_CONSTANTS, getAnimationDuration } from './constants';
+import { TranslationController } from './translation/TranslationController';
+import type { TranslationModule } from '@modules/translation';
 
 const logger = createModuleLogger('UIModule');
 
@@ -106,6 +108,8 @@ export class UIModule {
   private globalShortcutsBound = false;
   private localPersistence?: LocalDraftPersistence;
   private isSubmittingReview = false;
+  private translationController: TranslationController | null = null;
+  private translationModule?: TranslationModule;
 
   constructor(config: UIConfig) {
     this.config = config;
@@ -113,6 +117,7 @@ export class UIModule {
     this.reviewService = config.reviewService;
     this.userModule = config.user;
     this.localPersistence = config.persistence;
+    this.translationModule = config.translation;
     logger.debug(
       'Initialized with tracked changes:',
       this.editorState.showTrackedChanges
@@ -153,7 +158,7 @@ export class UIModule {
       onComment: (sectionId) => {
         const element = this.config.changes.getElementById(sectionId);
         if (element) {
-          this.openCommentComposer({ elementId: sectionId });
+          void this.openCommentComposer({ elementId: sectionId });
         }
       },
     });
@@ -210,6 +215,17 @@ export class UIModule {
       void this.confirmAndClearLocalDrafts();
     });
 
+    // Set up translation toggle if translation module is available
+    const enableTranslation = Boolean(this.translationModule);
+    this.mainSidebarModule.onToggleTranslation(
+      enableTranslation
+        ? () => {
+            void this.toggleTranslation();
+          }
+        : undefined
+    );
+    this.mainSidebarModule.setTranslationEnabled(enableTranslation);
+
     this.cacheInitialHeadingReferences();
     // Initialize sidebar immediately so it's always visible
     this.initializeSidebar();
@@ -261,6 +277,88 @@ export class UIModule {
     }
 
     this.mainSidebarModule.setCollapsed(collapsed);
+  }
+
+  /**
+   * Toggle translation UI
+   */
+  private async toggleTranslation(): Promise<void> {
+    if (!this.translationModule) {
+      this.showNotification('Translation module is not available', 'error');
+      return;
+    }
+
+    try {
+      if (this.translationController) {
+        // Close existing translation UI
+        this.translationController.destroy();
+        this.translationController = null;
+        this.mainSidebarModule.setTranslationActive(false);
+        this.showNotification('Translation UI closed', 'info');
+      } else {
+        // Open translation UI
+        const container = this.createTranslationContainer();
+
+        this.translationController = new TranslationController({
+          container,
+          translationModuleConfig: {
+            config: {
+              enabled: true,
+              sourceLanguage: 'en',
+              targetLanguage: 'nl',
+              defaultProvider: 'manual',
+              showCorrespondenceLines: true,
+              highlightOnHover: true,
+              autoTranslateOnEdit: false,
+              autoTranslateOnLoad: false,
+              providers: {
+                local: {
+                  model: 'nllb-200',
+                  backend: 'auto',
+                  mode: 'balanced',
+                  downloadOnLoad: false,
+                  useWebWorker: true,
+                },
+              },
+            },
+            changes: this.config.changes,
+            markdown: this.config.markdown,
+          },
+          onNotification: (message, type) => {
+            const mappedType = type === 'warning' ? 'info' : type;
+            this.showNotification(message, mappedType);
+          },
+        });
+
+        await this.translationController.initialize();
+        this.mainSidebarModule.setTranslationActive(true);
+        this.showNotification('Translation UI opened', 'success');
+      }
+    } catch (error) {
+      logger.error('Failed to toggle translation UI', error);
+      this.showNotification('Failed to toggle translation UI', 'error');
+    }
+  }
+
+  /**
+   * Create translation UI container
+   */
+  private createTranslationContainer(): HTMLElement {
+    // Check if container already exists
+    let container = document.querySelector(
+      '#translation-ui-container'
+    ) as HTMLElement | null;
+
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'translation-ui-container';
+      container.className = 'review-translation-container';
+      document.body.appendChild(container);
+    }
+
+    // Clear existing content
+    container.innerHTML = '';
+    return container;
   }
 
   /**
@@ -414,6 +512,10 @@ export class UIModule {
       this.editorState.showTrackedChanges
     );
 
+    // Set baseline for tracked changes calculation
+    const currentContent = this.config.changes.getElementContent(elementId);
+    this.config.changes.setElementBaseline(elementId, currentContent);
+
     // Restore editor history if available
     this.restoreEditorHistory(elementId);
 
@@ -447,6 +549,10 @@ export class UIModule {
     this.closeEditor();
 
     this.editorState.currentElementId = elementId;
+
+    // Set baseline for tracked changes calculation
+    const currentContent = this.config.changes.getElementContent(elementId);
+    this.config.changes.setElementBaseline(elementId, currentContent);
 
     // Restore editor history if available
     this.restoreEditorHistory(elementId);
@@ -555,6 +661,10 @@ export class UIModule {
     // Save editor history before destroying the editor
     if (this.editorState.currentElementId) {
       this.saveEditorHistory(this.editorState.currentElementId);
+      // Clear the baseline for this element when closing the editor
+      this.config.changes.clearElementBaseline(
+        this.editorState.currentElementId
+      );
     }
 
     this.editorLifecycle.destroy();
@@ -709,7 +819,14 @@ export class UIModule {
         content: elem.content,
         metadata: elem.metadata,
       }));
-      void this.localPersistence.saveDraft(payload, message);
+      const commentsSnapshot =
+        typeof this.config.comments?.getAllComments === 'function'
+          ? this.config.comments.getAllComments()
+          : undefined;
+      void this.localPersistence.saveDraft(payload, {
+        message,
+        comments: commentsSnapshot,
+      });
     } catch (error) {
       logger.warn('Failed to persist local draft', error);
     }
@@ -756,11 +873,27 @@ export class UIModule {
         this.ensureSegmentDom(elementIds, segments, removedIds);
       });
 
+      if (typeof this.config.comments?.importComments === 'function') {
+        const commentsToImport = draftPayload.comments ?? [];
+        this.config.comments.importComments(commentsToImport);
+      }
+
       this.refresh();
-      this.showNotification(
-        'Restored local draft from previous session.',
-        'info'
-      );
+
+      const sessionKey = this.buildDraftRestoreSessionKey();
+      const sessionStorage =
+        typeof window !== 'undefined' ? window.sessionStorage : null;
+      const shouldNotify = sessionStorage
+        ? !sessionStorage.getItem(sessionKey)
+        : true;
+
+      if (shouldNotify) {
+        this.showNotification(
+          'Restored local draft from previous session.',
+          'info'
+        );
+        sessionStorage?.setItem(sessionKey, '1');
+      }
     } catch (error) {
       logger.warn('Failed to restore local draft', error);
     }
@@ -932,6 +1065,14 @@ export class UIModule {
       this.reviewSubmissionModal = new ReviewSubmissionModal();
     }
     return this.reviewSubmissionModal;
+  }
+
+  private buildDraftRestoreSessionKey(): string {
+    const filename =
+      typeof this.localPersistence?.getFilename === 'function'
+        ? this.localPersistence.getFilename()
+        : 'review-draft.json';
+    return `quarto-review:draft-restored:${filename}`;
   }
 
   private generateSuggestedBranchName(reviewer: string): string {
@@ -2052,10 +2193,10 @@ export class UIModule {
     return sidebar;
   }
 
-  private openCommentComposer(context: {
+  private async openCommentComposer(context: {
     elementId: string;
     existingComment?: ReturnType<CommentsModule['parse']>[0];
-  }): void {
+  }): Promise<void> {
     this.contextMenuCoordinator?.close();
     this.commentsSidebarModule?.show();
 
@@ -2063,7 +2204,7 @@ export class UIModule {
       ? `${context.elementId}:${context.existingComment.start}`
       : undefined;
 
-    this.commentController.openComposer({
+    await this.commentController.openComposer({
       elementId: context.elementId,
       existingComment: context.existingComment,
       commentKey,
@@ -2147,6 +2288,16 @@ export class UIModule {
 
   public destroy(): void {
     this.closeEditor();
+
+    // Clean up translation controller
+    if (this.translationController) {
+      this.translationController.destroy();
+      this.translationController = null;
+    }
+    const translationContainer = document.querySelector(
+      '#translation-ui-container'
+    );
+    translationContainer?.remove();
 
     // Clean up module instances and their event listeners
     this.editorToolbarModule?.destroy();

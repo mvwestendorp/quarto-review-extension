@@ -22,10 +22,18 @@ format:
 review:
   enabled: true
   debug:
-    enabled: true
+    enabled: false
     level: debug
     modules:
       - UIModule
       - ChangesModule
+  git:
+    provider: github
+    owner: mvwestendorp
+    repo: quarto-review-extension-github-demo
+    base-branch: main # optional; defaults to `main`
+    auth:
+      mode: pat
+      token: ''
 filters:
   - review

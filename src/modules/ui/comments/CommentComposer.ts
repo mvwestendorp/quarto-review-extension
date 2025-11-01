@@ -2,7 +2,8 @@
  * Comment Composer
  *
  * Manages the comment composition UI for creating and editing comments.
- * Provides a text editor interface with submission handling.
+ * Now uses Milkdown editor for rich text formatting support.
+ * Supports markdown formatting: bold, italic, lists, code, etc.
  * Uses event-driven architecture for decoupled communication.
  *
  * Extracted from UIModule index.ts to reduce monolithic complexity.
@@ -15,6 +16,7 @@ import {
   type CommentSubmittedDetail,
   escapeHtml,
 } from '../shared';
+import { CommentEditor } from './CommentEditor';
 
 const logger = createModuleLogger('CommentComposer');
 
@@ -31,6 +33,7 @@ export interface ComposerContext {
  */
 export class CommentComposer extends ModuleEventEmitter {
   private element: HTMLElement | null = null;
+  private editor: CommentEditor | null = null;
   private isOpen = false;
   private currentContext: ComposerContext | null = null;
   private insertionAnchor: HTMLElement | null = null;
@@ -111,12 +114,13 @@ export class CommentComposer extends ModuleEventEmitter {
   /**
    * Open the composer for a specific context
    * Handles DOM insertion and state management
+   * Now uses Milkdown editor for rich text support
    */
-  open(
+  async open(
     context: ComposerContext,
     sidebarBody: HTMLElement,
     onSubmit?: (content: string, ctx: ComposerContext) => void
-  ): void {
+  ): Promise<void> {
     // Clear previous composer if any
     this.close();
 
@@ -154,7 +158,7 @@ export class CommentComposer extends ModuleEventEmitter {
         <button class="review-btn review-btn-secondary review-btn-sm" data-action="close">✕</button>
       </div>
       <p class="review-comment-composer-context">${escapeHtml(elementLabel)}</p>
-      <textarea class="review-comment-composer-input" rows="4" placeholder="Enter your comment..."></textarea>
+      <div class="review-comment-composer-editor"></div>
       <div class="review-comment-composer-actions">
         <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
         <button class="review-btn review-btn-primary review-btn-sm" data-action="save">${isEditing ? 'Update' : 'Add'} comment</button>
@@ -175,6 +179,23 @@ export class CommentComposer extends ModuleEventEmitter {
     // Scroll to composer
     sidebarBody.scrollTop = 0;
 
+    // Initialize Milkdown editor
+    const editorContainer = this.element!.querySelector(
+      '.review-comment-composer-editor'
+    ) as HTMLElement;
+    if (editorContainer) {
+      try {
+        this.editor = new CommentEditor();
+        await this.editor.initialize(
+          editorContainer,
+          context.existingComment || ''
+        );
+        this.editor.focus();
+      } catch (error) {
+        logger.error('Failed to initialize comment editor', error);
+      }
+    }
+
     // Set up event handlers
     this.element!.querySelector('[data-action="close"]')?.addEventListener(
       'click',
@@ -188,18 +209,6 @@ export class CommentComposer extends ModuleEventEmitter {
       'click',
       () => this.submit()
     );
-
-    // Focus and populate textarea
-    const textarea = this.element!.querySelector(
-      'textarea'
-    ) as HTMLTextAreaElement;
-    if (textarea) {
-      if (context.existingComment) {
-        textarea.value = context.existingComment;
-        textarea.select();
-      }
-      textarea.focus();
-    }
 
     // Update state
     this.isOpen = true;
@@ -232,6 +241,12 @@ export class CommentComposer extends ModuleEventEmitter {
       this.originalItem = null;
     }
 
+    // Destroy editor
+    if (this.editor) {
+      this.editor.destroy();
+      this.editor = null;
+    }
+
     this.insertionAnchor = null;
     this.isOpen = false;
     this.clearForm();
@@ -248,11 +263,10 @@ export class CommentComposer extends ModuleEventEmitter {
    * Get the current comment content
    */
   getContent(): string {
-    if (!this.element) return '';
-    const textarea = this.element.querySelector(
-      'textarea'
-    ) as HTMLTextAreaElement;
-    return textarea ? textarea.value.trim() : '';
+    if (this.editor) {
+      return this.editor.getContent().trim();
+    }
+    return '';
   }
 
   /**
@@ -347,7 +361,11 @@ export class CommentComposer extends ModuleEventEmitter {
     if (this.element) {
       this.element.remove();
     }
+    if (this.editor) {
+      this.editor.destroy();
+    }
     this.element = null;
+    this.editor = null;
     this.currentContext = null;
     this.insertionAnchor = null;
     this.originalItem = null;

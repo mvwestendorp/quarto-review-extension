@@ -63,7 +63,7 @@ export class CommentController {
     });
   }
 
-  public openComposer(context: CommentComposerContext): void {
+  public async openComposer(context: CommentComposerContext): Promise<void> {
     if (!this.composer || !this.sidebar) return;
 
     const sidebarElement = this.sidebar.getElement();
@@ -87,7 +87,7 @@ export class CommentController {
 
     const existingCommentContent = context.existingComment?.content;
 
-    this.composer.open(
+    await this.composer.open(
       {
         sectionId: context.elementId,
         elementId: context.elementId,
@@ -123,11 +123,6 @@ export class CommentController {
         this.commentState.activeComposerOriginalItem = originalItem;
       }
     }
-
-    const textarea = body.querySelector(
-      '.review-comment-composer-input'
-    ) as HTMLTextAreaElement | null;
-    textarea?.focus();
   }
 
   public closeComposer(): void {

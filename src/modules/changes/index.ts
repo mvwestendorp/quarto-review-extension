@@ -25,6 +25,8 @@ export class ChangesModule {
   private operations: Operation[] = [];
   private redoStack: Operation[] = [];
   private saved: boolean = true;
+  // Track the baseline (content before current edit session) for each element
+  private elementBaselines: Map<string, string> = new Map();
 
   /**
    * Initialize from DOM - parse HTML to extract original elements
@@ -355,6 +357,8 @@ export class ChangesModule {
 
     this.redoStack.push(operation);
     this.saved = false;
+    // Clear baselines when undoing to ensure tracked changes are recalculated
+    this.clearAllBaselines();
     return true;
   }
 
@@ -371,6 +375,8 @@ export class ChangesModule {
 
     this.operations.push(operation);
     this.saved = false;
+    // Clear baselines when redoing to ensure tracked changes are recalculated
+    this.clearAllBaselines();
     return true;
   }
 
@@ -600,8 +606,10 @@ export class ChangesModule {
    * and applies tracked changes in accept mode.
    */
   public toCleanMarkdown(): string {
-    const elements = this.getCurrentState();
-    return elements.map((e) => stripCriticMarkup(e.content, true)).join('\n\n');
+    const markdown = this.toMarkdown();
+    return stripCriticMarkup(markdown, true, {
+      preserveCommentsAsHtml: true,
+    });
   }
 
   /**
@@ -690,10 +698,21 @@ export class ChangesModule {
     return current.find((e) => e.id === id);
   }
 
+  /**
+   * Get the baseline content for an element (content before current edit session)
+   * This is used to display tracked changes in CriticMarkup format
+   */
   private getElementBaseline(id: string): string {
+    // If a baseline was explicitly set for this element, use it
+    if (this.elementBaselines.has(id)) {
+      return this.elementBaselines.get(id) || '';
+    }
+
+    // Otherwise, use the original element content if it exists
     const original = this.findOriginalElement(id);
     if (original) return original.content;
 
+    // For newly inserted elements, use the content from the first insert operation
     const firstInsert = this.operations.find(
       (op) => op.type === 'insert' && op.elementId === id
     );
@@ -703,6 +722,30 @@ export class ChangesModule {
     }
 
     return '';
+  }
+
+  /**
+   * Set or update the baseline for an element
+   * This is called when opening an element for editing to preserve the current state
+   * as the "baseline" for diff calculations
+   */
+  public setElementBaseline(id: string, content: string): void {
+    this.elementBaselines.set(id, content);
+  }
+
+  /**
+   * Clear the baseline for an element (called when closing the editor)
+   * This allows the module to revert to using original/insert content as baseline
+   */
+  public clearElementBaseline(id: string): void {
+    this.elementBaselines.delete(id);
+  }
+
+  /**
+   * Clear all element baselines (called on undo/redo to reset tracking)
+   */
+  public clearAllBaselines(): void {
+    this.elementBaselines.clear();
   }
 
   private findOriginalElement(id: string): Element | undefined {
@@ -744,6 +787,7 @@ export class ChangesModule {
     this.operations = [];
     this.redoStack = [];
     this.saved = true;
+    this.elementBaselines.clear();
   }
 }
 

@@ -744,17 +744,41 @@ export function revertChanges(
  * Strip all CriticMarkup syntax from content
  * Useful for cleaning up content that has CriticMarkup annotations
  */
-export function stripCriticMarkup(content: string, acceptMode = true): string {
+interface StripOptions {
+  preserveCommentsAsHtml?: boolean;
+}
+
+export function stripCriticMarkup(
+  content: string,
+  acceptMode = true,
+  options: StripOptions = {}
+): string {
   let result = content;
+  const preserveComments = options.preserveCommentsAsHtml ?? false;
+
+  const formatComment = (raw: string): string => {
+    if (!preserveComments) {
+      return '';
+    }
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return '';
+    }
+    const sanitized = trimmed.replace(/--/g, '- -');
+    return `<!-- review-comment ${sanitized} -->`;
+  };
 
   if (acceptMode) {
     // Accept mode: keep additions/new, remove deletions/old
-    // Remove deletions: {--text--}
     result = result.replace(/\{--[^}]*--\}/g, '');
     // Keep addition content: {++text++} -> text
     result = result.replace(/\{\+\+([^}]*)\+\+\}/g, '$1');
     // Keep new from substitutions: {~~old~>new~~} -> new
     result = result.replace(/\{~~[^~]*~>([^}]*)~~\}/g, '$1');
+    // Convert critic comments {>> comment <<}
+    result = result.replace(/\{>>([\s\S]*?)<<\}/g, (_match, text) =>
+      formatComment(text ?? '')
+    );
   } else {
     // Reject mode: keep deletions/old, remove additions/new
     // Keep deletion content: {--text--} -> text
@@ -763,11 +787,14 @@ export function stripCriticMarkup(content: string, acceptMode = true): string {
     result = result.replace(/\{\+\+[^}]*\+\+\}/g, '');
     // Keep old from substitutions: {~~old~>new~~} -> old
     result = result.replace(/\{~~([^~]*)~>[^}]*~~\}/g, '$1');
+    // Convert critic comments {>> comment <<}
+    result = result.replace(/\{>>([\s\S]*?)<<\}/g, (_match, text) =>
+      formatComment(text ?? '')
+    );
   }
 
-  // Remove comments and highlights (always strip in export)
-  result = result.replace(/\{>>[^}]*<<\}/g, '');
-  result = result.replace(/\{==([^}]*)==\}/g, '$1');
+  // Always preserve highlight text
+  result = result.replace(/\{==([\s\S]*?)==\}/g, '$1');
 
   return result;
 }

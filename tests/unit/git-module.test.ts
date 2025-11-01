@@ -59,6 +59,7 @@ describe('GitModule', () => {
     it('initializes with valid config', () => {
       const mockProvider = {
         getCurrentUser: vi.fn(),
+        updateAuthToken: vi.fn(),
       } as unknown as BaseProvider;
 
       const mockResolution = {

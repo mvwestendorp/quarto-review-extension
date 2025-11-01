@@ -75,12 +75,50 @@ export class TranslationController {
         this.handleTranslationUpdate();
       });
 
+      // Set up keyboard shortcuts
+      this.setupKeyboardShortcuts();
+
       this.showNotification('Translation module initialized', 'success');
     } catch (error) {
       logger.error('Failed to initialize translation UI', error);
       this.showNotification('Failed to initialize translation module', 'error');
       throw error;
     }
+  }
+
+  /**
+   * Set up keyboard shortcuts for translation operations
+   */
+  private setupKeyboardShortcuts(): void {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+T or Cmd+T: Translate document
+      if ((e.ctrlKey || e.metaKey) && e.key === 't' && !e.shiftKey) {
+        e.preventDefault();
+        void this.translateDocument();
+        return;
+      }
+
+      // Ctrl+Shift+T or Cmd+Shift+T: Translate selected sentence
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        void this.translateSelected();
+        return;
+      }
+
+      // Ctrl+Alt+S or Cmd+Option+S: Swap languages
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === 's') {
+        e.preventDefault();
+        this.swapLanguages();
+        return;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Store the listener for cleanup
+    (this as any).keydownListener = handleKeyDown;
+
+    logger.info('Keyboard shortcuts registered for translation');
   }
 
   /**
@@ -382,6 +420,13 @@ export class TranslationController {
    */
   destroy(): void {
     logger.info('Destroying translation controller');
+
+    // Remove keyboard shortcut listener
+    const keydownListener = (this as any).keydownListener;
+    if (keydownListener) {
+      document.removeEventListener('keydown', keydownListener);
+      delete (this as any).keydownListener;
+    }
 
     this.view?.destroy();
     this.toolbar?.destroy();

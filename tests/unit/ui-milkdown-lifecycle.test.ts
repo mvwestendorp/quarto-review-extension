@@ -143,6 +143,9 @@ vi.mock('@modules/ui/sidebars/MainSidebar', () => ({
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),
       setHasUnsavedChanges: vi.fn(),
+      onToggleTranslation: vi.fn(),
+      setTranslationEnabled: vi.fn(),
+      setTranslationActive: vi.fn(),
       destroy: vi.fn(),
     };
   }),
