@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quarto Review Extension - Documentation</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1e40af;
+      --bg: #ffffff;
+      --bg-secondary: #f8fafc;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: rgba(0, 0, 0, 0.1);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      text-align: center;
+      padding: 4rem 2rem 3rem;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 1rem;
+      margin-bottom: 3rem;
+      box-shadow: 0 10px 30px var(--shadow);
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      font-size: 1.25rem;
+      opacity: 0.9;
+    }
+
+    .badges {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      font-size: 0.875rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    .card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 2rem;
+      box-shadow: 0 2px 8px var(--shadow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px var(--shadow);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-icon {
+      font-size: 2rem;
+    }
+
+    .card h2 {
+      font-size: 1.5rem;
+      color: var(--text);
+    }
+
+    .card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .card ul {
+      list-style: none;
+    }
+
+    .card li {
+      margin-bottom: 0.75rem;
+    }
+
+    .card a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .card a:hover {
+      color: var(--primary-dark);
+      text-decoration: underline;
+    }
+
+    .card a::before {
+      content: "→ ";
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .card a:hover::before {
+      opacity: 1;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .stat {
+      background: var(--bg-secondary);
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border);
+      margin-top: 4rem;
+    }
+
+    @media (max-width: 768px) {
+      header h1 {
+        font-size: 2rem;
+      }
+
+      header p {
+        font-size: 1rem;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Quarto Review Extension</h1>
+      <p>Collaborative document review with in-browser editing</p>
+      <div class="badges">
+        <span class="badge">📝 Markdown-based</span>
+        <span class="badge">🔄 Change Tracking</span>
+        <span class="badge">💬 Comments</span>
+        <span class="badge">🔀 Git Integration</span>
+      </div>
+    </header>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-value">71.27%</div>
+        <div class="stat-label">Test Coverage</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">1,049</div>
+        <div class="stat-label">Unit Tests</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">0</div>
+        <div class="stat-label">High Vulnerabilities</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">v0.1.0</div>
+        <div class="stat-label">Latest Version</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📚</span>
+          <h2>User Guide</h2>
+        </div>
+        <p>Learn how to use the extension with tutorials, examples, and best practices.</p>
+        <ul>
+          <li><a href="user/">Getting Started</a></li>
+          <li><a href="user/FEATURES.html">Feature Overview</a></li>
+          <li><a href="user/KEYBOARD_SHORTCUTS.html">Keyboard Shortcuts</a></li>
+          <li><a href="user/FAQ.html">Frequently Asked Questions</a></li>
+          <li><a href="user/TROUBLESHOOTING.html">Troubleshooting Guide</a></li>
+          <li><a href="user/DEBUG.html">Debug Mode</a></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🔧</span>
+          <h2>Developer Guide</h2>
+        </div>
+        <p>Architecture documentation, API references, and contribution guidelines.</p>
+        <ul>
+          <li><a href="dev/">Development Overview</a></li>
+          <li><a href="dev/SETUP.html">Setup Guide</a></li>
+          <li><a href="dev/ARCHITECTURE.html">Architecture</a></li>
+          <li><a href="dev/MODULES.html">Module Documentation</a></li>
+          <li><a href="dev/CONTRIBUTING.html">Contributing Guide</a></li>
+          <li><a href="api/">API Reference (TypeDoc)</a></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">📊</span>
+          <h2>Quality Reports</h2>
+        </div>
+        <p>Test coverage, security scans, and code quality metrics.</p>
+        <ul>
+          <li><a href="coverage/">Test Coverage Report</a></li>
+          <li><a href="https://github.com/mvwestendorp/quarto-review-extension/actions">CI/CD Pipeline</a></li>
+          <li><a href="https://github.com/mvwestendorp/quarto-review-extension/security">Security Dashboard</a></li>
+          <li><a href="TEST_COVERAGE_PLAN.html">Coverage Improvement Plan</a></li>
+          <li><a href="TEST_COVERAGE_PROGRESS.html">Coverage Progress</a></li>
+          <li><a href="SECURITY_CI_PROPOSAL.html">Security CI Analysis</a></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-icon">🔗</span>
+          <h2>Project Links</h2>
+        </div>
+        <p>Source code, releases, and project metadata.</p>
+        <ul>
+          <li><a href="https://github.com/mvwestendorp/quarto-review-extension">GitHub Repository</a></li>
+          <li><a href="https://github.com/mvwestendorp/quarto-review-extension/releases">Releases</a></li>
+          <li><a href="https://github.com/mvwestendorp/quarto-review-extension/issues">Issue Tracker</a></li>
+          <li><a href="CHANGELOG.html">Changelog</a></li>
+          <li><a href="README.html">README</a></li>
+          <li><a href="SECURITY.html">Security Policy</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p>Built with ❤️ for the Quarto community | MIT License | Auto-deployed via GitHub Actions</p>
+  </footer>
+</body>
+</html>

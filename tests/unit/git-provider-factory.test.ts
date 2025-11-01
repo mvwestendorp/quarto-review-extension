@@ -3,6 +3,7 @@ import { createProvider } from '@/modules/git/providers';
 import {
   GitHubProvider,
   GitLabProvider,
+  AzureDevOpsProvider,
   GiteaProvider,
   LocalProvider,
 } from '@/modules/git/providers';
@@ -172,6 +173,52 @@ describe('createProvider', () => {
       const provider = createProvider(config);
 
       expect(provider).toBeInstanceOf(GitLabProvider);
+    });
+  });
+
+  describe('Azure DevOps provider creation', () => {
+    const baseConfig: ResolvedGitConfig = {
+      provider: 'azure-devops',
+      repository: {
+        owner: 'example-org',
+        name: 'docs-repo',
+        baseBranch: 'main',
+      },
+      options: {
+        project: 'Website',
+      },
+      auth: {
+        mode: 'pat',
+        token: 'ado_pat_123',
+      },
+    };
+
+    it('creates AzureDevOpsProvider with default cloud URL', () => {
+      const provider = createProvider(baseConfig);
+      expect(provider).toBeInstanceOf(AzureDevOpsProvider);
+    });
+
+    it('creates AzureDevOpsProvider with custom collection', () => {
+      const provider = createProvider({
+        ...baseConfig,
+        options: {
+          ...baseConfig.options,
+          collection: 'DefaultCollection',
+        },
+      });
+
+      expect(provider).toBeInstanceOf(AzureDevOpsProvider);
+    });
+
+    it('throws when project option is missing', () => {
+      const config: ResolvedGitConfig = {
+        ...baseConfig,
+        options: {},
+      };
+
+      expect(() => createProvider(config)).toThrow(
+        'Azure DevOps provider requires the `project` option to be configured.'
+      );
     });
   });
 

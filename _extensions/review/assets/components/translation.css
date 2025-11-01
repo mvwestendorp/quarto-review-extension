@@ -1,0 +1,370 @@
+/**
+ * Translation UI Components Styling
+ * Side-by-side translation view with correspondence visualization
+ */
+
+/* ===========================
+   Translation View Container
+   =========================== */
+
+.review-translation-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: white;
+  border-radius: var(--review-radius-md, 8px);
+  box-shadow: var(--review-shadow-md);
+  overflow: hidden;
+}
+
+.review-translation-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(
+    135deg,
+    rgba(var(--review-color-primary-rgb), 0.05),
+    rgba(var(--review-color-primary-rgb), 0.02)
+  );
+  border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+}
+
+/* ===========================
+   Translation Statistics
+   =========================== */
+
+.review-translation-stats {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.review-translation-stat {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+
+.review-translation-stat-label {
+  font-size: 13px;
+  color: rgba(0, 0, 0, 0.6);
+  font-weight: 500;
+}
+
+.review-translation-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(var(--review-color-primary-rgb), 1);
+}
+
+.review-translation-stat-value[data-stat='progress'] {
+  font-size: 18px;
+  color: rgba(var(--review-color-success-rgb), 1);
+}
+
+/* ===========================
+   Translation Content Area
+   =========================== */
+
+.review-translation-content {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ===========================
+   Translation Panes
+   =========================== */
+
+.review-translation-pane {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+  background: white;
+  overflow: hidden;
+}
+
+.review-translation-pane:last-child {
+  border-right: none;
+}
+
+.review-translation-pane-header {
+  padding: 12px 16px;
+  background: rgba(var(--review-color-primary-rgb), 0.03);
+  border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+}
+
+.review-translation-pane-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-translation-lang-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(var(--review-color-primary-rgb), 0.8);
+  text-transform: uppercase;
+}
+
+.review-translation-pane-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+/* ===========================
+   Sentences
+   =========================== */
+
+.review-translation-sentence {
+  position: relative;
+  margin-bottom: 12px;
+  padding: 12px 16px;
+  border-radius: var(--review-radius-sm, 6px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.review-translation-sentence:hover {
+  border-color: rgba(var(--review-color-primary-rgb), 0.3);
+  box-shadow: var(--review-shadow-sm);
+  transform: translateY(-1px);
+}
+
+.review-translation-sentence-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: rgba(0, 0, 0, 0.85);
+}
+
+/* Sentence Status Indicator */
+.review-translation-sentence-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Status Colors */
+.review-translation-sentence[data-status='untranslated']
+  .review-translation-sentence-indicator {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.review-translation-sentence[data-status='auto-translated']
+  .review-translation-sentence-indicator {
+  background: rgba(var(--review-color-primary-rgb), 0.8);
+}
+
+.review-translation-sentence[data-status='manual']
+  .review-translation-sentence-indicator {
+  background: rgba(var(--review-color-success-rgb), 1);
+}
+
+.review-translation-sentence[data-status='edited']
+  .review-translation-sentence-indicator {
+  background: rgba(var(--review-color-warning-rgb), 1);
+}
+
+.review-translation-sentence[data-status='out-of-sync']
+  .review-translation-sentence-indicator {
+  background: rgba(var(--review-color-danger-rgb), 1);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.review-translation-sentence[data-status='synced']
+  .review-translation-sentence-indicator {
+  background: rgba(var(--review-color-success-rgb), 0.6);
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Selected State */
+.review-translation-sentence-selected {
+  border-color: rgba(var(--review-color-primary-rgb), 0.6);
+  background: rgba(var(--review-color-primary-rgb), 0.05);
+  box-shadow: var(--review-shadow-md);
+}
+
+/* Hover Highlight State */
+.review-translation-sentence-hover {
+  border-color: rgba(var(--review-color-primary-rgb), 0.4);
+  background: rgba(var(--review-color-primary-rgb), 0.02);
+}
+
+/* Inline Editor */
+.review-translation-sentence-editor {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.3);
+  border-radius: var(--review-radius-xs, 4px);
+  resize: vertical;
+  outline: none;
+}
+
+.review-translation-sentence-editor:focus {
+  border-color: rgba(var(--review-color-primary-rgb), 0.6);
+  box-shadow: 0 0 0 3px rgba(var(--review-color-primary-rgb), 0.1);
+}
+
+/* ===========================
+   Correspondence Canvas
+   =========================== */
+
+.review-translation-correspondence-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ===========================
+   Translation Toolbar
+   =========================== */
+
+.review-translation-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 20px;
+  background: white;
+  border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+  flex-wrap: wrap;
+}
+
+.review-translation-toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.review-translation-toolbar-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* Provider Select */
+.review-translation-provider-select,
+.review-translation-lang-select {
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  border-radius: var(--review-radius-xs, 4px);
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.review-translation-provider-select:hover,
+.review-translation-lang-select:hover {
+  border-color: rgba(var(--review-color-primary-rgb), 0.4);
+}
+
+.review-translation-provider-select:focus,
+.review-translation-lang-select:focus {
+  outline: none;
+  border-color: rgba(var(--review-color-primary-rgb), 0.6);
+  box-shadow: 0 0 0 3px rgba(var(--review-color-primary-rgb), 0.1);
+}
+
+/* Progress Indicator */
+.review-translation-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(var(--review-color-primary-rgb), 0.05);
+  border-radius: var(--review-radius-sm, 6px);
+}
+
+.review-translation-progress-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(var(--review-color-primary-rgb), 0.2);
+  border-top-color: rgba(var(--review-color-primary-rgb), 1);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.review-translation-progress-text {
+  font-size: 13px;
+  color: rgba(var(--review-color-primary-rgb), 1);
+  font-weight: 500;
+}
+
+/* ===========================
+   Responsive Design
+   =========================== */
+
+@media (max-width: 1024px) {
+  .review-translation-content {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  .review-translation-pane {
+    border-right: none;
+    border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+  }
+
+  .review-translation-pane:last-child {
+    border-bottom: none;
+  }
+
+  .review-translation-correspondence-canvas {
+    display: none; /* Hide lines in stacked layout */
+  }
+}
+
+@media (max-width: 768px) {
+  .review-translation-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .review-translation-toolbar-section {
+    flex-wrap: wrap;
+  }
+
+  .review-translation-stats {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+}

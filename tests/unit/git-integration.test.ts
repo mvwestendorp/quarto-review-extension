@@ -1,252 +1,350 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
-import GitIntegrationService from '@/modules/git/integration';
-import type { BaseProvider } from '@/modules/git/providers';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import GitIntegrationService, {
+  type ReviewSubmissionPayload,
+  type ReviewSubmissionResult,
+} from '@/modules/git/integration';
 import type { ResolvedGitConfig } from '@/modules/git/types';
-import type { ReviewSubmissionPayload } from '@/modules/git/integration';
+import {
+  BaseProvider,
+  type PullRequest,
+  type Issue,
+} from '@/modules/git/providers/base';
+import type {
+  CreateBranchResult,
+  FileUpsertResult,
+  GitUser,
+  RepositoryFile,
+  ReviewCommentInput,
+  ReviewCommentResult,
+} from '@/modules/git/types';
+
+class MockProvider extends BaseProvider {
+  constructor() {
+    super({
+      url: 'https://api.example.com',
+      owner: 'owner',
+      repo: 'repo',
+    });
+  }
+
+  protected getAuthHeader(): string | undefined {
+    return 'Bearer test-token';
+  }
+
+  getCurrentUser = vi.fn<[], Promise<GitUser>>();
+  createBranch = vi.fn<
+    [string, string],
+    Promise<CreateBranchResult>
+  >();
+  getFileContent = vi.fn<
+    [string, string],
+    Promise<RepositoryFile | null>
+  >();
+  createOrUpdateFile = vi.fn<
+    [string, string, string, string, string | undefined],
+    Promise<FileUpsertResult>
+  >();
+  createPullRequest = vi.fn<
+    [string, string, string, string],
+    Promise<PullRequest>
+  >();
+  updatePullRequest = vi.fn<
+    [number, Partial<Pick<PullRequest, 'title' | 'body'>>],
+    Promise<PullRequest>
+  >();
+  getPullRequest = vi.fn<[number], Promise<PullRequest>>();
+  listPullRequests = vi.fn<
+    [state?: 'open' | 'closed' | 'all'],
+    Promise<PullRequest[]>
+  >();
+  mergePullRequest = vi.fn<
+    [number, 'merge' | 'squash' | 'rebase' | undefined],
+    Promise<void>
+  >();
+  createReviewComments = vi.fn<
+    [number, ReviewCommentInput[], string],
+    Promise<ReviewCommentResult[]>
+  >();
+  createIssue = vi.fn<
+    [string, string],
+    Promise<Issue>
+  >();
+  getIssue = vi.fn<[number], Promise<Issue>>();
+  listIssues = vi.fn<
+    [state?: 'open' | 'closed' | 'all'],
+    Promise<Issue[]>
+  >();
+  addPullRequestComment = vi.fn<[number, string], Promise<void>>();
+  addIssueComment = vi.fn<[number, string], Promise<void>>();
+  getRepository = vi.fn<
+    [],
+    Promise<{
+      name: string;
+      description: string;
+      url: string;
+      defaultBranch: string;
+    }>
+  >();
+  hasWriteAccess = vi.fn<[], Promise<boolean>>();
+}
+
+const baseConfig: ResolvedGitConfig = {
+  provider: 'github',
+  repository: {
+    owner: 'owner',
+    name: 'repo',
+    baseBranch: 'main',
+  },
+};
 
 describe('GitIntegrationService', () => {
+  let provider: MockProvider;
   let service: GitIntegrationService;
-  let mockProvider: BaseProvider;
-  let mockConfig: ResolvedGitConfig;
 
   beforeEach(() => {
-    mockProvider = {
-      getCurrentUser: vi.fn(),
-      createBranch: vi.fn(),
-      getFileContent: vi.fn(),
-      createOrUpdateFile: vi.fn(),
-      createPullRequest: vi.fn(),
-      updatePullRequest: vi.fn(),
-      getPullRequest: vi.fn(),
-      listPullRequests: vi.fn(),
-      mergePullRequest: vi.fn(),
-      createReviewComments: vi.fn(),
-      createIssue: vi.fn(),
-      getIssue: vi.fn(),
-      listIssues: vi.fn(),
-      addPullRequestComment: vi.fn(),
-      addIssueComment: vi.fn(),
-      getRepository: vi.fn(),
-      hasWriteAccess: vi.fn(),
-    } as unknown as BaseProvider;
+    provider = new MockProvider();
+    service = new GitIntegrationService(provider, baseConfig);
+  });
 
-    mockConfig = {
-      provider: 'github',
-      repository: {
-        owner: 'test-owner',
-        name: 'test-repo',
-        baseBranch: 'main',
-        sourceFile: 'document.qmd',
+  const createPayload = (
+    overrides: Partial<ReviewSubmissionPayload> = {}
+  ): ReviewSubmissionPayload => ({
+    reviewer: 'reviewer',
+    branchName: 'feature/review',
+    files: [
+      {
+        path: 'document.qmd',
+        content: 'Updated content',
+        message: 'Update document',
       },
-      auth: {
-        mode: 'pat',
-        token: 'test-token',
-      },
-    };
-
-    service = new GitIntegrationService(mockProvider, mockConfig);
+    ],
+    pullRequest: {
+      title: 'Review updates',
+      body: 'Automated review submission',
+    },
+    ...overrides,
   });
 
-  describe('initialization', () => {
-    it('stores provider and config', () => {
-      expect(service.getProvider()).toBe(mockProvider);
-      expect(service.getRepositoryConfig()).toEqual(mockConfig.repository);
+  const createPullRequestStub = (overrides: Partial<PullRequest> = {}): PullRequest => ({
+    number: 42,
+    title: 'Review updates',
+    body: 'Automated review submission',
+    state: 'open',
+    author: 'robot',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    url: 'https://example.com/pr/42',
+    headRef: 'feature/review',
+    baseRef: 'main',
+    draft: false,
+    ...overrides,
+  });
+
+  it('creates branch, commits files, and opens pull request', async () => {
+    provider.createBranch.mockResolvedValue({
+      name: 'feature/review',
+      sha: 'base-sha',
+    });
+    provider.getFileContent.mockResolvedValue(null);
+    provider.createOrUpdateFile.mockResolvedValue({
+      path: 'document.qmd',
+      sha: 'new-sha',
+      commitSha: 'commit-sha',
+    });
+    provider.listPullRequests.mockResolvedValue([]);
+    provider.createPullRequest.mockResolvedValue(
+      createPullRequestStub()
+    );
+    provider.createReviewComments.mockResolvedValue([]);
+
+    const payload = createPayload();
+    const result = (await service.submitReview(payload)) as ReviewSubmissionResult;
+
+    expect(provider.createBranch).toHaveBeenCalledWith(
+      'feature/review',
+      'main'
+    );
+    expect(provider.createOrUpdateFile).toHaveBeenCalledWith(
+      'document.qmd',
+      'Updated content',
+      'Update document',
+      'feature/review',
+      undefined
+    );
+    expect(provider.createPullRequest).toHaveBeenCalledWith(
+      'Review updates',
+      'Automated review submission',
+      'feature/review',
+      'main'
+    );
+    expect(result.branchName).toBe('feature/review');
+    expect(result.pullRequest.number).toBe(42);
+    expect(result.files[0]).toEqual({
+      path: 'document.qmd',
+      sha: 'new-sha',
+      commitSha: 'commit-sha',
     });
   });
 
-  describe('getRepositoryConfig', () => {
-    it('returns repository configuration', () => {
-      const repoConfig = service.getRepositoryConfig();
-
-      expect(repoConfig).toEqual({
-        owner: 'test-owner',
-        name: 'test-repo',
-        baseBranch: 'main',
-        sourceFile: 'document.qmd',
-      });
+  it('reuses branch when it already exists', async () => {
+    const existsError = Object.assign(new Error('Reference already exists'), {
+      status: 422,
     });
 
-    it('includes sourceFile when provided', () => {
-      const repoConfig = service.getRepositoryConfig();
-
-      expect(repoConfig.sourceFile).toBe('document.qmd');
+    provider.createBranch.mockRejectedValue(existsError);
+    provider.getFileContent.mockResolvedValue(null);
+    provider.createOrUpdateFile.mockResolvedValue({
+      path: 'document.qmd',
+      sha: 'new-sha',
+      commitSha: 'commit-sha',
     });
+    provider.listPullRequests.mockResolvedValue([]);
+    provider.createPullRequest.mockResolvedValue(
+      createPullRequestStub()
+    );
+    provider.createReviewComments.mockResolvedValue([]);
 
-    it('works without sourceFile', () => {
-      const configWithoutSourceFile: ResolvedGitConfig = {
-        provider: 'github',
-        repository: {
-          owner: 'test-owner',
-          name: 'test-repo',
-          baseBranch: 'develop',
-        },
-        auth: {
-          mode: 'header',
-        },
-      };
-
-      const serviceWithoutSourceFile = new GitIntegrationService(
-        mockProvider,
-        configWithoutSourceFile
-      );
-
-      const repoConfig = serviceWithoutSourceFile.getRepositoryConfig();
-
-      expect(repoConfig.sourceFile).toBeUndefined();
-      expect(repoConfig.baseBranch).toBe('develop');
-    });
+    await expect(service.submitReview(createPayload())).resolves.toBeTruthy();
+    expect(provider.createPullRequest).toHaveBeenCalled();
   });
 
-  describe('getProvider', () => {
-    it('returns the provider instance', () => {
-      expect(service.getProvider()).toBe(mockProvider);
+  it('updates existing pull request when branch already has an open PR', async () => {
+    provider.createBranch.mockResolvedValue({
+      name: 'feature/review',
+      sha: 'base-sha',
     });
+    provider.getFileContent.mockResolvedValue(null);
+    provider.createOrUpdateFile.mockResolvedValue({
+      path: 'document.qmd',
+      sha: 'new-sha',
+      commitSha: 'commit-sha',
+    });
+
+    const existing = createPullRequestStub({ number: 99 });
+    provider.listPullRequests.mockResolvedValue([existing]);
+    provider.updatePullRequest.mockResolvedValue({
+      ...existing,
+      title: 'Review updates',
+    });
+    provider.createReviewComments.mockResolvedValue([]);
+
+    const result = await service.submitReview(createPayload());
+
+    expect(provider.createPullRequest).not.toHaveBeenCalled();
+    expect(provider.updatePullRequest).toHaveBeenCalledWith(99, {
+      title: 'Review updates',
+      body: 'Automated review submission',
+    });
+    expect(result.reusedPullRequest).toBe(true);
   });
 
-  describe('submitReview', () => {
-    it('throws "not implemented" error', async () => {
-      const payload: ReviewSubmissionPayload = {
-        reviewer: 'test-user',
-        changes: {},
-        comments: {},
-        metadata: {},
-      };
-
-      await expect(service.submitReview(payload)).rejects.toThrow(
-        'Git integration workflow is not implemented yet'
-      );
+  it('posts inline review comments when commit SHA is available', async () => {
+    provider.createBranch.mockResolvedValue({
+      name: 'feature/review',
+      sha: 'base-sha',
     });
+    provider.getFileContent.mockResolvedValue(null);
+    provider.createOrUpdateFile.mockResolvedValue({
+      path: 'document.qmd',
+      sha: 'new-sha',
+      commitSha: 'commit-sha',
+    });
+    provider.listPullRequests.mockResolvedValue([]);
+    provider.createPullRequest.mockResolvedValue(
+      createPullRequestStub()
+    );
+    provider.createReviewComments.mockResolvedValue([]);
 
-    it('accepts various payload structures', async () => {
-      const payloads: ReviewSubmissionPayload[] = [
+    const payload = createPayload({
+      comments: [
         {
-          reviewer: 'user1',
-          changes: { type: 'edit', data: {} },
+          path: 'document.qmd',
+          body: 'Consider rephrasing this paragraph.',
+          line: 12,
         },
-        {
-          reviewer: 'user2',
-          changes: [{ type: 'insert' }, { type: 'delete' }],
-          comments: [{ id: '1', body: 'comment' }],
-        },
-        {
-          reviewer: 'user3',
-          changes: { operations: [] },
-          comments: { items: [] },
-          metadata: { timestamp: Date.now(), source: 'test' },
-        },
-      ];
-
-      for (const payload of payloads) {
-        await expect(service.submitReview(payload)).rejects.toThrow();
-      }
+      ],
     });
+
+    await service.submitReview(payload);
+
+    expect(provider.createReviewComments).toHaveBeenCalledWith(
+      42,
+      [
+        {
+          path: 'document.qmd',
+          body: 'Consider rephrasing this paragraph.',
+          line: 12,
+        },
+      ],
+      'commit-sha'
+    );
   });
 
-  describe('with different provider types', () => {
-    const providerTypes = ['github', 'gitlab', 'gitea', 'forgejo'] as const;
+  it('skips inline comments when no commit SHA is available', async () => {
+    provider.createBranch.mockResolvedValue({
+      name: 'feature/review',
+      sha: 'base-sha',
+    });
+    provider.getFileContent.mockResolvedValue(null);
+    provider.createOrUpdateFile.mockResolvedValue({
+      path: 'document.qmd',
+      sha: 'new-sha',
+      commitSha: '',
+    });
+    provider.listPullRequests.mockResolvedValue([]);
+    provider.createPullRequest.mockResolvedValue(
+      createPullRequestStub()
+    );
+    provider.createReviewComments.mockResolvedValue([]);
 
-    providerTypes.forEach((provider) => {
-      it(`works with ${provider} provider`, () => {
-        const configForProvider: ResolvedGitConfig = {
-          provider,
-          repository: {
-            owner: 'owner',
-            name: 'repo',
-            baseBranch: 'main',
+    const payload = createPayload({
+      comments: [
+        {
+          path: 'document.qmd',
+          body: 'Consider rephrasing this paragraph.',
+          line: 12,
+        },
+      ],
+    });
+
+    await service.submitReview(payload);
+
+    expect(provider.createReviewComments).not.toHaveBeenCalled();
+  });
+
+  it('validates required payload fields', async () => {
+    await expect(
+      service.submitReview(
+        createPayload({
+          reviewer: '',
+        })
+      )
+    ).rejects.toThrow('Reviewer information is required');
+
+    await expect(
+      service.submitReview(
+        createPayload({
+          files: [],
+        })
+      )
+    ).rejects.toThrow('At least one file change must be provided');
+
+    await expect(
+      service.submitReview(
+        createPayload({
+          files: [{ path: '', content: 'abc' }],
+        })
+      )
+    ).rejects.toThrow('File path is required for each change');
+
+    await expect(
+      service.submitReview(
+        createPayload({
+          pullRequest: {
+            title: '',
           },
-        };
-
-        const serviceForProvider = new GitIntegrationService(
-          mockProvider,
-          configForProvider
-        );
-
-        expect(serviceForProvider.getRepositoryConfig().owner).toBe('owner');
-      });
-    });
-  });
-
-  describe('with different authentication modes', () => {
-    it('supports PAT authentication', () => {
-      const configPat: ResolvedGitConfig = {
-        provider: 'github',
-        repository: {
-          owner: 'test-owner',
-          name: 'test-repo',
-          baseBranch: 'main',
-        },
-        auth: {
-          mode: 'pat',
-          token: 'ghp_xxxxxxxxxxxx',
-        },
-      };
-
-      const servicePat = new GitIntegrationService(mockProvider, configPat);
-
-      expect(servicePat.getRepositoryConfig().owner).toBe('test-owner');
-    });
-
-    it('supports header-based authentication', () => {
-      const configHeader: ResolvedGitConfig = {
-        provider: 'github',
-        repository: {
-          owner: 'test-owner',
-          name: 'test-repo',
-          baseBranch: 'main',
-        },
-        auth: {
-          mode: 'header',
-          headerName: 'X-Custom-Auth',
-        },
-      };
-
-      const serviceHeader = new GitIntegrationService(mockProvider, configHeader);
-
-      expect(serviceHeader.getRepositoryConfig().owner).toBe('test-owner');
-    });
-
-    it('supports cookie-based authentication', () => {
-      const configCookie: ResolvedGitConfig = {
-        provider: 'github',
-        repository: {
-          owner: 'test-owner',
-          name: 'test-repo',
-          baseBranch: 'main',
-        },
-        auth: {
-          mode: 'cookie',
-          cookieName: 'session_id',
-        },
-      };
-
-      const serviceCookie = new GitIntegrationService(mockProvider, configCookie);
-
-      expect(serviceCookie.getRepositoryConfig().owner).toBe('test-owner');
-    });
-  });
-
-  describe('with provider options', () => {
-    it('preserves provider-specific options', () => {
-      const configWithOptions: ResolvedGitConfig = {
-        provider: 'gitlab',
-        repository: {
-          owner: 'group',
-          name: 'project',
-          baseBranch: 'main',
-        },
-        options: {
-          projectId: '123456',
-          apiUrl: 'https://gitlab.company.com/api/v4',
-          customHeader: 'X-Custom-Header',
-        },
-      };
-
-      const serviceWithOptions = new GitIntegrationService(
-        mockProvider,
-        configWithOptions
-      );
-
-      expect(serviceWithOptions.getRepositoryConfig().owner).toBe('group');
-    });
+        })
+      )
+    ).rejects.toThrow('Pull request title is required');
   });
 });

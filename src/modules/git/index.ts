@@ -5,6 +5,7 @@ import { createProvider } from './providers';
 import type { BaseProvider } from './providers';
 import GitIntegrationService, {
   type ReviewSubmissionPayload,
+  type ReviewSubmissionResult,
 } from './integration';
 import type { ResolvedGitConfig } from './types';
 import { EmbeddedSourceStore, type EmbeddedSourceRecord } from './fallback';
@@ -16,6 +17,7 @@ export class GitModule {
   private readonly provider?: BaseProvider;
   private readonly integration?: GitIntegrationService;
   private readonly fallbackStore: EmbeddedSourceStore;
+  private authToken?: string;
 
   constructor(rawConfig?: ReviewGitConfig) {
     this.resolution = resolveGitConfig(rawConfig);
@@ -27,7 +29,16 @@ export class GitModule {
     }
 
     try {
+      const initialToken =
+        this.resolution?.config.auth?.mode === 'pat'
+          ? this.resolution.config.auth?.token
+          : undefined;
+      this.authToken = initialToken;
+
       this.provider = createProvider(this.resolution.config);
+      if (initialToken) {
+        this.provider.updateAuthToken(initialToken);
+      }
       this.integration = new GitIntegrationService(
         this.provider,
         this.resolution.config
@@ -53,16 +64,30 @@ export class GitModule {
     return this.provider;
   }
 
+  public requiresAuthToken(): boolean {
+    const authMode = this.resolution?.config.auth?.mode;
+    return authMode === 'pat' && !this.authToken;
+  }
+
+  public setAuthToken(token?: string): void {
+    this.authToken = token;
+    if (this.provider) {
+      this.provider.updateAuthToken(token);
+    }
+  }
+
   public getFallbackStore(): EmbeddedSourceStore {
     return this.fallbackStore;
   }
 
-  public async submitReview(payload: ReviewSubmissionPayload): Promise<void> {
+  public submitReview(
+    payload: ReviewSubmissionPayload
+  ): Promise<ReviewSubmissionResult> {
     if (!this.integration) {
       throw new Error('Git integration is not configured');
     }
 
-    await this.integration.submitReview(payload);
+    return this.integration.submitReview(payload);
   }
 
   /**
@@ -103,4 +128,12 @@ export class GitModule {
 }
 
 export { EmbeddedSourceStore } from './fallback';
+
+export type {
+  ReviewSubmissionPayload,
+  ReviewSubmissionResult,
+} from './integration';
+
+export type { ReviewFileChange, ReviewComment } from './integration';
+
 export default GitModule;

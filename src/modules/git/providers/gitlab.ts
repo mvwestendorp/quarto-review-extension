@@ -18,6 +18,31 @@ import type {
   ReviewCommentResult,
 } from '../types';
 
+function encodeBase64(content: string): string {
+  if (typeof btoa === 'function') {
+    return btoa(unescape(encodeURIComponent(content)));
+  }
+  return Buffer.from(content, 'utf-8').toString('base64');
+}
+
+function decodeBase64(content: string): string {
+  if (typeof atob === 'function') {
+    return decodeURIComponent(
+      Array.prototype.map
+        .call(
+          atob(content),
+          (c: string) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
+        )
+        .join('')
+    );
+  }
+  return Buffer.from(content, 'base64').toString('utf-8');
+}
+
+function encodePath(path: string): string {
+  return encodeURIComponent(path).replace(/%2F/g, '/');
+}
+
 export class GitLabProvider extends BaseProvider {
   private projectId: string;
 
@@ -36,31 +61,110 @@ export class GitLabProvider extends BaseProvider {
   }
 
   async getCurrentUser(): Promise<GitUser> {
-    return this.notImplemented();
+    const endpoint = '/user';
+    const response = await this.request<GitLabCurrentUser>(endpoint);
+
+    return {
+      login: response.username,
+      name: response.name ?? undefined,
+      avatarUrl: response.avatar_url ?? undefined,
+    };
   }
 
   async createBranch(
-    _branchName: string,
-    _fromBranch: string
+    branchName: string,
+    fromBranch: string
   ): Promise<CreateBranchResult> {
-    return this.notImplemented();
+    const endpoint = `/projects/${this.projectId}/repository/branches`;
+
+    const response = await this.request<GitLabBranch>(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        branch: branchName,
+        ref: fromBranch,
+      }),
+    });
+
+    return {
+      name: response.name,
+      sha: response.commit.id,
+    };
   }
 
   async getFileContent(
-    _path: string,
-    _ref: string
+    path: string,
+    ref: string
   ): Promise<RepositoryFile | null> {
-    return this.notImplemented();
+    const endpoint = `/projects/${this.projectId}/repository/files/${encodePath(
+      path
+    )}?ref=${encodeURIComponent(ref)}`;
+
+    try {
+      const response = await this.request<GitLabFile>(endpoint, {
+        headers: { Accept: 'application/json' },
+      });
+
+      const sha =
+        response.last_commit_id ?? response.commit_id ?? response.blob_id ?? '';
+
+      return {
+        path: response.file_path,
+        sha,
+        content: decodeBase64(response.content),
+      };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error as Error & { status?: number }).status === 404
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   async createOrUpdateFile(
-    _path: string,
-    _content: string,
-    _message: string,
-    _branch: string,
-    _sha?: string
+    path: string,
+    content: string,
+    message: string,
+    branch: string,
+    sha?: string
   ): Promise<FileUpsertResult> {
-    return this.notImplemented();
+    const endpoint = `/projects/${this.projectId}/repository/files/${encodePath(
+      path
+    )}`;
+
+    const method = sha ? 'PUT' : 'POST';
+    const payload: GitLabFileUpsertRequest = {
+      branch,
+      content: encodeBase64(content),
+      commit_message: message,
+      encoding: 'base64',
+    };
+
+    if (sha) {
+      payload.last_commit_id = sha;
+    }
+
+    const response = await this.request<GitLabFileUpsertResponse>(endpoint, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const fileUrl = this.buildFileUrl(branch, path);
+
+    return {
+      path: response.file_path,
+      sha:
+        response.content_sha256 ??
+        response.last_commit_id ??
+        payload.last_commit_id ??
+        '',
+      commitSha: response.commit_id,
+      ...(fileUrl ? { url: fileUrl } : {}),
+    };
   }
 
   async createPullRequest(
@@ -85,10 +189,21 @@ export class GitLabProvider extends BaseProvider {
   }
 
   async updatePullRequest(
-    _number: number,
-    _updates: Partial<Pick<PullRequest, 'title' | 'body'>>
+    number: number,
+    updates: Partial<Pick<PullRequest, 'title' | 'body'>>
   ): Promise<PullRequest> {
-    return this.notImplemented();
+    const endpoint = `/projects/${this.projectId}/merge_requests/${number}`;
+
+    const response = await this.request<GitLabMergeRequest>(endpoint, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: updates.title,
+        description: updates.body,
+      }),
+    });
+
+    return this.mapMergeRequest(response);
   }
 
   async getPullRequest(number: number): Promise<PullRequest> {
@@ -118,11 +233,43 @@ export class GitLabProvider extends BaseProvider {
   }
 
   async createReviewComments(
-    _number: number,
-    _comments: ReviewCommentInput[],
+    number: number,
+    comments: ReviewCommentInput[],
     _commitSha: string
   ): Promise<ReviewCommentResult[]> {
-    return this.notImplemented();
+    if (!comments.length) {
+      return [];
+    }
+
+    const endpoint = `/projects/${this.projectId}/merge_requests/${number}/notes`;
+
+    const responses = await Promise.all(
+      comments.map((comment) =>
+        this.request<GitLabNote>(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body: comment.body }),
+        }).then((note) => ({
+          input: comment,
+          note,
+        }))
+      )
+    );
+
+    return responses.map(({ input, note }) => {
+      const url =
+        note.web_url ??
+        note.noteable_note_url ??
+        this.buildMergeRequestUrl(number, note.id) ??
+        '';
+
+      return {
+        id: note.id,
+        url,
+        path: input.path,
+        line: input.line,
+      };
+    });
   }
 
   async createIssue(title: string, body: string): Promise<Issue> {
@@ -190,7 +337,14 @@ export class GitLabProvider extends BaseProvider {
   }
 
   async hasWriteAccess(): Promise<boolean> {
-    return this.notImplemented();
+    const endpoint = `/projects/${this.projectId}`;
+    const project = await this.request<GitLabProject>(endpoint);
+
+    const projectAccess =
+      project.permissions?.project_access?.access_level ?? 0;
+    const groupAccess = project.permissions?.group_access?.access_level ?? 0;
+
+    return projectAccess >= 30 || groupAccess >= 30;
   }
 
   private mapMergeRequest(mr: GitLabMergeRequest): PullRequest {
@@ -213,7 +367,39 @@ export class GitLabProvider extends BaseProvider {
       createdAt: mr.created_at,
       updatedAt: mr.updated_at,
       url: mr.web_url,
+      headRef: mr.source_branch,
+      baseRef: mr.target_branch,
+      draft: mr.draft,
     };
+  }
+
+  private buildFileUrl(branch: string, path: string): string | undefined {
+    const baseUrl = this.getWebBaseUrl();
+    if (!baseUrl || !this.config.owner || !this.config.repo) {
+      return undefined;
+    }
+    return `${baseUrl}/${this.config.owner}/${this.config.repo}/-/blob/${encodeURIComponent(
+      branch
+    )}/${path}`;
+  }
+
+  private buildMergeRequestUrl(
+    number: number,
+    noteId?: number | string
+  ): string | undefined {
+    const baseUrl = this.getWebBaseUrl();
+    if (!baseUrl || !this.config.owner || !this.config.repo) {
+      return undefined;
+    }
+    const noteFragment = noteId ? `#note_${noteId}` : '';
+    return `${baseUrl}/${this.config.owner}/${this.config.repo}/-/merge_requests/${number}${noteFragment}`;
+  }
+
+  private getWebBaseUrl(): string | undefined {
+    if (!this.config.url) {
+      return undefined;
+    }
+    return this.config.url.replace(/\/api\/v4\/?$/, '');
   }
 
   private mapIssue(issue: GitLabIssue): Issue {
@@ -229,10 +415,6 @@ export class GitLabProvider extends BaseProvider {
       createdAt: issue.created_at,
       url: issue.web_url,
     };
-  }
-
-  private notImplemented<T = never>(): T {
-    throw new Error('GitLab provider git integration is not implemented yet');
   }
 }
 
@@ -250,6 +432,9 @@ interface GitLabMergeRequest {
   created_at: string;
   updated_at: string;
   web_url: string;
+  source_branch: string;
+  target_branch: string;
+  draft?: boolean;
 }
 
 interface GitLabIssue {
@@ -267,6 +452,58 @@ interface GitLabProject {
   description: string;
   web_url: string;
   default_branch: string;
+  permissions?: {
+    project_access?: {
+      access_level: number | null;
+    } | null;
+    group_access?: {
+      access_level: number | null;
+    } | null;
+  };
+}
+
+interface GitLabCurrentUser {
+  username: string;
+  name?: string;
+  avatar_url?: string;
+}
+
+interface GitLabBranch {
+  name: string;
+  commit: {
+    id: string;
+  };
+}
+
+interface GitLabFile {
+  file_path: string;
+  content: string;
+  blob_id?: string;
+  commit_id?: string;
+  last_commit_id?: string;
+}
+
+interface GitLabFileUpsertRequest {
+  branch: string;
+  content: string;
+  commit_message: string;
+  encoding: 'base64';
+  last_commit_id?: string;
+}
+
+interface GitLabFileUpsertResponse {
+  file_path: string;
+  branch: string;
+  commit_id: string;
+  content_sha256?: string;
+  last_commit_id?: string;
+}
+
+interface GitLabNote {
+  id: number;
+  body: string;
+  web_url?: string;
+  noteable_note_url?: string;
 }
 
 export default GitLabProvider;

@@ -25,6 +25,9 @@ export interface PullRequest {
   createdAt: string;
   updatedAt: string;
   url: string;
+  headRef?: string;
+  baseRef?: string;
+  draft?: boolean;
 }
 
 export interface Issue {
@@ -166,6 +169,17 @@ export abstract class BaseProvider {
    * Determine whether the authenticated user has push/write access to the repository.
    */
   abstract hasWriteAccess(): Promise<boolean>;
+
+  /**
+   * Update the active authentication token (e.g. PAT provided at runtime).
+   */
+  public updateAuthToken(token?: string): void {
+    if (this.config.auth?.mode === 'pat') {
+      this.config.auth.token = token;
+    } else {
+      this.config.token = token;
+    }
+  }
 
   /**
    * Perform a raw API request.

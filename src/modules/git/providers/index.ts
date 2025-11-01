@@ -7,6 +7,7 @@ export { BaseProvider } from './base';
 export { GitHubProvider } from './github';
 export { GitLabProvider } from './gitlab';
 export { GiteaProvider, ForgejoProvider } from './gitea';
+export { AzureDevOpsProvider } from './azure-devops';
 export { LocalProvider } from './local';
 
 export type { PullRequest, Issue, ProviderConfig } from './base';
@@ -14,6 +15,7 @@ export type { PullRequest, Issue, ProviderConfig } from './base';
 import { GitHubProvider } from './github';
 import { GitLabProvider } from './gitlab';
 import { GiteaProvider } from './gitea';
+import { AzureDevOpsProvider } from './azure-devops';
 import { LocalProvider } from './local';
 import type { BaseProvider, ProviderConfig } from './base';
 import type { ResolvedGitConfig } from '../types';
@@ -54,6 +56,44 @@ export function createProvider(resolved: ResolvedGitConfig): BaseProvider {
           ? (options?.projectId as string)
           : undefined,
       });
+    case 'azure-devops': {
+      const project = isString(options?.project)
+        ? (options?.project as string)
+        : undefined;
+      if (!project) {
+        throw new Error(
+          'Azure DevOps provider requires the `project` option to be configured.'
+        );
+      }
+
+      const collection = isString(options?.collection)
+        ? (options?.collection as string)
+        : undefined;
+      const apiVersion = isString(options?.apiVersion)
+        ? (options?.apiVersion as string)
+        : undefined;
+      const issueType = isString(options?.issueType)
+        ? (options?.issueType as string)
+        : undefined;
+
+      const organization = repository.owner;
+      if (!organization || !organization.trim()) {
+        throw new Error(
+          'Azure DevOps provider requires the repository owner to match the organization name.'
+        );
+      }
+
+      const defaultUrl = `https://dev.azure.com/${organization}`;
+
+      return new AzureDevOpsProvider({
+        ...baseConfig,
+        url: baseConfig.url || defaultUrl,
+        project,
+        collection,
+        apiVersion,
+        issueType,
+      });
+    }
     case 'gitea':
     case 'forgejo':
       return new GiteaProvider({

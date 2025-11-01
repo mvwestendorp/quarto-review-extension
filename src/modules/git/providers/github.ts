@@ -340,6 +340,9 @@ export class GitHubProvider extends BaseProvider {
       createdAt: pr.created_at,
       updatedAt: pr.updated_at,
       url: pr.html_url,
+      headRef: pr.head?.ref,
+      baseRef: pr.base?.ref,
+      draft: pr.draft ?? false,
     };
   }
 
@@ -397,6 +400,13 @@ interface GitHubPullRequest {
   created_at: string;
   updated_at: string;
   html_url: string;
+  head?: {
+    ref: string;
+  };
+  base?: {
+    ref: string;
+  };
+  draft?: boolean;
 }
 
 interface GitHubIssue {
