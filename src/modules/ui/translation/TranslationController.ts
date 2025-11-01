@@ -7,13 +7,16 @@ import { createModuleLogger } from '@utils/debug';
 import { TranslationView } from './TranslationView';
 import { TranslationToolbar } from './TranslationToolbar';
 import { TranslationModule } from '@modules/translation';
-import type { TranslationConfig, Language } from '@modules/translation/types';
+import type {
+  TranslationModuleConfig,
+  Language,
+} from '@modules/translation/types';
 
 const logger = createModuleLogger('TranslationController');
 
 export interface TranslationControllerConfig {
   container: HTMLElement;
-  translationConfig: TranslationConfig;
+  translationModuleConfig: TranslationModuleConfig;
   onNotification?: (
     message: string,
     type: 'info' | 'success' | 'warning' | 'error'
@@ -29,32 +32,31 @@ export class TranslationController {
 
   // State
   private selectedSourceSentenceId: string | null = null;
-  private selectedTargetSentenceId: string | null = null;
 
   constructor(config: TranslationControllerConfig) {
     this.config = config;
     this.container = config.container;
 
     // Initialize translation module
-    this.translationModule = new TranslationModule(config.translationConfig);
+    this.translationModule = new TranslationModule(
+      config.translationModuleConfig
+    );
 
     logger.info('TranslationController initialized', {
-      sourceLanguage: config.translationConfig.sourceLanguage,
-      targetLanguage: config.translationConfig.targetLanguage,
+      sourceLanguage: config.translationModuleConfig.config.sourceLanguage,
+      targetLanguage: config.translationModuleConfig.config.targetLanguage,
     });
   }
 
   /**
    * Initialize the translation UI
    */
-  async initialize(sourceText: string): Promise<void> {
-    logger.info('Initializing translation UI', {
-      textLength: sourceText.length,
-    });
+  async initialize(): Promise<void> {
+    logger.info('Initializing translation UI');
 
     try {
-      // Initialize translation module with source text
-      await this.translationModule.initialize(sourceText);
+      // Initialize translation module
+      await this.translationModule.initialize();
 
       // Create toolbar
       this.createToolbar();
@@ -86,7 +88,7 @@ export class TranslationController {
    */
   private createToolbar(): void {
     const providers = this.translationModule.getAvailableProviders();
-    const config = this.config.translationConfig;
+    const config = this.config.translationModuleConfig.config;
 
     this.toolbar = new TranslationToolbar(
       {
@@ -117,7 +119,7 @@ export class TranslationController {
    * Create the view
    */
   private createView(): void {
-    const config = this.config.translationConfig;
+    const config = this.config.translationModuleConfig.config;
 
     this.view = new TranslationView(
       {
@@ -146,13 +148,16 @@ export class TranslationController {
 
     this.toolbar?.setTranslating(true, 'Translating document...');
 
+    // Set progress callback
+    this.translationModule.setProgressCallback((progress) => {
+      this.toolbar?.setTranslating(
+        true,
+        `Translating... ${Math.round(progress.progress * 100)}%`
+      );
+    });
+
     try {
-      await this.translationModule.translateDocument((progress) => {
-        this.toolbar?.setTranslating(
-          true,
-          `Translating... ${Math.round(progress * 100)}%`
-        );
-      });
+      await this.translationModule.translateDocument();
 
       this.showNotification('Document translated successfully', 'success');
     } catch (error) {
@@ -197,7 +202,7 @@ export class TranslationController {
   private changeProvider(provider: string): void {
     logger.info('Changing provider', { provider });
     // Provider change is handled by the translation module via config
-    this.config.translationConfig.defaultProvider = provider;
+    this.config.translationModuleConfig.config.defaultProvider = provider;
   }
 
   /**
@@ -206,7 +211,7 @@ export class TranslationController {
   private async changeSourceLanguage(language: Language): Promise<void> {
     logger.info('Changing source language', { language });
 
-    this.config.translationConfig.sourceLanguage = language;
+    this.config.translationModuleConfig.config.sourceLanguage = language;
 
     // Reinitialize with new language
     const document = this.translationModule.getDocument();
@@ -222,7 +227,7 @@ export class TranslationController {
   private async changeTargetLanguage(language: Language): Promise<void> {
     logger.info('Changing target language', { language });
 
-    this.config.translationConfig.targetLanguage = language;
+    this.config.translationModuleConfig.config.targetLanguage = language;
 
     // Reinitialize with new language
     this.showNotification(`Target language changed to ${language}`, 'info');
@@ -232,15 +237,16 @@ export class TranslationController {
    * Swap source and target languages
    */
   private swapLanguages(): void {
-    const { sourceLanguage, targetLanguage } = this.config.translationConfig;
+    const { sourceLanguage, targetLanguage } =
+      this.config.translationModuleConfig.config;
 
     logger.info('Swapping languages', {
       from: sourceLanguage,
       to: targetLanguage,
     });
 
-    this.config.translationConfig.sourceLanguage = targetLanguage;
-    this.config.translationConfig.targetLanguage = sourceLanguage;
+    this.config.translationModuleConfig.config.sourceLanguage = targetLanguage;
+    this.config.translationModuleConfig.config.targetLanguage = sourceLanguage;
 
     this.toolbar?.updateLanguages(targetLanguage, sourceLanguage);
 
@@ -252,7 +258,7 @@ export class TranslationController {
    */
   private toggleAutoTranslate(enabled: boolean): void {
     logger.info('Toggling auto-translate', { enabled });
-    this.config.translationConfig.autoTranslateOnEdit = enabled;
+    this.config.translationModuleConfig.config.autoTranslateOnEdit = enabled;
   }
 
   /**
@@ -260,7 +266,8 @@ export class TranslationController {
    */
   private toggleCorrespondenceLines(enabled: boolean): void {
     logger.info('Toggling correspondence lines', { enabled });
-    this.config.translationConfig.showCorrespondenceLines = enabled;
+    this.config.translationModuleConfig.config.showCorrespondenceLines =
+      enabled;
     this.view?.refresh();
   }
 
@@ -276,7 +283,6 @@ export class TranslationController {
    * Handle target sentence click
    */
   private handleTargetSentenceClick(sentenceId: string): void {
-    this.selectedTargetSentenceId = sentenceId;
     logger.debug('Target sentence selected', { sentenceId });
   }
 
@@ -294,7 +300,7 @@ export class TranslationController {
       this.showNotification('Source sentence updated', 'success');
 
       // Auto-retranslate if enabled
-      if (this.config.translationConfig.autoTranslateOnEdit) {
+      if (this.config.translationModuleConfig.config.autoTranslateOnEdit) {
         await this.translationModule.translateSentence(sentenceId);
         this.showNotification('Translation updated', 'success');
       }
@@ -343,7 +349,7 @@ export class TranslationController {
    * Get translation statistics
    */
   getStatistics() {
-    return this.translationModule.getStatistics();
+    return this.translationModule.getStats();
   }
 
   /**

@@ -34,7 +34,6 @@ export class TranslationToolbar {
 
   // State
   private currentProvider: string;
-  private isTranslating: boolean = false;
   private autoTranslateEnabled: boolean = false;
   private correspondenceLinesEnabled: boolean = true;
 
@@ -372,8 +371,6 @@ export class TranslationToolbar {
    * Set translation progress state
    */
   setTranslating(translating: boolean, progressText?: string): void {
-    this.isTranslating = translating;
-
     if (!this.element) return;
 
     const progress = this.element.querySelector(

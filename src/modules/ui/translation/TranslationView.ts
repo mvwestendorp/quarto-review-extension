@@ -397,13 +397,13 @@ export class TranslationView {
    * Highlight corresponding sentences
    */
   private highlightCorrespondences(
-    sentenceId: string,
+    _sentenceId: string,
     side: 'source' | 'target',
     className: 'selected' | 'hover'
   ): void {
     if (!this.document) return;
 
-    const correspondingIds = this.getCorrespondingIds(sentenceId, side);
+    const correspondingIds = this.getCorrespondingIds(_sentenceId, side);
 
     correspondingIds.forEach((id) => {
       const oppositeSide = side === 'source' ? 'target' : 'source';
