@@ -295,14 +295,14 @@ export class UIModule {
             logger.info('User cancelled translation merge due to out-of-sync');
             this.showNotification(
               'Translation merge cancelled - source was modified',
-              'warning'
+              'info'
             );
             return;
           }
 
           this.showNotification(
             'Merging translation despite source modifications',
-            'warning'
+            'info'
           );
         }
 
