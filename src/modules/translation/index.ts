@@ -480,6 +480,72 @@ export class TranslationModule {
   }
 
   /**
+   * Pre-create empty target sentences for all source sentences in manual translation mode
+   * This allows users to start editing translations immediately without waiting for automatic translation
+   */
+  preCreateTargetSentences(): void {
+    const doc = this.state.getDocument();
+    if (!doc || doc.sourceSentences.length === 0) {
+      logger.info('No source sentences to pre-create targets for');
+      return;
+    }
+
+    // Check if targets already exist (idempotent - don't duplicate)
+    if (doc.targetSentences.length > 0) {
+      logger.info('Target sentences already exist, skipping pre-creation');
+      return;
+    }
+
+    logger.info(
+      'Pre-creating empty target sentences for manual translation mode',
+      {
+        sourceCount: doc.sourceSentences.length,
+      }
+    );
+
+    // Create empty target sentence for each source sentence
+    const targetSentences: Sentence[] = doc.sourceSentences.map((source) => {
+      const targetSentence: Sentence = {
+        id: `trans-${source.id}`,
+        elementId: source.elementId,
+        content: '',
+        language: this.config.config.targetLanguage,
+        startOffset: 0,
+        endOffset: 0,
+        hash: this.hashContent(''),
+      };
+      return targetSentence;
+    });
+
+    // Add all target sentences to state
+    this.state.addTargetSentences(targetSentences);
+
+    // Create 1:1 correspondence pairs between source and target sentences
+    const pairs = doc.sourceSentences.map((source) => {
+      const targetId = `trans-${source.id}`;
+      const target = targetSentences.find((t) => t.id === targetId);
+      if (!target) {
+        throw new Error(`Failed to create target sentence for ${source.id}`);
+      }
+
+      return this.mapper.createManualPair(source, target);
+    });
+
+    // Add all pairs to state
+    pairs.forEach((pair) => {
+      this.state.addTranslationPair({
+        ...pair,
+        status: 'manual',
+      });
+    });
+
+    logger.info('Target sentences pre-created successfully', {
+      targetCount: targetSentences.length,
+      pairCount: pairs.length,
+    });
+  }
+
+  /**
    * Merge translation edits back to review mode
    * Reconstructs element content from translated sentences and returns updates
    */
