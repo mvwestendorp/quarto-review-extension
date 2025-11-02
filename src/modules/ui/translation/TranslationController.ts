@@ -11,6 +11,7 @@ import {
   TranslationModule,
   TranslationExportService,
 } from '@modules/translation';
+import { TranslationChangesModule } from '@modules/translation/TranslationChangesModule';
 import type {
   TranslationModuleConfig,
   Language,
@@ -32,6 +33,7 @@ export class TranslationController {
   private translationModule: TranslationModule;
   private settings: TranslationSettings;
   private exportService: TranslationExportService;
+  private changesModule: TranslationChangesModule;
   private view: TranslationView | null = null;
   private toolbar: TranslationToolbar | null = null;
   private container: HTMLElement;
@@ -54,6 +56,9 @@ export class TranslationController {
 
     // Initialize export service
     this.exportService = new TranslationExportService();
+
+    // Initialize changes module for tracking edits
+    this.changesModule = new TranslationChangesModule();
 
     logger.info('TranslationController initialized', {
       sourceLanguage: config.translationModuleConfig.config.sourceLanguage,
@@ -106,6 +111,12 @@ export class TranslationController {
       // Initialize translation module
       await this.translationModule.initialize();
 
+      // Initialize changes module with current sentences
+      const document = this.translationModule.getDocument();
+      if (document) {
+        this.changesModule.initializeSentences(document.targetSentences);
+      }
+
       // Create toolbar
       this.createToolbar();
 
@@ -113,7 +124,6 @@ export class TranslationController {
       this.createView();
 
       // Load initial document into view
-      const document = this.translationModule.getDocument();
       if (document) {
         this.view?.loadDocument(document);
       }
@@ -121,6 +131,11 @@ export class TranslationController {
       // Subscribe to translation module updates
       this.translationModule.subscribe(() => {
         this.handleTranslationUpdate();
+      });
+
+      // Subscribe to changes module updates
+      this.changesModule.subscribe(() => {
+        this.handleChangesUpdate();
       });
 
       // Set up keyboard shortcuts
@@ -132,6 +147,52 @@ export class TranslationController {
       this.showNotification('Failed to initialize translation module', 'error');
       throw error;
     }
+  }
+
+  /**
+   * Undo last translation edit
+   */
+  public canUndo(): boolean {
+    return this.changesModule.canUndo();
+  }
+
+  /**
+   * Redo last undone translation edit
+   */
+  public canRedo(): boolean {
+    return this.changesModule.canRedo();
+  }
+
+  /**
+   * Perform undo operation
+   */
+  public undo(): boolean {
+    const result = this.changesModule.undo();
+    if (result) {
+      this.view?.refresh();
+      this.showNotification('Translation edit undone', 'info');
+    }
+    return result;
+  }
+
+  /**
+   * Perform redo operation
+   */
+  public redo(): boolean {
+    const result = this.changesModule.redo();
+    if (result) {
+      this.view?.refresh();
+      this.showNotification('Translation edit redone', 'info');
+    }
+    return result;
+  }
+
+  /**
+   * Handle changes module updates
+   */
+  private handleChangesUpdate(): void {
+    logger.debug('Translation changes updated');
+    // View will be refreshed by translation module updates
   }
 
   /**
@@ -420,6 +481,10 @@ export class TranslationController {
     logger.info('Target sentence edited', { sentenceId, newContent });
 
     try {
+      // Record the edit in the changes module
+      this.changesModule.editSentence(sentenceId, newContent, 'target');
+
+      // Update translation module
       await this.translationModule.updateSentence(
         sentenceId,
         newContent,
@@ -450,6 +515,13 @@ export class TranslationController {
    */
   getStatistics() {
     return this.translationModule.getStats();
+  }
+
+  /**
+   * Get the changes module for integration with UI
+   */
+  getChangesModule(): TranslationChangesModule {
+    return this.changesModule;
   }
 
   /**
