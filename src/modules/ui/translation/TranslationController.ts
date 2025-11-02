@@ -7,6 +7,7 @@ import { createModuleLogger } from '@utils/debug';
 import { TranslationView } from './TranslationView';
 import { TranslationToolbar } from './TranslationToolbar';
 import { TranslationSettings } from './TranslationSettings';
+import { TranslationEditorBridge } from './TranslationEditorBridge';
 import {
   TranslationModule,
   TranslationExportService,
@@ -34,6 +35,7 @@ export class TranslationController {
   private settings: TranslationSettings;
   private exportService: TranslationExportService;
   private changesModule: TranslationChangesModule;
+  private editorBridge: TranslationEditorBridge;
   private view: TranslationView | null = null;
   private toolbar: TranslationToolbar | null = null;
   private container: HTMLElement;
@@ -59,6 +61,12 @@ export class TranslationController {
 
     // Initialize changes module for tracking edits
     this.changesModule = new TranslationChangesModule();
+
+    // Initialize editor bridge for Milkdown sentence editing
+    this.editorBridge = new TranslationEditorBridge(this.changesModule, {
+      showDiffHighlights: false,
+      simpleToolbar: true,
+    });
 
     logger.info('TranslationController initialized', {
       sourceLanguage: config.translationModuleConfig.config.sourceLanguage,
@@ -284,7 +292,8 @@ export class TranslationController {
         onTargetSentenceEdit: (id, content) =>
           this.handleTargetSentenceEdit(id, content),
       },
-      markdown
+      markdown,
+      this.editorBridge
     );
 
     const viewElement = this.view.create();
@@ -580,6 +589,7 @@ export class TranslationController {
 
     this.view?.destroy();
     this.toolbar?.destroy();
+    this.editorBridge.destroy();
     this.translationModule.destroy();
 
     this.view = null;

@@ -10,6 +10,7 @@ import type {
   Sentence,
   TranslationPair,
 } from '@modules/translation/types';
+import type { TranslationEditorBridge } from './TranslationEditorBridge';
 
 const logger = createModuleLogger('TranslationView');
 
@@ -31,6 +32,7 @@ export class TranslationView {
   private callbacks: TranslationViewCallbacks;
   private document: TranslationDocument | null = null;
   private markdown: MarkdownModule | null = null;
+  private editorBridge: TranslationEditorBridge | null = null;
 
   // UI elements
   private sourcePane: HTMLElement | null = null;
@@ -46,11 +48,13 @@ export class TranslationView {
   constructor(
     config: TranslationViewConfig,
     callbacks: TranslationViewCallbacks,
-    markdown?: MarkdownModule
+    markdown?: MarkdownModule,
+    editorBridge?: TranslationEditorBridge
   ) {
     this.config = config;
     this.callbacks = callbacks;
     this.markdown = markdown || null;
+    this.editorBridge = editorBridge || null;
   }
 
   /**
@@ -388,8 +392,8 @@ export class TranslationView {
     }
 
     // Double-click to edit
-    element.addEventListener('dblclick', () => {
-      this.enableSentenceEdit(element, sentenceId, side);
+    element.addEventListener('dblclick', async () => {
+      await this.enableSentenceEdit(element, sentenceId, side);
     });
   }
 
@@ -544,17 +548,125 @@ export class TranslationView {
   /**
    * Enable inline editing for a sentence
    */
-  private enableSentenceEdit(
+  private async enableSentenceEdit(
     element: HTMLElement,
     sentenceId: string,
     side: 'source' | 'target'
-  ): void {
+  ): Promise<void> {
     const contentEl = element.querySelector(
       '.review-translation-sentence-content'
     ) as HTMLElement;
     if (!contentEl) return;
 
-    // Get plain text content (strip HTML tags)
+    // Get the sentence from document
+    if (!this.document) return;
+
+    const sentence =
+      side === 'source'
+        ? this.document.sourceSentences.find((s) => s.id === sentenceId)
+        : this.document.targetSentences.find((s) => s.id === sentenceId);
+
+    if (!sentence) return;
+
+    // If using Milkdown editor
+    if (this.editorBridge) {
+      try {
+        // Create editor container
+        const editorContainer = document.createElement('div');
+        editorContainer.className = 'review-translation-milkdown-editor';
+
+        // Create action buttons
+        const actions = document.createElement('div');
+        actions.className = 'review-translation-editor-actions';
+        actions.innerHTML = `
+          <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
+          <button class="review-btn review-btn-primary review-btn-sm" data-action="save">Save</button>
+        `;
+
+        // Replace content with editor
+        contentEl.innerHTML = '';
+        contentEl.appendChild(editorContainer);
+        contentEl.appendChild(actions);
+
+        // Initialize Milkdown editor
+        await this.editorBridge.initializeSentenceEditor(
+          editorContainer,
+          sentence,
+          side
+        );
+
+        logger.debug('Milkdown editor initialized for sentence', {
+          sentenceId,
+          side,
+        });
+
+        // Handle save/cancel
+        const save = () => {
+          const saved = this.editorBridge?.saveSentenceEdit();
+          if (saved) {
+            // Restore rendered content
+            this.restoreSentenceDisplay(contentEl, sentence);
+
+            const callback =
+              side === 'source'
+                ? this.callbacks.onSourceSentenceEdit
+                : this.callbacks.onTargetSentenceEdit;
+            // Pass the new content from the editor
+            const module = this.editorBridge?.getModule();
+            const newContent = module?.getContent() || sentence.content;
+            callback?.(sentenceId, newContent);
+          } else {
+            // Just restore display without calling callback
+            this.restoreSentenceDisplay(contentEl, sentence);
+          }
+
+          this.editorBridge?.destroy();
+        };
+
+        const cancel = () => {
+          this.restoreSentenceDisplay(contentEl, sentence);
+          this.editorBridge?.cancelEdit();
+        };
+
+        // Attach button event listeners
+        actions
+          .querySelector('[data-action="save"]')
+          ?.addEventListener('click', save);
+        actions
+          .querySelector('[data-action="cancel"]')
+          ?.addEventListener('click', cancel);
+
+        // Escape to cancel
+        const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            cancel();
+          }
+        };
+        document.addEventListener('keydown', handleKeyDown);
+
+        // Store listener for cleanup
+        (editorContainer as any).escapeListener = handleKeyDown;
+      } catch (error) {
+        logger.error('Failed to initialize Milkdown editor', error);
+        // Fallback to textarea
+        this.enableSentenceEditTextarea(element, contentEl, sentence, side);
+      }
+    } else {
+      // Fallback to textarea if no editor bridge
+      this.enableSentenceEditTextarea(element, contentEl, sentence, side);
+    }
+  }
+
+  /**
+   * Fallback textarea-based editing for when Milkdown is unavailable
+   */
+  private enableSentenceEditTextarea(
+    _element: HTMLElement,
+    contentEl: HTMLElement,
+    sentence: Sentence,
+    side: 'source' | 'target'
+  ): void {
     const originalText = contentEl.textContent || '';
 
     // Create textarea
@@ -579,7 +691,7 @@ export class TranslationView {
             contentEl.innerHTML = html;
           } catch (error) {
             logger.warn('Failed to render edited markdown', {
-              sentenceId,
+              sentenceId: sentence.id,
               error,
             });
             contentEl.textContent = newText;
@@ -592,34 +704,14 @@ export class TranslationView {
           side === 'source'
             ? this.callbacks.onSourceSentenceEdit
             : this.callbacks.onTargetSentenceEdit;
-        callback?.(sentenceId, newText);
+        callback?.(sentence.id, newText);
       } else {
-        // Restore original content
-        if (this.markdown) {
-          try {
-            const html = this.markdown.renderElement(originalText, 'Para');
-            contentEl.innerHTML = html;
-          } catch {
-            contentEl.textContent = originalText;
-          }
-        } else {
-          contentEl.textContent = originalText;
-        }
+        this.restoreSentenceDisplay(contentEl, sentence);
       }
     };
 
     const cancel = () => {
-      // Restore original content
-      if (this.markdown) {
-        try {
-          const html = this.markdown.renderElement(originalText, 'Para');
-          contentEl.innerHTML = html;
-        } catch {
-          contentEl.textContent = originalText;
-        }
-      } else {
-        contentEl.textContent = originalText;
-      }
+      this.restoreSentenceDisplay(contentEl, sentence);
     };
 
     // Enter to save, Escape to cancel
@@ -635,6 +727,25 @@ export class TranslationView {
 
     // Blur to save
     textarea.addEventListener('blur', save);
+  }
+
+  /**
+   * Restore rendered display of a sentence
+   */
+  private restoreSentenceDisplay(
+    contentEl: HTMLElement,
+    sentence: Sentence
+  ): void {
+    if (this.markdown) {
+      try {
+        const html = this.markdown.renderElement(sentence.content, 'Para');
+        contentEl.innerHTML = html;
+      } catch {
+        contentEl.textContent = sentence.content;
+      }
+    } else {
+      contentEl.textContent = sentence.content;
+    }
   }
 
   /**
