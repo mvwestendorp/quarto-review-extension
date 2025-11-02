@@ -22,9 +22,12 @@ export class MainSidebar {
   private submitReviewPending = false;
   private translationBtn: HTMLButtonElement | null = null;
   private translationEnabled = false;
+  private translationMode = false;
 
   private onUndoCallback: (() => void) | null = null;
   private onRedoCallback: (() => void) | null = null;
+  private onTranslationUndoCallback: (() => void) | null = null;
+  private onTranslationRedoCallback: (() => void) | null = null;
   private onTrackedChangesCallback: ((enabled: boolean) => void) | null = null;
   private onToggleSidebarCallback: (() => void) | null = null;
   private onClearDraftsCallback: (() => void) | null = null;
@@ -441,6 +444,71 @@ export class MainSidebar {
     const canClick = hasHandler && this.translationEnabled;
     this.translationBtn.disabled = !canClick;
     this.translationBtn.classList.toggle('review-btn-disabled', !canClick);
+  }
+
+  /**
+   * Set translation mode - updates undo/redo callbacks for translation edits
+   */
+  setTranslationMode(active: boolean): void {
+    this.translationMode = active;
+
+    // Update undo/redo buttons based on mode
+    if (active && this.undoBtn && this.redoBtn) {
+      // In translation mode, use translation-specific undo/redo
+      this.undoBtn.textContent = '↶ Undo Edit';
+      this.redoBtn.textContent = '↷ Redo Edit';
+      this.undoBtn.onclick = () => {
+        this.onTranslationUndoCallback?.();
+      };
+      this.redoBtn.onclick = () => {
+        this.onTranslationRedoCallback?.();
+      };
+    } else if (!active && this.undoBtn && this.redoBtn) {
+      // Back to review mode
+      this.undoBtn.textContent = '↶ Undo';
+      this.redoBtn.textContent = '↷ Redo';
+      this.undoBtn.onclick = () => {
+        this.onUndoCallback?.();
+      };
+      this.redoBtn.onclick = () => {
+        this.onRedoCallback?.();
+      };
+    }
+
+    logger.debug('Translation mode set', { active });
+  }
+
+  /**
+   * Register callback for translation undo
+   */
+  onTranslationUndo(callback?: () => void): void {
+    this.onTranslationUndoCallback = callback ?? null;
+  }
+
+  /**
+   * Register callback for translation redo
+   */
+  onTranslationRedo(callback?: () => void): void {
+    this.onTranslationRedoCallback = callback ?? null;
+  }
+
+  /**
+   * Update translation undo/redo state
+   */
+  updateTranslationUndoRedoState(canUndo: boolean, canRedo: boolean): void {
+    if (!this.translationMode) {
+      return;
+    }
+
+    if (this.undoBtn) {
+      this.undoBtn.disabled = !canUndo;
+      this.undoBtn.classList.toggle('review-btn-disabled', !canUndo);
+    }
+    if (this.redoBtn) {
+      this.redoBtn.disabled = !canRedo;
+      this.redoBtn.classList.toggle('review-btn-disabled', !canRedo);
+    }
+    logger.debug('Translation undo/redo state updated', { canUndo, canRedo });
   }
 
   /**

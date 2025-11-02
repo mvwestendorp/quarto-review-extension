@@ -333,6 +333,21 @@ export class UIModule {
 
         await this.translationController.initialize();
         this.mainSidebarModule.setTranslationActive(true);
+
+        // Set up translation mode in sidebar
+        this.mainSidebarModule.setTranslationMode(true);
+        this.mainSidebarModule.onTranslationUndo(() => {
+          if (this.translationController?.undo()) {
+            this.updateTranslationUndoRedoState();
+          }
+        });
+        this.mainSidebarModule.onTranslationRedo(() => {
+          if (this.translationController?.redo()) {
+            this.updateTranslationUndoRedoState();
+          }
+        });
+        this.updateTranslationUndoRedoState();
+
         this.showNotification('Translation UI opened', 'success');
       }
     } catch (error) {
@@ -1842,6 +1857,18 @@ export class UIModule {
     this.mainSidebarModule.setTrackedChangesVisible(
       this.editorState.showTrackedChanges
     );
+  }
+
+  /**
+   * Update translation undo/redo button state in sidebar
+   */
+  private updateTranslationUndoRedoState(): void {
+    if (!this.translationController) {
+      return;
+    }
+    const canUndo = this.translationController.canUndo();
+    const canRedo = this.translationController.canRedo();
+    this.mainSidebarModule.updateTranslationUndoRedoState(canUndo, canRedo);
   }
 
   private cacheInitialHeadingReferences(): void {
