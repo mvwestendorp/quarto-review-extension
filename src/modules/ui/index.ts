@@ -372,32 +372,45 @@ export class UIModule {
   }
 
   /**
-   * Create translation UI container
+   * Create translation UI container with proper DOM hierarchy
    */
   private createTranslationContainer(): HTMLElement {
-    // Check if container already exists
-    let container = document.querySelector(
-      '#translation-ui-container'
+    // Check if wrapper already exists
+    let wrapper = document.querySelector(
+      '#translation-mode-wrapper'
     ) as HTMLElement | null;
 
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'translation-ui-container';
-      container.className = 'review-translation-container';
+    if (!wrapper) {
+      // Create a full-width wrapper that sits above the normal layout
+      wrapper = document.createElement('div');
+      wrapper.id = 'translation-mode-wrapper';
+      wrapper.className = 'review-translation-mode-wrapper';
 
-      // Insert into main Quarto content area
+      // Create sidebar container
+      const sidebar = document.createElement('div');
+      sidebar.className = 'review-translation-sidebar';
+      wrapper.appendChild(sidebar);
+
+      // Create main content area
+      const mainArea = document.createElement('div');
+      mainArea.className = 'review-translation-main';
+      wrapper.appendChild(mainArea);
+
+      // Insert wrapper into document, replacing the normal flow
       const mainContent = document.querySelector('#quarto-document-content');
-      if (mainContent) {
-        mainContent.appendChild(container);
+      if (mainContent?.parentNode) {
+        mainContent.parentNode.insertBefore(wrapper, mainContent);
       } else {
-        // Fallback to body if Quarto layout not found
-        document.body.appendChild(container);
+        document.body.insertBefore(wrapper, document.body.firstChild);
       }
     }
 
-    // Clear existing content
-    container.innerHTML = '';
-    return container;
+    // Get the main content area and clear it
+    const mainArea = wrapper.querySelector(
+      '.review-translation-main'
+    ) as HTMLElement;
+    mainArea.innerHTML = '';
+    return mainArea;
   }
 
   /**
@@ -2344,6 +2357,11 @@ export class UIModule {
       this.translationController.destroy();
       this.translationController = null;
     }
+    // Remove translation mode wrapper and container
+    const translationWrapper = document.querySelector(
+      '#translation-mode-wrapper'
+    );
+    translationWrapper?.remove();
     const translationContainer = document.querySelector(
       '#translation-ui-container'
     );
