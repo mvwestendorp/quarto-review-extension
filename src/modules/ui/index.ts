@@ -299,6 +299,10 @@ export class UIModule {
         document.body.classList.add('translation-mode');
 
         const container = this.createTranslationContainer();
+        const wrapper = document.querySelector(
+          '#translation-mode-wrapper'
+        ) as HTMLElement;
+        const toolbarContainer = (wrapper as any).toolbarContainer;
 
         this.translationController = new TranslationController({
           container,
@@ -332,6 +336,12 @@ export class UIModule {
         });
 
         await this.translationController.initialize();
+
+        // Append toolbar to sidebar container if available
+        if (toolbarContainer) {
+          this.translationController.appendToolbarTo(toolbarContainer);
+        }
+
         this.mainSidebarModule.setTranslationActive(true);
 
         // Set up translation mode in sidebar
@@ -420,11 +430,26 @@ export class UIModule {
       }
     }
 
+    // Get the sidebar area and place toolbar there
+    const sidebar = wrapper.querySelector(
+      '.review-translation-sidebar'
+    ) as HTMLElement;
+    sidebar.innerHTML = '';
+
+    // Create a simple toolbar container in the sidebar
+    const toolbarContainer = document.createElement('div');
+    toolbarContainer.className = 'review-translation-toolbar-container';
+    sidebar.appendChild(toolbarContainer);
+
     // Get the main content area and clear it
     const mainArea = wrapper.querySelector(
       '.review-translation-main'
     ) as HTMLElement;
     mainArea.innerHTML = '';
+
+    // Store reference to toolbar container for later use
+    (wrapper as any).toolbarContainer = toolbarContainer;
+
     return mainArea;
   }
 

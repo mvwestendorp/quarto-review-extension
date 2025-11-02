@@ -575,6 +575,17 @@ export class TranslationController {
   }
 
   /**
+   * Append toolbar to a specific container
+   */
+  public appendToolbarTo(container: HTMLElement): void {
+    if (this.toolbar) {
+      const toolbarElement = this.toolbar.create();
+      container.appendChild(toolbarElement);
+      logger.debug('Toolbar appended to custom container');
+    }
+  }
+
+  /**
    * Cleanup and destroy
    */
   destroy(): void {
