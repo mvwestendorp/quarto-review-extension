@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       source:
-        description: "Relative path to exported QMD artefacts"
-        default: "dist/export"
+        description: 'Relative path to exported QMD artefacts'
+        default: 'dist/export'
         required: true
       branch:
-        description: "Target branch in fixtures repo"
-        default: "review/live"
+        description: 'Target branch in fixtures repo'
+        default: 'review/live'
         required: true
 
 permissions:
@@ -19,10 +19,8 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository (with submodules)
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install dependencies
         run: npm install
