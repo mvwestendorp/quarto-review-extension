@@ -215,17 +215,6 @@ export class UIModule {
       void this.confirmAndClearLocalDrafts();
     });
 
-    // Set up translation toggle if translation module is available
-    const enableTranslation = Boolean(this.translationModule);
-    this.mainSidebarModule.onToggleTranslation(
-      enableTranslation
-        ? () => {
-            void this.toggleTranslation();
-          }
-        : undefined
-    );
-    this.mainSidebarModule.setTranslationEnabled(enableTranslation);
-
     this.cacheInitialHeadingReferences();
     // Initialize sidebar immediately so it's always visible
     this.initializeSidebar();
@@ -290,13 +279,25 @@ export class UIModule {
 
     try {
       if (this.translationController) {
-        // Close existing translation UI
+        // Close existing translation UI - restore original document
         this.translationController.destroy();
         this.translationController = null;
+
+        // Show original content, sidebars, and comments
+        this.showOriginalDocument(true);
+        this.showReviewSidebar(true);
+        this.showCommentsSidebar(true);
+        document.body.classList.remove('translation-mode');
+
         this.mainSidebarModule.setTranslationActive(false);
         this.showNotification('Translation UI closed', 'info');
       } else {
-        // Open translation UI
+        // Open translation UI - hide original document, sidebars, and comments
+        this.showOriginalDocument(false);
+        this.showReviewSidebar(false);
+        this.showCommentsSidebar(false);
+        document.body.classList.add('translation-mode');
+
         const container = this.createTranslationContainer();
 
         this.translationController = new TranslationController({
@@ -341,6 +342,36 @@ export class UIModule {
   }
 
   /**
+   * Show or hide original document content
+   */
+  private showOriginalDocument(show: boolean): void {
+    const editableElements = document.querySelectorAll('.review-editable');
+    editableElements.forEach((elem) => {
+      (elem as HTMLElement).style.display = show ? '' : 'none';
+    });
+  }
+
+  /**
+   * Show or hide review sidebar
+   */
+  private showReviewSidebar(show: boolean): void {
+    const sidebar = document.querySelector('.review-toolbar');
+    if (sidebar) {
+      (sidebar as HTMLElement).style.display = show ? '' : 'none';
+    }
+  }
+
+  /**
+   * Show or hide comments sidebar
+   */
+  private showCommentsSidebar(show: boolean): void {
+    const sidebar = document.querySelector('.review-comments-sidebar');
+    if (sidebar) {
+      (sidebar as HTMLElement).style.display = show ? '' : 'none';
+    }
+  }
+
+  /**
    * Create translation UI container
    */
   private createTranslationContainer(): HTMLElement {
@@ -353,7 +384,15 @@ export class UIModule {
       container = document.createElement('div');
       container.id = 'translation-ui-container';
       container.className = 'review-translation-container';
-      document.body.appendChild(container);
+
+      // Insert into main Quarto content area
+      const mainContent = document.querySelector('#quarto-document-content');
+      if (mainContent) {
+        mainContent.appendChild(container);
+      } else {
+        // Fallback to body if Quarto layout not found
+        document.body.appendChild(container);
+      }
     }
 
     // Clear existing content
@@ -2176,6 +2215,17 @@ export class UIModule {
       );
       this.syncToolbarState();
       this.applySidebarCollapsedState(this.uiState.isSidebarCollapsed, toolbar);
+
+      // Set up translation toggle after sidebar is created
+      const enableTranslation = Boolean(this.translationModule);
+      this.mainSidebarModule.onToggleTranslation(
+        enableTranslation
+          ? () => {
+              void this.toggleTranslation();
+            }
+          : undefined
+      );
+      this.mainSidebarModule.setTranslationEnabled(enableTranslation);
     }
     return toolbar;
   }

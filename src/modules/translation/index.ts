@@ -7,6 +7,8 @@ import { SentenceSegmenter } from './sentence-segmenter';
 import { TranslationEngine } from './translation-engine';
 import { CorrespondenceMapper } from './correspondence-mapper';
 import { TranslationState } from './storage/TranslationState';
+import { TranslationPersistence } from './storage/TranslationPersistence';
+import { createModuleLogger } from '@utils/debug';
 import type {
   TranslationModuleConfig,
   Sentence,
@@ -14,17 +16,27 @@ import type {
   TranslationDocument,
 } from './types';
 
+const logger = createModuleLogger('TranslationModule');
+
 export * from './types';
+export * from './export';
 
 export class TranslationModule {
   private segmenter: SentenceSegmenter;
   private engine: TranslationEngine;
   private mapper: CorrespondenceMapper;
   private state: TranslationState;
+  private persistence: TranslationPersistence | null = null;
   private config: TranslationModuleConfig;
   private progressCallback?: (progress: TranslationProgress) => void;
+  private autoSaveEnabled = true;
+  private autoSaveInterval: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(config: TranslationModuleConfig) {
+  constructor(
+    config: TranslationModuleConfig,
+    private enablePersistence = true,
+    private autoSaveIntervalMs = 30000 // 30 seconds
+  ) {
     this.config = config;
 
     this.segmenter = new SentenceSegmenter();
@@ -38,6 +50,137 @@ export class TranslationModule {
     // Set up progress callback
     if (this.progressCallback) {
       this.engine.setProgressCallback(this.progressCallback);
+    }
+
+    // Initialize persistence if enabled
+    if (this.enablePersistence) {
+      this.setupPersistence();
+    }
+  }
+
+  /**
+   * Set up persistence and auto-save
+   */
+  private setupPersistence(): void {
+    // Generate a document ID based on the document elements
+    const documentElements = this.config.changes.getCurrentState() as Array<{
+      id: string;
+    }>;
+    const documentHash = documentElements.map((el) => el.id).join('-');
+    const docId = `doc-${documentHash}-${this.config.config.sourceLanguage}-${this.config.config.targetLanguage}`;
+
+    this.persistence = new TranslationPersistence(docId);
+
+    // Subscribe to state changes for auto-save
+    this.state.subscribe(() => {
+      if (this.autoSaveEnabled && this.persistence) {
+        this.scheduleAutoSave();
+      }
+    });
+
+    logger.info('Translation persistence initialized', { docId });
+  }
+
+  /**
+   * Schedule auto-save with debouncing
+   */
+  private scheduleAutoSave(): void {
+    // Clear existing timer
+    if (this.autoSaveInterval) {
+      clearTimeout(this.autoSaveInterval);
+    }
+
+    // Schedule new save
+    this.autoSaveInterval = setTimeout(() => {
+      this.saveToStorage();
+    }, this.autoSaveIntervalMs);
+  }
+
+  /**
+   * Save current state to storage
+   */
+  private saveToStorage(): void {
+    if (!this.persistence) return;
+
+    const doc = this.state.getDocument();
+    if (doc) {
+      this.persistence.saveDocument(doc);
+      logger.debug('Translation auto-saved to storage');
+    }
+  }
+
+  /**
+   * Restore translation from storage if available
+   */
+  async restoreFromStorage(): Promise<boolean> {
+    if (!this.persistence) return false;
+
+    const savedDoc = this.persistence.loadDocument();
+    if (!savedDoc) return false;
+
+    try {
+      // Check if saved document matches current language settings
+      if (
+        savedDoc.metadata.sourceLanguage !==
+          this.config.config.sourceLanguage ||
+        savedDoc.metadata.targetLanguage !== this.config.config.targetLanguage
+      ) {
+        logger.warn(
+          'Saved translation language settings do not match current config'
+        );
+        return false;
+      }
+
+      // Initialize state with saved document data
+      this.state.initialize(savedDoc.sourceSentences);
+
+      // Restore target sentences
+      if (savedDoc.targetSentences.length > 0) {
+        this.state.addTargetSentences(savedDoc.targetSentences);
+      }
+
+      // Restore correspondence pairs
+      savedDoc.correspondenceMap.pairs.forEach((pair) => {
+        this.state.addTranslationPair(pair);
+      });
+
+      logger.info('Translation restored from storage', {
+        documentId: savedDoc.id,
+        sentenceCount: savedDoc.sourceSentences.length,
+      });
+
+      return true;
+    } catch (error) {
+      logger.error('Failed to restore translation from storage', error);
+      return false;
+    }
+  }
+
+  /**
+   * Enable/disable auto-save
+   */
+  setAutoSaveEnabled(enabled: boolean): void {
+    this.autoSaveEnabled = enabled;
+    if (!enabled && this.autoSaveInterval) {
+      clearTimeout(this.autoSaveInterval);
+      this.autoSaveInterval = null;
+    }
+  }
+
+  /**
+   * Manually save to storage
+   */
+  saveToStorageNow(): void {
+    this.saveToStorage();
+  }
+
+  /**
+   * Clear stored translation
+   */
+  clearStoredTranslation(): void {
+    if (this.persistence) {
+      this.persistence.clearDocument();
+      logger.info('Stored translation cleared');
     }
   }
 
@@ -183,25 +326,49 @@ export class TranslationModule {
       provider
     );
 
-    // Create target sentence
-    const targetSentence: Sentence = {
-      id: `trans-${sentence.id}`,
-      elementId: sentence.elementId,
-      content: translatedText,
-      language: this.config.config.targetLanguage,
-      startOffset: 0,
-      endOffset: translatedText.length,
-      hash: this.hashContent(translatedText),
-    };
+    const targetSentenceId = `trans-${sentence.id}`;
 
-    this.state.addTargetSentences([targetSentence]);
+    // Check if target sentence already exists
+    const existingTarget = doc.targetSentences.find(
+      (s) => s.id === targetSentenceId
+    );
 
-    // Create pair
-    const pair = this.mapper.createManualPair(sentence, targetSentence);
-    this.state.addTranslationPair({
-      ...pair,
-      provider,
-    });
+    if (existingTarget) {
+      // Update existing target sentence in-place
+      this.state.updateSentence(targetSentenceId, translatedText, false);
+
+      // Update the pair status to reflect fresh translation
+      const existingPair = doc.correspondenceMap.pairs.find(
+        (p) => p.sourceId === sentenceId && p.targetId === targetSentenceId
+      );
+      if (existingPair) {
+        this.state.updatePair(existingPair.id, {
+          status: 'synced',
+          provider,
+          lastModified: Date.now(),
+        });
+      }
+    } else {
+      // Create new target sentence
+      const targetSentence: Sentence = {
+        id: targetSentenceId,
+        elementId: sentence.elementId,
+        content: translatedText,
+        language: this.config.config.targetLanguage,
+        startOffset: 0,
+        endOffset: translatedText.length,
+        hash: this.hashContent(translatedText),
+      };
+
+      this.state.addTargetSentences([targetSentence]);
+
+      // Create pair
+      const pair = this.mapper.createManualPair(sentence, targetSentence);
+      this.state.addTranslationPair({
+        ...pair,
+        provider,
+      });
+    }
   }
 
   /**
@@ -291,6 +458,15 @@ export class TranslationModule {
    * Destroy module
    */
   destroy(): void {
+    // Clean up auto-save
+    if (this.autoSaveInterval) {
+      clearTimeout(this.autoSaveInterval);
+      this.autoSaveInterval = null;
+    }
+
+    // Save before destroying
+    this.saveToStorage();
+
     this.state.reset();
     this.engine.destroy();
   }

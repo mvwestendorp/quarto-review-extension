@@ -27,6 +27,15 @@ vi.mock('@modules/translation', () => ({
       }),
     };
   }),
+  TranslationExportService: vi.fn(function MockTranslationExportService() {
+    return {
+      exportTranslation: vi.fn().mockResolvedValue({
+        fileCount: 1,
+        filenames: ['output.qmd'],
+        downloadedAs: 'output.qmd',
+      }),
+    };
+  }),
 }));
 
 describe('TranslationToolbar', () => {
@@ -44,6 +53,8 @@ describe('TranslationToolbar', () => {
       onSwapLanguages: vi.fn(),
       onToggleAutoTranslate: vi.fn(),
       onToggleCorrespondenceLines: vi.fn(),
+      onExportUnified: vi.fn(),
+      onExportSeparated: vi.fn(),
     };
 
     const config: TranslationToolbarConfig = {

@@ -4,16 +4,55 @@
  */
 
 /* ===========================
+   Translation Mode - Global Styles
+   =========================== */
+
+body.translation-mode .review-editable {
+  display: none !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  pointer-events: none !important;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+}
+
+body.translation-mode #quarto-document-content {
+  max-width: none !important;
+  width: fit-content;
+  min-width: 100%;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ===========================
    Translation View Container
    =========================== */
+
+.review-translation-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: fadeInTranslation 0.3s ease 0.2s forwards;
+}
+
+@keyframes fadeInTranslation {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 .review-translation-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1;
   background: white;
-  border-radius: var(--review-radius-md, 8px);
-  box-shadow: var(--review-shadow-md);
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -118,7 +157,23 @@
 .review-translation-pane-body {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 20px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* ===========================
+   Translation Sections
+   =========================== */
+
+.review-translation-section {
+  margin-bottom: 0;
+  padding-left: 0;
+  border-left: none;
+}
+
+.review-translation-section:last-child {
+  margin-bottom: 0;
 }
 
 /* ===========================
@@ -127,19 +182,20 @@
 
 .review-translation-sentence {
   position: relative;
-  margin-bottom: 12px;
-  padding: 12px 16px;
-  border-radius: var(--review-radius-sm, 6px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: white;
+  margin-bottom: 0;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .review-translation-sentence:hover {
-  border-color: rgba(var(--review-color-primary-rgb), 0.3);
-  box-shadow: var(--review-shadow-sm);
-  transform: translateY(-1px);
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+  background-color: rgba(var(--review-color-primary-rgb), 0.05);
 }
 
 .review-translation-sentence-content {
@@ -159,10 +215,21 @@
   background: rgba(0, 0, 0, 0.2);
 }
 
-/* Status Colors */
+/* Status Colors - Untranslated */
+.review-translation-sentence[data-status='untranslated'] {
+  border-left: none;
+  background: rgba(0, 0, 0, 0.02);
+}
+
 .review-translation-sentence[data-status='untranslated']
   .review-translation-sentence-indicator {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Status Colors - Auto Translated (Primary/Info) */
+.review-translation-sentence[data-status='auto-translated'] {
+  border-left: none;
+  background: rgba(var(--review-color-primary-rgb), 0.03);
 }
 
 .review-translation-sentence[data-status='auto-translated']
@@ -170,14 +237,32 @@
   background: rgba(var(--review-color-primary-rgb), 0.8);
 }
 
+/* Status Colors - Manual (Success) */
+.review-translation-sentence[data-status='manual'] {
+  border-left: none;
+  background: rgba(var(--review-color-success-rgb), 0.03);
+}
+
 .review-translation-sentence[data-status='manual']
   .review-translation-sentence-indicator {
   background: rgba(var(--review-color-success-rgb), 1);
 }
 
+/* Status Colors - Edited (Warning) */
+.review-translation-sentence[data-status='edited'] {
+  border-left: none;
+  background: rgba(var(--review-color-warning-rgb), 0.04);
+}
+
 .review-translation-sentence[data-status='edited']
   .review-translation-sentence-indicator {
   background: rgba(var(--review-color-warning-rgb), 1);
+}
+
+/* Status Colors - Out of Sync (Danger) */
+.review-translation-sentence[data-status='out-of-sync'] {
+  border-left: none;
+  background: rgba(var(--review-color-danger-rgb), 0.04);
 }
 
 .review-translation-sentence[data-status='out-of-sync']
@@ -186,9 +271,15 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
+/* Status Colors - Synced (Success) */
+.review-translation-sentence[data-status='synced'] {
+  border-left: none;
+  background: rgba(var(--review-color-success-rgb), 0.02);
+}
+
 .review-translation-sentence[data-status='synced']
   .review-translation-sentence-indicator {
-  background: rgba(var(--review-color-success-rgb), 0.6);
+  background: rgba(var(--review-color-success-rgb), 0.8);
 }
 
 @keyframes pulse {

@@ -21,8 +21,6 @@ format:
 
 review:
   enabled: true
-  translation:
-    enabled: true
   debug:
     enabled: false
     level: debug

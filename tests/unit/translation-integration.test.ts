@@ -28,13 +28,12 @@ describe('Translation Integration', () => {
     document.body.removeChild(container);
   });
 
-  it('should create QuartoReview instance without translation', () => {
-    const review = new QuartoReview({
-      enableTranslation: false,
-    });
+  it('should create QuartoReview instance with translation always enabled', () => {
+    const review = new QuartoReview({});
 
     expect(review).toBeDefined();
-    expect(review.getTranslation()).toBeUndefined();
+    // Translation module is always available since it's built into the extension
+    expect(review.getTranslation()).toBeDefined();
 
     review.destroy();
   });

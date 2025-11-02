@@ -4,6 +4,7 @@
  */
 
 import { createModuleLogger } from '@utils/debug';
+import type { MarkdownModule } from '@modules/markdown';
 import type {
   TranslationDocument,
   Sentence,
@@ -29,6 +30,7 @@ export class TranslationView {
   private config: TranslationViewConfig;
   private callbacks: TranslationViewCallbacks;
   private document: TranslationDocument | null = null;
+  private markdown: MarkdownModule | null = null;
 
   // UI elements
   private sourcePane: HTMLElement | null = null;
@@ -43,10 +45,12 @@ export class TranslationView {
 
   constructor(
     config: TranslationViewConfig,
-    callbacks: TranslationViewCallbacks
+    callbacks: TranslationViewCallbacks,
+    markdown?: MarkdownModule
   ) {
     this.config = config;
     this.callbacks = callbacks;
+    this.markdown = markdown || null;
   }
 
   /**
@@ -212,7 +216,7 @@ export class TranslationView {
   }
 
   /**
-   * Render sentences in a pane
+   * Render sentences in a pane, grouped by document sections
    */
   private renderSentences(
     pane: HTMLElement,
@@ -221,35 +225,96 @@ export class TranslationView {
   ): void {
     pane.innerHTML = '';
 
+    // Group sentences by elementId (document section)
+    const sectionMap = new Map<string, Sentence[]>();
     sentences.forEach((sentence) => {
-      const sentenceElement = document.createElement('div');
-      sentenceElement.className = 'review-translation-sentence';
-      sentenceElement.dataset.sentenceId = sentence.id;
-      sentenceElement.dataset.side = side;
-
-      // Get translation status
-      const status = this.getSentenceStatus(sentence.id, side);
-      if (status) {
-        sentenceElement.dataset.status = status;
+      const elementId = sentence.elementId;
+      if (!sectionMap.has(elementId)) {
+        sectionMap.set(elementId, []);
       }
-
-      // Create sentence content
-      const content = document.createElement('div');
-      content.className = 'review-translation-sentence-content';
-      content.textContent = sentence.content;
-      sentenceElement.appendChild(content);
-
-      // Add status indicator
-      const indicator = document.createElement('div');
-      indicator.className = 'review-translation-sentence-indicator';
-      indicator.title = this.getStatusLabel(status);
-      sentenceElement.appendChild(indicator);
-
-      // Add event listeners
-      this.bindSentenceEvents(sentenceElement, sentence.id, side);
-
-      pane.appendChild(sentenceElement);
+      sectionMap.get(elementId)!.push(sentence);
     });
+
+    // Render each section with its sentences
+    Array.from(sectionMap.entries()).forEach(
+      ([elementId, sectionSentences]) => {
+        // Create section container
+        const sectionElement = document.createElement('div');
+        sectionElement.className = 'review-translation-section';
+        sectionElement.dataset.elementId = elementId;
+
+        // Render sentences within the section
+        sectionSentences.forEach((sentence) => {
+          const sentenceElement = this.createSentenceElement(sentence, side);
+          sectionElement.appendChild(sentenceElement);
+        });
+
+        pane.appendChild(sectionElement);
+      }
+    );
+  }
+
+  /**
+   * Create a single sentence element
+   */
+  private createSentenceElement(
+    sentence: Sentence,
+    side: 'source' | 'target'
+  ): HTMLElement {
+    const sentenceElement = document.createElement('div');
+    sentenceElement.className = 'review-translation-sentence';
+    sentenceElement.dataset.sentenceId = sentence.id;
+    sentenceElement.dataset.side = side;
+
+    // Get translation status
+    const status = this.getSentenceStatus(sentence.id, side);
+    if (status) {
+      sentenceElement.dataset.status = status;
+      // Add CSS class for styling based on status
+      sentenceElement.classList.add(`review-translation-sentence-${status}`);
+    }
+
+    // Create sentence wrapper for better layout
+    const wrapper = document.createElement('div');
+    wrapper.className = 'review-translation-sentence-wrapper';
+
+    // Create sentence content - render as styled HTML using document-style rendering
+    const content = document.createElement('div');
+    content.className = 'review-translation-sentence-content';
+
+    // Render markdown as HTML if MarkdownModule is available
+    if (this.markdown) {
+      try {
+        // Use renderElement for proper document-style formatting instead of inline
+        const html = this.markdown.renderElement(sentence.content, 'Para');
+        content.innerHTML = html;
+      } catch (error) {
+        logger.warn('Failed to render markdown, falling back to plain text', {
+          sentenceId: sentence.id,
+          error,
+        });
+        content.textContent = sentence.content;
+      }
+    } else {
+      // Fallback to plain text if markdown module not available
+      content.textContent = sentence.content;
+    }
+
+    wrapper.appendChild(content);
+
+    // Add status badge/indicator
+    const indicator = document.createElement('div');
+    indicator.className = 'review-translation-sentence-indicator';
+    indicator.title = this.getStatusLabel(status);
+    indicator.setAttribute('data-status', status || 'unknown');
+    wrapper.appendChild(indicator);
+
+    sentenceElement.appendChild(wrapper);
+
+    // Add event listeners
+    this.bindSentenceEvents(sentenceElement, sentence.id, side);
+
+    return sentenceElement;
   }
 
   /**
@@ -489,6 +554,7 @@ export class TranslationView {
     ) as HTMLElement;
     if (!contentEl) return;
 
+    // Get plain text content (strip HTML tags)
     const originalText = contentEl.textContent || '';
 
     // Create textarea
@@ -506,19 +572,54 @@ export class TranslationView {
     const save = () => {
       const newText = textarea.value.trim();
       if (newText && newText !== originalText) {
-        contentEl.textContent = newText;
+        // Re-render the content with markdown using document-style rendering
+        if (this.markdown) {
+          try {
+            const html = this.markdown.renderElement(newText, 'Para');
+            contentEl.innerHTML = html;
+          } catch (error) {
+            logger.warn('Failed to render edited markdown', {
+              sentenceId,
+              error,
+            });
+            contentEl.textContent = newText;
+          }
+        } else {
+          contentEl.textContent = newText;
+        }
+
         const callback =
           side === 'source'
             ? this.callbacks.onSourceSentenceEdit
             : this.callbacks.onTargetSentenceEdit;
         callback?.(sentenceId, newText);
       } else {
-        contentEl.textContent = originalText;
+        // Restore original content
+        if (this.markdown) {
+          try {
+            const html = this.markdown.renderElement(originalText, 'Para');
+            contentEl.innerHTML = html;
+          } catch {
+            contentEl.textContent = originalText;
+          }
+        } else {
+          contentEl.textContent = originalText;
+        }
       }
     };
 
     const cancel = () => {
-      contentEl.textContent = originalText;
+      // Restore original content
+      if (this.markdown) {
+        try {
+          const html = this.markdown.renderElement(originalText, 'Para');
+          contentEl.innerHTML = html;
+        } catch {
+          contentEl.textContent = originalText;
+        }
+      } else {
+        contentEl.textContent = originalText;
+      }
     };
 
     // Enter to save, Escape to cancel

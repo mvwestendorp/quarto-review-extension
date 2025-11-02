@@ -25,6 +25,8 @@ export interface TranslationToolbarCallbacks {
   onSwapLanguages?: () => void;
   onToggleAutoTranslate?: (enabled: boolean) => void;
   onToggleCorrespondenceLines?: (enabled: boolean) => void;
+  onExportUnified?: () => void;
+  onExportSeparated?: () => void;
 }
 
 export class TranslationToolbar {
@@ -68,6 +70,10 @@ export class TranslationToolbar {
     // Settings section
     const settings = this.createSettingsSection();
     toolbar.appendChild(settings);
+
+    // Export section
+    const exportSection = this.createExportSection();
+    toolbar.appendChild(exportSection);
 
     this.element = toolbar;
     return toolbar;
@@ -426,6 +432,57 @@ export class TranslationToolbar {
 
     this.config.sourceLanguage = source;
     this.config.targetLanguage = target;
+  }
+
+  /**
+   * Create export section
+   */
+  private createExportSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.className = 'review-translation-toolbar-section';
+
+    const label = document.createElement('span');
+    label.className = 'review-translation-toolbar-label';
+    label.textContent = 'Export:';
+    section.appendChild(label);
+
+    // Export unified button
+    const exportUnifiedBtn = document.createElement('button');
+    exportUnifiedBtn.className = 'review-btn review-btn-secondary';
+    exportUnifiedBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 1a1 1 0 011 1v10.59l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L7 12.59V2a1 1 0 011-1z"/>
+      </svg>
+      <span>Export Translation</span>
+    `;
+    exportUnifiedBtn.dataset.action = 'export-unified';
+    exportUnifiedBtn.title = 'Export target language as .qmd';
+    section.appendChild(exportUnifiedBtn);
+
+    // Export separated button
+    const exportSeparatedBtn = document.createElement('button');
+    exportSeparatedBtn.className = 'review-btn review-btn-secondary';
+    exportSeparatedBtn.innerHTML = `
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 1a1 1 0 011 1v10.59l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L7 12.59V2a1 1 0 011-1z"/>
+      </svg>
+      <span>Export Both Languages</span>
+    `;
+    exportSeparatedBtn.dataset.action = 'export-separated';
+    exportSeparatedBtn.title =
+      'Export source and target languages as separate .qmd files';
+    section.appendChild(exportSeparatedBtn);
+
+    // Bind events
+    exportUnifiedBtn.addEventListener('click', () => {
+      this.callbacks.onExportUnified?.();
+    });
+
+    exportSeparatedBtn.addEventListener('click', () => {
+      this.callbacks.onExportSeparated?.();
+    });
+
+    return section;
   }
 
   /**

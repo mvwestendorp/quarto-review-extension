@@ -106,7 +106,6 @@ export class QuartoReview {
       autoSave: false,
       autoSaveInterval: 300000, // 5 minutes
       enableComments: true,
-      enableTranslation: false,
       ...config,
     };
 
@@ -134,30 +133,28 @@ export class QuartoReview {
       filename: this.draftFilename,
     });
 
-    // Initialize translation module if enabled
-    if (this.config.enableTranslation) {
-      const translationConfig: TranslationConfig = {
-        enabled: true,
-        sourceLanguage: this.config.translation?.sourceLanguage || 'en',
-        targetLanguage: this.config.translation?.targetLanguage || 'nl',
-        defaultProvider: this.config.translation?.defaultProvider || 'manual',
-        autoTranslateOnEdit:
-          this.config.translation?.autoTranslateOnEdit ?? false,
-        autoTranslateOnLoad:
-          this.config.translation?.autoTranslateOnLoad ?? false,
-        showCorrespondenceLines:
-          this.config.translation?.showCorrespondenceLines ?? true,
-        highlightOnHover: this.config.translation?.highlightOnHover ?? true,
-        providers: this.config.translation?.providers || {},
-      };
+    // Initialize translation module (always available if built into extension)
+    const translationConfig: TranslationConfig = {
+      enabled: true,
+      sourceLanguage: this.config.translation?.sourceLanguage || 'en',
+      targetLanguage: this.config.translation?.targetLanguage || 'nl',
+      defaultProvider: this.config.translation?.defaultProvider || 'manual',
+      autoTranslateOnEdit:
+        this.config.translation?.autoTranslateOnEdit ?? false,
+      autoTranslateOnLoad:
+        this.config.translation?.autoTranslateOnLoad ?? false,
+      showCorrespondenceLines:
+        this.config.translation?.showCorrespondenceLines ?? true,
+      highlightOnHover: this.config.translation?.highlightOnHover ?? true,
+      providers: this.config.translation?.providers || {},
+    };
 
-      this.translation = new TranslationModule({
-        config: translationConfig,
-        changes: this.changes,
-        markdown: this.markdown,
-        exporter: this.exporter,
-      });
-    }
+    this.translation = new TranslationModule({
+      config: translationConfig,
+      changes: this.changes,
+      markdown: this.markdown,
+      exporter: this.exporter,
+    });
 
     this.ui = new UIModule({
       changes: this.changes,

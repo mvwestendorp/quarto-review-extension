@@ -564,23 +564,10 @@ function build_debug_config(meta)
   return next(debug_config) ~= nil and debug_config or nil
 end
 
--- Build translation configuration from metadata
-function build_translation_config(meta)
-  -- Check if translation is enabled either in document YAML or would be inherited from project
-  local translation_enabled = false
-
-  if meta.review and meta.review.translation then
-    -- Document-level translation.enabled takes priority
-    if meta.review.translation.enabled ~= nil then
-      translation_enabled = meta_to_json(meta.review.translation.enabled)
-    end
-  end
-
-  -- Return the enableTranslation flag if true, otherwise return nil
-  if translation_enabled then
-    return true
-  end
-  return nil
+-- Translation module is always available since it's built into the extension
+-- This marker simply indicates that translation support should be initialized
+function has_translation_support()
+  return true
 end
 
 -- Convert table to JSON string (fallback encoding - no external dependencies)
@@ -1035,19 +1022,15 @@ function Meta(meta)
 
     -- Build initialization config
     local init_config = {
-      autoSave = false
+      autoSave = false,
+      -- Translation module is always available since it's built into the extension
+      enableTranslation = has_translation_support()
     }
 
     -- Add debug config if present
     local debug_config = build_debug_config(meta)
     if debug_config then
       init_config.debug = debug_config
-    end
-
-    -- Add translation enabled flag if present
-    local translation_enabled = build_translation_config(meta)
-    if translation_enabled then
-      init_config.enableTranslation = true
     end
 
     -- Add git configuration if present

@@ -7,7 +7,10 @@ import { createModuleLogger } from '@utils/debug';
 import { TranslationView } from './TranslationView';
 import { TranslationToolbar } from './TranslationToolbar';
 import { TranslationSettings } from './TranslationSettings';
-import { TranslationModule } from '@modules/translation';
+import {
+  TranslationModule,
+  TranslationExportService,
+} from '@modules/translation';
 import type {
   TranslationModuleConfig,
   Language,
@@ -28,6 +31,7 @@ export class TranslationController {
   private config: TranslationControllerConfig;
   private translationModule: TranslationModule;
   private settings: TranslationSettings;
+  private exportService: TranslationExportService;
   private view: TranslationView | null = null;
   private toolbar: TranslationToolbar | null = null;
   private container: HTMLElement;
@@ -47,6 +51,9 @@ export class TranslationController {
     this.translationModule = new TranslationModule(
       config.translationModuleConfig
     );
+
+    // Initialize export service
+    this.exportService = new TranslationExportService();
 
     logger.info('TranslationController initialized', {
       sourceLanguage: config.translationModuleConfig.config.sourceLanguage,
@@ -187,6 +194,8 @@ export class TranslationController {
         onToggleAutoTranslate: (enabled) => this.toggleAutoTranslate(enabled),
         onToggleCorrespondenceLines: (enabled) =>
           this.toggleCorrespondenceLines(enabled),
+        onExportUnified: () => this.exportTranslation('unified'),
+        onExportSeparated: () => this.exportTranslation('separated'),
       }
     );
 
@@ -199,6 +208,7 @@ export class TranslationController {
    */
   private createView(): void {
     const config = this.config.translationModuleConfig.config;
+    const markdown = this.config.translationModuleConfig.markdown;
 
     this.view = new TranslationView(
       {
@@ -212,7 +222,8 @@ export class TranslationController {
           this.handleSourceSentenceEdit(id, content),
         onTargetSentenceEdit: (id, content) =>
           this.handleTargetSentenceEdit(id, content),
-      }
+      },
+      markdown
     );
 
     const viewElement = this.view.create();
@@ -444,15 +455,31 @@ export class TranslationController {
   /**
    * Export translated document
    */
-  async exportTranslation(): Promise<string> {
+  private async exportTranslation(
+    strategy: 'unified' | 'separated'
+  ): Promise<void> {
     const document = this.translationModule.getDocument();
     if (!document) {
-      throw new Error('No document to export');
+      this.showNotification('No translation to export', 'warning');
+      return;
     }
 
-    // Export logic would go here
-    // For now, just return the target sentences joined
-    return document.targetSentences.map((s) => s.content).join(' ');
+    try {
+      logger.info('Exporting translation', { strategy });
+      const result = await this.exportService.exportTranslation(document, {
+        strategy,
+        languageMode: strategy === 'unified' ? 'target' : 'both',
+      });
+
+      const message =
+        result.fileCount === 1
+          ? `Exported ${result.filenames[0]}`
+          : `Exported ${result.fileCount} files to ${result.downloadedAs}`;
+      this.showNotification(message, 'success');
+    } catch (error) {
+      logger.error('Failed to export translation', error);
+      this.showNotification('Failed to export translation', 'error');
+    }
   }
 
   /**
