@@ -31,6 +31,7 @@ export class TranslationModule {
   private progressCallback?: (progress: TranslationProgress) => void;
   private autoSaveEnabled = true;
   private autoSaveInterval: ReturnType<typeof setTimeout> | null = null;
+  private sourceContentHash: string | null = null;
 
   constructor(
     config: TranslationModuleConfig,
@@ -201,6 +202,13 @@ export class TranslationModule {
       id: string;
       content: string;
     }>;
+
+    // Capture source content hash for out-of-sync detection
+    this.sourceContentHash = this.computeSourceHash(elements);
+    logger.debug('Source content hash captured', {
+      hash: this.sourceContentHash,
+      elementCount: elements.length,
+    });
 
     // Segment all elements into sentences
     const sourceSentences: Sentence[] = [];
@@ -469,6 +477,147 @@ export class TranslationModule {
 
     this.state.reset();
     this.engine.destroy();
+  }
+
+  /**
+   * Merge translation edits back to review mode
+   * Reconstructs element content from translated sentences and returns updates
+   */
+  mergeToElements(): Map<string, string> {
+    const doc = this.state.getDocument();
+    if (!doc) {
+      logger.warn('No translation document to merge');
+      return new Map();
+    }
+
+    const elementUpdates = new Map<string, string>();
+
+    // Group target sentences by element ID
+    const sentencesByElement = new Map<string, string[]>();
+
+    doc.targetSentences.forEach((sentence) => {
+      const elementId = sentence.elementId;
+      if (!sentencesByElement.has(elementId)) {
+        sentencesByElement.set(elementId, []);
+      }
+      sentencesByElement.get(elementId)?.push(sentence.content);
+    });
+
+    // Reconstruct element content by merging translated sentences
+    sentencesByElement.forEach((translatedSentences, elementId) => {
+      // Join sentences with double newlines (markdown paragraph separator)
+      const mergedContent = translatedSentences.join('\n\n');
+      elementUpdates.set(elementId, mergedContent);
+
+      logger.debug('Prepared element merge', {
+        elementId,
+        sentenceCount: translatedSentences.length,
+        contentLength: mergedContent.length,
+      });
+    });
+
+    logger.info('Translation merge prepared', {
+      elementsUpdated: elementUpdates.size,
+    });
+
+    return elementUpdates;
+  }
+
+  /**
+   * Apply merged translation to ChangesModule
+   * Converts translation edits into ChangesModule operations
+   */
+  applyMergeToChanges(
+    elementUpdates: Map<string, string>,
+    changesModule: typeof this.config.changes
+  ): boolean {
+    if (elementUpdates.size === 0) {
+      logger.info('No translation changes to apply');
+      return false;
+    }
+
+    try {
+      let appliedCount = 0;
+
+      elementUpdates.forEach((newContent, elementId) => {
+        const currentElement = changesModule.getElementById(elementId);
+        if (!currentElement) {
+          logger.warn('Element not found for merge', { elementId });
+          return;
+        }
+
+        // Only apply if content changed
+        if (currentElement.content !== newContent) {
+          changesModule.edit(elementId, newContent);
+          appliedCount++;
+
+          logger.debug('Applied translation edit to element', {
+            elementId,
+            oldLength: currentElement.content.length,
+            newLength: newContent.length,
+          });
+        }
+      });
+
+      if (appliedCount > 0) {
+        logger.info('Translation merge applied', { appliedCount });
+        return true;
+      }
+
+      logger.info('No content changes detected during merge');
+      return false;
+    } catch (error) {
+      logger.error('Failed to apply translation merge', error);
+      return false;
+    }
+  }
+
+  /**
+   * Check if source content has changed since translation was initialized
+   */
+  hasSourceChanged(): boolean {
+    if (!this.sourceContentHash) {
+      logger.warn('Source hash not available, cannot detect changes');
+      return false;
+    }
+
+    try {
+      const elements = this.config.changes.getCurrentState() as Array<{
+        id: string;
+        content: string;
+      }>;
+
+      const currentHash = this.computeSourceHash(elements);
+      const hasChanged = currentHash !== this.sourceContentHash;
+
+      if (hasChanged) {
+        logger.warn(
+          'Source content has changed since translation initialization',
+          {
+            originalHash: this.sourceContentHash,
+            currentHash,
+          }
+        );
+      }
+
+      return hasChanged;
+    } catch (error) {
+      logger.error('Failed to check if source changed', error);
+      return false;
+    }
+  }
+
+  /**
+   * Compute hash of all source element content
+   */
+  private computeSourceHash(
+    elements: Array<{ id: string; content: string }>
+  ): string {
+    // Create a stable hash of all element content
+    // Include both IDs and content to detect element reordering
+    const combined = elements.map((el) => `${el.id}:${el.content}`).join('|');
+
+    return this.hashContent(combined);
   }
 
   /**

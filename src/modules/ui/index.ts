@@ -279,7 +279,48 @@ export class UIModule {
 
     try {
       if (this.translationController) {
-        // Close existing translation UI - restore original document
+        // Close existing translation UI - merge changes back to review before destroying
+        logger.info('Exiting translation mode, merging changes');
+
+        // Check if source content has changed while in translation mode
+        if (this.translationModule.hasSourceChanged()) {
+          const userConfirmed = window.confirm(
+            'The source document has been modified since you started translating.\n\n' +
+              'Your translation may be based on outdated source text.\n\n' +
+              'Do you want to continue and merge the translation changes?\n\n' +
+              '(Click OK to merge translation, or Cancel to discard translation)'
+          );
+
+          if (!userConfirmed) {
+            logger.info('User cancelled translation merge due to out-of-sync');
+            this.showNotification(
+              'Translation merge cancelled - source was modified',
+              'warning'
+            );
+            return;
+          }
+
+          this.showNotification(
+            'Merging translation despite source modifications',
+            'warning'
+          );
+        }
+
+        // Merge translation edits back to review mode
+        const elementUpdates = this.translationModule.mergeToElements();
+        const mergeApplied = this.translationModule.applyMergeToChanges(
+          elementUpdates,
+          this.config.changes
+        );
+
+        if (mergeApplied) {
+          this.showNotification(
+            'Translation changes merged to review mode',
+            'success'
+          );
+        }
+
+        // Clean up translation UI
         this.translationController.destroy();
         this.translationController = null;
 
@@ -288,6 +329,9 @@ export class UIModule {
         this.showReviewSidebar(true);
         this.showCommentsSidebar(true);
         document.body.classList.remove('translation-mode');
+
+        // Refresh review mode to show merged changes
+        this.refresh();
 
         this.mainSidebarModule.setTranslationActive(false);
         this.showNotification('Translation UI closed', 'info');
