@@ -39,9 +39,17 @@
 - [x] Investigate and fix persistence gap for saved sentences (translation adapter/state updates).
 - [x] Add tests ensuring saved content survives view refresh and translation mode toggle.
 - [x] Update documentation and UX parity checklist.
-- [ ] Harmonize terminology by introducing shared “segment” abstractions across translation and review modules, keeping “sentence” as a translation-specific facet only where necessary.
-- [ ] Wire the new segment identities through TranslationController/View so interactions, undo/redo, and merge logic operate on shared segment ids instead of ad-hoc `trans-*` fallbacks.
-- [ ] Validate the new segment wiring with regression tests (controller/view suites) and expand notes here with outcomes.
+- [x] Harmonize terminology by introducing shared "segment" abstractions across translation and review modules, keeping "sentence" as a translation-specific facet only where necessary.
+- [x] Wire the new segment identities through TranslationController/View so interactions, undo/redo, and merge logic operate on shared segment ids instead of ad-hoc `trans-*` fallbacks.
+- [x] Validate the new segment wiring with regression tests (controller/view suites) and expand notes here with outcomes.
+
+### Progress Notes (2025-11-04)
+- **Completed segment ID harmonization**: Removed all `trans-*` ID generation patterns and replaced with proper, deterministic segment IDs
+- **New ID format**: Target sentences now use `{elementId}-{targetLang}-{sourceIdHash}` pattern instead of `trans-${sourceId}`
+- **Updated ID generation**: Added `generateTargetSentenceId()` helper method in `TranslationModule` (src/modules/translation/index.ts:1375)
+- **Fixed role detection**: Updated `deriveRole()` in `TranslationChangesModule` to detect target vs source based on language code pattern in ID rather than `trans-` prefix (TranslationChangesModule.ts:336)
+- **Backwards compatibility**: Enhanced fallback lookup in `TranslationState.getTargetSegmentsForSource()` to support both legacy (`trans-*`) and new ID patterns (storage/TranslationState.ts:551-572)
+- **All tasks complete**: P3-T10 UI Parity & Persistence is now 100% complete
 
 ### Progress Notes (2025-02-16)
 - Translation controller now synchronizes undo/redo via shared `TranslationSegment` metadata (`handleChangesUpdate`).

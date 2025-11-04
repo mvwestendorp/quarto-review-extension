@@ -548,13 +548,26 @@ export class TranslationState {
       }
     });
 
+    // Fallback: try to find target by ID patterns (for backwards compatibility)
     if (segments.length === 0) {
-      const fallbackId = `trans-${sourceId}`;
-      const fallback = this.document.targetSentences.find(
-        (s) => s.id === fallbackId
+      // Try legacy trans-* pattern first (backwards compatibility)
+      const legacyFallbackId = `trans-${sourceId}`;
+      const legacyFallback = this.document.targetSentences.find(
+        (s) => s.id === legacyFallbackId
       );
-      if (fallback) {
-        segments.push(this.toSegment(fallback, 'target'));
+      if (legacyFallback) {
+        segments.push(this.toSegment(legacyFallback, 'target'));
+      } else {
+        // Try new pattern: find target with same source ID in the ID
+        // New IDs are: {elementId}-{targetLang}-{sourceIdHash}
+        // We need to find a target whose ID includes the source's hash
+        const sourceHash = this.hashContent(sourceId);
+        const newPatternFallback = this.document.targetSentences.find(
+          (s) => s.id.endsWith(`-${sourceHash}`)
+        );
+        if (newPatternFallback) {
+          segments.push(this.toSegment(newPatternFallback, 'target'));
+        }
       }
     }
 

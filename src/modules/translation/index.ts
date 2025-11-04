@@ -389,7 +389,10 @@ export class TranslationModule implements ChangesExtension {
       }
 
       const translated = text ?? '';
-      const targetSentenceId = `trans-${sourceSentence.id}`;
+      const targetSentenceId = this.generateTargetSentenceId(
+        sourceSentence.id,
+        sourceSentence.elementId
+      );
       const existingTarget = doc.targetSentences.find(
         (s) => s.id === targetSentenceId
       );
@@ -524,7 +527,10 @@ export class TranslationModule implements ChangesExtension {
       provider
     );
 
-    const targetSentenceId = `trans-${sentence.id}`;
+    const targetSentenceId = this.generateTargetSentenceId(
+      sentence.id,
+      sentence.elementId
+    );
 
     // Check if target sentence already exists
     const existingTarget = doc.targetSentences.find(
@@ -912,7 +918,7 @@ export class TranslationModule implements ChangesExtension {
       const targetOrder =
         typeof source.order === 'number' ? source.order : index;
       const targetSentence: Sentence = {
-        id: `trans-${source.id}`,
+        id: this.generateTargetSentenceId(source.id, source.elementId),
         elementId: source.elementId,
         content: '',
         language: this.config.config.targetLanguage,
@@ -1366,6 +1372,21 @@ export class TranslationModule implements ChangesExtension {
     const combined = elements.map((el) => `${el.id}:${el.content}`).join('|');
 
     return this.hashContent(combined);
+  }
+
+  /**
+   * Generate a proper target sentence ID from a source sentence
+   * Uses a deterministic, content-based approach instead of `trans-*` prefix
+   */
+  private generateTargetSentenceId(
+    sourceId: string,
+    elementId: string
+  ): string {
+    const targetLang = this.config.config.targetLanguage;
+    // Create a stable ID that includes element context and target language
+    // Format: {elementId}-{targetLang}-{sourceIdHash}
+    const sourceHash = this.hashContent(sourceId);
+    return `${elementId}-${targetLang}-${sourceHash}`;
   }
 
   /**
