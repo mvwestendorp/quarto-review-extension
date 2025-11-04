@@ -960,6 +960,9 @@ export class TranslationController {
     newContent: string
   ): Promise<void> {
     // Legacy sentence-based editing (pre-segment harmonization)
+    // Track the edit operation in TranslationChangesModule
+    this.changesModule.editSentence(sentenceId, newContent, 'source');
+    // Update internal translation state
     this.translationModule.updateSentence(sentenceId, newContent, true);
     this.translationModule.saveToStorageNow();
     this.refreshViewFromState();
@@ -975,6 +978,9 @@ export class TranslationController {
     newContent: string
   ): Promise<void> {
     // Legacy sentence-based editing (pre-segment harmonization)
+    // Track the edit operation in TranslationChangesModule
+    this.changesModule.editSentence(sentenceId, newContent, 'target');
+    // Update internal translation state
     this.translationModule.updateSentence(sentenceId, newContent, false);
     this.translationModule.saveToStorageNow();
     this.refreshViewFromState();
