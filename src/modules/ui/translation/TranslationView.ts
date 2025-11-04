@@ -32,6 +32,7 @@ type ActiveEditorContext = {
 
 export class TranslationView {
   private element: HTMLElement | null = null;
+  private viewConfig: TranslationViewConfig;
   private callbacks: TranslationViewCallbacks;
   private document: TranslationDocument | null = null;
   private markdown: MarkdownModule | null = null;
@@ -78,11 +79,12 @@ export class TranslationView {
   private activeEditorContext: ActiveEditorContext | null = null;
 
   constructor(
-    _config: TranslationViewConfig,
+    config: TranslationViewConfig,
     callbacks: TranslationViewCallbacks,
     markdown?: MarkdownModule,
     editorBridge?: TranslationEditorBridge
   ) {
+    this.viewConfig = config;
     this.callbacks = callbacks;
     this.markdown = markdown || null;
     this.editorBridge = editorBridge || null;
@@ -476,15 +478,10 @@ export class TranslationView {
     // Click to select
     element.addEventListener('click', () => {
       this.selectSentence(sentenceId, side);
-      const callback =
-        side === 'source'
-          ? this.callbacks.onSourceSentenceClick
-          : this.callbacks.onTargetSentenceClick;
-      callback?.(sentenceId);
     });
 
     // Hover to highlight correspondences
-    if (this.config.highlightOnHover) {
+    if (this.viewConfig.highlightOnHover) {
       element.addEventListener('mouseenter', () => {
         this.hoverSentence(sentenceId, side);
       });
@@ -496,7 +493,14 @@ export class TranslationView {
 
     // Double-click to edit
     element.addEventListener('dblclick', async () => {
-      await this.enableSentenceEdit(element, sentenceId, side);
+      // Find the sentence to pass to enable edit
+      const sentence =
+        side === 'source'
+          ? this.document?.sourceSentences.find((s) => s.id === sentenceId)
+          : this.document?.targetSentences.find((s) => s.id === sentenceId);
+      if (sentence) {
+        await this.enableSentenceEdit(element, sentence, side);
+      }
     });
   }
 
@@ -519,7 +523,7 @@ export class TranslationView {
     }
 
     // Highlight corresponding sentences
-    this.highlightCorrespondences(sentenceId, side);
+    this.highlightCorrespondences(sentenceId, side, 'selected');
   }
 
   /**
@@ -530,7 +534,7 @@ export class TranslationView {
     if (element) {
       element.classList.add('review-translation-sentence-hover');
     }
-    this.highlightCorrespondences(sentenceId, side);
+    this.highlightCorrespondences(sentenceId, side, 'hover');
   }
 
   /**
@@ -541,7 +545,8 @@ export class TranslationView {
     if (element) {
       element.classList.remove('review-translation-sentence-hover');
     }
-    this.clearCorrespondenceHighlights();
+    // Remove hover highlights from correspondences
+    this.removeCorrespondenceHighlights('hover');
   }
 
   /**
@@ -674,48 +679,6 @@ export class TranslationView {
   }
 
   /**
-   * Bind events to a segment element (segment-based editing)
-   */
-  private bindSegmentEvents(
-    element: HTMLElement,
-    elementId: string,
-    side: 'source' | 'target'
-  ): void {
-    // Click to select
-    element.addEventListener('click', () => {
-      this.selectSegment(elementId, side);
-      // TODO: Add callback for segment click if needed
-    });
-
-    // Double-click to edit entire segment (like review mode)
-    element.addEventListener('dblclick', async () => {
-      await this.enableSegmentEdit(element, elementId, side);
-    });
-
-    // Keyboard activation
-    element.addEventListener('keydown', async (event) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-
-      const isActivationKey = event.key === 'Enter' || event.key === ' ';
-      const isSegmentTarget =
-        event.target === element && document.activeElement === element;
-
-      if (!isActivationKey || !isSegmentTarget) {
-        return;
-      }
-
-      if (this.isEditorActive()) {
-        return;
-      }
-
-      event.preventDefault();
-      await this.enableSegmentEdit(element, elementId, side);
-    });
-  }
-
-  /**
    * Select a segment and highlight correspondences
    */
   private selectSegment(elementId: string, side: 'source' | 'target'): void {
@@ -756,6 +719,21 @@ export class TranslationView {
   }
 
   /**
+   * Remove correspondence highlights
+   */
+  private removeCorrespondenceHighlights(
+    className: 'selected' | 'hover'
+  ): void {
+    if (!this.element) return;
+    const highlighted = this.element.querySelectorAll(
+      `.review-translation-sentence-${className}`
+    );
+    highlighted.forEach((el) => {
+      el.classList.remove(`review-translation-sentence-${className}`);
+    });
+  }
+
+  /**
    * Get corresponding sentence IDs
    */
   private getCorrespondingIds(
@@ -782,20 +760,6 @@ export class TranslationView {
     if (!this.element) return null;
     return this.element.querySelector(
       `.review-translation-segment[data-element-id="${elementId}"][data-side="${side}"]`
-    );
-  }
-
-  /**
-   * Find sentence element by ID and side
-   * @deprecated Use findSegmentElement instead - sentences are internal only
-   */
-  private findSentenceElement(
-    sentenceId: string,
-    side: 'source' | 'target'
-  ): HTMLElement | null {
-    if (!this.element) return null;
-    return this.element.querySelector(
-      `[data-sentence-id="${sentenceId}"][data-side="${side}"]`
     );
   }
 
@@ -969,6 +933,22 @@ export class TranslationView {
       sourceEl.style.minHeight = `${maxHeight}px`;
       targetEl.style.minHeight = `${maxHeight}px`;
     });
+  }
+
+  /**
+   * Enable inline editing for a sentence
+   * Similar to enableSegmentEdit but for individual sentences
+   */
+  private async enableSentenceEdit(
+    element: HTMLElement,
+    sentence: Sentence,
+    side: 'source' | 'target'
+  ): Promise<void> {
+    if (!this.document || !this.editorBridge) return;
+
+    // For now, delegate to segment-level editing
+    // In the future, we could implement sentence-level editing if needed
+    await this.enableSegmentEdit(element, sentence.elementId, side);
   }
 
   /**
