@@ -420,6 +420,23 @@ export class TranslationView {
 
     sentenceElement.appendChild(wrapper);
 
+    // Add spinner for loading states
+    const spinner = document.createElement('div');
+    spinner.className = 'review-translation-sentence-spinner';
+    spinner.dataset.role = 'sentence-spinner';
+    spinner.setAttribute('role', 'status');
+    spinner.setAttribute('aria-label', 'Loading');
+    spinner.hidden = true;
+    sentenceElement.appendChild(spinner);
+
+    // Add error message container
+    const errorMessage = document.createElement('div');
+    errorMessage.className = 'review-translation-sentence-error-message';
+    errorMessage.dataset.role = 'sentence-error';
+    errorMessage.setAttribute('role', 'alert');
+    errorMessage.hidden = true;
+    sentenceElement.appendChild(errorMessage);
+
     // Add event listeners
     this.bindSentenceEvents(sentenceElement, sentence.id, side);
 
@@ -459,7 +476,7 @@ export class TranslationView {
     const labels: Record<string, string> = {
       untranslated: 'Not translated',
       'auto-translated': 'Auto-translated',
-      manual: 'Manual translation',
+      manual: 'Manually translated',
       edited: 'Edited',
       'out-of-sync': 'Out of sync',
       synced: 'Synced',
@@ -903,7 +920,6 @@ export class TranslationView {
 
   /**
    * Enable inline editing for a sentence
-   * Similar to enableSegmentEdit but for individual sentences
    */
   private async enableSentenceEdit(
     element: HTMLElement,
@@ -912,53 +928,13 @@ export class TranslationView {
   ): Promise<void> {
     if (!this.document || !this.editorBridge) return;
 
-    // For now, delegate to segment-level editing
-    // In the future, we could implement sentence-level editing if needed
-    await this.enableSegmentEdit(element, sentence.elementId, side);
-  }
-
-  /**
-   * Enable inline editing for a segment (element-level editing)
-   * Uses the same MilkdownEditor as review mode for consistent editing experience
-   */
-  private async enableSegmentEdit(
-    element: HTMLElement,
-    elementId: string,
-    side: 'source' | 'target'
-  ): Promise<void> {
-    if (!this.document || !this.editorBridge) return;
-
-    // Get all sentences for this element and merge into segment content
-    const sentences =
-      side === 'source'
-        ? this.document.sourceSentences.filter((s) => s.elementId === elementId)
-        : this.document.targetSentences.filter(
-            (s) => s.elementId === elementId
-          );
-
-    if (sentences.length === 0) return;
-
-    // Sort and merge sentences into complete segment content
-    const orderedSentences = [...sentences].sort((a, b) => {
-      if (a.order !== b.order) return a.order - b.order;
-      return (a.startOffset ?? 0) - (b.startOffset ?? 0);
-    });
-
-    const segmentContent = orderedSentences.map((s) => s.content).join('\n\n');
-
-    // Close any existing editor
-    if (this.activeEditorContext) {
-      this.cancelActiveEditor();
-    }
-
-    // Find content element
     const contentEl = element.querySelector(
-      '.review-translation-segment-content'
+      '.review-translation-sentence-content'
     ) as HTMLElement;
     if (!contentEl) return;
 
     try {
-      // Create editor container (same structure as review mode)
+      // Create editor container
       const editorContainer = document.createElement('div');
       editorContainer.className =
         'review-translation-milkdown-editor review-inline-editor-container';
@@ -966,7 +942,7 @@ export class TranslationView {
       editorBody.className = 'review-editor-body review-inline-editor-body';
       editorContainer.appendChild(editorBody);
 
-      // Create action buttons (same as review mode)
+      // Create action buttons
       const actions = document.createElement('div');
       actions.className =
         'review-inline-editor-actions review-translation-editor-actions';
@@ -980,169 +956,103 @@ export class TranslationView {
       contentEl.appendChild(editorContainer);
       contentEl.appendChild(actions);
 
-      // Initialize Milkdown editor for the entire segment (not individual sentences)
-      await this.editorBridge.initializeSegmentEditor(
+      // Initialize Milkdown editor
+      await this.editorBridge.initializeSentenceEditor(
         editorContainer,
-        elementId,
-        segmentContent,
+        sentence,
         side
       );
 
-      logger.debug('Milkdown editor initialized for segment', {
-        elementId,
+      logger.debug('Milkdown editor initialized for sentence', {
+        sentenceId: sentence.id,
         side,
-        sentenceCount: sentences.length,
       });
 
-      const removeEscapeListener = (): void => {
-        document.removeEventListener('keydown', handleKeyDown);
-      };
-
-      const finishEditing = (destroyEditor: boolean): void => {
-        removeEscapeListener();
-        if (destroyEditor) {
-          this.editorBridge?.destroy();
-        }
-        // Re-render the segment content
-        if (this.markdown) {
-          try {
-            const html = this.markdown.renderElement(segmentContent, 'Para');
-            contentEl.innerHTML = html;
-          } catch (error) {
-            logger.warn('Failed to render markdown after editing', { error });
-            contentEl.textContent = segmentContent;
-          }
-        } else {
-          contentEl.textContent = segmentContent;
-        }
-        element.focus();
-        this.clearActiveEditorContext();
-        this.scheduleSentenceAlignment();
-      };
-
-      // Handle save - calls callback with entire segment content
       const save = (): boolean => {
-        const module = this.editorBridge?.getModule();
-        const newContent = module?.getContent() || segmentContent;
-        const saved = this.editorBridge?.saveSegmentEdit(
-          elementId,
-          newContent,
-          side
-        );
-
+        const saved = this.editorBridge?.saveSentenceEdit();
         if (saved) {
-          // Call the appropriate callback with segment-level edit
-          const callback =
-            side === 'source'
-              ? this.callbacks.onSourceSegmentEdit
-              : this.callbacks.onTargetSegmentEdit;
-          void callback?.(elementId, newContent);
+          // Restore rendered content with new content
+          const module = this.editorBridge?.getModule();
+          const newContent = module?.getContent() || sentence.content;
 
-          // Re-render with new content
           if (this.markdown) {
             try {
               const html = this.markdown.renderElement(newContent, 'Para');
               contentEl.innerHTML = html;
             } catch (error) {
-              logger.warn('Failed to render markdown', { error });
+              logger.error('Failed to render edited content', error);
               contentEl.textContent = newContent;
             }
           } else {
             contentEl.textContent = newContent;
           }
+
+          // Notify callback
+          const callback =
+            side === 'source'
+              ? this.callbacks.onSourceSegmentEdit
+              : this.callbacks.onTargetSegmentEdit;
+          callback?.(sentence.elementId, newContent);
         } else {
-          // Restore original content if save failed
-          if (this.markdown) {
-            try {
-              const html = this.markdown.renderElement(segmentContent, 'Para');
-              contentEl.innerHTML = html;
-            } catch (error) {
-              logger.error('Failed to render segment content', error);
-              contentEl.textContent = segmentContent;
-            }
-          } else {
-            contentEl.textContent = segmentContent;
-          }
+          // Restore original display
+          this.restoreSentenceDisplay(contentEl, sentence);
         }
 
-        finishEditing(true);
+        this.editorBridge?.destroy();
         return Boolean(saved);
       };
 
       const cancel = (): void => {
-        // Restore original content
-        if (this.markdown) {
-          try {
-            const html = this.markdown.renderElement(segmentContent, 'Para');
-            contentEl.innerHTML = html;
-          } catch (error) {
-            logger.error('Failed to render segment content', error);
-            contentEl.textContent = segmentContent;
-          }
-        } else {
-          contentEl.textContent = segmentContent;
-        }
+        this.restoreSentenceDisplay(contentEl, sentence);
         this.editorBridge?.cancelEdit();
-        finishEditing(false);
       };
-
-      function handleKeyDown(e: KeyboardEvent): void {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          cancel();
-        }
-      }
 
       // Attach button event listeners
       actions
         .querySelector('[data-action="save"]')
-        ?.addEventListener('click', () => {
-          void save();
-        });
+        ?.addEventListener('click', save);
       actions
         .querySelector('[data-action="cancel"]')
-        ?.addEventListener('click', () => {
-          cancel();
-        });
+        ?.addEventListener('click', cancel);
 
       // Escape to cancel
-      document.addEventListener('keydown', handleKeyDown);
-
-      // Store active editor context (modified for segments)
-      this.activeEditorContext = {
-        sentence: orderedSentences[0]!, // Keep for type compatibility
-        side,
-        sentenceElement: element,
-        contentEl,
-        save,
-        cancel,
-      };
-    } catch (error) {
-      logger.error('Failed to initialize segment editor', {
-        elementId,
-        side,
-        error,
-      });
-      this.editorBridge?.destroy();
-      // Restore content display
-      if (this.markdown) {
-        try {
-          const html = this.markdown.renderElement(segmentContent, 'Para');
-          contentEl.innerHTML = html;
-        } catch (renderError) {
-          logger.error('Failed to render segment content', renderError);
-          contentEl.textContent = segmentContent;
+      const handleKeyDown = (e: KeyboardEvent): void => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cancel();
+          document.removeEventListener('keydown', handleKeyDown);
         }
-      } else {
-        contentEl.textContent = segmentContent;
-      }
+      };
+      document.addEventListener('keydown', handleKeyDown);
+    } catch (error) {
+      logger.error('Failed to initialize Milkdown editor for sentence', error);
       // Show error message
-      const message = document.createElement('div');
-      message.className = 'review-translation-editor-error';
-      message.setAttribute('role', 'alert');
-      message.textContent =
-        'Unable to load the translation editor. Please reload translation mode and try again.';
-      contentEl.appendChild(message);
+      const errorEl = document.createElement('div');
+      errorEl.className = 'review-translation-editor-error';
+      errorEl.setAttribute('role', 'alert');
+      errorEl.textContent =
+        error instanceof Error ? error.message : 'Failed to initialize editor';
+      contentEl.innerHTML = '';
+      contentEl.appendChild(errorEl);
+    }
+  }
+
+  /**
+   * Restore rendered display of a sentence
+   */
+  private restoreSentenceDisplay(
+    contentEl: HTMLElement,
+    sentence: Sentence
+  ): void {
+    if (this.markdown) {
+      try {
+        const html = this.markdown.renderElement(sentence.content, 'Para');
+        contentEl.innerHTML = html;
+      } catch {
+        contentEl.textContent = sentence.content;
+      }
+    } else {
+      contentEl.textContent = sentence.content;
     }
   }
 
