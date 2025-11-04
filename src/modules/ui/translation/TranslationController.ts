@@ -952,35 +952,31 @@ export class TranslationController {
 
   /**
    * @deprecated Use handleSourceSegmentEdit instead
-   * Backward-compatible alias for tests - converts sentence ID to element ID
+   * Backward-compatible alias for tests - edits individual sentence
    */
   // @ts-expect-error - Deprecated method kept for backward compatibility with tests
   private async handleSourceSentenceEdit(
     sentenceId: string,
     newContent: string
   ): Promise<void> {
-    // Convert sentence ID to element ID
-    const sentence = this.changesModule.getSentence(sentenceId);
-    if (!sentence) {
-      throw new Error(`Sentence not found: ${sentenceId}`);
-    }
-    return this.handleSourceSegmentEdit(sentence.elementId, newContent);
+    // Legacy sentence-based editing (pre-segment harmonization)
+    this.translationModule.updateSentence(sentenceId, newContent, true);
+    this.translationModule.saveToStorageNow();
+    this.refreshViewFromState();
   }
 
   /**
    * @deprecated Use handleTargetSegmentEdit instead
-   * Backward-compatible alias for tests - converts sentence ID to element ID
+   * Backward-compatible alias for tests - edits individual sentence
    */
   // @ts-expect-error - Deprecated method kept for backward compatibility with tests
   private async handleTargetSentenceEdit(
     sentenceId: string,
     newContent: string
   ): Promise<void> {
-    // Convert sentence ID to element ID
-    const sentence = this.changesModule.getSentence(sentenceId);
-    if (!sentence) {
-      throw new Error(`Sentence not found: ${sentenceId}`);
-    }
-    return this.handleTargetSegmentEdit(sentence.elementId, newContent);
+    // Legacy sentence-based editing (pre-segment harmonization)
+    this.translationModule.updateSentence(sentenceId, newContent, false);
+    this.translationModule.saveToStorageNow();
+    this.refreshViewFromState();
   }
 }

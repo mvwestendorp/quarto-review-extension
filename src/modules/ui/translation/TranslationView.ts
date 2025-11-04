@@ -8,7 +8,6 @@ import type { MarkdownModule } from '@modules/markdown';
 import type { TranslationDocument, Sentence } from '@modules/translation/types';
 import type { TranslationEditorBridge } from './TranslationEditorBridge';
 import type { TranslationProgressStatus } from './TranslationController';
-import { debuglog } from 'util';
 
 const logger = createModuleLogger('TranslationView');
 
@@ -967,7 +966,7 @@ export class TranslationView {
               const html = this.markdown.renderElement(segmentContent, 'Para');
               contentEl.innerHTML = html;
             } catch (error) {
-              debuglog(error as string);
+              logger.error('Failed to render segment content', error);
               contentEl.textContent = segmentContent;
             }
           } else {
@@ -986,7 +985,7 @@ export class TranslationView {
             const html = this.markdown.renderElement(segmentContent, 'Para');
             contentEl.innerHTML = html;
           } catch (error) {
-            debuglog(error as string);
+            logger.error('Failed to render segment content', error);
             contentEl.textContent = segmentContent;
           }
         } else {
@@ -1040,7 +1039,7 @@ export class TranslationView {
           const html = this.markdown.renderElement(segmentContent, 'Para');
           contentEl.innerHTML = html;
         } catch (renderError) {
-          debuglog(renderError as string);
+          logger.error('Failed to render segment content', renderError);
           contentEl.textContent = segmentContent;
         }
       } else {
