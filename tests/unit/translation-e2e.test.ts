@@ -92,10 +92,6 @@ describe('Translation End-to-End Workflow', () => {
       await controller.initialize();
       expect(container.children.length).toBeGreaterThan(0);
 
-      // Verify toolbar is created
-      const toolbar = container.querySelector('.review-translation-toolbar');
-      expect(toolbar).toBeDefined();
-
       // Verify view is created
       const view = container.querySelector('.review-translation-view');
       expect(view).toBeDefined();
@@ -129,29 +125,30 @@ describe('Translation End-to-End Workflow', () => {
 
       await controller.initialize();
 
-      // Simulate language change in toolbar
-      const sourceSelect = container.querySelector(
-        '[data-setting="source-language"]'
-      ) as HTMLSelectElement;
-      const targetSelect = container.querySelector(
-        '[data-setting="target-language"]'
-      ) as HTMLSelectElement;
-
-      expect(sourceSelect?.value).toBe('en');
-      expect(targetSelect?.value).toBe('nl');
-
-      sourceSelect.value = 'fr';
-      sourceSelect.dispatchEvent(new Event('change'));
-
+      // Update languages through controller APIs
+      await controller.setSourceLanguage('fr');
       expect(onNotification).toHaveBeenCalledWith(
         expect.stringContaining('Source language changed'),
         'info'
       );
 
+      await controller.setTargetLanguage('de');
+      expect(onNotification).toHaveBeenCalledWith(
+        expect.stringContaining('Target language changed'),
+        'info'
+      );
+
+      controller.swapLanguages();
+      const config = (controller as any).config.translationModuleConfig.config;
+      expect(config.sourceLanguage).toBe('de');
+      expect(config.targetLanguage).toBe('fr');
+
       controller.destroy();
     });
 
     it('toggles progress indicator during translation', async () => {
+      const progressUpdates: any[] = [];
+      const busyChanges: boolean[] = [];
       const controller = new TranslationController({
         container,
         translationModuleConfig: {
@@ -170,17 +167,32 @@ describe('Translation End-to-End Workflow', () => {
           markdown: mockMarkdownModule as any,
         },
         onNotification: vi.fn(),
+        onProgressUpdate: (status) => progressUpdates.push(status),
+        onBusyChange: (busy) => busyChanges.push(busy),
       });
 
       await controller.initialize();
 
-      // Get the progress indicator
-      const progress = container.querySelector('.review-translation-progress') as HTMLElement;
-      expect(progress).toBeDefined();
-      expect(progress.style.display).toBe('none');
+      const moduleRef = (controller as any).translationModule;
+      const progressHandlers: any[] = [];
+      moduleRef.setProgressCallback = vi.fn((cb: any) => {
+        progressHandlers.push(cb);
+      });
+      moduleRef.translateDocument = vi.fn().mockResolvedValue(undefined);
 
-      // Note: In a real test, we would trigger actual translation
-      // Here we verify the UI structure is in place
+      await controller.translateDocument();
+
+      expect(busyChanges).toContain(true);
+      expect(busyChanges).toContain(false);
+      expect(progressUpdates[0]).toMatchObject({ phase: 'idle' });
+
+      const notifyStep = progressHandlers[0];
+      notifyStep?.({
+        message: 'Translating…',
+        progress: 0.5,
+      });
+
+      expect(progressUpdates.find((s) => s.percent === 50)).toBeTruthy();
 
       controller.destroy();
     });
@@ -208,15 +220,7 @@ describe('Translation End-to-End Workflow', () => {
 
       await controller.initialize();
 
-      // Toggle auto-translate
-      const autoTranslateCheckbox = container.querySelector(
-        '[id*="auto-translate"]'
-      ) as HTMLInputElement;
-
-      autoTranslateCheckbox.checked = true;
-      autoTranslateCheckbox.dispatchEvent(new Event('change'));
-
-      // Verify the setting was updated in config
+      controller.setAutoTranslate(true);
       const config = (controller as any).config.translationModuleConfig.config;
       expect(config.autoTranslateOnEdit).toBe(true);
 
@@ -283,7 +287,7 @@ describe('Translation End-to-End Workflow', () => {
   });
 
   describe('E2E: Correspondence and Alignment', () => {
-    it('displays correspondence mapping', async () => {
+    it('aligns sentences without correspondence lines', async () => {
       const controller = new TranslationController({
         container,
         translationModuleConfig: {
@@ -306,13 +310,29 @@ describe('Translation End-to-End Workflow', () => {
 
       await controller.initialize();
 
-      // Verify correspondence lines toggle exists
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
       const correspondenceCheckbox = container.querySelector(
         '[id*="correspondence-lines"]'
-      ) as HTMLInputElement;
+      );
 
-      expect(correspondenceCheckbox).toBeDefined();
-      expect(correspondenceCheckbox.checked).toBe(true);
+      expect(correspondenceCheckbox).toBeNull();
+
+      const doc = (controller as any).translationModule.getDocument();
+      expect(doc).toBeTruthy();
+
+      doc?.correspondenceMap.pairs.forEach((pair: any) => {
+        const sourceEl = container.querySelector(
+          `[data-sentence-id="${pair.sourceId}"][data-side="source"]`
+        ) as HTMLElement | null;
+        const targetEl = container.querySelector(
+          `[data-sentence-id="${pair.targetId}"][data-side="target"]`
+        ) as HTMLElement | null;
+
+        if (sourceEl && targetEl) {
+          expect(Math.abs(sourceEl.offsetHeight - targetEl.offsetHeight)).toBeLessThanOrEqual(1);
+        }
+      });
 
       controller.destroy();
     });
@@ -460,25 +480,17 @@ describe('Translation End-to-End Workflow', () => {
 
       await controller.initialize();
 
-      // Get the provider select
-      const providerSelect = container.querySelector(
-        '[data-setting="provider"]'
-      ) as HTMLSelectElement;
+      const providers = controller.getAvailableProviders();
+      expect(providers.length).toBeGreaterThan(0);
 
-      expect(providerSelect).toBeDefined();
-      expect(providerSelect.options.length).toBeGreaterThan(0);
+      const initialProvider = (controller as any).config.translationModuleConfig.config
+        .defaultProvider;
+      const newProvider = providers.find((provider) => provider !== initialProvider);
 
-      // Change provider
-      const initialProvider = providerSelect.value;
-      const availableProviders = Array.from(providerSelect.options).map((o) => o.value);
-
-      if (availableProviders.length > 1) {
-        const newProvider = availableProviders.find((p) => p !== initialProvider);
-        if (newProvider) {
-          providerSelect.value = newProvider;
-          providerSelect.dispatchEvent(new Event('change'));
-          expect(providerSelect.value).toBe(newProvider);
-        }
+      if (newProvider) {
+        controller.setProvider(newProvider);
+        const config = (controller as any).config.translationModuleConfig.config;
+        expect(config.defaultProvider).toBe(newProvider);
       }
 
       controller.destroy();

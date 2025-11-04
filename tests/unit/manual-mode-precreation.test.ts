@@ -3,7 +3,7 @@
  * Tests for pre-creating empty target sentences in manual translation mode (Phase 2 Task 2.2)
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TranslationModule } from '../../src/modules/translation';
 import { TranslationChangesModule } from '../../src/modules/translation/TranslationChangesModule';
 import { ChangesModule } from '../../src/modules/changes';
@@ -292,6 +292,20 @@ describe('Manual Mode Pre-creation (Phase 2 Task 2.2)', () => {
 
       // Should not have duplicated
       expect(count2).toBe(count1);
+    });
+
+    it('should emit state update event when precreating targets', async () => {
+      await translationModule.initialize();
+      const listener = vi.fn();
+      const dispose = translationModule.on(
+        'translation:state-updated',
+        listener
+      );
+
+      translationModule.preCreateTargetSentences();
+
+      expect(listener).toHaveBeenCalled();
+      dispose();
     });
 
     it('should create correspondence pairs for pre-created sentences', async () => {

@@ -112,7 +112,36 @@ export class TranslationEngine {
       throw new Error(`Provider ${provider.name} is not available`);
     }
 
-    return provider.translateBatch(texts, from, to);
+    const results: string[] = [];
+    const batchSize = 5;
+
+    for (let i = 0; i < texts.length; i += batchSize) {
+      const batch = texts.slice(i, i + batchSize);
+      const batchResults = await provider.translateBatch(batch, from, to);
+      results.push(...batchResults);
+
+      this.progressCallback?.({
+        stage: 'translating',
+        progress: Math.min(1, (i + batch.length) / texts.length),
+        message: `Translating... ${i + batch.length}/${texts.length}`,
+        current: i + batch.length,
+        total: texts.length,
+      });
+
+      await this.yieldToMainThread();
+    }
+
+    return results;
+  }
+
+  private async yieldToMainThread(): Promise<void> {
+    if (typeof window === 'undefined') {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      return;
+    }
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => resolve(undefined));
+    });
   }
 
   /**
@@ -183,5 +212,24 @@ export class TranslationEngine {
       }
     });
     this.providers.clear();
+  }
+
+  /**
+   * Clear cached resources for providers
+   */
+  clearProviderCache(name?: string): void {
+    if (name) {
+      const provider = this.providers.get(name);
+      if (provider && (provider as any).clearCache) {
+        (provider as any).clearCache();
+      }
+      return;
+    }
+
+    this.providers.forEach((provider) => {
+      if ((provider as any).clearCache) {
+        (provider as any).clearCache();
+      }
+    });
   }
 }

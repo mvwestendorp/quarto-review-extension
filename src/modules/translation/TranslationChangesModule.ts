@@ -7,7 +7,7 @@
 import type { Operation, OperationData } from '@/types';
 import { EditTrackingModule } from '@modules/changes/EditTrackingModule';
 import { createModuleLogger } from '@utils/debug';
-import type { Sentence } from './types';
+import type { Sentence, TranslationSegment } from './types';
 
 const logger = createModuleLogger('TranslationChangesModule');
 
@@ -16,6 +16,7 @@ export interface SentenceEditData {
   newContent: string;
   language: 'source' | 'target';
   sentenceId: string;
+  elementId: string;
 }
 
 /**
@@ -43,17 +44,65 @@ export class TranslationChangesModule extends EditTrackingModule {
   }
 
   /**
+   * Synchronize sentences with latest state without clearing history
+   */
+  public synchronizeSentences(sentences: Sentence[]): void {
+    let modified = false;
+    const incoming = new Set<string>();
+
+    sentences.forEach((sentence) => {
+      incoming.add(sentence.id);
+      const existing = this.sentences.get(sentence.id);
+      if (!existing) {
+        this.sentences.set(sentence.id, { ...sentence });
+        modified = true;
+        return;
+      }
+
+      if (
+        existing.content !== sentence.content ||
+        existing.hash !== sentence.hash
+      ) {
+        existing.content = sentence.content;
+        existing.hash = sentence.hash;
+        modified = true;
+      }
+    });
+
+    Array.from(this.sentences.keys()).forEach((id) => {
+      if (!incoming.has(id)) {
+        this.sentences.delete(id);
+        modified = true;
+      }
+    });
+
+    if (modified) {
+      logger.debug('TranslationChangesModule synchronized sentences', {
+        count: this.sentences.size,
+      });
+      this.notifyListeners();
+    }
+  }
+
+  /**
    * Get current sentence state
    */
-  public getSentence(sentenceId: string): Sentence | undefined {
-    return this.sentences.get(sentenceId);
+  public getSentence(sentenceId: string): TranslationSegment | undefined {
+    const sentence = this.sentences.get(sentenceId);
+    if (!sentence) {
+      return undefined;
+    }
+
+    return this.toSegment(sentence);
   }
 
   /**
    * Get all sentences in current state
    */
-  public getCurrentState(): Sentence[] {
-    return Array.from(this.sentences.values());
+  public getCurrentState(): TranslationSegment[] {
+    return Array.from(this.sentences.values()).map((sentence) =>
+      this.toSegment(sentence)
+    );
   }
 
   /**
@@ -81,6 +130,7 @@ export class TranslationChangesModule extends EditTrackingModule {
       newContent,
       language,
       sentenceId,
+      elementId: sentence.elementId,
     };
 
     // Add operation to tracking
@@ -263,6 +313,26 @@ export class TranslationChangesModule extends EditTrackingModule {
       hash = hash & hash; // Convert to 32bit integer
     }
     return hash.toString(36);
+  }
+
+  private toSegment(sentence: Sentence): TranslationSegment {
+    const role = this.deriveRole(sentence.id);
+    return {
+      id: sentence.id,
+      elementId: sentence.elementId,
+      content: sentence.content,
+      language: sentence.language,
+      order: sentence.order ?? 0,
+      role,
+      sentenceId: sentence.id,
+    };
+  }
+
+  private deriveRole(sentenceId: string): 'source' | 'target' {
+    if (sentenceId.startsWith('trans-')) {
+      return 'target';
+    }
+    return 'source';
   }
 
   /**

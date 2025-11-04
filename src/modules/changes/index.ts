@@ -19,6 +19,11 @@ import {
   changesToCriticMarkup,
   stripCriticMarkup,
 } from './converters';
+import {
+  ChangesExtensionRegistry,
+  type ChangesExtension,
+  type ExtensionChange,
+} from './extensions';
 
 export class ChangesModule {
   private originalElements: Element[] = [];
@@ -27,6 +32,7 @@ export class ChangesModule {
   private saved: boolean = true;
   // Track the baseline (content before current edit session) for each element
   private elementBaselines: Map<string, string> = new Map();
+  private readonly extensionRegistry = new ChangesExtensionRegistry(this);
 
   /**
    * Initialize from DOM - parse HTML to extract original elements
@@ -157,9 +163,13 @@ export class ChangesModule {
       data,
     };
 
+    this.extensionRegistry.emit('beforeOperation', { operation });
+
     this.operations.push(operation);
     this.redoStack = []; // Clear redo stack when new operation is added
     this.saved = false;
+
+    this.extensionRegistry.emit('afterOperation', { operation });
   }
 
   /**
@@ -404,6 +414,52 @@ export class ChangesModule {
   public getElementById(id: string): Element | null {
     const element = this.findElement(id);
     return element || null;
+  }
+
+  /**
+   * Register an extension that hooks into the change lifecycle.
+   */
+  public registerExtension(extension: ChangesExtension): () => void {
+    return this.extensionRegistry.registerExtension(extension);
+  }
+
+  /**
+   * Apply a change originating from an extension.
+   */
+  public applyExtensionChange(change: ExtensionChange): string | void {
+    switch (change.type) {
+      case 'edit':
+        this.edit(
+          change.elementId,
+          change.newContent,
+          change.source,
+          change.metadata
+        );
+        return;
+      case 'insert':
+        return this.insert(
+          change.content,
+          change.metadata,
+          change.position,
+          change.source,
+          change.options
+        );
+      case 'delete':
+        this.delete(change.elementId, change.source);
+        return;
+      case 'move':
+        this.move(
+          change.elementId,
+          change.fromPosition,
+          change.toPosition,
+          change.source
+        );
+        return;
+      default: {
+        const exhaustive: never = change;
+        return exhaustive;
+      }
+    }
   }
 
   /**
@@ -790,5 +846,14 @@ export class ChangesModule {
     this.elementBaselines.clear();
   }
 }
+
+export type {
+  ChangesExtension,
+  ChangesExtensionContext,
+  ChangesExtensionEvent,
+  ExtensionChange,
+  ExtensionEventHandler,
+  ExtensionEventPayload,
+} from './extensions';
 
 export default ChangesModule;

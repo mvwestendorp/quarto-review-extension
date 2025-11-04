@@ -1,11 +1,10 @@
 /**
  * TranslationController
- * Coordinates TranslationView, TranslationToolbar, and Translation Module
+ * Coordinates TranslationView, sidebar integration, and Translation Module
  */
 
 import { createModuleLogger } from '@utils/debug';
 import { TranslationView } from './TranslationView';
-import { TranslationToolbar } from './TranslationToolbar';
 import { TranslationSettings } from './TranslationSettings';
 import { TranslationEditorBridge } from './TranslationEditorBridge';
 import {
@@ -16,6 +15,7 @@ import { TranslationChangesModule } from '@modules/translation/TranslationChange
 import type {
   TranslationModuleConfig,
   Language,
+  TranslationSegment,
 } from '@modules/translation/types';
 
 const logger = createModuleLogger('TranslationController');
@@ -27,6 +27,15 @@ export interface TranslationControllerConfig {
     message: string,
     type: 'info' | 'success' | 'warning' | 'error'
   ) => void;
+  onProgressUpdate?: (status: TranslationProgressStatus) => void;
+  onBusyChange?: (busy: boolean) => void;
+  translationModuleInstance?: TranslationModule;
+}
+
+export interface TranslationProgressStatus {
+  phase: 'idle' | 'running' | 'success' | 'error';
+  message: string;
+  percent?: number;
 }
 
 export class TranslationController {
@@ -37,11 +46,14 @@ export class TranslationController {
   private changesModule: TranslationChangesModule;
   private editorBridge: TranslationEditorBridge;
   private view: TranslationView | null = null;
-  private toolbar: TranslationToolbar | null = null;
   private container: HTMLElement;
+  private suppressChangeSync = false;
+  private translationEventDisposers: Array<() => void> = [];
+  private ownsTranslationModule = false;
 
   // State
   private selectedSourceSentenceId: string | null = null;
+  private selectedTargetSentenceId: string | null = null;
 
   constructor(config: TranslationControllerConfig) {
     this.config = config;
@@ -52,9 +64,10 @@ export class TranslationController {
     this.applyUserSettings(config.translationModuleConfig);
 
     // Initialize translation module
-    this.translationModule = new TranslationModule(
-      config.translationModuleConfig
-    );
+    this.translationModule =
+      config.translationModuleInstance ??
+      new TranslationModule(config.translationModuleConfig);
+    this.ownsTranslationModule = !config.translationModuleInstance;
 
     // Initialize export service
     this.exportService = new TranslationExportService();
@@ -119,16 +132,18 @@ export class TranslationController {
       // Initialize translation module
       await this.translationModule.initialize();
 
+      this.translationModule.preCreateTargetSentences();
+
       // Initialize changes module with current sentences
       const document = this.translationModule.getDocument();
       if (document) {
-        this.changesModule.initializeSentences(document.targetSentences);
+        this.changesModule.initializeSentences([
+          ...document.sourceSentences,
+          ...document.targetSentences,
+        ]);
       }
 
-      // Create toolbar
-      this.createToolbar();
-
-      // Create view
+      // Create view (toolbar is now in sidebar, not here)
       this.createView();
 
       // Load initial document into view
@@ -136,15 +151,36 @@ export class TranslationController {
         this.view?.loadDocument(document);
       }
 
-      // Subscribe to translation module updates
-      this.translationModule.subscribe(() => {
-        this.handleTranslationUpdate();
+      this.notifyProgress({
+        phase: 'idle',
+        message: 'Translation ready',
       });
 
+      // Subscribe to translation module updates
+      const disposeState = this.translationModule.subscribe(() => {
+        this.handleTranslationUpdate();
+      });
+      this.translationEventDisposers.push(disposeState);
+
+      if (typeof (this.translationModule as any).on === 'function') {
+        this.translationEventDisposers.push(
+          (this.translationModule as any).on(
+            'translation:sentence-updated',
+            () => this.handleTranslationUpdate()
+          )
+        );
+        this.translationEventDisposers.push(
+          (this.translationModule as any).on('translation:state-updated', () =>
+            this.handleTranslationUpdate()
+          )
+        );
+      }
+
       // Subscribe to changes module updates
-      this.changesModule.subscribe(() => {
+      const disposeChanges = this.changesModule.subscribe(() => {
         this.handleChangesUpdate();
       });
+      this.translationEventDisposers.push(disposeChanges);
 
       // Set up keyboard shortcuts
       this.setupKeyboardShortcuts();
@@ -199,8 +235,43 @@ export class TranslationController {
    * Handle changes module updates
    */
   private handleChangesUpdate(): void {
-    logger.debug('Translation changes updated');
-    // View will be refreshed by translation module updates
+    if (this.suppressChangeSync) {
+      logger.debug(
+        'Skipping change sync while controller applies direct translation update'
+      );
+      return;
+    }
+
+    const segments = this.changesModule.getCurrentState();
+    if (segments.length === 0) {
+      return;
+    }
+
+    const currentSegments = new Map(
+      this.translationModule
+        .getSegments()
+        .map((segment) => [segment.id, segment])
+    );
+
+    segments.forEach((segment) => {
+      const existing = currentSegments.get(segment.id);
+      if (!existing || existing.content === segment.content) {
+        return;
+      }
+
+      logger.debug('Syncing segment from undo/redo', {
+        segmentId: segment.id,
+        role: segment.role,
+      });
+
+      this.translationModule.updateSentence(
+        segment.id,
+        segment.content,
+        segment.role === 'source'
+      );
+    });
+
+    this.refreshViewFromState();
   }
 
   /**
@@ -208,22 +279,58 @@ export class TranslationController {
    */
   private setupKeyboardShortcuts(): void {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+T or Cmd+T: Translate document
-      if ((e.ctrlKey || e.metaKey) && e.key === 't' && !e.shiftKey) {
+      const hasPrimaryModifier = e.ctrlKey || e.metaKey;
+      if (!hasPrimaryModifier) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      // Ctrl/Cmd+S: Save current sentence when editor is active
+      if (!e.altKey && key === 's') {
+        if (this.view?.isEditorActive()) {
+          e.preventDefault();
+          void this.view.saveActiveEditor();
+        }
+        return;
+      }
+
+      // Ctrl/Cmd+Z: Undo translation change (when editor not active)
+      if (!e.altKey && key === 'z' && !e.shiftKey) {
+        if (this.view?.isEditorActive()) {
+          return;
+        }
+        e.preventDefault();
+        void this.undo();
+        return;
+      }
+
+      // Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y: Redo translation change
+      if (!e.altKey && ((key === 'z' && e.shiftKey) || key === 'y')) {
+        if (this.view?.isEditorActive()) {
+          return;
+        }
+        e.preventDefault();
+        void this.redo();
+        return;
+      }
+
+      // Ctrl/Cmd+T: Translate document
+      if (!e.altKey && key === 't' && !e.shiftKey) {
         e.preventDefault();
         void this.translateDocument();
         return;
       }
 
-      // Ctrl+Shift+T or Cmd+Shift+T: Translate selected sentence
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
+      // Ctrl/Cmd+Shift+T: Translate selected sentence
+      if (!e.altKey && key === 't' && e.shiftKey) {
         e.preventDefault();
-        void this.translateSelected();
+        void this.translateSentence();
         return;
       }
 
       // Ctrl+Alt+S or Cmd+Option+S: Swap languages
-      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === 's') {
+      if ((e.ctrlKey || e.metaKey) && e.altKey && key === 's') {
         e.preventDefault();
         this.swapLanguages();
         return;
@@ -239,40 +346,6 @@ export class TranslationController {
   }
 
   /**
-   * Create the toolbar
-   */
-  private createToolbar(): void {
-    const providers = this.translationModule.getAvailableProviders();
-    const config = this.config.translationModuleConfig.config;
-
-    this.toolbar = new TranslationToolbar(
-      {
-        availableProviders: providers,
-        defaultProvider: config.defaultProvider,
-        sourceLanguage: config.sourceLanguage,
-        targetLanguage: config.targetLanguage,
-        availableLanguages: ['en', 'nl', 'fr'],
-      },
-      {
-        onTranslateDocument: () => this.translateDocument(),
-        onTranslateSentence: () => this.translateSelected(),
-        onProviderChange: (provider) => this.changeProvider(provider),
-        onSourceLanguageChange: (lang) => this.changeSourceLanguage(lang),
-        onTargetLanguageChange: (lang) => this.changeTargetLanguage(lang),
-        onSwapLanguages: () => this.swapLanguages(),
-        onToggleAutoTranslate: (enabled) => this.toggleAutoTranslate(enabled),
-        onToggleCorrespondenceLines: (enabled) =>
-          this.toggleCorrespondenceLines(enabled),
-        onExportUnified: () => this.exportTranslation('unified'),
-        onExportSeparated: () => this.exportTranslation('separated'),
-      }
-    );
-
-    const toolbarElement = this.toolbar.create();
-    this.container.appendChild(toolbarElement);
-  }
-
-  /**
    * Create the view
    */
   private createView(): void {
@@ -285,12 +358,10 @@ export class TranslationController {
         highlightOnHover: config.highlightOnHover,
       },
       {
-        onSourceSentenceClick: (id) => this.handleSourceSentenceClick(id),
-        onTargetSentenceClick: (id) => this.handleTargetSentenceClick(id),
-        onSourceSentenceEdit: (id, content) =>
-          this.handleSourceSentenceEdit(id, content),
-        onTargetSentenceEdit: (id, content) =>
-          this.handleTargetSentenceEdit(id, content),
+        onSourceSegmentEdit: (elementId, content) =>
+          this.handleSourceSegmentEdit(elementId, content),
+        onTargetSegmentEdit: (elementId, content) =>
+          this.handleTargetSegmentEdit(elementId, content),
       },
       markdown,
       this.editorBridge
@@ -301,37 +372,122 @@ export class TranslationController {
   }
 
   /**
-   * Translate the entire document
+   * Get available translation providers
    */
-  private async translateDocument(): Promise<void> {
+  public getAvailableProviders(): string[] {
+    return this.translationModule.getAvailableProviders();
+  }
+
+  /**
+   * Get available languages
+   */
+  public getAvailableLanguages(): string[] {
+    const languages = new Set<string>();
+    const config = this.config.translationModuleConfig.config;
+
+    languages.add(config.sourceLanguage);
+    languages.add(config.targetLanguage);
+
+    const savedSettings = this.settings.getAll();
+    if (savedSettings.sourceLanguage) {
+      languages.add(savedSettings.sourceLanguage);
+    }
+    if (savedSettings.targetLanguage) {
+      languages.add(savedSettings.targetLanguage);
+    }
+
+    const document = this.translationModule.getDocument();
+    if (document) {
+      languages.add(document.metadata.sourceLanguage);
+      languages.add(document.metadata.targetLanguage);
+    }
+
+    // Provide a stable default set to keep UI populated
+    ['en', 'nl', 'fr'].forEach((lang) => languages.add(lang));
+
+    return Array.from(languages);
+  }
+
+  /**
+   * Translate the entire document (public method for sidebar integration)
+   */
+  public async translateDocument(): Promise<void> {
     logger.info('Translating document');
 
-    this.toolbar?.setTranslating(true, 'Translating document...');
+    const affectedSourceIds =
+      this.translationModule
+        .getDocument()
+        ?.sourceSentences.map((sentence) => sentence.id) ?? [];
+    this.markSentencesLoading(affectedSourceIds, true);
+    this.clearSentenceErrors(affectedSourceIds);
+    this.view?.setErrorBanner(null);
+
+    this.setTranslationBusy(true);
+    this.notifyProgress({
+      phase: 'running',
+      message: 'Preparing translation…',
+      percent: 0,
+    });
 
     // Set progress callback
     this.translationModule.setProgressCallback((progress) => {
-      this.toolbar?.setTranslating(
-        true,
-        `Translating... ${Math.round(progress.progress * 100)}%`
-      );
+      const percent =
+        typeof progress.progress === 'number'
+          ? Math.round(progress.progress * 100)
+          : undefined;
+      this.notifyProgress({
+        phase: 'running',
+        message: progress.message || 'Translating…',
+        percent,
+      });
     });
 
     try {
       await this.translationModule.translateDocument();
 
       this.showNotification('Document translated successfully', 'success');
+      this.notifyProgress({
+        phase: 'success',
+        message: 'Document translated successfully',
+        percent: 100,
+      });
+      this.view?.setErrorBanner(null);
+      this.clearSentenceErrors(affectedSourceIds);
+      this.notifyProgress({
+        phase: 'idle',
+        message: 'Translation ready',
+      });
     } catch (error) {
       logger.error('Translation failed', error);
       this.showNotification('Translation failed', 'error');
+      const message =
+        error instanceof Error
+          ? error.message || 'Document translation failed.'
+          : 'Document translation failed.';
+      this.notifyProgress({
+        phase: 'error',
+        message,
+      });
+      this.markSentencesError(affectedSourceIds, message);
+      this.view?.setErrorBanner({
+        message,
+        onRetry: () => {
+          void this.translateDocument();
+        },
+      });
     } finally {
-      this.toolbar?.setTranslating(false);
+      this.translationModule.setProgressCallback(() => {
+        /* noop */
+      });
+      this.setTranslationBusy(false);
+      this.markSentencesLoading(affectedSourceIds, false);
     }
   }
 
   /**
-   * Translate selected sentence
+   * Translate selected sentence (public method for sidebar integration)
    */
-  private async translateSelected(): Promise<void> {
+  public async translateSentence(): Promise<void> {
     if (!this.selectedSourceSentenceId) {
       this.showNotification('Please select a sentence first', 'warning');
       return;
@@ -341,38 +497,71 @@ export class TranslationController {
       sentenceId: this.selectedSourceSentenceId,
     });
 
-    this.toolbar?.setTranslating(true, 'Translating sentence...');
+    const sourceSentenceId = this.selectedSourceSentenceId;
+    this.markSentencesLoading([sourceSentenceId], true);
+    this.clearSentenceErrors([sourceSentenceId]);
+
+    this.setTranslationBusy(true);
+    this.notifyProgress({
+      phase: 'running',
+      message: 'Translating selected sentence…',
+    });
 
     try {
-      await this.translationModule.translateSentence(
-        this.selectedSourceSentenceId
-      );
+      await this.translationModule.translateSentence(sourceSentenceId);
       this.showNotification('Sentence translated successfully', 'success');
+      this.notifyProgress({
+        phase: 'success',
+        message: 'Sentence translated successfully',
+      });
+      this.view?.setErrorBanner(null);
+      this.clearSentenceErrors([sourceSentenceId]);
+      this.notifyProgress({
+        phase: 'idle',
+        message: 'Translation ready',
+      });
     } catch (error) {
       logger.error('Sentence translation failed', error);
       this.showNotification('Sentence translation failed', 'error');
+      const message =
+        error instanceof Error
+          ? error.message || 'Sentence translation failed.'
+          : 'Sentence translation failed.';
+      this.notifyProgress({
+        phase: 'error',
+        message,
+      });
+      this.markSentencesError([sourceSentenceId], message);
+      this.view?.setErrorBanner({
+        message,
+        onRetry: () => {
+          void this.translateSentence();
+        },
+      });
     } finally {
-      this.toolbar?.setTranslating(false);
+      this.setTranslationBusy(false);
+      this.markSentencesLoading([sourceSentenceId], false);
     }
   }
 
   /**
-   * Change translation provider
+   * Set translation provider (public method for sidebar integration)
    */
-  private changeProvider(provider: string): void {
+  public setProvider(provider: string): void {
     logger.info('Changing provider', { provider });
     this.config.translationModuleConfig.config.defaultProvider = provider;
     this.settings.setSetting('provider', provider);
   }
 
   /**
-   * Change source language
+   * Set source language (public method for sidebar integration)
    */
-  private async changeSourceLanguage(language: Language): Promise<void> {
+  public async setSourceLanguage(language: string): Promise<void> {
     logger.info('Changing source language', { language });
 
-    this.config.translationModuleConfig.config.sourceLanguage = language;
-    this.settings.setSetting('sourceLanguage', language);
+    this.config.translationModuleConfig.config.sourceLanguage =
+      language as Language;
+    this.settings.setSetting('sourceLanguage', language as Language);
 
     // Reinitialize with new language
     const document = this.translationModule.getDocument();
@@ -383,22 +572,23 @@ export class TranslationController {
   }
 
   /**
-   * Change target language
+   * Set target language (public method for sidebar integration)
    */
-  private async changeTargetLanguage(language: Language): Promise<void> {
+  public async setTargetLanguage(language: string): Promise<void> {
     logger.info('Changing target language', { language });
 
-    this.config.translationModuleConfig.config.targetLanguage = language;
-    this.settings.setSetting('targetLanguage', language);
+    this.config.translationModuleConfig.config.targetLanguage =
+      language as Language;
+    this.settings.setSetting('targetLanguage', language as Language);
 
     // Reinitialize with new language
     this.showNotification(`Target language changed to ${language}`, 'info');
   }
 
   /**
-   * Swap source and target languages
+   * Swap source and target languages (public method for sidebar integration)
    */
-  private swapLanguages(): void {
+  public swapLanguages(): void {
     const { sourceLanguage, targetLanguage } =
       this.config.translationModuleConfig.config;
 
@@ -416,93 +606,121 @@ export class TranslationController {
       targetLanguage: sourceLanguage,
     });
 
-    this.toolbar?.updateLanguages(targetLanguage, sourceLanguage);
-
     this.showNotification('Languages swapped', 'info');
   }
 
   /**
-   * Toggle auto-translate on edit
+   * Set auto-translate on edit (public method for sidebar integration)
    */
-  private toggleAutoTranslate(enabled: boolean): void {
+  public setAutoTranslate(enabled: boolean): void {
     logger.info('Toggling auto-translate', { enabled });
     this.config.translationModuleConfig.config.autoTranslateOnEdit = enabled;
     this.settings.setSetting('autoTranslateOnEdit', enabled);
   }
 
   /**
-   * Toggle correspondence lines
+   * Handle source segment edit (segment-based - preferred)
+   * Called when user edits entire segment in translation view
    */
-  private toggleCorrespondenceLines(enabled: boolean): void {
-    logger.info('Toggling correspondence lines', { enabled });
-    this.config.translationModuleConfig.config.showCorrespondenceLines =
-      enabled;
-    this.settings.setSetting('showCorrespondenceLines', enabled);
-    this.view?.refresh();
-  }
-
-  /**
-   * Handle source sentence click
-   */
-  private handleSourceSentenceClick(sentenceId: string): void {
-    this.selectedSourceSentenceId = sentenceId;
-    logger.debug('Source sentence selected', { sentenceId });
-  }
-
-  /**
-   * Handle target sentence click
-   */
-  private handleTargetSentenceClick(sentenceId: string): void {
-    logger.debug('Target sentence selected', { sentenceId });
-  }
-
-  /**
-   * Handle source sentence edit
-   */
-  private async handleSourceSentenceEdit(
-    sentenceId: string,
+  private async handleSourceSegmentEdit(
+    elementId: string,
     newContent: string
   ): Promise<void> {
-    logger.info('Source sentence edited', { sentenceId, newContent });
+    logger.info('Source segment edited', {
+      elementId,
+      contentLength: newContent.length,
+    });
 
     try {
-      await this.translationModule.updateSentence(sentenceId, newContent, true);
-      this.showNotification('Source sentence updated', 'success');
+      // Phase 3: Use extension pattern - only update ChangesModule
+      // TranslationModule reacts via onElementChanged extension handler
+      const mainChanges = this.config.translationModuleConfig.changes;
+      mainChanges.edit(elementId, newContent);
+
+      this.showNotification('Source segment updated', 'success');
+      this.translationModule.saveToStorageNow();
+      this.refreshViewFromState();
 
       // Auto-retranslate if enabled
+      // Note: This will translate all sentences in the updated segment
       if (this.config.translationModuleConfig.config.autoTranslateOnEdit) {
-        await this.translationModule.translateSentence(sentenceId);
-        this.showNotification('Translation updated', 'success');
+        const translationDoc2 = this.translationModule.getDocument();
+        const affectedSentenceIds =
+          translationDoc2?.sourceSentences
+            .filter((s) => s.elementId === elementId)
+            .map((s) => s.id) ?? [];
+
+        if (affectedSentenceIds.length > 0) {
+          this.clearSentenceErrors(affectedSentenceIds);
+          this.markSentencesLoading(affectedSentenceIds, true);
+          try {
+            // Translate all sentences in this segment
+            for (const sentenceId of affectedSentenceIds) {
+              await this.translationModule.translateSentence(sentenceId);
+            }
+            this.showNotification('Translation updated', 'success');
+            this.refreshViewFromState();
+            this.clearSentenceErrors(affectedSentenceIds);
+          } catch (error) {
+            const message =
+              error instanceof Error
+                ? error.message || 'Segment translation failed.'
+                : 'Segment translation failed.';
+            this.markSentencesError(affectedSentenceIds, message);
+            this.view?.setErrorBanner({
+              message,
+              onRetry: () => {
+                this.handleSourceSegmentEdit(elementId, newContent).catch(
+                  (err) => {
+                    logger.error('Retry translation failed', err);
+                  }
+                );
+              },
+            });
+          } finally {
+            this.markSentencesLoading(affectedSentenceIds, false);
+          }
+        }
       }
     } catch (error) {
-      logger.error('Failed to update source sentence', error);
-      this.showNotification('Failed to update sentence', 'error');
+      logger.error('Failed to update source segment', error);
+      this.showNotification('Failed to update segment', 'error');
     }
   }
 
   /**
-   * Handle target sentence edit
+   * Handle target segment edit (segment-based - preferred)
+   * Called when user edits entire segment in translation view
    */
-  private async handleTargetSentenceEdit(
-    sentenceId: string,
+  private async handleTargetSegmentEdit(
+    elementId: string,
     newContent: string
   ): Promise<void> {
-    logger.info('Target sentence edited', { sentenceId, newContent });
+    logger.info('Target segment edited', {
+      elementId,
+      contentLength: newContent.length,
+    });
 
     try {
-      // Record the edit in the changes module
-      this.changesModule.editSentence(sentenceId, newContent, 'target');
+      // Phase 3: Use extension pattern - only update ChangesModule
+      // TranslationModule reacts via onElementChanged extension handler
+      const mainChanges = this.config.translationModuleConfig.changes;
+      mainChanges.edit(elementId, newContent);
 
-      // Update translation module
-      await this.translationModule.updateSentence(
-        sentenceId,
-        newContent,
-        false
-      );
-      this.showNotification('Target sentence updated', 'success');
+      this.showNotification('Target segment updated', 'success');
+      this.translationModule.saveToStorageNow();
+      this.refreshViewFromState();
+
+      // Clear any errors for sentences in this segment (after TranslationModule has re-segmented)
+      const translationDoc = this.translationModule.getDocument();
+      const affectedSentenceIds =
+        translationDoc?.targetSentences
+          .filter((s) => s.elementId === elementId)
+          .map((s) => s.id) ?? [];
+      this.clearSentenceErrors(affectedSentenceIds);
     } catch (error) {
-      logger.error('Failed to update target sentence', error);
-      this.showNotification('Failed to update sentence', 'error');
+      logger.error('Failed to update target segment', error);
+      this.showNotification('Failed to update segment', 'error');
     }
   }
 
@@ -511,12 +729,17 @@ export class TranslationController {
    */
   private handleTranslationUpdate(): void {
     logger.debug('Translation module updated');
-
-    // Refresh view with updated document
-    const document = this.translationModule.getDocument();
-    if (document && this.view) {
-      this.view.loadDocument(document);
+    if (this.selectedTargetSentenceId) {
+      this.view?.queueFocusOnSentence(this.selectedTargetSentenceId, 'target', {
+        scrollIntoView: false,
+      });
+    } else if (this.selectedSourceSentenceId) {
+      this.view?.queueFocusOnSentence(this.selectedSourceSentenceId, 'source', {
+        scrollIntoView: false,
+      });
     }
+
+    this.refreshViewFromState();
   }
 
   /**
@@ -531,6 +754,39 @@ export class TranslationController {
    */
   getChangesModule(): TranslationChangesModule {
     return this.changesModule;
+  }
+
+  getSegments(): TranslationSegment[] {
+    return this.translationModule.getSegments();
+  }
+
+  getSegmentsForElement(
+    elementId: string,
+    role?: 'source' | 'target'
+  ): TranslationSegment[] {
+    return this.translationModule.getSegmentsForElement(elementId, role);
+  }
+
+  getTargetSegmentsForSource(sourceId: string): TranslationSegment[] {
+    return this.translationModule.getTargetSegmentsForSource(sourceId);
+  }
+
+  public focusView(): void {
+    this.view?.focusContainer();
+  }
+
+  /**
+   * Export translated document (unified) - public method for sidebar integration
+   */
+  public async exportUnified(): Promise<void> {
+    await this.exportTranslation('unified');
+  }
+
+  /**
+   * Export translated document (separated) - public method for sidebar integration
+   */
+  public async exportSeparated(): Promise<void> {
+    await this.exportTranslation('separated');
   }
 
   /**
@@ -564,6 +820,19 @@ export class TranslationController {
   }
 
   /**
+   * Clear cached local translation models
+   */
+  public async clearLocalModelCache(): Promise<void> {
+    try {
+      this.translationModule.clearProviderCache('local');
+      this.showNotification('Local translation model cache cleared', 'success');
+    } catch (error) {
+      logger.error('Failed to clear local translation cache', error);
+      this.showNotification('Failed to clear local model cache', 'error');
+    }
+  }
+
+  /**
    * Show notification
    */
   private showNotification(
@@ -572,17 +841,6 @@ export class TranslationController {
   ): void {
     this.config.onNotification?.(message, type);
     logger.info('Notification', { message, type });
-  }
-
-  /**
-   * Append toolbar to a specific container
-   */
-  public appendToolbarTo(container: HTMLElement): void {
-    if (this.toolbar) {
-      const toolbarElement = this.toolbar.create();
-      container.appendChild(toolbarElement);
-      logger.debug('Toolbar appended to custom container');
-    }
   }
 
   /**
@@ -599,11 +857,96 @@ export class TranslationController {
     }
 
     this.view?.destroy();
-    this.toolbar?.destroy();
     this.editorBridge.destroy();
-    this.translationModule.destroy();
+
+    this.translationEventDisposers.forEach((dispose) => {
+      try {
+        dispose?.();
+      } catch (error) {
+        logger.warn('Failed to dispose translation event listener', error);
+      }
+    });
+    this.translationEventDisposers = [];
+
+    if (this.ownsTranslationModule) {
+      this.translationModule.destroy();
+    }
 
     this.view = null;
-    this.toolbar = null;
+  }
+
+  private markSentencesLoading(sourceIds: string[], loading: boolean): void {
+    if (sourceIds.length === 0) {
+      return;
+    }
+
+    sourceIds.forEach((sourceId) => {
+      this.view?.setSentenceLoading(sourceId, 'source', loading);
+      this.getTargetSegmentIds(sourceId).forEach((targetId) => {
+        this.view?.setSentenceLoading(targetId, 'target', loading);
+      });
+    });
+  }
+
+  private markSentencesError(sourceIds: string[], message: string): void {
+    if (sourceIds.length === 0) {
+      return;
+    }
+
+    sourceIds.forEach((sourceId) => {
+      this.view?.setSentenceError(sourceId, 'source', message);
+      this.getTargetSegmentIds(sourceId).forEach((targetId) => {
+        this.view?.setSentenceError(targetId, 'target', message);
+      });
+    });
+  }
+
+  private clearSentenceErrors(sourceIds: string[]): void {
+    if (sourceIds.length === 0) {
+      return;
+    }
+
+    sourceIds.forEach((sourceId) => {
+      this.view?.setSentenceError(sourceId, 'source', null);
+      this.getTargetSegmentIds(sourceId).forEach((targetId) => {
+        this.view?.setSentenceError(targetId, 'target', null);
+      });
+    });
+  }
+
+  private getTargetSegmentIds(sourceId: string): string[] {
+    return this.translationModule
+      .getTargetSegmentsForSource(sourceId)
+      .map((segment) => segment.id);
+  }
+
+  private notifyProgress(status: TranslationProgressStatus): void {
+    this.view?.setDocumentProgress(status);
+    this.config.onProgressUpdate?.(status);
+  }
+
+  private setTranslationBusy(busy: boolean): void {
+    this.config.onBusyChange?.(busy);
+  }
+
+  private refreshViewFromState(): void {
+    const document = this.translationModule.getDocument();
+    if (!document) {
+      return;
+    }
+
+    if (this.view) {
+      this.view.loadDocument(document);
+    }
+
+    this.changesModule.synchronizeSentences([
+      ...document.sourceSentences,
+      ...document.targetSentences,
+    ]);
+    logger.debug('Refresh view from state', {
+      targetPreview: document.targetSentences
+        .slice(0, 3)
+        .map((s) => ({ id: s.id, content: s.content })),
+    });
   }
 }

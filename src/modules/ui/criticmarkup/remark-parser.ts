@@ -257,11 +257,15 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
 
       let value = tracker.move(open);
 
-      value += state.containerPhrasing(node as any, {
-        ...tracker.current(),
-        before: value,
-        after: close ? close.charAt(0) : '',
-      });
+      // Extract text content directly from children instead of using containerPhrasing
+      // This avoids accessing editorView context during serialization
+      if (node.children && Array.isArray(node.children)) {
+        for (const child of node.children) {
+          if (child.type === 'text' && 'value' in child) {
+            value += tracker.move(String(child.value));
+          }
+        }
+      }
 
       value += tracker.move(close);
       exit();

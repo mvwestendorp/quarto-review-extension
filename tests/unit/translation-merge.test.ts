@@ -92,16 +92,14 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
       await translationModule.initialize();
 
       // Get document for manual manipulation
-      const doc = translationModule.getDocument();
-      if (!doc) throw new Error('Document not initialized');
-
-      // Manually add target sentences for para-1
-      doc.targetSentences.push(
+      const state = (translationModule as any).state;
+      state.addTargetSentences([
         {
           id: 'trans-sent-1',
           elementId: 'para-1',
           content: 'Dit is de eerste zin.',
           language: 'nl',
+          order: 0,
           startOffset: 0,
           endOffset: 23,
           hash: 'abc123',
@@ -111,11 +109,12 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
           elementId: 'para-1',
           content: 'Het heeft meerdere zinnen.',
           language: 'nl',
+          order: 1,
           startOffset: 23,
           endOffset: 50,
           hash: 'def456',
-        }
-      );
+        },
+      ]);
 
       const result = translationModule.mergeToElements();
 
@@ -130,18 +129,19 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
     it('should handle single sentence per element', async () => {
       await translationModule.initialize();
 
-      const doc = translationModule.getDocument();
-      if (!doc) throw new Error('Document not initialized');
-
-      doc.targetSentences.push({
-        id: 'trans-sent-single',
-        elementId: 'para-2',
-        content: 'Enige vertaalde zin.',
-        language: 'nl',
-        startOffset: 0,
-        endOffset: 20,
-        hash: 'xyz789',
-      });
+      const state = (translationModule as any).state;
+      state.addTargetSentences([
+        {
+          id: 'trans-sent-single',
+          elementId: 'para-2',
+          content: 'Enige vertaalde zin.',
+          language: 'nl',
+          order: 0,
+          startOffset: 0,
+          endOffset: 20,
+          hash: 'xyz789',
+        },
+      ]);
 
       const result = translationModule.mergeToElements();
 
@@ -150,19 +150,34 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
       expect(merged).toBe('Enige vertaalde zin.');
     });
 
+    it('should skip merge when target sentences are empty placeholders', async () => {
+      await translationModule.initialize();
+
+      // Pre-create manual placeholders (empty target sentences)
+      translationModule.preCreateTargetSentences();
+
+      const result = translationModule.mergeToElements();
+      expect(result.size).toBe(0);
+
+      const applied = translationModule.applyMergeToChanges(
+        result,
+        changesModule
+      );
+      expect(applied).toBe(false);
+      expect(changesModule.getOperations().length).toBe(0);
+    });
+
     it('should handle multiple sentences per element correctly', async () => {
       await translationModule.initialize();
 
-      const doc = translationModule.getDocument();
-      if (!doc) throw new Error('Document not initialized');
-
-      // Add 3 sentences for para-1
-      doc.targetSentences.push(
+      const state = (translationModule as any).state;
+      state.addTargetSentences([
         {
           id: 'trans-1-a',
           elementId: 'para-1',
           content: 'Eerste.',
           language: 'nl',
+          order: 0,
           startOffset: 0,
           endOffset: 7,
           hash: 'h1',
@@ -172,6 +187,7 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
           elementId: 'para-1',
           content: 'Tweede.',
           language: 'nl',
+          order: 1,
           startOffset: 7,
           endOffset: 14,
           hash: 'h2',
@@ -181,11 +197,12 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
           elementId: 'para-1',
           content: 'Derde.',
           language: 'nl',
+          order: 2,
           startOffset: 14,
           endOffset: 20,
           hash: 'h3',
-        }
-      );
+        },
+      ]);
 
       const result = translationModule.mergeToElements();
       const merged = result.get('para-1');
@@ -200,20 +217,48 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
       if (!doc) throw new Error('Document not initialized');
 
       // Only add translation for para-1, not para-2
-      doc.targetSentences.push({
-        id: 'trans-1',
-        elementId: 'para-1',
-        content: 'Vertaald.',
-        language: 'nl',
-        startOffset: 0,
-        endOffset: 9,
-        hash: 'h1',
-      });
+      const state = (translationModule as any).state;
+      state.addTargetSentences([
+        {
+          id: 'trans-1',
+          elementId: 'para-1',
+          content: 'Vertaald.',
+          language: 'nl',
+          order: 0,
+          startOffset: 0,
+          endOffset: 9,
+          hash: 'h1',
+        },
+      ]);
 
       const result = translationModule.mergeToElements();
 
       expect(result.has('para-1')).toBe(true);
       expect(result.has('para-2')).toBe(false); // para-2 not in translations
+    });
+
+    it('records translation edits in ChangesModule operations', async () => {
+      await translationModule.initialize();
+      await translationModule.translateDocument('manual');
+
+      const doc = translationModule.getDocument();
+      const target = doc?.targetSentences[0];
+      expect(target).toBeDefined();
+      if (!target) {
+        return;
+      }
+
+      const updatedContent = `${target.content} (bewerkt)`;
+
+      translationModule.updateSentence(target.id, updatedContent, false);
+
+      const operations = changesModule.getOperations();
+      const latestEdit = [...operations].reverse().find((op) => op.type === 'edit');
+
+      expect(latestEdit).toBeDefined();
+      expect(latestEdit?.elementId).toBe(target.elementId);
+      // @ts-expect-error accessing operation data structure for assertion in tests
+      expect(latestEdit?.data?.newContent).toContain('(bewerkt)');
     });
   });
 
@@ -343,19 +388,19 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
       // Initialize and prepare manual translations
       await translationModule.initialize();
 
-      const doc = translationModule.getDocument();
-      if (!doc) throw new Error('Document not initialized');
-
-      // Manually add translated sentences (since manual provider doesn't auto-translate)
-      doc.targetSentences.push({
-        id: 'trans-manual-1',
-        elementId: 'para-1',
-        content: 'Dit is de eerste paragraaf. Het heeft meerdere zinnen. Echt!',
-        language: 'nl',
-        startOffset: 0,
-        endOffset: 57,
-        hash: 'manual1',
-      });
+      const state = (translationModule as any).state;
+      state.addTargetSentences([
+        {
+          id: 'trans-manual-1',
+          elementId: 'para-1',
+          content: 'Dit is de eerste paragraaf. Het heeft meerdere zinnen. Echt!',
+          language: 'nl',
+          order: 0,
+          startOffset: 0,
+          endOffset: 57,
+          hash: 'manual1',
+        },
+      ]);
 
       // Get merge updates
       const elementUpdates = translationModule.mergeToElements();
@@ -387,19 +432,19 @@ describe('Translation Merge (Phase 1 Task 1.1)', () => {
 
       await translationModule.initialize();
 
-      const doc = translationModule.getDocument();
-      if (!doc) throw new Error('Document not initialized');
-
-      // Manually add translated sentences
-      doc.targetSentences.push({
-        id: 'trans-data-1',
-        elementId: 'para-1',
-        content: 'Gegevens verlies test.',
-        language: 'nl',
-        startOffset: 0,
-        endOffset: 21,
-        hash: 'data1',
-      });
+      const state = (translationModule as any).state;
+      state.addTargetSentences([
+        {
+          id: 'trans-data-1',
+          elementId: 'para-1',
+          content: 'Gegevens verlies test.',
+          language: 'nl',
+          order: 0,
+          startOffset: 0,
+          endOffset: 21,
+          hash: 'data1',
+        },
+      ]);
 
       const elementUpdates = translationModule.mergeToElements();
       translationModule.applyMergeToChanges(elementUpdates, changesModule);

@@ -23,6 +23,7 @@ export interface CommentControllerCallbacks {
     type?: 'info' | 'success' | 'error'
   ) => void;
   onComposerClosed?: () => void;
+  persistDocument?: () => void;
 }
 
 interface CommentComposerContext {
@@ -173,6 +174,7 @@ export class CommentController {
       this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
       this.callbacks.requestRefresh();
       this.callbacks.ensureSidebarVisible?.();
+      this.callbacks.persistDocument?.();
       this.callbacks.showNotification('Comment removed', 'success');
     } catch (error) {
       console.error('Failed to remove comment:', error);
@@ -202,6 +204,7 @@ export class CommentController {
       this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
       this.callbacks.requestRefresh();
       this.callbacks.ensureSidebarVisible?.();
+      this.callbacks.persistDocument?.();
       window.getSelection()?.removeAllRanges();
       this.callbacks.showNotification('Comment added successfully', 'success');
     } catch (error) {
@@ -236,6 +239,7 @@ export class CommentController {
       this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
       this.callbacks.requestRefresh();
       this.callbacks.ensureSidebarVisible?.();
+      this.callbacks.persistDocument?.();
       this.callbacks.showNotification('Comment updated', 'success');
     } catch (error) {
       console.error('Failed to update comment:', error);

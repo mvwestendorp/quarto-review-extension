@@ -1,7 +1,9 @@
 /**
  * TranslationEditorBridge
- * Adapts EditorLifecycle for sentence-level translation editing with Milkdown
- * Manages sentence ↔ Milkdown content conversion and operation tracking
+ * Adapts EditorLifecycle for segment-level and sentence-level translation editing with Milkdown
+ * Manages segment/sentence ↔ Milkdown content conversion
+ *
+ * Phase 2: Now supports segment-based editing (preferred) alongside legacy sentence editing
  */
 
 import {
@@ -20,12 +22,19 @@ export interface SentenceEditorConfig {
 }
 
 /**
- * Bridge between sentence editing and Milkdown editor with change tracking
+ * Bridge between segment/sentence editing and Milkdown editor
  */
 export class TranslationEditorBridge extends EditorLifecycle {
   private changesModule: TranslationChangesModule;
+
+  // Segment-level editing state (preferred)
+  private currentElementId: string | null = null;
+  private currentSegmentContent: string | null = null;
+
+  // Legacy sentence-level editing state (deprecated)
   private currentSentenceId: string | null = null;
   private currentLanguage: 'source' | 'target' | null = null;
+
   private editorConfig: SentenceEditorConfig = {
     showDiffHighlights: false,
     simpleToolbar: true,
@@ -44,7 +53,49 @@ export class TranslationEditorBridge extends EditorLifecycle {
   }
 
   /**
+   * Initialize editor for an entire segment (element)
+   * This is the preferred method for segment-based editing
+   */
+  async initializeSegmentEditor(
+    container: HTMLElement,
+    elementId: string,
+    content: string,
+    side: 'source' | 'target'
+  ): Promise<void> {
+    this.currentElementId = elementId;
+    this.currentSegmentContent = content;
+    this.currentLanguage = side;
+
+    // Clear any sentence-level state
+    this.currentSentenceId = null;
+
+    const options: InitializeOptions = {
+      container,
+      content,
+      diffHighlights: this.editorConfig.showDiffHighlights ? [] : undefined,
+      elementType: 'Para', // Segments are typically rendered as paragraphs
+      onContentChange: (markdown: string) => {
+        // Track changes as user types
+        this.onEditorContentChange(markdown);
+      },
+    };
+
+    try {
+      await this.initialize(options);
+      logger.info('Segment editor initialized', {
+        elementId,
+        side,
+        contentLength: content.length,
+      });
+    } catch (error) {
+      logger.error('Failed to initialize segment editor', error);
+      throw error;
+    }
+  }
+
+  /**
    * Initialize editor for a specific sentence
+   * @deprecated Use initializeSegmentEditor instead - sentences are internal only
    */
   async initializeSentenceEditor(
     container: HTMLElement,
@@ -53,6 +104,10 @@ export class TranslationEditorBridge extends EditorLifecycle {
   ): Promise<void> {
     this.currentSentenceId = sentence.id;
     this.currentLanguage = language;
+
+    // Clear any segment-level state
+    this.currentElementId = null;
+    this.currentSegmentContent = null;
 
     const options: InitializeOptions = {
       container,
@@ -79,7 +134,52 @@ export class TranslationEditorBridge extends EditorLifecycle {
   }
 
   /**
+   * Save edited segment
+   * Returns true if content changed and was saved
+   */
+  public saveSegmentEdit(
+    elementId: string,
+    newContent: string,
+    side: 'source' | 'target'
+  ): boolean {
+    if (!this.currentElementId || this.currentElementId !== elementId) {
+      logger.warn('No matching segment editor active for save', {
+        currentElementId: this.currentElementId,
+        requestedElementId: elementId,
+      });
+      return false;
+    }
+
+    const editor = this.getEditor();
+    const module = this.getModule();
+
+    if (!editor || !module) {
+      logger.error('Editor not initialized');
+      return false;
+    }
+
+    // Check if content actually changed
+    if (this.currentSegmentContent === newContent) {
+      logger.debug('No content change detected');
+      return false;
+    }
+
+    // Note: We don't record the operation here - that's handled by the controller
+    // This method just validates the edit and returns success
+    // The controller will call ChangesModule.edit() directly (extension pattern)
+
+    logger.info('Segment edit validated', {
+      elementId,
+      side,
+      contentLength: newContent.length,
+    });
+
+    return true;
+  }
+
+  /**
    * Save edited sentence
+   * @deprecated Use saveSegmentEdit instead - sentences are internal only
    */
   public saveSentenceEdit(): boolean {
     if (!this.currentSentenceId || !this.currentLanguage) {
@@ -187,16 +287,25 @@ export class TranslationEditorBridge extends EditorLifecycle {
   }
 
   /**
-   * Override destroy to clean up sentence context
+   * Override destroy to clean up editor context (segment or sentence)
    */
   override destroy(): void {
-    if (this.currentSentenceId) {
+    if (this.currentElementId) {
+      logger.debug('Destroying segment editor', {
+        elementId: this.currentElementId,
+      });
+    } else if (this.currentSentenceId) {
       logger.debug('Destroying sentence editor', {
         sentenceId: this.currentSentenceId,
       });
     }
+
+    // Clear all state
+    this.currentElementId = null;
+    this.currentSegmentContent = null;
     this.currentSentenceId = null;
     this.currentLanguage = null;
+
     super.destroy();
   }
 }

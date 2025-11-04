@@ -12,6 +12,7 @@ import { createModuleLogger } from '@utils/debug';
 import { Editor, rootCtx, defaultValueCtx } from '@milkdown/kit/core';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { nord } from '@milkdown/theme-nord';
+import { listener, listenerCtx } from '@milkdown/plugin-listener';
 
 const logger = createModuleLogger('CommentEditor');
 
@@ -40,6 +41,13 @@ export class CommentEditor {
         })
         .config(nord) // Apply Nord theme
         .use(commonmark) // Commonmark preset for markdown support
+        .use(listener)
+        .config((ctx: any) => {
+          const listenerManager = ctx.get(listenerCtx);
+          listenerManager.markdownUpdated((_ctx: unknown, markdown: string) => {
+            this.content = markdown;
+          });
+        })
         .create();
 
       this.isInitialized = true;

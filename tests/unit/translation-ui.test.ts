@@ -17,7 +17,10 @@ vi.mock('@modules/translation', () => ({
       translateDocument: vi.fn().mockResolvedValue(undefined),
       translateSentence: vi.fn().mockResolvedValue(undefined),
       updateSentence: vi.fn().mockResolvedValue(undefined),
+      preCreateTargetSentences: vi.fn(),
+      clearProviderCache: vi.fn(),
       setProgressCallback: vi.fn(),
+      on: vi.fn().mockReturnValue(() => {}),
       getStats: vi.fn().mockReturnValue({
         total: 0,
         translated: 0,
@@ -260,6 +263,8 @@ describe('TranslationView', () => {
     const element = view.create();
     expect(element).toBeDefined();
     expect(element.className).toContain('review-translation-view');
+    expect(element.getAttribute('role')).toBe('region');
+    expect(element.getAttribute('aria-label')).toBe('Translation workspace');
   });
 
   it('loads document into view', () => {
@@ -328,6 +333,370 @@ describe('TranslationView', () => {
 
     expect(sourcePane).toBeDefined();
     expect(targetPane).toBeDefined();
+  });
+
+  it('renders status chip with accessible metadata', () => {
+    const element = view.create();
+    const doc: TranslationDocument = {
+      id: 'status-doc',
+      sourceSentences: [
+        {
+          id: 's1',
+          elementId: 'e1',
+          content: 'Original sentence',
+          language: 'en',
+          startOffset: 0,
+          endOffset: 18,
+          hash: 'hash-source',
+        },
+      ],
+      targetSentences: [
+        {
+          id: 't1',
+          elementId: 'e1',
+          content: 'Handmatige vertaling',
+          language: 'nl',
+          startOffset: 0,
+          endOffset: 22,
+          hash: 'hash-target',
+        },
+      ],
+      correspondenceMap: {
+        pairs: [
+          {
+            id: 'pair-1',
+            sourceId: 's1',
+            targetId: 't1',
+            sourceText: 'Original sentence',
+            targetText: 'Handmatige vertaling',
+            sourceLanguage: 'en',
+            targetLanguage: 'nl',
+            method: 'manual',
+            provider: 'manual',
+            confidence: 1,
+            alignmentScore: 1,
+            timestamp: Date.now(),
+            lastModified: Date.now(),
+            status: 'manual',
+            isManuallyEdited: true,
+            metadata: {},
+          },
+        ],
+        forwardMapping: new Map([['s1', ['t1']]]),
+        reverseMapping: new Map([['t1', ['s1']]]),
+        sourceLanguage: 'en',
+        targetLanguage: 'nl',
+      },
+      metadata: {
+        sourceLanguage: 'en',
+        targetLanguage: 'nl',
+        createdAt: Date.now(),
+        lastModified: Date.now(),
+        totalSentences: 1,
+        translatedCount: 1,
+        manualCount: 1,
+        autoCount: 0,
+      },
+    };
+
+    view.loadDocument(doc);
+
+    const chip = element.querySelector(
+      '.review-translation-sentence[data-side="target"] [data-role="status-chip"]'
+    ) as HTMLElement | null;
+    expect(chip).toBeTruthy();
+    expect(chip?.getAttribute('data-status')).toBe('manual');
+    expect(chip?.textContent).toBe('Manual translation');
+    expect(chip?.getAttribute('aria-label')).toContain('Manually translated');
+    expect(chip?.getAttribute('role')).toBe('status');
+  });
+
+  it('updates inline progress bar when translation is running', () => {
+    const element = view.create();
+    const doc: TranslationDocument = {
+      id: 'progress-doc',
+      sourceSentences: [
+        {
+          id: 's1',
+          elementId: 'e1',
+          content: 'Sentence one',
+          language: 'en',
+          startOffset: 0,
+          endOffset: 12,
+          hash: 'hash-s1',
+        },
+      ],
+      targetSentences: [
+        {
+          id: 't1',
+          elementId: 'e1',
+          content: 'Zin één',
+          language: 'nl',
+          startOffset: 0,
+          endOffset: 7,
+          hash: 'hash-t1',
+        },
+      ],
+      correspondenceMap: {
+        pairs: [
+          {
+            id: 'pair-1',
+            sourceId: 's1',
+            targetId: 't1',
+            sourceText: 'Sentence one',
+            targetText: 'Zin één',
+            sourceLanguage: 'en',
+            targetLanguage: 'nl',
+            method: 'manual',
+            provider: 'manual',
+            confidence: 1,
+            alignmentScore: 1,
+            timestamp: Date.now(),
+            lastModified: Date.now(),
+            status: 'manual',
+            isManuallyEdited: true,
+            metadata: {},
+          },
+        ],
+        forwardMapping: new Map([['s1', ['t1']]]),
+        reverseMapping: new Map([['t1', ['s1']]]),
+        sourceLanguage: 'en',
+        targetLanguage: 'nl',
+      },
+      metadata: {
+        sourceLanguage: 'en',
+        targetLanguage: 'nl',
+        createdAt: Date.now(),
+        lastModified: Date.now(),
+        totalSentences: 1,
+        translatedCount: 1,
+        manualCount: 1,
+        autoCount: 0,
+      },
+    };
+
+    view.loadDocument(doc);
+    view.setDocumentProgress({
+      phase: 'running',
+      message: 'Translating…',
+      percent: 50,
+    });
+
+    const container = element.querySelector(
+      '.review-translation-progress-inline'
+    ) as HTMLElement | null;
+    expect(container).toBeTruthy();
+    expect(container?.hidden).toBe(false);
+
+    const bar = container?.querySelector(
+      '.review-translation-progress-bar'
+    ) as HTMLElement | null;
+    expect(bar?.getAttribute('aria-valuenow')).toBe('50');
+
+    const fill = container?.querySelector(
+      '.review-translation-progress-bar-fill'
+    ) as HTMLElement | null;
+    expect(fill?.style.width).toBe('50%');
+
+    const message = container?.querySelector(
+      '.review-translation-progress-message'
+    ) as HTMLElement | null;
+    expect(message?.textContent).toContain('Translating');
+  });
+
+  it('shows sentence spinner while loading', () => {
+    const element = view.create();
+    const doc: TranslationDocument = {
+      id: 'loading-doc',
+      sourceSentences: [
+        {
+          id: 's1',
+          elementId: 'e1',
+          content: 'Sentence one',
+          language: 'en',
+          startOffset: 0,
+          endOffset: 12,
+          hash: 'hash-s1',
+        },
+      ],
+      targetSentences: [
+        {
+          id: 't1',
+          elementId: 'e1',
+          content: 'Zin één',
+          language: 'nl',
+          startOffset: 0,
+          endOffset: 7,
+          hash: 'hash-t1',
+        },
+      ],
+      correspondenceMap: {
+        pairs: [
+          {
+            id: 'pair-1',
+            sourceId: 's1',
+            targetId: 't1',
+            sourceText: 'Sentence one',
+            targetText: 'Zin één',
+            sourceLanguage: 'en',
+            targetLanguage: 'nl',
+            method: 'manual',
+            provider: 'manual',
+            confidence: 1,
+            alignmentScore: 1,
+            timestamp: Date.now(),
+            lastModified: Date.now(),
+            status: 'manual',
+            isManuallyEdited: true,
+            metadata: {},
+          },
+        ],
+        forwardMapping: new Map([['s1', ['t1']]]),
+        reverseMapping: new Map([['t1', ['s1']]]),
+        sourceLanguage: 'en',
+        targetLanguage: 'nl',
+      },
+      metadata: {
+        sourceLanguage: 'en',
+        targetLanguage: 'nl',
+        createdAt: Date.now(),
+        lastModified: Date.now(),
+        totalSentences: 1,
+        translatedCount: 1,
+        manualCount: 1,
+        autoCount: 0,
+      },
+    };
+
+    view.loadDocument(doc);
+
+    view.setSentenceLoading('s1', 'source', true);
+
+    const sourceSentence = element.querySelector(
+      '[data-sentence-id="s1"][data-side="source"]'
+    ) as HTMLElement | null;
+    expect(sourceSentence?.classList.contains('review-translation-sentence-loading')).toBe(
+      true
+    );
+    const spinner = sourceSentence?.querySelector(
+      '[data-role="sentence-spinner"]'
+    ) as HTMLElement | null;
+    expect(spinner?.hidden).toBe(false);
+
+    view.setSentenceLoading('s1', 'source', false);
+    expect(
+      sourceSentence?.classList.contains('review-translation-sentence-loading')
+    ).toBe(false);
+  });
+
+  it('renders error banner with retry control', () => {
+    const element = view.create();
+    view.setErrorBanner({
+      message: 'Translation failed.',
+      retryLabel: 'Retry now',
+      onRetry: () => {
+        /* no-op */
+      },
+    });
+
+    const banner = element.querySelector(
+      '.review-translation-error-banner'
+    ) as HTMLElement | null;
+    expect(banner?.hidden).toBe(false);
+    expect(banner?.textContent).toContain('Translation failed.');
+
+    const retryButton = banner?.querySelector('button');
+    expect(retryButton).toBeTruthy();
+    expect(retryButton?.textContent).toBe('Retry now');
+
+    view.setErrorBanner(null);
+    expect(banner?.hidden).toBe(true);
+  });
+
+  it('marks sentences with error message', () => {
+    const element = view.create();
+    const doc: TranslationDocument = {
+      id: 'error-doc',
+      sourceSentences: [
+        {
+          id: 's1',
+          elementId: 'e1',
+          content: 'Sentence one',
+          language: 'en',
+          startOffset: 0,
+          endOffset: 12,
+          hash: 'hash-s1',
+        },
+      ],
+      targetSentences: [
+        {
+          id: 't1',
+          elementId: 'e1',
+          content: 'Zin één',
+          language: 'nl',
+          startOffset: 0,
+          endOffset: 7,
+          hash: 'hash-t1',
+        },
+      ],
+      correspondenceMap: {
+        pairs: [
+          {
+            id: 'pair-1',
+            sourceId: 's1',
+            targetId: 't1',
+            sourceText: 'Sentence one',
+            targetText: 'Zin één',
+            sourceLanguage: 'en',
+            targetLanguage: 'nl',
+            method: 'manual',
+            provider: 'manual',
+            confidence: 1,
+            alignmentScore: 1,
+            timestamp: Date.now(),
+            lastModified: Date.now(),
+            status: 'manual',
+            isManuallyEdited: true,
+            metadata: {},
+          },
+        ],
+        forwardMapping: new Map([['s1', ['t1']]]),
+        reverseMapping: new Map([['t1', ['s1']]]),
+        sourceLanguage: 'en',
+        targetLanguage: 'nl',
+      },
+      metadata: {
+        sourceLanguage: 'en',
+        targetLanguage: 'nl',
+        createdAt: Date.now(),
+        lastModified: Date.now(),
+        totalSentences: 1,
+        translatedCount: 1,
+        manualCount: 1,
+        autoCount: 0,
+      },
+    };
+
+    view.loadDocument(doc);
+    view.setSentenceError('s1', 'source', 'Failed to translate.');
+
+    const sourceSentence = element.querySelector(
+      '[data-sentence-id="s1"][data-side="source"]'
+    ) as HTMLElement | null;
+    expect(
+      sourceSentence?.classList.contains('review-translation-sentence-error')
+    ).toBe(true);
+
+    const errorMessage = sourceSentence?.querySelector(
+      '[data-role="sentence-error"]'
+    ) as HTMLElement | null;
+    expect(errorMessage?.hidden).toBe(false);
+    expect(errorMessage?.textContent).toContain('Failed to translate');
+
+    view.setSentenceError('s1', 'source', null);
+    expect(
+      sourceSentence?.classList.contains('review-translation-sentence-error')
+    ).toBe(false);
   });
 });
 

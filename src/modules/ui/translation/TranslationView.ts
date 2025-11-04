@@ -5,12 +5,10 @@
 
 import { createModuleLogger } from '@utils/debug';
 import type { MarkdownModule } from '@modules/markdown';
-import type {
-  TranslationDocument,
-  Sentence,
-  TranslationPair,
-} from '@modules/translation/types';
+import type { TranslationDocument, Sentence } from '@modules/translation/types';
 import type { TranslationEditorBridge } from './TranslationEditorBridge';
+import type { TranslationProgressStatus } from './TranslationController';
+import { debuglog } from 'util';
 
 const logger = createModuleLogger('TranslationView');
 
@@ -20,15 +18,21 @@ export interface TranslationViewConfig {
 }
 
 export interface TranslationViewCallbacks {
-  onSourceSentenceClick?: (sentenceId: string) => void;
-  onTargetSentenceClick?: (sentenceId: string) => void;
-  onSourceSentenceEdit?: (sentenceId: string, newContent: string) => void;
-  onTargetSentenceEdit?: (sentenceId: string, newContent: string) => void;
+  onSourceSegmentEdit?: (elementId: string, newContent: string) => void;
+  onTargetSegmentEdit?: (elementId: string, newContent: string) => void;
 }
+
+type ActiveEditorContext = {
+  sentence: Sentence;
+  side: 'source' | 'target';
+  sentenceElement: HTMLElement;
+  contentEl: HTMLElement;
+  save: () => boolean;
+  cancel: () => void;
+};
 
 export class TranslationView {
   private element: HTMLElement | null = null;
-  private config: TranslationViewConfig;
   private callbacks: TranslationViewCallbacks;
   private document: TranslationDocument | null = null;
   private markdown: MarkdownModule | null = null;
@@ -37,24 +41,55 @@ export class TranslationView {
   // UI elements
   private sourcePane: HTMLElement | null = null;
   private targetPane: HTMLElement | null = null;
-  private correspondenceCanvas: HTMLCanvasElement | null = null;
-
-  // State
-  private hoveredSourceId: string | null = null;
-  private hoveredTargetId: string | null = null;
-  private selectedSourceId: string | null = null;
-  private selectedTargetId: string | null = null;
+  private syncScrollLock = false;
+  private sourceScrollHandler: ((event: Event) => void) | null = null;
+  private targetScrollHandler: ((event: Event) => void) | null = null;
+  private alignFrameId: number | null = null;
+  private readonly handleResize: () => void;
+  private selectedSentence: { id: string; side: 'source' | 'target' } | null =
+    null;
+  private pendingFocus: {
+    id: string;
+    side: 'source' | 'target';
+    scrollIntoView: boolean;
+  } | null = null;
+  private loadingSentences = new Set<string>();
+  private sentenceErrors = new Map<string, string | null>();
+  private progressStatus: TranslationProgressStatus | null = null;
+  private progressElements: {
+    container: HTMLElement | null;
+    bar: HTMLElement | null;
+    fill: HTMLElement | null;
+    message: HTMLElement | null;
+  } = {
+    container: null,
+    bar: null,
+    fill: null,
+    message: null,
+  };
+  private errorBannerElements: {
+    container: HTMLElement | null;
+    message: HTMLElement | null;
+    retryButton: HTMLButtonElement | null;
+  } = {
+    container: null,
+    message: null,
+    retryButton: null,
+  };
+  private activeEditorContext: ActiveEditorContext | null = null;
 
   constructor(
-    config: TranslationViewConfig,
+    _config: TranslationViewConfig,
     callbacks: TranslationViewCallbacks,
     markdown?: MarkdownModule,
     editorBridge?: TranslationEditorBridge
   ) {
-    this.config = config;
     this.callbacks = callbacks;
     this.markdown = markdown || null;
     this.editorBridge = editorBridge || null;
+    this.handleResize = () => {
+      this.scheduleSentenceAlignment();
+    };
   }
 
   /**
@@ -63,6 +98,9 @@ export class TranslationView {
   create(): HTMLElement {
     const container = document.createElement('div');
     container.className = 'review-translation-view';
+    container.setAttribute('role', 'region');
+    container.setAttribute('aria-label', 'Translation workspace');
+    container.tabIndex = -1;
 
     // Create header with language labels
     const header = this.createHeader();
@@ -108,15 +146,10 @@ export class TranslationView {
     content.appendChild(sourceContainer);
     content.appendChild(targetContainer);
 
-    // Add correspondence canvas if enabled
-    if (this.config.showCorrespondenceLines) {
-      this.correspondenceCanvas = document.createElement('canvas');
-      this.correspondenceCanvas.className =
-        'review-translation-correspondence-canvas';
-      content.appendChild(this.correspondenceCanvas);
-    }
-
     container.appendChild(content);
+
+    this.bindPaneScrollSync();
+    window.addEventListener('resize', this.handleResize);
 
     this.element = container;
     return container;
@@ -128,6 +161,14 @@ export class TranslationView {
   private createHeader(): HTMLElement {
     const header = document.createElement('div');
     header.className = 'review-translation-view-header';
+
+    const headerLeft = document.createElement('div');
+    headerLeft.className = 'review-translation-header-left';
+
+    const heading = document.createElement('h2');
+    heading.className = 'review-translation-heading';
+    heading.textContent = 'Translation workspace';
+    headerLeft.appendChild(heading);
 
     const stats = document.createElement('div');
     stats.className = 'review-translation-stats';
@@ -145,8 +186,63 @@ export class TranslationView {
         <span class="review-translation-stat-value" data-stat="progress">0%</span>
       </span>
     `;
+    headerLeft.appendChild(stats);
+    header.appendChild(headerLeft);
 
-    header.appendChild(stats);
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'review-translation-progress-inline';
+    progressContainer.hidden = true;
+
+    const progressBar = document.createElement('div');
+    progressBar.className = 'review-translation-progress-bar';
+    progressBar.setAttribute('role', 'progressbar');
+    progressBar.setAttribute('aria-valuemin', '0');
+    progressBar.setAttribute('aria-valuemax', '100');
+    progressBar.setAttribute('aria-valuenow', '0');
+    progressBar.dataset.indeterminate = 'false';
+
+    const progressFill = document.createElement('div');
+    progressFill.className = 'review-translation-progress-bar-fill';
+    progressBar.appendChild(progressFill);
+
+    const progressMessage = document.createElement('div');
+    progressMessage.className = 'review-translation-progress-message';
+    progressMessage.setAttribute('aria-live', 'polite');
+
+    progressContainer.appendChild(progressBar);
+    progressContainer.appendChild(progressMessage);
+    header.appendChild(progressContainer);
+
+    this.progressElements = {
+      container: progressContainer,
+      bar: progressBar,
+      fill: progressFill,
+      message: progressMessage,
+    };
+
+    const errorBanner = document.createElement('div');
+    errorBanner.className = 'review-translation-error-banner';
+    errorBanner.hidden = true;
+    errorBanner.setAttribute('role', 'alert');
+
+    const errorMessage = document.createElement('span');
+    errorMessage.className = 'review-translation-error-text';
+    errorBanner.appendChild(errorMessage);
+
+    const retryButton = document.createElement('button');
+    retryButton.className = 'review-translation-error-retry';
+    retryButton.type = 'button';
+    retryButton.hidden = true;
+    retryButton.textContent = 'Retry';
+    errorBanner.appendChild(retryButton);
+
+    header.appendChild(errorBanner);
+
+    this.errorBannerElements = {
+      container: errorBanner,
+      message: errorMessage,
+      retryButton,
+    };
     return header;
   }
 
@@ -175,15 +271,15 @@ export class TranslationView {
     // Update language labels
     this.updateLanguageLabels();
 
-    // Render source sentences
-    this.renderSentences(
+    // Render source segments (not sentences)
+    this.renderSegments(
       this.sourcePane,
       this.document.sourceSentences,
       'source'
     );
 
-    // Render target sentences
-    this.renderSentences(
+    // Render target segments (not sentences)
+    this.renderSegments(
       this.targetPane,
       this.document.targetSentences,
       'target'
@@ -191,11 +287,13 @@ export class TranslationView {
 
     // Update statistics
     this.updateStatistics();
-
-    // Draw correspondence lines
-    if (this.config.showCorrespondenceLines) {
-      this.drawCorrespondenceLines();
-    }
+    this.scheduleSentenceAlignment();
+    this.restoreSelection();
+    this.applyPendingFocus();
+    this.applyLoadingStates();
+    this.applyErrorStates();
+    this.updateSentenceTabIndices();
+    this.updateProgressUI();
   }
 
   /**
@@ -220,9 +318,10 @@ export class TranslationView {
   }
 
   /**
-   * Render sentences in a pane, grouped by document sections
+   * Render segments in a pane (segment-based, not sentence-based)
+   * Groups sentences by elementId and merges them into segment content
    */
-  private renderSentences(
+  private renderSegments(
     pane: HTMLElement,
     sentences: Sentence[],
     side: 'source' | 'target'
@@ -230,239 +329,267 @@ export class TranslationView {
     pane.innerHTML = '';
 
     // Group sentences by elementId (document section)
-    const sectionMap = new Map<string, Sentence[]>();
+    const segmentMap = new Map<string, Sentence[]>();
     sentences.forEach((sentence) => {
       const elementId = sentence.elementId;
-      if (!sectionMap.has(elementId)) {
-        sectionMap.set(elementId, []);
+      if (!segmentMap.has(elementId)) {
+        segmentMap.set(elementId, []);
       }
-      sectionMap.get(elementId)!.push(sentence);
+      segmentMap.get(elementId)!.push(sentence);
     });
 
-    // Render each section with its sentences
-    Array.from(sectionMap.entries()).forEach(
-      ([elementId, sectionSentences]) => {
-        // Create section container
-        const sectionElement = document.createElement('div');
-        sectionElement.className = 'review-translation-section';
-        sectionElement.dataset.elementId = elementId;
-
-        // Render sentences within the section
-        sectionSentences.forEach((sentence) => {
-          const sentenceElement = this.createSentenceElement(sentence, side);
-          sectionElement.appendChild(sentenceElement);
+    // Render each segment (element) with merged sentence content
+    Array.from(segmentMap.entries()).forEach(
+      ([elementId, segmentSentences]) => {
+        // Sort sentences by order and offset
+        const orderedSentences = [...segmentSentences].sort((a, b) => {
+          if (a.order !== b.order) {
+            return a.order - b.order;
+          }
+          return (a.startOffset ?? 0) - (b.startOffset ?? 0);
         });
 
-        pane.appendChild(sectionElement);
+        // Merge sentence content into segment content
+        const mergedContent = orderedSentences
+          .map((s) => s.content)
+          .join('\n\n');
+
+        // Create segment element (similar to review mode)
+        const segmentElement = this.createSegmentElement(
+          elementId,
+          mergedContent,
+          side
+        );
+        pane.appendChild(segmentElement);
       }
     );
   }
 
   /**
-   * Create a single sentence element
+   * Create a segment element (element-level rendering, similar to review mode)
    */
-  private createSentenceElement(
-    sentence: Sentence,
+  private createSegmentElement(
+    elementId: string,
+    content: string,
     side: 'source' | 'target'
   ): HTMLElement {
-    const sentenceElement = document.createElement('div');
-    sentenceElement.className = 'review-translation-sentence';
-    sentenceElement.dataset.sentenceId = sentence.id;
-    sentenceElement.dataset.side = side;
+    const segmentElement = document.createElement('div');
+    segmentElement.className = 'review-translation-segment';
+    segmentElement.dataset.elementId = elementId;
+    segmentElement.dataset.side = side;
+    segmentElement.tabIndex = -1;
 
-    // Get translation status
-    const status = this.getSentenceStatus(sentence.id, side);
-    if (status) {
-      sentenceElement.dataset.status = status;
-      // Add CSS class for styling based on status
-      sentenceElement.classList.add(`review-translation-sentence-${status}`);
-    }
+    // Create segment content container
+    const contentEl = document.createElement('div');
+    contentEl.className = 'review-translation-segment-content';
 
-    // Create sentence wrapper for better layout
-    const wrapper = document.createElement('div');
-    wrapper.className = 'review-translation-sentence-wrapper';
+    // Render markdown content
+    const hasContent = content.trim().length > 0;
+    const isTarget = side === 'target';
 
-    // Create sentence content - render as styled HTML using document-style rendering
-    const content = document.createElement('div');
-    content.className = 'review-translation-sentence-content';
-
-    // Render markdown as HTML if MarkdownModule is available
-    if (this.markdown) {
+    if (!hasContent && isTarget) {
+      contentEl.innerHTML =
+        '<span class="review-translation-placeholder">Add translation…</span>';
+    } else if (this.markdown) {
       try {
-        // Use renderElement for proper document-style formatting instead of inline
-        const html = this.markdown.renderElement(sentence.content, 'Para');
-        content.innerHTML = html;
+        // Render as paragraph by default - we could enhance this to use actual element type
+        const html = this.markdown.renderElement(content, 'Para');
+        contentEl.innerHTML = html;
       } catch (error) {
         logger.warn('Failed to render markdown, falling back to plain text', {
-          sentenceId: sentence.id,
+          elementId,
           error,
         });
-        content.textContent = sentence.content;
+        contentEl.textContent = content;
       }
     } else {
-      // Fallback to plain text if markdown module not available
-      content.textContent = sentence.content;
+      contentEl.textContent = content;
     }
 
-    wrapper.appendChild(content);
+    segmentElement.appendChild(contentEl);
 
-    // Add status badge/indicator
-    const indicator = document.createElement('div');
-    indicator.className = 'review-translation-sentence-indicator';
-    indicator.title = this.getStatusLabel(status);
-    indicator.setAttribute('data-status', status || 'unknown');
-    wrapper.appendChild(indicator);
+    // Bind segment-level events (double-click to edit entire segment)
+    this.bindSegmentEvents(segmentElement, elementId, side);
 
-    sentenceElement.appendChild(wrapper);
-
-    // Add event listeners
-    this.bindSentenceEvents(sentenceElement, sentence.id, side);
-
-    return sentenceElement;
+    return segmentElement;
   }
 
-  /**
-   * Get translation status for a sentence
-   */
-  private getSentenceStatus(
+  private makeLoadingKey(
     sentenceId: string,
     side: 'source' | 'target'
-  ): string | null {
-    if (!this.document) return null;
-
-    const pairs = this.document.correspondenceMap.pairs.filter((pair) =>
-      side === 'source'
-        ? pair.sourceId === sentenceId
-        : pair.targetId === sentenceId
-    );
-
-    if (pairs.length === 0) return 'untranslated';
-
-    // Return the most relevant status
-    const statuses = pairs.map((p) => p.status);
-    if (statuses.includes('out-of-sync')) return 'out-of-sync';
-    if (statuses.includes('manual')) return 'manual';
-    if (statuses.includes('edited')) return 'edited';
-    if (statuses.includes('auto-translated')) return 'auto-translated';
-    return 'synced';
+  ): string {
+    return `${side}:${sentenceId}`;
   }
 
-  /**
-   * Get human-readable status label
-   */
-  private getStatusLabel(status: string | null): string {
-    const labels: Record<string, string> = {
-      untranslated: 'Not translated',
-      'auto-translated': 'Auto-translated',
-      manual: 'Manual translation',
-      edited: 'Edited',
-      'out-of-sync': 'Out of sync',
-      synced: 'Synced',
-    };
-    return status ? labels[status] || status : '';
-  }
-
-  /**
-   * Bind events to a sentence element
-   */
-  private bindSentenceEvents(
-    element: HTMLElement,
+  private isSentenceLoading(
     sentenceId: string,
+    side: 'source' | 'target'
+  ): boolean {
+    return this.loadingSentences.has(this.makeLoadingKey(sentenceId, side));
+  }
+
+  public setSentenceLoading(
+    sentenceId: string,
+    side: 'source' | 'target',
+    loading: boolean
+  ): void {
+    const key = this.makeLoadingKey(sentenceId, side);
+    if (loading) {
+      this.loadingSentences.add(key);
+    } else {
+      this.loadingSentences.delete(key);
+    }
+
+    const element = this.findSentenceElement(sentenceId, side);
+    this.applyLoadingStateToElement(element, loading);
+  }
+
+  private applyLoadingStates(): void {
+    if (!this.element) {
+      return;
+    }
+
+    this.element
+      .querySelectorAll('.review-translation-sentence[data-sentence-id]')
+      .forEach((el) => {
+        const element = el as HTMLElement;
+        const sentenceId = element.dataset.sentenceId;
+        const side = (element.dataset.side as 'source' | 'target') ?? 'source';
+        if (!sentenceId) {
+          return;
+        }
+        const shouldBeLoading = this.isSentenceLoading(sentenceId, side);
+        this.applyLoadingStateToElement(element, shouldBeLoading);
+      });
+  }
+
+  private applyLoadingStateToElement(
+    element: HTMLElement | null,
+    loading: boolean
+  ): void {
+    if (!element) {
+      return;
+    }
+
+    element.classList.toggle('review-translation-sentence-loading', loading);
+    if (loading) {
+      element.setAttribute('aria-busy', 'true');
+    } else {
+      element.removeAttribute('aria-busy');
+    }
+
+    const spinner = element.querySelector(
+      '[data-role="sentence-spinner"]'
+    ) as HTMLElement | null;
+    if (spinner) {
+      spinner.hidden = !loading;
+    }
+  }
+
+  public setDocumentProgress(status: TranslationProgressStatus): void {
+    this.progressStatus = status;
+    this.updateProgressUI();
+  }
+
+  private updateProgressUI(): void {
+    const { container, bar, fill, message } = this.progressElements;
+    if (!container || !bar || !fill || !message) {
+      return;
+    }
+
+    const status = this.progressStatus;
+    if (!status || status.phase === 'idle') {
+      container.hidden = true;
+      bar.dataset.indeterminate = 'false';
+      bar.setAttribute('aria-valuenow', '0');
+      fill.style.width = '0%';
+      message.textContent = '';
+      container.classList.remove('review-translation-progress-inline-error');
+      return;
+    }
+
+    container.hidden = false;
+    message.textContent = status.message || '';
+
+    if (status.phase === 'error') {
+      container.classList.add('review-translation-progress-inline-error');
+    } else {
+      container.classList.remove('review-translation-progress-inline-error');
+    }
+
+    if (typeof status.percent === 'number') {
+      const percent = Math.max(0, Math.min(100, status.percent));
+      bar.dataset.indeterminate = 'false';
+      bar.setAttribute('aria-valuenow', percent.toString());
+      fill.style.width = `${percent}%`;
+    } else {
+      bar.dataset.indeterminate = 'true';
+      bar.removeAttribute('aria-valuenow');
+      fill.style.width = '40%';
+    }
+  }
+
+  /**
+   * Bind events to a segment element (segment-based editing)
+   */
+  private bindSegmentEvents(
+    element: HTMLElement,
+    elementId: string,
     side: 'source' | 'target'
   ): void {
     // Click to select
     element.addEventListener('click', () => {
-      this.selectSentence(sentenceId, side);
-      const callback =
-        side === 'source'
-          ? this.callbacks.onSourceSentenceClick
-          : this.callbacks.onTargetSentenceClick;
-      callback?.(sentenceId);
+      this.selectSegment(elementId, side);
+      // TODO: Add callback for segment click if needed
     });
 
-    // Hover to highlight correspondences
-    if (this.config.highlightOnHover) {
-      element.addEventListener('mouseenter', () => {
-        this.hoverSentence(sentenceId, side);
-      });
-
-      element.addEventListener('mouseleave', () => {
-        this.unhoverSentence(sentenceId, side);
-      });
-    }
-
-    // Double-click to edit
+    // Double-click to edit entire segment (like review mode)
     element.addEventListener('dblclick', async () => {
-      await this.enableSentenceEdit(element, sentenceId, side);
+      await this.enableSegmentEdit(element, elementId, side);
+    });
+
+    // Keyboard activation
+    element.addEventListener('keydown', async (event) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      const isActivationKey = event.key === 'Enter' || event.key === ' ';
+      const isSegmentTarget =
+        event.target === element && document.activeElement === element;
+
+      if (!isActivationKey || !isSegmentTarget) {
+        return;
+      }
+
+      if (this.isEditorActive()) {
+        return;
+      }
+
+      event.preventDefault();
+      await this.enableSegmentEdit(element, elementId, side);
     });
   }
 
   /**
-   * Select a sentence and highlight its correspondences
+   * Select a segment and highlight correspondences
    */
-  private selectSentence(sentenceId: string, side: 'source' | 'target'): void {
+  private selectSegment(elementId: string, side: 'source' | 'target'): void {
     // Clear previous selection
     this.clearSelection();
-
-    // Set selected
-    if (side === 'source') {
-      this.selectedSourceId = sentenceId;
-    } else {
-      this.selectedTargetId = sentenceId;
-    }
+    // TODO: Update selected state to track elementId instead of sentenceId
+    // For now, keep selectedSentence for compatibility but it's semantically a segment
+    this.selectedSentence = { id: elementId, side };
 
     // Add selected class
-    const element = this.findSentenceElement(sentenceId, side);
-    element?.classList.add('review-translation-sentence-selected');
-
-    // Highlight corresponding sentences
-    this.highlightCorrespondences(sentenceId, side, 'selected');
-
-    // Redraw correspondence lines
-    if (this.config.showCorrespondenceLines) {
-      this.drawCorrespondenceLines();
-    }
-  }
-
-  /**
-   * Hover over a sentence
-   */
-  private hoverSentence(sentenceId: string, side: 'source' | 'target'): void {
-    if (side === 'source') {
-      this.hoveredSourceId = sentenceId;
-    } else {
-      this.hoveredTargetId = sentenceId;
+    const element = this.findSegmentElement(elementId, side);
+    if (element) {
+      element.classList.add('review-translation-segment-selected');
+      element.tabIndex = 0;
     }
 
-    // Highlight corresponding sentences
-    this.highlightCorrespondences(sentenceId, side, 'hover');
-
-    // Redraw correspondence lines
-    if (this.config.showCorrespondenceLines) {
-      this.drawCorrespondenceLines();
-    }
-  }
-
-  /**
-   * Unhover from a sentence
-   */
-  private unhoverSentence(
-    _sentenceId: string,
-    side: 'source' | 'target'
-  ): void {
-    if (side === 'source') {
-      this.hoveredSourceId = null;
-    } else {
-      this.hoveredTargetId = null;
-    }
-
-    // Remove hover highlights
-    this.clearHoverHighlights();
-
-    // Redraw correspondence lines
-    if (this.config.showCorrespondenceLines) {
-      this.drawCorrespondenceLines();
-    }
+    // TODO: Highlight corresponding segments (element-level correspondence)
+    this.scheduleSentenceAlignment();
   }
 
   /**
@@ -502,7 +629,21 @@ export class TranslationView {
   }
 
   /**
+   * Find segment element by element ID and side
+   */
+  private findSegmentElement(
+    elementId: string,
+    side: 'source' | 'target'
+  ): HTMLElement | null {
+    if (!this.element) return null;
+    return this.element.querySelector(
+      `.review-translation-segment[data-element-id="${elementId}"][data-side="${side}"]`
+    );
+  }
+
+  /**
    * Find sentence element by ID and side
+   * @deprecated Use findSegmentElement instead - sentences are internal only
    */
   private findSentenceElement(
     sentenceId: string,
@@ -518,9 +659,6 @@ export class TranslationView {
    * Clear all selection highlights
    */
   private clearSelection(): void {
-    this.selectedSourceId = null;
-    this.selectedTargetId = null;
-
     if (!this.element) return;
 
     const selected = this.element.querySelectorAll(
@@ -529,313 +667,393 @@ export class TranslationView {
     selected.forEach((el) =>
       el.classList.remove('review-translation-sentence-selected')
     );
+
+    this.element
+      .querySelectorAll('.review-translation-sentence')
+      .forEach((el) => {
+        (el as HTMLElement).tabIndex = -1;
+      });
   }
 
-  /**
-   * Clear hover highlights
-   */
-  private clearHoverHighlights(): void {
-    if (!this.element) return;
-
-    const hovered = this.element.querySelectorAll(
-      '.review-translation-sentence-hover'
-    );
-    hovered.forEach((el) =>
-      el.classList.remove('review-translation-sentence-hover')
-    );
-  }
-
-  /**
-   * Enable inline editing for a sentence
-   */
-  private async enableSentenceEdit(
-    element: HTMLElement,
-    sentenceId: string,
-    side: 'source' | 'target'
-  ): Promise<void> {
-    const contentEl = element.querySelector(
-      '.review-translation-sentence-content'
-    ) as HTMLElement;
-    if (!contentEl) return;
-
-    // Get the sentence from document
-    if (!this.document) return;
-
-    const sentence =
-      side === 'source'
-        ? this.document.sourceSentences.find((s) => s.id === sentenceId)
-        : this.document.targetSentences.find((s) => s.id === sentenceId);
-
-    if (!sentence) return;
-
-    // If using Milkdown editor
-    if (this.editorBridge) {
-      try {
-        // Create editor container
-        const editorContainer = document.createElement('div');
-        editorContainer.className = 'review-translation-milkdown-editor';
-
-        // Create action buttons
-        const actions = document.createElement('div');
-        actions.className = 'review-translation-editor-actions';
-        actions.innerHTML = `
-          <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
-          <button class="review-btn review-btn-primary review-btn-sm" data-action="save">Save</button>
-        `;
-
-        // Replace content with editor
-        contentEl.innerHTML = '';
-        contentEl.appendChild(editorContainer);
-        contentEl.appendChild(actions);
-
-        // Initialize Milkdown editor
-        await this.editorBridge.initializeSentenceEditor(
-          editorContainer,
-          sentence,
-          side
-        );
-
-        logger.debug('Milkdown editor initialized for sentence', {
-          sentenceId,
-          side,
-        });
-
-        // Handle save/cancel
-        const save = () => {
-          const saved = this.editorBridge?.saveSentenceEdit();
-          if (saved) {
-            // Restore rendered content
-            this.restoreSentenceDisplay(contentEl, sentence);
-
-            const callback =
-              side === 'source'
-                ? this.callbacks.onSourceSentenceEdit
-                : this.callbacks.onTargetSentenceEdit;
-            // Pass the new content from the editor
-            const module = this.editorBridge?.getModule();
-            const newContent = module?.getContent() || sentence.content;
-            callback?.(sentenceId, newContent);
-          } else {
-            // Just restore display without calling callback
-            this.restoreSentenceDisplay(contentEl, sentence);
-          }
-
-          this.editorBridge?.destroy();
-        };
-
-        const cancel = () => {
-          this.restoreSentenceDisplay(contentEl, sentence);
-          this.editorBridge?.cancelEdit();
-        };
-
-        // Attach button event listeners
-        actions
-          .querySelector('[data-action="save"]')
-          ?.addEventListener('click', save);
-        actions
-          .querySelector('[data-action="cancel"]')
-          ?.addEventListener('click', cancel);
-
-        // Escape to cancel
-        const handleKeyDown = (e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            e.preventDefault();
-            cancel();
-          }
-        };
-        document.addEventListener('keydown', handleKeyDown);
-
-        // Store listener for cleanup
-        (editorContainer as any).escapeListener = handleKeyDown;
-      } catch (error) {
-        logger.error('Failed to initialize Milkdown editor', error);
-        // Fallback to textarea
-        this.enableSentenceEditTextarea(element, contentEl, sentence, side);
-      }
-    } else {
-      // Fallback to textarea if no editor bridge
-      this.enableSentenceEditTextarea(element, contentEl, sentence, side);
+  private restoreSelection(): void {
+    if (!this.selectedSentence) {
+      this.updateSentenceTabIndices();
+      return;
     }
-  }
-
-  /**
-   * Fallback textarea-based editing for when Milkdown is unavailable
-   */
-  private enableSentenceEditTextarea(
-    _element: HTMLElement,
-    contentEl: HTMLElement,
-    sentence: Sentence,
-    side: 'source' | 'target'
-  ): void {
-    const originalText = contentEl.textContent || '';
-
-    // Create textarea
-    const textarea = document.createElement('textarea');
-    textarea.className = 'review-translation-sentence-editor';
-    textarea.value = originalText;
-
-    // Replace content with textarea
-    contentEl.innerHTML = '';
-    contentEl.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-
-    // Handle save/cancel
-    const save = () => {
-      const newText = textarea.value.trim();
-      if (newText && newText !== originalText) {
-        // Re-render the content with markdown using document-style rendering
-        if (this.markdown) {
-          try {
-            const html = this.markdown.renderElement(newText, 'Para');
-            contentEl.innerHTML = html;
-          } catch (error) {
-            logger.warn('Failed to render edited markdown', {
-              sentenceId: sentence.id,
-              error,
-            });
-            contentEl.textContent = newText;
-          }
-        } else {
-          contentEl.textContent = newText;
-        }
-
-        const callback =
-          side === 'source'
-            ? this.callbacks.onSourceSentenceEdit
-            : this.callbacks.onTargetSentenceEdit;
-        callback?.(sentence.id, newText);
-      } else {
-        this.restoreSentenceDisplay(contentEl, sentence);
-      }
-    };
-
-    const cancel = () => {
-      this.restoreSentenceDisplay(contentEl, sentence);
-    };
-
-    // Enter to save, Escape to cancel
-    textarea.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        save();
-      } else if (e.key === 'Escape') {
-        e.preventDefault();
-        cancel();
-      }
-    });
-
-    // Blur to save
-    textarea.addEventListener('blur', save);
-  }
-
-  /**
-   * Restore rendered display of a sentence
-   */
-  private restoreSentenceDisplay(
-    contentEl: HTMLElement,
-    sentence: Sentence
-  ): void {
-    if (this.markdown) {
-      try {
-        const html = this.markdown.renderElement(sentence.content, 'Para');
-        contentEl.innerHTML = html;
-      } catch {
-        contentEl.textContent = sentence.content;
-      }
-    } else {
-      contentEl.textContent = sentence.content;
+    const { id, side } = this.selectedSentence;
+    const element = this.findSentenceElement(id, side);
+    if (!element) {
+      return;
     }
+    element.classList.add('review-translation-sentence-selected');
+    element.tabIndex = 0;
+    this.highlightCorrespondences(id, side, 'selected');
   }
 
-  /**
-   * Draw correspondence lines on canvas
-   */
-  private drawCorrespondenceLines(): void {
-    if (!this.correspondenceCanvas || !this.document || !this.element) {
+  private applyPendingFocus(): void {
+    if (!this.pendingFocus) {
       return;
     }
 
-    const canvas = this.correspondenceCanvas;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const { id, side, scrollIntoView } = this.pendingFocus;
+    const element = this.findSentenceElement(id, side);
+    if (element) {
+      this.focusSentenceElement(element, scrollIntoView);
+    }
 
-    // Resize canvas to match container
-    const content = this.element.querySelector('.review-translation-content');
-    if (!content) return;
+    this.pendingFocus = null;
+  }
 
-    canvas.width = content.clientWidth;
-    canvas.height = content.clientHeight;
+  private focusSentenceElement(
+    element: HTMLElement,
+    scrollIntoView: boolean
+  ): void {
+    if (!element.hasAttribute('tabindex')) {
+      element.setAttribute('tabindex', '-1');
+    }
+    element.focus();
+    if (scrollIntoView && typeof element.scrollIntoView === 'function') {
+      element.scrollIntoView({ block: 'center', inline: 'nearest' });
+    }
+  }
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  public isEditorActive(): boolean {
+    return Boolean(this.activeEditorContext);
+  }
 
-    // Draw lines for each correspondence
-    this.document.correspondenceMap.pairs.forEach((pair) => {
-      this.drawCorrespondenceLine(ctx, pair);
+  public saveActiveEditor(): boolean {
+    if (!this.activeEditorContext) {
+      return false;
+    }
+    return this.activeEditorContext.save();
+  }
+
+  public cancelActiveEditor(): void {
+    if (!this.activeEditorContext) {
+      return;
+    }
+    this.activeEditorContext.cancel();
+  }
+
+  private clearActiveEditorContext(): void {
+    this.activeEditorContext = null;
+  }
+
+  public focusContainer(): void {
+    this.element?.focus();
+  }
+
+  /**
+   * Keep source and target panes scrolling in sync
+   */
+  private bindPaneScrollSync(): void {
+    if (!this.sourcePane || !this.targetPane) {
+      return;
+    }
+
+    if (this.sourceScrollHandler) {
+      this.sourcePane.removeEventListener('scroll', this.sourceScrollHandler);
+    }
+    if (this.targetScrollHandler) {
+      this.targetPane.removeEventListener('scroll', this.targetScrollHandler);
+    }
+
+    this.sourceScrollHandler = () => {
+      if (this.syncScrollLock || !this.sourcePane || !this.targetPane) {
+        return;
+      }
+      this.syncScrollLock = true;
+      this.targetPane.scrollTop = this.sourcePane.scrollTop;
+      this.syncScrollLock = false;
+    };
+
+    this.targetScrollHandler = () => {
+      if (this.syncScrollLock || !this.sourcePane || !this.targetPane) {
+        return;
+      }
+      this.syncScrollLock = true;
+      this.sourcePane.scrollTop = this.targetPane.scrollTop;
+      this.syncScrollLock = false;
+    };
+
+    this.sourcePane.addEventListener('scroll', this.sourceScrollHandler);
+    this.targetPane.addEventListener('scroll', this.targetScrollHandler);
+  }
+
+  /**
+   * Schedule sentence alignment on the next animation frame
+   */
+  private scheduleSentenceAlignment(): void {
+    if (this.alignFrameId !== null) {
+      cancelAnimationFrame(this.alignFrameId);
+    }
+
+    this.alignFrameId = window.requestAnimationFrame(() => {
+      this.alignFrameId = null;
+      this.alignSentenceHeights();
     });
   }
 
   /**
-   * Draw a single correspondence line
+   * Ensure corresponding source/target sentences share the same height
    */
-  private drawCorrespondenceLine(
-    ctx: CanvasRenderingContext2D,
-    pair: TranslationPair
-  ): void {
-    const sourceEl = this.findSentenceElement(pair.sourceId, 'source');
-    const targetEl = this.findSentenceElement(pair.targetId, 'target');
-
-    if (!sourceEl || !targetEl || !this.correspondenceCanvas) return;
-
-    const sourceRect = sourceEl.getBoundingClientRect();
-    const targetRect = targetEl.getBoundingClientRect();
-    const canvasRect = this.correspondenceCanvas.getBoundingClientRect();
-
-    // Calculate positions relative to canvas
-    const x1 = sourceRect.right - canvasRect.left;
-    const y1 = sourceRect.top + sourceRect.height / 2 - canvasRect.top;
-    const x2 = targetRect.left - canvasRect.left;
-    const y2 = targetRect.top + targetRect.height / 2 - canvasRect.top;
-
-    // Determine line style based on status and selection
-    const isSelected =
-      pair.sourceId === this.selectedSourceId ||
-      pair.targetId === this.selectedTargetId;
-    const isHovered =
-      pair.sourceId === this.hoveredSourceId ||
-      pair.targetId === this.hoveredTargetId;
-
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-
-    if (isSelected) {
-      ctx.strokeStyle = 'rgba(var(--review-color-primary-rgb), 0.8)';
-      ctx.lineWidth = 2;
-    } else if (isHovered) {
-      ctx.strokeStyle = 'rgba(var(--review-color-primary-rgb), 0.5)';
-      ctx.lineWidth = 1.5;
-    } else {
-      ctx.strokeStyle = this.getLineColorForStatus(pair.status);
-      ctx.lineWidth = 1;
+  private alignSentenceHeights(): void {
+    if (!this.element || !this.document) {
+      return;
     }
 
-    ctx.stroke();
+    // Reset any previous alignment
+    this.element
+      .querySelectorAll('.review-translation-sentence')
+      .forEach((el) => {
+        (el as HTMLElement).style.minHeight = '';
+      });
+
+    this.document.correspondenceMap.pairs.forEach((pair) => {
+      const sourceEl = this.findSentenceElement(pair.sourceId, 'source');
+      const targetEl = this.findSentenceElement(pair.targetId, 'target');
+
+      if (!sourceEl || !targetEl) {
+        return;
+      }
+
+      sourceEl.style.minHeight = '';
+      targetEl.style.minHeight = '';
+
+      const maxHeight = Math.max(sourceEl.offsetHeight, targetEl.offsetHeight);
+
+      sourceEl.style.minHeight = `${maxHeight}px`;
+      targetEl.style.minHeight = `${maxHeight}px`;
+    });
   }
 
   /**
-   * Get line color based on translation status
+   * Enable inline editing for a segment (element-level editing)
+   * Uses the same MilkdownEditor as review mode for consistent editing experience
    */
-  private getLineColorForStatus(status: string): string {
-    const colors: Record<string, string> = {
-      'auto-translated': 'rgba(var(--review-color-primary-rgb), 0.2)',
-      manual: 'rgba(var(--review-color-success-rgb), 0.3)',
-      edited: 'rgba(var(--review-color-warning-rgb), 0.3)',
-      'out-of-sync': 'rgba(var(--review-color-danger-rgb), 0.3)',
-      synced: 'rgba(var(--review-color-success-rgb), 0.2)',
-    };
-    return colors[status] || 'rgba(128, 128, 128, 0.2)';
+  private async enableSegmentEdit(
+    element: HTMLElement,
+    elementId: string,
+    side: 'source' | 'target'
+  ): Promise<void> {
+    if (!this.document || !this.editorBridge) return;
+
+    // Get all sentences for this element and merge into segment content
+    const sentences =
+      side === 'source'
+        ? this.document.sourceSentences.filter((s) => s.elementId === elementId)
+        : this.document.targetSentences.filter(
+            (s) => s.elementId === elementId
+          );
+
+    if (sentences.length === 0) return;
+
+    // Sort and merge sentences into complete segment content
+    const orderedSentences = [...sentences].sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      return (a.startOffset ?? 0) - (b.startOffset ?? 0);
+    });
+
+    const segmentContent = orderedSentences.map((s) => s.content).join('\n\n');
+
+    // Close any existing editor
+    if (this.activeEditorContext) {
+      this.cancelActiveEditor();
+    }
+
+    // Find content element
+    const contentEl = element.querySelector(
+      '.review-translation-segment-content'
+    ) as HTMLElement;
+    if (!contentEl) return;
+
+    try {
+      // Create editor container (same structure as review mode)
+      const editorContainer = document.createElement('div');
+      editorContainer.className =
+        'review-translation-milkdown-editor review-inline-editor-container';
+      const editorBody = document.createElement('div');
+      editorBody.className = 'review-editor-body review-inline-editor-body';
+      editorContainer.appendChild(editorBody);
+
+      // Create action buttons (same as review mode)
+      const actions = document.createElement('div');
+      actions.className =
+        'review-inline-editor-actions review-translation-editor-actions';
+      actions.innerHTML = `
+        <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
+        <button class="review-btn review-btn-primary review-btn-sm" data-action="save">Save</button>
+      `;
+
+      // Replace content with editor
+      contentEl.innerHTML = '';
+      contentEl.appendChild(editorContainer);
+      contentEl.appendChild(actions);
+
+      // Initialize Milkdown editor for the entire segment (not individual sentences)
+      await this.editorBridge.initializeSegmentEditor(
+        editorContainer,
+        elementId,
+        segmentContent,
+        side
+      );
+
+      logger.debug('Milkdown editor initialized for segment', {
+        elementId,
+        side,
+        sentenceCount: sentences.length,
+      });
+
+      const removeEscapeListener = (): void => {
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+
+      const finishEditing = (destroyEditor: boolean): void => {
+        removeEscapeListener();
+        if (destroyEditor) {
+          this.editorBridge?.destroy();
+        }
+        // Re-render the segment content
+        if (this.markdown) {
+          try {
+            const html = this.markdown.renderElement(segmentContent, 'Para');
+            contentEl.innerHTML = html;
+          } catch (error) {
+            logger.warn('Failed to render markdown after editing', { error });
+            contentEl.textContent = segmentContent;
+          }
+        } else {
+          contentEl.textContent = segmentContent;
+        }
+        element.focus();
+        this.clearActiveEditorContext();
+        this.scheduleSentenceAlignment();
+      };
+
+      // Handle save - calls callback with entire segment content
+      const save = (): boolean => {
+        const module = this.editorBridge?.getModule();
+        const newContent = module?.getContent() || segmentContent;
+        const saved = this.editorBridge?.saveSegmentEdit(
+          elementId,
+          newContent,
+          side
+        );
+
+        if (saved) {
+          // Call the appropriate callback with segment-level edit
+          const callback =
+            side === 'source'
+              ? this.callbacks.onSourceSegmentEdit
+              : this.callbacks.onTargetSegmentEdit;
+          void callback?.(elementId, newContent);
+
+          // Re-render with new content
+          if (this.markdown) {
+            try {
+              const html = this.markdown.renderElement(newContent, 'Para');
+              contentEl.innerHTML = html;
+            } catch (error) {
+              logger.warn('Failed to render markdown', { error });
+              contentEl.textContent = newContent;
+            }
+          } else {
+            contentEl.textContent = newContent;
+          }
+        } else {
+          // Restore original content if save failed
+          if (this.markdown) {
+            try {
+              const html = this.markdown.renderElement(segmentContent, 'Para');
+              contentEl.innerHTML = html;
+            } catch (error) {
+              debuglog(error as string);
+              contentEl.textContent = segmentContent;
+            }
+          } else {
+            contentEl.textContent = segmentContent;
+          }
+        }
+
+        finishEditing(true);
+        return Boolean(saved);
+      };
+
+      const cancel = (): void => {
+        // Restore original content
+        if (this.markdown) {
+          try {
+            const html = this.markdown.renderElement(segmentContent, 'Para');
+            contentEl.innerHTML = html;
+          } catch (error) {
+            debuglog(error as string);
+            contentEl.textContent = segmentContent;
+          }
+        } else {
+          contentEl.textContent = segmentContent;
+        }
+        this.editorBridge?.cancelEdit();
+        finishEditing(false);
+      };
+
+      function handleKeyDown(e: KeyboardEvent): void {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cancel();
+        }
+      }
+
+      // Attach button event listeners
+      actions
+        .querySelector('[data-action="save"]')
+        ?.addEventListener('click', () => {
+          void save();
+        });
+      actions
+        .querySelector('[data-action="cancel"]')
+        ?.addEventListener('click', () => {
+          cancel();
+        });
+
+      // Escape to cancel
+      document.addEventListener('keydown', handleKeyDown);
+
+      // Store active editor context (modified for segments)
+      this.activeEditorContext = {
+        sentence: orderedSentences[0]!, // Keep for type compatibility
+        side,
+        sentenceElement: element,
+        contentEl,
+        save,
+        cancel,
+      };
+    } catch (error) {
+      logger.error('Failed to initialize segment editor', {
+        elementId,
+        side,
+        error,
+      });
+      this.editorBridge?.destroy();
+      // Restore content display
+      if (this.markdown) {
+        try {
+          const html = this.markdown.renderElement(segmentContent, 'Para');
+          contentEl.innerHTML = html;
+        } catch (renderError) {
+          debuglog(renderError as string);
+          contentEl.textContent = segmentContent;
+        }
+      } else {
+        contentEl.textContent = segmentContent;
+      }
+      // Show error message
+      const message = document.createElement('div');
+      message.className = 'review-translation-editor-error';
+      message.setAttribute('role', 'alert');
+      message.textContent =
+        'Unable to load the translation editor. Please reload translation mode and try again.';
+      contentEl.appendChild(message);
+    }
   }
 
   /**
@@ -880,6 +1098,32 @@ export class TranslationView {
   }
 
   /**
+   * Queue focus restoration for a sentence on the next render cycle
+   */
+  public queueFocusOnSentence(
+    sentenceId: string,
+    side: 'source' | 'target',
+    options?: { scrollIntoView?: boolean }
+  ): void {
+    this.selectedSentence = { id: sentenceId, side };
+    this.pendingFocus = {
+      id: sentenceId,
+      side,
+      scrollIntoView: options?.scrollIntoView ?? false,
+    };
+  }
+
+  /**
+   * Retrieve the currently selected sentence, if any
+   */
+  public getSelectedSentence(): {
+    id: string;
+    side: 'source' | 'target';
+  } | null {
+    return this.selectedSentence;
+  }
+
+  /**
    * Get the underlying DOM element
    */
   getElement(): HTMLElement | null {
@@ -890,13 +1134,189 @@ export class TranslationView {
    * Cleanup and destroy
    */
   destroy(): void {
+    if (this.isEditorActive()) {
+      this.cancelActiveEditor();
+    }
+
+    if (this.sourcePane && this.sourceScrollHandler) {
+      this.sourcePane.removeEventListener('scroll', this.sourceScrollHandler);
+    }
+    if (this.targetPane && this.targetScrollHandler) {
+      this.targetPane.removeEventListener('scroll', this.targetScrollHandler);
+    }
+    window.removeEventListener('resize', this.handleResize);
+    if (this.alignFrameId !== null) {
+      cancelAnimationFrame(this.alignFrameId);
+      this.alignFrameId = null;
+    }
+
     if (this.element) {
       this.element.remove();
       this.element = null;
     }
+
     this.sourcePane = null;
     this.targetPane = null;
-    this.correspondenceCanvas = null;
     this.document = null;
+    this.sourceScrollHandler = null;
+    this.targetScrollHandler = null;
+    this.syncScrollLock = false;
+    this.selectedSentence = null;
+    this.pendingFocus = null;
+    this.loadingSentences.clear();
+    this.sentenceErrors.clear();
+    this.progressStatus = null;
+    this.progressElements = {
+      container: null,
+      bar: null,
+      fill: null,
+      message: null,
+    };
+    this.errorBannerElements = {
+      container: null,
+      message: null,
+      retryButton: null,
+    };
+    this.activeEditorContext = null;
+  }
+
+  public setErrorBanner(
+    state: { message: string; retryLabel?: string; onRetry?: () => void } | null
+  ): void {
+    const { container, message, retryButton } = this.errorBannerElements;
+    if (!container || !message || !retryButton) {
+      return;
+    }
+
+    if (!state) {
+      container.hidden = true;
+      message.textContent = '';
+      retryButton.hidden = true;
+      retryButton.onclick = null;
+      return;
+    }
+
+    message.textContent = state.message;
+    container.hidden = false;
+
+    if (state.onRetry) {
+      retryButton.hidden = false;
+      retryButton.textContent = state.retryLabel ?? 'Retry';
+      retryButton.onclick = () => {
+        state.onRetry?.();
+      };
+    } else {
+      retryButton.hidden = true;
+      retryButton.onclick = null;
+    }
+  }
+
+  public setSentenceError(
+    sentenceId: string,
+    side: 'source' | 'target',
+    message?: string | null
+  ): void {
+    const key = this.makeLoadingKey(sentenceId, side);
+    if (message === undefined || message === null) {
+      this.sentenceErrors.delete(key);
+    } else {
+      this.sentenceErrors.set(key, message);
+    }
+
+    const element = this.findSentenceElement(sentenceId, side);
+    this.applyErrorStateToElement(element, side);
+  }
+
+  public clearSentenceErrors(sentenceIds: string[]): void {
+    sentenceIds.forEach((sourceId) => {
+      const keySource = this.makeLoadingKey(sourceId, 'source');
+      this.sentenceErrors.delete(keySource);
+      const sourceElement = this.findSentenceElement(sourceId, 'source');
+      this.applyErrorStateToElement(sourceElement, 'source');
+    });
+  }
+
+  private applyErrorStates(): void {
+    if (!this.element) {
+      return;
+    }
+
+    this.element
+      .querySelectorAll('.review-translation-sentence[data-sentence-id]')
+      .forEach((el) => {
+        const element = el as HTMLElement;
+        const sentenceId = element.dataset.sentenceId;
+        const side = (element.dataset.side as 'source' | 'target') ?? 'source';
+        if (!sentenceId) {
+          return;
+        }
+        this.applyErrorStateToElement(element, side);
+      });
+  }
+
+  private applyErrorStateToElement(
+    element: HTMLElement | null,
+    side: 'source' | 'target'
+  ): void {
+    if (!element) {
+      return;
+    }
+
+    const sentenceId = element.dataset.sentenceId ?? '';
+    const key = this.makeLoadingKey(sentenceId, side);
+    const message = this.sentenceErrors.get(key) ?? null;
+    const hasError = message !== null;
+
+    element.classList.toggle('review-translation-sentence-error', hasError);
+    if (hasError) {
+      element.setAttribute('data-error', 'true');
+      element.setAttribute('aria-invalid', 'true');
+    } else {
+      element.removeAttribute('data-error');
+      element.removeAttribute('aria-invalid');
+    }
+
+    const errorMessageEl = element.querySelector(
+      '[data-role="sentence-error"]'
+    ) as HTMLElement | null;
+    if (errorMessageEl) {
+      if (hasError) {
+        errorMessageEl.hidden = false;
+        errorMessageEl.textContent = message || 'Translation failed.';
+      } else {
+        errorMessageEl.hidden = true;
+        errorMessageEl.textContent = '';
+      }
+    }
+  }
+
+  private updateSentenceTabIndices(): void {
+    if (!this.element) {
+      return;
+    }
+
+    const sentences = Array.from(
+      this.element.querySelectorAll('.review-translation-sentence')
+    ) as HTMLElement[];
+
+    sentences.forEach((el) => {
+      el.tabIndex = -1;
+    });
+
+    let target: HTMLElement | null = null;
+    if (this.selectedSentence) {
+      target = this.findSentenceElement(
+        this.selectedSentence.id,
+        this.selectedSentence.side
+      );
+    }
+
+    if (!target && sentences.length > 0) {
+      target = sentences[0] ?? null;
+    }
+
+    if (target) {
+      target.tabIndex = 0;
+    }
   }
 }

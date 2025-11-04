@@ -2021,6 +2021,10 @@ describe('CorrespondenceMapper', () => {
 - **Glossary Support**: Custom dictionaries
 - **Context-Aware Translation**: Use surrounding context
 - **Translation API Fallbacks**: Auto-switch providers on failure
+- **Stability Fixes** (carry-over from P3-T10):
+  - [ ] Ensure Milkdown editors in review/translation modes retain focus during typing (spacebar regression).
+  - [ ] Restore manual save persistence by syncing segment merges back to `ChangesModule` and the review DOM.
+  - [ ] Add E2E workflow covering manual edit → translation toggle → merge to prevent regressions.
 
 ---
 

@@ -38,6 +38,7 @@ export class SentenceSegmenter {
         elementId,
         content: trimmed,
         language,
+        order: index,
         startOffset,
         endOffset,
         hash: this.hashContent(trimmed),
@@ -163,6 +164,7 @@ export class SentenceSegmenter {
       ...sentence,
       id: this.generateSentenceId(sentence.content, index),
       elementId,
+      order: index,
     }));
   }
 

@@ -14,7 +14,7 @@ import {
   MODULE_EVENTS,
   ModuleEventEmitter,
   type CommentSubmittedDetail,
-  escapeHtml,
+  //escapeHtml,
 } from '../shared';
 import { CommentEditor } from './CommentEditor';
 
@@ -148,16 +148,13 @@ export class CommentComposer extends ModuleEventEmitter {
       this.originalItem = insertionAnchor;
     }
 
-    // Update HTML based on context
     const isEditing = Boolean(context.existingComment);
-    const elementLabel = context.elementLabel || 'Document section';
 
     this.element!.innerHTML = `
       <div class="review-comment-composer-header">
         <span>${isEditing ? 'Edit comment' : 'Add comment'}</span>
         <button class="review-btn review-btn-secondary review-btn-sm" data-action="close">✕</button>
       </div>
-      <p class="review-comment-composer-context">${escapeHtml(elementLabel)}</p>
       <div class="review-comment-composer-editor"></div>
       <div class="review-comment-composer-actions">
         <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
@@ -327,12 +324,8 @@ export class CommentComposer extends ModuleEventEmitter {
    * Clear the form
    */
   private clearForm(): void {
-    if (!this.element) return;
-    const textarea = this.element.querySelector(
-      'textarea'
-    ) as HTMLTextAreaElement;
-    if (textarea) {
-      textarea.value = '';
+    if (this.editor) {
+      this.editor.setContent('');
     }
     this.currentContext = null;
   }

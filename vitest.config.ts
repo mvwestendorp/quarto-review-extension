@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    pool: 'threads',
     // Exclude E2E tests - they are run separately with 'npm run test:e2e' using Playwright
     exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
     coverage: {

@@ -13,20 +13,37 @@ type TransformersModule = any;
 type Pipeline = any;
 type ProgressCallback = (progress: TranslationProgress) => void;
 
+interface SharedModelState {
+  translator: Pipeline | null;
+  opusModels: Map<string, Pipeline>;
+  backend: 'wasm' | 'webgpu';
+  initializePromise: Promise<void> | null;
+}
+
 export class LocalAIProvider extends TranslationProvider {
+  private static transformers: TransformersModule | null = null;
+  private static sharedStates = new Map<string, SharedModelState>();
+
   private translator: Pipeline | null = null;
-  private opusModels = new Map<string, Pipeline>();
+  private opusModels: Map<string, Pipeline>;
   private backend: 'wasm' | 'webgpu' = 'wasm';
   private modelName: string;
   private mode: 'fast' | 'balanced' | 'quality';
-  private transformers: TransformersModule | null = null;
   private progressCallback?: ProgressCallback;
-  private initializePromise: Promise<void> | null = null;
+  private readonly cacheKey: string;
+  private readonly sharedState: SharedModelState;
 
   constructor(private config: LocalAIConfig = {}) {
     super();
     this.mode = config.mode || 'balanced';
     this.modelName = this.selectModelName();
+    this.cacheKey = `${this.mode}:${this.modelName}`;
+    this.sharedState = LocalAIProvider.getSharedState(this.cacheKey);
+    this.opusModels = this.sharedState.opusModels;
+    if (this.sharedState.translator) {
+      this.translator = this.sharedState.translator;
+      this.backend = this.sharedState.backend;
+    }
   }
 
   get name(): string {
@@ -92,14 +109,14 @@ export class LocalAIProvider extends TranslationProvider {
    * Load transformers.js dynamically
    */
   private async loadTransformers(): Promise<TransformersModule> {
-    if (this.transformers) {
-      return this.transformers;
+    if (LocalAIProvider.transformers) {
+      return LocalAIProvider.transformers;
     }
 
     try {
       // Dynamic import to avoid bundling transformers.js if not needed
-      this.transformers = await import('@xenova/transformers');
-      return this.transformers;
+      LocalAIProvider.transformers = await import('@xenova/transformers');
+      return LocalAIProvider.transformers;
     } catch {
       throw new Error(
         'Failed to load @xenova/transformers. Please install: npm install @xenova/transformers'
@@ -111,18 +128,33 @@ export class LocalAIProvider extends TranslationProvider {
    * Initialize the translation model
    */
   async initialize(): Promise<void> {
-    // Prevent multiple simultaneous initializations
-    if (this.initializePromise) {
-      return this.initializePromise;
+    if (this.sharedState.translator) {
+      this.translator = this.sharedState.translator;
+      this.backend = this.sharedState.backend;
+      return;
     }
 
-    this.initializePromise = this._initialize();
-    return this.initializePromise;
+    if (this.sharedState.initializePromise) {
+      await this.sharedState.initializePromise;
+      this.translator = this.sharedState.translator;
+      this.backend = this.sharedState.backend;
+      return;
+    }
+
+    const promise = this._initialize();
+    this.sharedState.initializePromise = promise;
+    try {
+      await promise;
+    } finally {
+      this.sharedState.initializePromise = null;
+    }
   }
 
   private async _initialize(): Promise<void> {
-    if (this.translator) {
-      return; // Already initialized
+    if (this.sharedState.translator) {
+      this.translator = this.sharedState.translator;
+      this.backend = this.sharedState.backend;
+      return;
     }
 
     this.progressCallback?.({
@@ -137,6 +169,7 @@ export class LocalAIProvider extends TranslationProvider {
     // Detect backend
     const hasWebGPU = await this.detectWebGPU();
     this.backend = hasWebGPU ? 'webgpu' : 'wasm';
+    this.sharedState.backend = this.backend;
 
     console.log(`[LocalAI] Using ${this.backend} backend for translation`);
 
@@ -169,6 +202,8 @@ export class LocalAIProvider extends TranslationProvider {
         });
       }
 
+      this.sharedState.translator = this.translator;
+
       this.progressCallback?.({
         stage: 'complete',
         progress: 1,
@@ -199,6 +234,10 @@ export class LocalAIProvider extends TranslationProvider {
     for (const [from, to] of pairs) {
       const key = `${from}-${to}`;
       const modelName = `Xenova/opus-mt-${from}-${to}`;
+
+      if (this.opusModels.has(key)) {
+        continue;
+      }
 
       try {
         this.progressCallback?.({
@@ -309,9 +348,7 @@ export class LocalAIProvider extends TranslationProvider {
    */
   destroy(): void {
     this.translator = null;
-    this.opusModels.clear();
-    this.transformers = null;
-    this.initializePromise = null;
+    this.progressCallback = undefined;
   }
 
   /**
@@ -323,5 +360,41 @@ export class LocalAIProvider extends TranslationProvider {
       model: this.modelName,
       mode: this.mode,
     };
+  }
+
+  clearCache(): void {
+    LocalAIProvider.clearCachedModels();
+  }
+
+  private static getSharedState(key: string): SharedModelState {
+    let state = this.sharedStates.get(key);
+    if (!state) {
+      state = {
+        translator: null,
+        opusModels: new Map(),
+        backend: 'wasm',
+        initializePromise: null,
+      };
+      this.sharedStates.set(key, state);
+    }
+    return state;
+  }
+
+  static clearCachedModels(): void {
+    this.sharedStates.forEach((state) => {
+      if (state.translator && typeof state.translator.dispose === 'function') {
+        state.translator.dispose();
+      }
+      state.translator = null;
+      state.opusModels.forEach((model) => {
+        if (model && typeof model.dispose === 'function') {
+          model.dispose();
+        }
+      });
+      state.opusModels.clear();
+      state.initializePromise = null;
+    });
+    this.sharedStates.clear();
+    this.transformers = null;
   }
 }

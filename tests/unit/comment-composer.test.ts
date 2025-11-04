@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { CommentComposer, type ComposerContext } from '@modules/ui/comments/CommentComposer';
+import {
+  CommentComposer,
+  type ComposerContext,
+} from '@modules/ui/comments/CommentComposer';
 import { MODULE_EVENTS } from '@modules/ui/shared';
 
 // Mock the CommentEditor to avoid Milkdown initialization in tests
@@ -10,7 +13,10 @@ vi.mock('@modules/ui/comments/CommentEditor', () => {
     private content: string = '';
     focusCalled = false;
 
-    async initialize(container: HTMLElement, initialContent: string = ''): Promise<void> {
+    async initialize(
+      container: HTMLElement,
+      initialContent: string = ''
+    ): Promise<void> {
       this.content = initialContent;
     }
 
@@ -95,7 +101,9 @@ describe('CommentComposer', () => {
       const textarea = element.querySelector('textarea');
       expect(textarea).not.toBeNull();
       expect(textarea?.className).toContain('review-comment-composer-textarea');
-      expect(textarea?.getAttribute('placeholder')).toBe('Enter your comment...');
+      expect(textarea?.getAttribute('placeholder')).toBe(
+        'Enter your comment...'
+      );
       expect(textarea?.getAttribute('rows')).toBe('4');
       expect(textarea?.getAttribute('aria-label')).toBe('Comment text');
     });
@@ -106,10 +114,14 @@ describe('CommentComposer', () => {
       const footer = element.querySelector('.review-comment-composer-footer');
       expect(footer).not.toBeNull();
 
-      const cancelBtn = footer?.querySelector('.review-comment-composer-cancel-btn');
+      const cancelBtn = footer?.querySelector(
+        '.review-comment-composer-cancel-btn'
+      );
       expect(cancelBtn?.textContent).toBe('Cancel');
 
-      const submitBtn = footer?.querySelector('.review-comment-composer-submit-btn');
+      const submitBtn = footer?.querySelector(
+        '.review-comment-composer-submit-btn'
+      );
       expect(submitBtn?.textContent).toBe('Post Comment');
     });
   });
@@ -187,7 +199,9 @@ describe('CommentComposer', () => {
       // This is verified by the mocked CommentEditor being properly initialized
       const element = composer.getElement();
       expect(element).not.toBeNull();
-      expect(element?.querySelector('.review-comment-composer-editor')).not.toBeNull();
+      expect(
+        element?.querySelector('.review-comment-composer-editor')
+      ).not.toBeNull();
     });
 
     it('prepends composer to sidebar body', async () => {
@@ -278,7 +292,10 @@ describe('CommentComposer', () => {
       const existingCommentItem = document.createElement('div');
       existingCommentItem.className = 'review-comment-item';
       existingCommentItem.setAttribute('data-element-id', 'elem-1');
-      existingCommentItem.setAttribute('data-comment-key', 'elem-1:Old comment');
+      existingCommentItem.setAttribute(
+        'data-comment-key',
+        'elem-1:Old comment'
+      );
       sidebarBody.appendChild(existingCommentItem);
 
       const context: ComposerContext = {
@@ -289,20 +306,9 @@ describe('CommentComposer', () => {
 
       await composer.open(context, sidebarBody);
 
-      expect(existingCommentItem.classList.contains('review-comment-item-hidden')).toBe(true);
-    });
-
-    it('shows element label in context line', async () => {
-      const context: ComposerContext = {
-        sectionId: 'section-1',
-        elementId: 'elem-1',
-        elementLabel: 'Paragraph 3: Introduction',
-      };
-
-      await composer.open(context, sidebarBody);
-
-      const contextLine = composer.getElement()?.querySelector('.review-comment-composer-context');
-      expect(contextLine?.textContent).toContain('Paragraph 3: Introduction');
+      expect(
+        existingCommentItem.classList.contains('review-comment-item-hidden')
+      ).toBe(true);
     });
   });
 
@@ -338,7 +344,9 @@ describe('CommentComposer', () => {
       await composer.open(context, sidebarBody);
       composer.close();
 
-      expect(existingCommentItem.classList.contains('review-comment-item-hidden')).toBe(false);
+      expect(
+        existingCommentItem.classList.contains('review-comment-item-hidden')
+      ).toBe(false);
     });
 
     it('clears form content', async () => {
@@ -371,7 +379,9 @@ describe('CommentComposer', () => {
       const editor = getEditorInstance();
       editor.setContent('My comment');
 
-      const submitBtn = composer.getElement()?.querySelector('[data-action="save"]') as HTMLButtonElement;
+      const submitBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="save"]') as HTMLButtonElement;
       submitBtn.click();
 
       expect(eventListener).toHaveBeenCalledWith(
@@ -397,7 +407,9 @@ describe('CommentComposer', () => {
       const editor = getEditorInstance();
       editor.setContent('My comment');
 
-      const submitBtn = composer.getElement()?.querySelector('[data-action="save"]') as HTMLButtonElement;
+      const submitBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="save"]') as HTMLButtonElement;
       submitBtn.click();
 
       expect(onSubmitCallback).toHaveBeenCalledWith('My comment', context);
@@ -414,7 +426,9 @@ describe('CommentComposer', () => {
 
       await composer.open(context, sidebarBody);
 
-      const submitBtn = composer.getElement()?.querySelector('[data-action="save"]') as HTMLButtonElement;
+      const submitBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="save"]') as HTMLButtonElement;
       submitBtn.click();
 
       expect(eventListener).not.toHaveBeenCalled();
@@ -436,7 +450,9 @@ describe('CommentComposer', () => {
       const editor = getEditorInstance();
       editor.setContent('  My comment  \n\n  ');
 
-      const submitBtn = composer.getElement()?.querySelector('[data-action="save"]') as HTMLButtonElement;
+      const submitBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="save"]') as HTMLButtonElement;
       submitBtn.click();
 
       expect(eventListener).toHaveBeenCalledWith(
@@ -462,7 +478,9 @@ describe('CommentComposer', () => {
       const editor = getEditorInstance();
       editor.setContent('Updated comment');
 
-      const submitBtn = composer.getElement()?.querySelector('[data-action="save"]') as HTMLButtonElement;
+      const submitBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="save"]') as HTMLButtonElement;
       submitBtn.click();
 
       expect(eventListener).toHaveBeenCalledWith(
@@ -484,7 +502,9 @@ describe('CommentComposer', () => {
       const editor = getEditorInstance();
       editor.setContent('My comment');
 
-      const submitBtn = composer.getElement()?.querySelector('[data-action="save"]') as HTMLButtonElement;
+      const submitBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="save"]') as HTMLButtonElement;
       submitBtn.click();
 
       expect(composer.getIsOpen()).toBe(false);
@@ -503,7 +523,9 @@ describe('CommentComposer', () => {
 
       await composer.open(context, sidebarBody);
 
-      const cancelBtn = composer.getElement()?.querySelector('[data-action="cancel"]') as HTMLButtonElement;
+      const cancelBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="cancel"]') as HTMLButtonElement;
       cancelBtn.click();
 
       expect(eventListener).toHaveBeenCalledWith(
@@ -524,7 +546,9 @@ describe('CommentComposer', () => {
 
       await composer.open(context, sidebarBody);
 
-      const cancelBtn = composer.getElement()?.querySelector('[data-action="cancel"]') as HTMLButtonElement;
+      const cancelBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="cancel"]') as HTMLButtonElement;
       cancelBtn.click();
 
       expect(onCancelCallback).toHaveBeenCalled();
@@ -538,7 +562,9 @@ describe('CommentComposer', () => {
 
       await composer.open(context, sidebarBody);
 
-      const cancelBtn = composer.getElement()?.querySelector('[data-action="cancel"]') as HTMLButtonElement;
+      const cancelBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="cancel"]') as HTMLButtonElement;
       cancelBtn.click();
 
       expect(composer.getIsOpen()).toBe(false);
@@ -555,7 +581,9 @@ describe('CommentComposer', () => {
 
       await composer.open(context, sidebarBody);
 
-      const closeBtn = composer.getElement()?.querySelector('[data-action="close"]') as HTMLButtonElement;
+      const closeBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="close"]') as HTMLButtonElement;
       closeBtn.click();
 
       expect(eventListener).toHaveBeenCalled();
@@ -647,7 +675,9 @@ describe('CommentComposer', () => {
       const editor = getEditorInstance();
       editor.setContent('Comment');
 
-      const submitBtn = composer.getElement()?.querySelector('[data-action="save"]') as HTMLButtonElement;
+      const submitBtn = composer
+        .getElement()
+        ?.querySelector('[data-action="save"]') as HTMLButtonElement;
       submitBtn.click();
 
       // Old listener should not have been called

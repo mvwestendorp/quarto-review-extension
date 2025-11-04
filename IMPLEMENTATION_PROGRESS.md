@@ -1,12 +1,13 @@
 # Translation Mode Implementation Progress
 
-**Project Status:** Phase 1 Complete ✅ | Phase 2.1 Complete ✅ | Phase 2.2 Complete ✅ | Phase 3 Planned 📋
+**Project Status:** Phase 0 Blueprint ✅ | Phase 1 Complete ✅ | Phase 2.1 Complete ✅ | Phase 2.2 Complete ✅ | Phase 3 Planned 📋
 
 ---
 
 ## Executive Summary
 
-Successfully completed Phase 1 and Phase 2 of the translation mode implementation:
+Successfully completed the Phase 0 extension architecture blueprint alongside Phase 1 and Phase 2 deliverables:
+- Phase 0: Extension architecture blueprint (core <> extension <> UI plugin contracts documented)
 - Phase 1: Critical data sync and out-of-sync detection (37 tests)
 - Phase 2.1: Toolbar consolidation tests (31 tests)
 - Phase 2.2: Manual mode target pre-creation implementation (28 tests)
@@ -67,6 +68,45 @@ Total: 96 tests passing, 1351 full test suite passing. Phase 3 (textarea removal
 
 ---
 
+### Task 1.3: Persistence & Undo Stabilization ✅
+
+**What was built:**
+- Added environment guards in `TranslationPersistence` so Vitest (Node/jsdom) runs gracefully without `localStorage`
+- Updated `TranslationModule` to skip persistence when storage is unavailable
+- Synchronized `TranslationChangesModule` undo/redo callbacks with `TranslationModule` for consistent state updates
+- Extended `TranslationController` to suppress recursive sync loops and refresh translation view after undo
+- New integration test `tests/unit/translation-controller.test.ts` covering edit → undo → redo workflow
+- Vitest configuration now defaults to `threads` pool to exercise translation suites without worker crashes
+- Source edits now feed the primary `ChangesModule`, ensuring review-mode updates stick and translation undo/redo tracks both languages
+
+**Impact:**
+- ✅ Prevents hard crashes when translation mode runs in non-browser environments
+- ✅ Translation edits remain in sync with the review `ChangesModule` after undo/redo
+- ✅ Regression protection for manual translation edits through new tests
+
+**Tests:** 1 new integration test (`translation-controller.test.ts`) plus existing suites executed under the stabilized configuration
+
+---
+
+### Task 1.4: Extension Registry Scaffolding ✅
+
+**What was built:**
+- Introduced `ChangesExtensionRegistry` to broker lifecycle events and change application for future extensions
+- Added extension-facing methods on `ChangesModule` (`registerExtension`, `applyExtensionChange`) with support for edit/insert/delete/move wrappers
+- Emitted `beforeOperation` / `afterOperation` events when operations are enqueued, enabling translation (and other extensions) to observe core changes without mutating internals
+- Added unit coverage (`tests/unit/changes-extension-registry.test.ts`) validating event delivery, change application, and cleanup semantics
+- TranslationModule now registers as an extension, emits `translation:*` events through the registry, and exposes a lightweight `on()` API for the UI plugin layer
+
+**Impact:**
+- ✅ Establishes the core extension API required by the Phase 0 blueprint
+- ✅ Provides a safe pathway for translation to integrate with the change stack without direct mutations
+- ✅ Lays groundwork for additional extensions (e.g., analytics, collaborative plugins) to subscribe to change events
+- ✅ UI layer can listen to translation events without polling, paving the way for plugin-based rendering
+
+**Tests:** 3 new tests in `changes-extension-registry.test.ts` verifying eventing and change application
+
+---
+
 ## Phase 1 Test Results
 
 ### Test Statistics
@@ -91,9 +131,106 @@ Coverage:           > 85%
 
 ---
 
+## Phase 3: UX Contracts & Editor Stability 🔄 In Progress
+
+### Task P3-T1: Focus & Selection Management ✅
+
+**What was built:**
+- `TranslationView` now tracks the last selected sentence so re-renders preserve highlighting and correspondence styling.
+- Introduced queued focus restoration so the active sentence regains focus and scroll position after saves, undo/redo, or translation updates.
+- Sentences are programmatically focusable (`tabindex="-1"`), improving keyboard navigation readiness.
+- `TranslationController` wires selection state through `queueFocusOnSentence`, ensuring updates from the translation module and change adapter keep the user anchored to their working sentence.
+- Added regression coverage (`tests/unit/translation-view-selection.test.ts`) validating selection persistence and focus restoration.
+
+**Impact:**
+- ✅ Editing no longer ejects the user to the top of the document after save; the same sentence remains selected.
+- ✅ Keyboard users can continue interacting in-place without hunting for their last position.
+- ✅ Lays groundwork for upcoming shortcut work (P3-T4) and inline status UX improvements.
+
+**Tests:** 2 new tests ensuring selection survives re-render cycles and focus is restored post-refresh.
+
+---
+
+### Task P3-T2: Inline Status Chips ✅
+
+**What was built:**
+- Replaced the legacy dot indicator with descriptive status chips rendered directly inside each sentence (`TranslationView`).
+- Chips expose ARIA-friendly labels (`role="status"`, `aria-label`) and tooltips describing the translation state (Original, Auto-translated, Manual, Edited, Out of sync, Synced).
+- Updated styling to provide distinct color tokens per status and animated attention for out-of-sync translations.
+- Controller wiring ensures chip state updates alongside selection focus so users can immediately see when a sentence is auto vs. manually translated.
+- Added regression coverage to verify chip content, status metadata, and accessibility attributes.
+
+**Impact:**
+- ✅ Users now have clear, textual indicators for translation state without relying on color-only dots.
+- ✅ Improves accessibility for screen readers and matches UX plan requirements for visibility.
+- ✅ Provides visual affordances for manual vs. automatic translations, supporting review workflows.
+
+**Tests:** 1 new unit test asserting chip text/ARIA metadata plus full translation suites to guard against regressions.
+
+---
+
+### Task P3-T3: Inline Progress Feedback ✅
+
+**What was built:**
+- Translation view header now includes an inline progress bar and live status messaging, driven by `TranslationController` progress events.
+- Sentence rows can display a spinner with `aria-busy` semantics while auto-translation runs (per-sentence or document-wide), clearing automatically once results land.
+- Controller propagates progress and loading state to the view during document/segment translations and auto-translate-on-edit flows.
+- Updated styling covers progress bar, indeterminate animation, and spinner visuals aligned with review theme tokens.
+- Additional tests verify progress bar behaviour and spinner state toggling, ensuring accessibility attributes remain intact.
+
+**Impact:**
+- ✅ Users receive immediate, in-context feedback when translations are running, without relying solely on sidebar indicators.
+- ✅ Per-sentence spinners make it clear which segment is being processed during manual or automatic translation runs.
+- ✅ Accessibility improved via `aria-live` messaging and `aria-busy` annotations for screen readers.
+
+**Tests:** Extended `translation-ui` suite plus full translation test run (227 cases) to confirm no regressions.
+
+---
+
+### Task P3-T4: Keyboard Shortcuts ✅
+
+**What was built:**
+- Added keyboard handling so `Ctrl/Cmd+S` saves the active inline sentence editor, matching the on-screen button flow and suppressing the browser save dialog.
+- Routed undo/redo shortcuts (`Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, `Ctrl/Cmd+Y`) to the translation change history whenever no inline editor is active, while still allowing Milkdown to manage undo within the editor itself.
+- TranslationView now exposes helper APIs (`isEditorActive`, `saveActiveEditor`, `cancelActiveEditor`) and keeps track of the active editor context for keyboard-driven interactions.
+- Controllers update progress and loading indicators without interfering with review-mode shortcuts; new unit coverage verifies the keyboard routing contract.
+
+**Impact:**
+- ✅ Users can stay on the keyboard to confirm sentence edits without losing focus.
+- ✅ Undo/redo behaviour is predictable: editors handle local changes, and the translation stack handles global changes.
+- ✅ Provides a foundation for future keyboard flows (e.g., next sentence navigation) by centralising shortcut handling.
+
+**Tests:** `translation-shortcuts.test.ts` (new), updated translation suites (`translation-ui`, `translation-merge`, full translation run) plus `npx tsc --noEmit`.
+
+---
+
+### Task P3-T5: Error States ✅
+
+**What was built:**
+- Document- and sentence-level translation failures now surface clearly in the UI: an inline banner with a retry button and per-sentence error badges replacing the plain toast-only feedback.
+- `TranslationController` tracks affected sentences, marks them with error messages, and removes indicators automatically after successful retries. Progress widgets remain in the error state until the user resolves the failure.
+- `TranslationView` renders the new banner (`role="alert"`), highlights errored sentences, and exposes `setErrorBanner` / `setSentenceError` helpers so controllers and tests can manipulate state directly.
+- CSS updates provide visual cues (red borders, badges) while maintaining accessibility semantics (`aria-invalid`, screen-reader messages).
+- Regression coverage checks banner rendering, per-sentence error messaging, and ensures merge skips empty placeholders to prevent side effects when toggling translation mode.
+
+**Impact:**
+- ✅ Users immediately see which sentences failed and can retry without leaving the translation pane.
+- ✅ Prevents accidental deletions when entering/exiting translation mode with untouched placeholders.
+- ✅ Improves accessibility through persistent alerts and inline error messaging.
+
+**Tests:** `translation-ui.test.ts`, `translation-merge.test.ts`, `translation-shortcuts.test.ts`, and full translation suite alongside `npx tsc --noEmit`.
+
+---
+
 ## Planning Documents Created
 
-### 1. TRANSLATION_MODE_PLAN.md (480 lines)
+### 1. Extension Architecture Blueprint (`docs/translation-refactor/extension-architecture.md`)
+- Codified layered responsibilities (core review engine, translation extension, UI plugin)
+- Documented extension registry contract, translation adapter responsibilities, provider orchestration events
+- Defined UI plugin interface (`ReviewUIPlugin`) and lifecycle expectations
+- Captured migration sequence and open questions for subsequent phases
+
+### 2. TRANSLATION_MODE_PLAN.md (480 lines)
 - Executive summary with critical warnings
 - Architecture analysis of mode switching
 - Gap analysis of remaining issues
@@ -101,7 +238,7 @@ Coverage:           > 85%
 - Risk assessment
 - Success criteria
 
-### 2. PHASE_2_3_TEST_PLAN.md (262 lines)
+### 3. PHASE_2_3_TEST_PLAN.md (262 lines)
 - Phase 2.1: Toolbar consolidation (10 tests planned)
 - Phase 2.2: Manual mode pre-creation (16 tests planned)
 - Phase 3.1: Textarea removal (14 tests planned)
@@ -158,6 +295,13 @@ docs: add comprehensive test plan for Phase 2 and Phase 3
 ---
 
 ## Phase 2-3 Planning Status
+
+### Phase 0: Extension Architecture ✅ COMPLETE
+- Documentation published: `docs/translation-refactor/extension-architecture.md`
+- Updated roadmap to insert Phase 0 milestone and align subsequent phases with extension-first strategy
+- Next actions:
+  - Implement `ChangesExtensionRegistry` scaffold (Phase 1 T1)
+  - Define `ReviewUIPlugin` API and translation plugin migration (Phase 3 T0)
 
 ### Phase 2: UI Consolidation (In Progress 🔄)
 
@@ -411,4 +555,3 @@ Total Duration:     ~21s
 **Document Version:** 1.2
 **Last Updated:** 2025-11-02
 **Status:** Phase 1 Complete ✅ | Phase 2 Complete ✅ | Phase 3 Planned 📋
-

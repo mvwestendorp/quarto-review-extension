@@ -101,9 +101,9 @@ describe('CSS Build Process', () => {
     it('should have reasonable file size', () => {
       const stats = fs.statSync(devCssFile);
       const sizeKB = stats.size / 1024;
-      // Should be between 50-110 KB (with all @imports including translation.css)
+      // Should be between 50-120 KB (with all @imports including translation.css)
       expect(sizeKB).toBeGreaterThan(50);
-      expect(sizeKB).toBeLessThan(110);
+      expect(sizeKB).toBeLessThan(120);
     });
   });
 

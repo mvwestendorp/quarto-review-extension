@@ -21,6 +21,8 @@ Bugs
 ## Export
 
 - For code blocks that show in the document or have tables or figures, the export should reconstruct the label, caption and other option given by the #| label: fig-this-is-a-codeblock-for-a-figure
+- Translation export should also export the complete Quarto project.
+
 
 ## Milkdown
 
@@ -31,9 +33,24 @@ Bugs
 
 ## Translation
 
-- Remove lines and support side-by-side scrolling (i.e. keep orginal and translated segments vertically together)
-- Translation config UI, use same style and window as review tools
-- Unclear how manual mode works, pre create segments for the translated language
+- Translation config UI
+    - Source and Target drop down don't do much. Swapping languages shouldn't be necessary. The naming isn't really correct since the translation process can be in two directions, first language 1, translate, work in language 2, translate, work in language 1, etc, To prevent an infinite loop, the user's changes should result in a change in the translation, but that shouldn't lead to a new translation unless there are inconsistencies, in which case this should be the user who decides on what to do.
+- The labelling/visuals for original, vs manual vs automatic translation should be on a sentence and word level. 
+- The messages in the top right overlap when there are multiple messages.
+- The markdown formatting is not in automatically translated text. E.g. headings etc should be reapplied. The editing experience should be the same as in the review mode.
+
+## UI
+
+- Do UI integration in the review module, to show which section have a translation, what type and whether it is up to date by using some visual per segment in the top right. Make the translation module available on a segment level.
+- Bug where comment visual UI element are not consistently restored. For example, I have made a comment for two sections but after refreshing I only see the visual in the corner of the section for one comment. The two comments are visible in the sidebar.
+
+## Structure
+
+Use same terminology throughout the applications
+
+## Tests
+
+Check all buttons for side effects. Opening & closing the translation window changes the document causing a lot of deletions.
 
 ---
 

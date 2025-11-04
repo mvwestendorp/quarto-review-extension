@@ -54,7 +54,16 @@ import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import type { Element as ReviewElement, ElementMetadata } from '@/types';
 import { UI_CONSTANTS, getAnimationDuration } from './constants';
 import { TranslationController } from './translation/TranslationController';
-import type { TranslationModule } from '@modules/translation';
+import { TranslationPlugin } from './plugins/TranslationPlugin';
+import type {
+  PluginHandle,
+  ReviewUIPlugin,
+  ReviewUIContext,
+} from './plugins/types';
+import type {
+  TranslationModule,
+  TranslationModuleConfig,
+} from '@modules/translation';
 
 const logger = createModuleLogger('UIModule');
 
@@ -110,6 +119,9 @@ export class UIModule {
   private isSubmittingReview = false;
   private translationController: TranslationController | null = null;
   private translationModule?: TranslationModule;
+  private pluginHandles = new Map<string, PluginHandle>();
+  private translationPlugin: TranslationPlugin | null = null;
+  // UI plugins will be introduced during extension refactor (Phase 3)
 
   constructor(config: UIConfig) {
     this.config = config;
@@ -149,6 +161,7 @@ export class UIModule {
           this.showNotification(message, type),
         onComposerClosed: () =>
           this.commentController.clearHighlight('composer'),
+        persistDocument: () => this.persistDocument(),
       },
     });
     this.contextMenuCoordinator = new ContextMenuCoordinator({
@@ -268,6 +281,163 @@ export class UIModule {
     this.mainSidebarModule.setCollapsed(collapsed);
   }
 
+  private mountUIPlugin(
+    plugin: ReviewUIPlugin,
+    context: ReviewUIContext
+  ): PluginHandle {
+    this.unmountUIPlugin(plugin.id);
+    const handle = plugin.mount(context);
+    this.pluginHandles.set(plugin.id, handle);
+    return handle;
+  }
+
+  private unmountUIPlugin(id: string): void {
+    const handle = this.pluginHandles.get(id);
+    if (!handle) {
+      return;
+    }
+    try {
+      handle.dispose();
+    } catch (error) {
+      logger.warn('Failed to dispose UI plugin', { id, error });
+    }
+    this.pluginHandles.delete(id);
+  }
+
+  private ensureTranslationPlugin(): TranslationPlugin {
+    if (!this.translationModule) {
+      throw new Error('Translation module is not available');
+    }
+
+    if (!this.translationPlugin) {
+      this.translationPlugin = new TranslationPlugin({
+        translationModule: this.translationModule,
+        resolveConfig: () => this.resolveTranslationModuleConfig(),
+        notify: (message, type) => {
+          const mappedType = type === 'warning' ? 'info' : type;
+          this.showNotification(message, mappedType);
+        },
+        onProgress: (status) => {
+          this.mainSidebarModule.setTranslationProgress(status);
+        },
+        onBusyChange: (busy) => {
+          this.mainSidebarModule.setTranslationBusy(busy);
+        },
+      });
+    }
+
+    return this.translationPlugin;
+  }
+
+  private buildTranslationPluginContext(
+    container: HTMLElement
+  ): ReviewUIContext {
+    return {
+      container,
+      events: {
+        on: (event: string, handler: (...args: any[]) => void) => {
+          const module = this.translationModule as unknown as {
+            on?: (
+              event: string,
+              handler: (...args: any[]) => void
+            ) => () => void;
+          };
+
+          if (!module || typeof module.on !== 'function') {
+            return () => {
+              /* no-op */
+            };
+          }
+
+          return module.on(event, handler);
+        },
+      },
+    };
+  }
+
+  private resolveTranslationModuleConfig(): TranslationModuleConfig {
+    if (!this.translationModule) {
+      throw new Error('Translation module is not available');
+    }
+
+    const config = this.translationModule.getModuleConfig();
+    const documentId = this.getTranslationDocumentId();
+    if (documentId) {
+      config.documentId = documentId;
+    }
+    return config;
+  }
+
+  private getTranslationDocumentId(): string | undefined {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  }
+
+  private registerTranslationSidebarCallbacks(): void {
+    if (!this.translationController) {
+      return;
+    }
+
+    this.mainSidebarModule.onTranslateDocument(() => {
+      void this.translationController?.translateDocument();
+    });
+    this.mainSidebarModule.onTranslateSentence(() => {
+      void this.translationController?.translateSentence();
+    });
+    this.mainSidebarModule.onProviderChange((provider) => {
+      this.translationController?.setProvider(provider);
+    });
+    this.mainSidebarModule.onSourceLanguageChange((lang) => {
+      void this.translationController?.setSourceLanguage(lang);
+    });
+    this.mainSidebarModule.onTargetLanguageChange((lang) => {
+      void this.translationController?.setTargetLanguage(lang);
+    });
+    this.mainSidebarModule.onSwapLanguages(() => {
+      this.translationController?.swapLanguages();
+    });
+    this.mainSidebarModule.onAutoTranslateChange((enabled) => {
+      this.translationController?.setAutoTranslate(enabled);
+    });
+    this.mainSidebarModule.onTranslationExportUnified(() => {
+      void this.translationController?.exportUnified();
+    });
+    this.mainSidebarModule.onTranslationExportSeparated(() => {
+      void this.translationController?.exportSeparated();
+    });
+    this.mainSidebarModule.onClearLocalModelCache(() => {
+      void this.translationController?.clearLocalModelCache();
+    });
+
+    this.mainSidebarModule.onTranslationUndo(() => {
+      if (this.translationController?.undo()) {
+        this.updateTranslationUndoRedoState();
+      }
+    });
+    this.mainSidebarModule.onTranslationRedo(() => {
+      if (this.translationController?.redo()) {
+        this.updateTranslationUndoRedoState();
+      }
+    });
+  }
+
+  private resetTranslationSidebarCallbacks(): void {
+    this.mainSidebarModule.onTranslateDocument(undefined);
+    this.mainSidebarModule.onTranslateSentence(undefined);
+    this.mainSidebarModule.onProviderChange(undefined);
+    this.mainSidebarModule.onSourceLanguageChange(undefined);
+    this.mainSidebarModule.onTargetLanguageChange(undefined);
+    this.mainSidebarModule.onSwapLanguages(undefined);
+    this.mainSidebarModule.onAutoTranslateChange(undefined);
+    this.mainSidebarModule.onTranslationExportUnified(undefined);
+    this.mainSidebarModule.onTranslationExportSeparated(undefined);
+    this.mainSidebarModule.onClearLocalModelCache(undefined);
+    this.mainSidebarModule.onTranslationUndo(undefined);
+    this.mainSidebarModule.onTranslationRedo(undefined);
+  }
+
   /**
    * Toggle translation UI
    */
@@ -320,87 +490,80 @@ export class UIModule {
           );
         }
 
-        // Clean up translation UI
-        this.translationController.destroy();
+        // Clean up translation UI through plugin manager
+        this.unmountUIPlugin('translation-ui');
         this.translationController = null;
+        this.resetTranslationSidebarCallbacks();
 
-        // Show original content, sidebars, and comments
+        // Remove translation view container
+        const translationView = document.querySelector(
+          '#translation-view-container'
+        );
+        translationView?.remove();
+
+        // Show original content and comments (sidebar stays visible)
         this.showOriginalDocument(true);
-        this.showReviewSidebar(true);
         this.showCommentsSidebar(true);
         document.body.classList.remove('translation-mode');
+
+        // Switch sidebar back to review mode
+        this.mainSidebarModule.setTranslationMode(false);
+        this.mainSidebarModule.setTranslationActive(false);
 
         // Refresh review mode to show merged changes
         this.refresh();
 
-        this.mainSidebarModule.setTranslationActive(false);
         this.showNotification('Translation UI closed', 'info');
       } else {
-        // Open translation UI - hide original document, sidebars, and comments
+        // Open translation UI - hide original document and comments (keep main sidebar visible)
         this.showOriginalDocument(false);
-        this.showReviewSidebar(false);
         this.showCommentsSidebar(false);
         document.body.classList.add('translation-mode');
 
-        const container = this.createTranslationContainer();
-        const wrapper = document.querySelector(
-          '#translation-mode-wrapper'
-        ) as HTMLElement;
-        const toolbarContainer = (wrapper as any).toolbarContainer;
+        // Create translation view container (directly in document, no separate wrapper needed)
+        const container = document.createElement('div');
+        container.id = 'translation-view-container';
+        container.className = 'review-translation-view';
 
-        this.translationController = new TranslationController({
-          container,
-          translationModuleConfig: {
-            config: {
-              enabled: true,
-              sourceLanguage: 'en',
-              targetLanguage: 'nl',
-              defaultProvider: 'manual',
-              showCorrespondenceLines: true,
-              highlightOnHover: true,
-              autoTranslateOnEdit: false,
-              autoTranslateOnLoad: false,
-              providers: {
-                local: {
-                  model: 'nllb-200',
-                  backend: 'auto',
-                  mode: 'balanced',
-                  downloadOnLoad: false,
-                  useWebWorker: true,
-                },
-              },
-            },
-            changes: this.config.changes,
-            markdown: this.config.markdown,
-          },
-          onNotification: (message, type) => {
-            const mappedType = type === 'warning' ? 'info' : type;
-            this.showNotification(message, mappedType);
-          },
-        });
-
-        await this.translationController.initialize();
-
-        // Append toolbar to sidebar container if available
-        if (toolbarContainer) {
-          this.translationController.appendToolbarTo(toolbarContainer);
+        // Insert translation view into document
+        const mainContent = document.querySelector('#quarto-document-content');
+        if (mainContent?.parentNode) {
+          mainContent.parentNode.insertBefore(container, mainContent);
+        } else {
+          document.body.insertBefore(container, document.body.firstChild);
         }
 
-        this.mainSidebarModule.setTranslationActive(true);
+        const plugin = this.ensureTranslationPlugin();
+        const handle = this.mountUIPlugin(
+          plugin,
+          this.buildTranslationPluginContext(container)
+        );
 
-        // Set up translation mode in sidebar
+        if (handle.ready) {
+          await handle.ready;
+        }
+
+        this.translationController = plugin.getController();
+        if (!this.translationController) {
+          throw new Error('Translation controller failed to initialize');
+        }
+
+        this.translationController.focusView();
+
+        // Set up translation mode in sidebar (show translation tools, hide review tools)
         this.mainSidebarModule.setTranslationMode(true);
-        this.mainSidebarModule.onTranslationUndo(() => {
-          if (this.translationController?.undo()) {
-            this.updateTranslationUndoRedoState();
-          }
-        });
-        this.mainSidebarModule.onTranslationRedo(() => {
-          if (this.translationController?.redo()) {
-            this.updateTranslationUndoRedoState();
-          }
-        });
+        this.mainSidebarModule.setTranslationBusy(false);
+        this.registerTranslationSidebarCallbacks();
+
+        // Update sidebar with translation providers and languages
+        const providers = this.translationController.getAvailableProviders();
+        this.mainSidebarModule.updateTranslationProviders(providers);
+
+        const languages = this.translationController.getAvailableLanguages();
+        this.mainSidebarModule.updateTranslationLanguages(languages, languages);
+
         this.updateTranslationUndoRedoState();
+        this.mainSidebarModule.setTranslationActive(true);
 
         this.showNotification('Translation UI opened', 'success');
       }
@@ -421,16 +584,6 @@ export class UIModule {
   }
 
   /**
-   * Show or hide review sidebar
-   */
-  private showReviewSidebar(show: boolean): void {
-    const sidebar = document.querySelector('.review-toolbar');
-    if (sidebar) {
-      (sidebar as HTMLElement).style.display = show ? '' : 'none';
-    }
-  }
-
-  /**
    * Show or hide comments sidebar
    */
   private showCommentsSidebar(show: boolean): void {
@@ -438,63 +591,6 @@ export class UIModule {
     if (sidebar) {
       (sidebar as HTMLElement).style.display = show ? '' : 'none';
     }
-  }
-
-  /**
-   * Create translation UI container with proper DOM hierarchy
-   */
-  private createTranslationContainer(): HTMLElement {
-    // Check if wrapper already exists
-    let wrapper = document.querySelector(
-      '#translation-mode-wrapper'
-    ) as HTMLElement | null;
-
-    if (!wrapper) {
-      // Create a full-width wrapper that sits above the normal layout
-      wrapper = document.createElement('div');
-      wrapper.id = 'translation-mode-wrapper';
-      wrapper.className = 'review-translation-mode-wrapper';
-
-      // Create sidebar container
-      const sidebar = document.createElement('div');
-      sidebar.className = 'review-translation-sidebar';
-      wrapper.appendChild(sidebar);
-
-      // Create main content area
-      const mainArea = document.createElement('div');
-      mainArea.className = 'review-translation-main';
-      wrapper.appendChild(mainArea);
-
-      // Insert wrapper into document, replacing the normal flow
-      const mainContent = document.querySelector('#quarto-document-content');
-      if (mainContent?.parentNode) {
-        mainContent.parentNode.insertBefore(wrapper, mainContent);
-      } else {
-        document.body.insertBefore(wrapper, document.body.firstChild);
-      }
-    }
-
-    // Get the sidebar area and place toolbar there
-    const sidebar = wrapper.querySelector(
-      '.review-translation-sidebar'
-    ) as HTMLElement;
-    sidebar.innerHTML = '';
-
-    // Create a simple toolbar container in the sidebar
-    const toolbarContainer = document.createElement('div');
-    toolbarContainer.className = 'review-translation-toolbar-container';
-    sidebar.appendChild(toolbarContainer);
-
-    // Get the main content area and clear it
-    const mainArea = wrapper.querySelector(
-      '.review-translation-main'
-    ) as HTMLElement;
-    mainArea.innerHTML = '';
-
-    // Store reference to toolbar container for later use
-    (wrapper as any).toolbarContainer = toolbarContainer;
-
-    return mainArea;
   }
 
   /**

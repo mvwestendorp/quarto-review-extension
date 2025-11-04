@@ -2,6 +2,10 @@
  * Core type definitions for Translation Module
  */
 
+import type { ChangesModule } from '@modules/changes';
+import type { MarkdownModule } from '@modules/markdown';
+import type { QmdExportService } from '@modules/export';
+
 export type Language = 'en' | 'nl' | 'fr';
 
 export type TranslationMethod = 'automatic' | 'manual' | 'hybrid';
@@ -14,14 +18,23 @@ export type TranslationStatus =
   | 'out-of-sync' // Source changed, translation outdated
   | 'synced'; // Translation up to date
 
-export interface Sentence {
-  id: string; // Unique sentence ID
+export interface DocumentSegment {
+  id: string; // Stable segment identifier (aligned with ChangesModule segments)
   elementId: string; // Parent element ID from ChangesModule
-  content: string; // Sentence text
+  content: string; // Segment markdown/text content
   language: Language;
+  order: number; // Ordering within the parent element
+}
+
+export interface Sentence extends DocumentSegment {
   startOffset: number; // Character offset in element
   endOffset: number;
   hash: string; // Content hash for change detection
+}
+
+export interface TranslationSegment extends DocumentSegment {
+  role: 'source' | 'target';
+  sentenceId?: string; // Optional legacy alias for backwards compatibility
 }
 
 export interface TranslationPair {
@@ -120,7 +133,22 @@ export type TranslationProviderType = 'local' | 'openai' | 'google' | 'manual';
 
 export interface TranslationModuleConfig {
   config: TranslationConfig;
-  changes: any; // ChangesModule
-  markdown: any; // MarkdownModule
-  exporter?: any; // QmdExportService
+  changes: ChangesModule;
+  markdown: MarkdownModule;
+  exporter?: QmdExportService;
+  documentId?: string;
+}
+
+export type TranslationExtensionEvent =
+  | 'translation:sentence-updated'
+  | 'translation:state-updated';
+
+export interface TranslationEventPayloadMap {
+  'translation:sentence-updated': {
+    elementId: string;
+    sentences: Sentence[];
+  };
+  'translation:state-updated': {
+    document: TranslationDocument | null;
+  };
 }

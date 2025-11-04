@@ -1,12 +1,12 @@
 # Translation Module - Implementation Progress
 
 **Branch:** `feature/translation-module`
-**Status:** UI Components Complete ✅
-**Date:** 2025-11-01
+**Status:** Segment-aware refactor in progress 🔄
+**Date:** 2025-11-04
 
 ## Summary
 
-The translation module is now feature-complete with core infrastructure, UI components, and export service fully implemented. All TypeScript compilation errors have been resolved. Includes 95 comprehensive tests, all passing. Ready for integration testing and deployment.
+Segment-level refactor underway: controller, state, and merge pipeline now operate on shared `TranslationSegment` metadata, reducing reliance on ad-hoc sentence ids. UI parity work (P3-T10) continues—translation view/editor still needs to consume the segment API, and the manual-save regression in the live UI remains unresolved. TypeScript checks and translation test suites are green; integration validation and UI alignment are next.
 
 ## ✅ Completed
 
@@ -202,10 +202,10 @@ The translation module is now feature-complete with core infrastructure, UI comp
 - [x] Add `getTranslation()` public accessor
 - [x] Pass translation module to UIModule
 - [x] Create comprehensive integration tests (10 tests passing)
-- [ ] Update UIModule to include translation toggle (UI components exist, wiring pending)
-- [ ] Add sidebar button for translation (Future work)
-- [ ] Wire up progress indicators (Future work)
-- [ ] Add keyboard shortcuts (Future work)
+- [x] Update UIModule to include translation toggle
+- [x] Add sidebar button for translation
+- [x] Wire up progress indicators
+- [x] Add keyboard shortcuts
 - [ ] Create interactive demo (Future work)
 
 ### 4. Documentation ✅ COMPLETED
@@ -220,7 +220,7 @@ The translation module is now feature-complete with core infrastructure, UI comp
 - [x] Performance optimization tips
 
 ### 5. Additional Testing (Partially Complete)
-- [ ] UI component tests (Future work)
+- [ ] UI component visual regression tests (Future work)
 - [x] Integration tests (10 tests passing - translation-integration.test.ts)
 - [ ] E2E tests for full workflow (Future work)
 - [ ] Performance tests for large documents (Future work)
