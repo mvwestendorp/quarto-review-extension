@@ -28,6 +28,7 @@ export interface ReviewPullRequestOptions {
 }
 
 export interface ReviewSubmissionPayload {
+  /** Name or identifier of the reviewer */
   reviewer: string;
   files: ReviewFileChange[];
   pullRequest: ReviewPullRequestOptions;
@@ -49,6 +50,30 @@ export interface ReviewFileResult {
   path: string;
   sha: string;
   commitSha: string;
+}
+
+/**
+ * Result of submitting a review
+ */
+export interface SubmitReviewResult {
+  /** Created pull request details */
+  pullRequest: {
+    number: number;
+    url: string;
+    branch: string;
+  };
+  /** Created commit details */
+  commit: {
+    sha: string;
+    url?: string;
+  };
+  /** Created review comments (if any) */
+  comments: Array<{
+    id: string | number;
+    url: string;
+    path: string;
+    line: number;
+  }>;
 }
 
 export class GitIntegrationService {
