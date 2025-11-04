@@ -1,7 +1,22 @@
 ## Phase 1 · Translation ⇄ Changes Integration
 
-**Status:** ☐ Not Started  
+**Status:** 🔄 In Progress (60% Complete - Core Integration Done)
 **Target Outcome:** Manual and automatic translations persist through the existing `ChangesModule` contract, with translation implemented as an extension that consumes core change events while keeping source and target rendering in sync.
+
+### Progress Update (2025-11-04)
+
+**Completed:**
+- ✅ P1-T2: TranslationChangeAdapter now uses extension API (`context.applyChange()`) with proper metadata tagging (`translationEdit: true`)
+- ✅ P1-T3: Extension event listeners wired up in `register()` - reacts to external 'afterOperation' events
+- ✅ P1-T9: Document-context initialization fixed - uses full URL (pathname+search+hash) for stable session keys
+
+**Remaining:**
+- ⏳ P1-T1: Extension contract design (already exists, working well)
+- ⏳ P1-T4: Sentence ID to segment mapping (partial - IDs harmonized in P3-T10)
+- ⏳ P1-T5: UI plugin registration (separate effort)
+- ⏳ P1-T6: Out-of-band change handling (implemented, needs testing)
+- ⏳ P1-T7: Regression tests (not started)
+- ⏳ P1-T8: Documentation (this update)
 
 ### 1. Background & Current Issues
 
