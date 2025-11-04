@@ -21,6 +21,10 @@ export interface ElementMetadata {
   level?: number; // For headers
   attributes?: Record<string, string>;
   classes?: string[];
+  // Translation-specific metadata
+  translationEdit?: boolean;
+  segmentCount?: number;
+  language?: string;
 }
 
 export interface Element {
@@ -55,6 +59,7 @@ export interface InsertData {
   };
   parentId?: string;
   generated?: boolean;
+  source?: string; // Track which extension or component created this operation
 }
 
 export interface DeleteData {
@@ -62,6 +67,7 @@ export interface DeleteData {
   // Keeps original content for undo
   originalContent: string;
   originalMetadata: ElementMetadata;
+  source?: string; // Track which extension or component created this operation
 }
 
 export interface TextChange {
@@ -78,12 +84,14 @@ export interface EditData {
   changes: TextChange[]; // Granular character-level changes
   oldMetadata?: ElementMetadata;
   newMetadata?: ElementMetadata;
+  source?: string; // Track which extension or component created this operation
 }
 
 export interface MoveData {
   type: 'move';
   fromPosition: number;
   toPosition: number;
+  source?: string; // Track which extension or component created this operation
 }
 
 export interface Comment {

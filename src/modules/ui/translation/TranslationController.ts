@@ -949,4 +949,26 @@ export class TranslationController {
         .map((s) => ({ id: s.id, content: s.content })),
     });
   }
+
+  /**
+   * @deprecated Use handleSourceSegmentEdit instead
+   * Backward-compatible alias for tests
+   */
+  private async handleSourceSentenceEdit(
+    elementId: string,
+    newContent: string
+  ): Promise<void> {
+    return this.handleSourceSegmentEdit(elementId, newContent);
+  }
+
+  /**
+   * @deprecated Use handleTargetSegmentEdit instead
+   * Backward-compatible alias for tests
+   */
+  private async handleTargetSentenceEdit(
+    elementId: string,
+    newContent: string
+  ): Promise<void> {
+    return this.handleTargetSegmentEdit(elementId, newContent);
+  }
 }
