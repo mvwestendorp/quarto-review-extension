@@ -328,9 +328,22 @@ export class TranslationChangesModule extends EditTrackingModule {
     };
   }
 
+  /**
+   * Derive role from sentence metadata
+   * Target sentences have IDs in format: {elementId}-{targetLang}-{hash}
+   * Source sentences typically use element IDs directly
+   */
   private deriveRole(sentenceId: string): 'source' | 'target' {
-    if (sentenceId.startsWith('trans-')) {
-      return 'target';
+    // Check if the ID follows the target pattern: contains language code
+    // Target IDs: {elementId}-{lang}-{hash} (e.g., "p-1-nl-abc123")
+    // Source IDs: typically just element IDs (e.g., "p-1", "h2-1")
+    const parts = sentenceId.split('-');
+    if (parts.length >= 3) {
+      // Check if the second-to-last part looks like a language code (2-3 letters)
+      const potentialLang = parts[parts.length - 2];
+      if (potentialLang && /^[a-z]{2,3}$/.test(potentialLang)) {
+        return 'target';
+      }
     }
     return 'source';
   }
