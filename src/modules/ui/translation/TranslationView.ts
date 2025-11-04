@@ -679,27 +679,6 @@ export class TranslationView {
   }
 
   /**
-   * Select a segment and highlight correspondences
-   */
-  private selectSegment(elementId: string, side: 'source' | 'target'): void {
-    // Clear previous selection
-    this.clearSelection();
-    // TODO: Update selected state to track elementId instead of sentenceId
-    // For now, keep selectedSentence for compatibility but it's semantically a segment
-    this.selectedSentence = { id: elementId, side };
-
-    // Add selected class
-    const element = this.findSegmentElement(elementId, side);
-    if (element) {
-      element.classList.add('review-translation-segment-selected');
-      element.tabIndex = 0;
-    }
-
-    // TODO: Highlight corresponding segments (element-level correspondence)
-    this.scheduleSentenceAlignment();
-  }
-
-  /**
    * Highlight corresponding sentences
    */
   private highlightCorrespondences(
@@ -748,19 +727,6 @@ export class TranslationView {
     } else {
       return map.reverseMapping.get(sentenceId) || [];
     }
-  }
-
-  /**
-   * Find segment element by element ID and side
-   */
-  private findSegmentElement(
-    elementId: string,
-    side: 'source' | 'target'
-  ): HTMLElement | null {
-    if (!this.element) return null;
-    return this.element.querySelector(
-      `.review-translation-segment[data-element-id="${elementId}"][data-side="${side}"]`
-    );
   }
 
   /**
