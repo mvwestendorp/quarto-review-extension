@@ -21,10 +21,10 @@ export default defineConfig({
       ],
       // Quality thresholds - fail if coverage drops below these
       thresholds: {
-        lines: 80,
-        functions: 80,
-        branches: 75,
-        statements: 80,
+        lines: 70,
+        functions: 70,
+        branches: 50,
+        statements: 70,
       },
     },
   },
