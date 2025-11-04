@@ -270,15 +270,15 @@ export class TranslationView {
     // Update language labels
     this.updateLanguageLabels();
 
-    // Render source segments (not sentences)
-    this.renderSegments(
+    // Render source sentences
+    this.renderSentences(
       this.sourcePane,
       this.document.sourceSentences,
       'source'
     );
 
-    // Render target segments (not sentences)
-    this.renderSegments(
+    // Render target sentences
+    this.renderSentences(
       this.targetPane,
       this.document.targetSentences,
       'target'
@@ -317,10 +317,9 @@ export class TranslationView {
   }
 
   /**
-   * Render segments in a pane (segment-based, not sentence-based)
-   * Groups sentences by elementId and merges them into segment content
+   * Render sentences in a pane, grouped by document sections
    */
-  private renderSegments(
+  private renderSentences(
     pane: HTMLElement,
     sentences: Sentence[],
     side: 'source' | 'target'
@@ -328,89 +327,235 @@ export class TranslationView {
     pane.innerHTML = '';
 
     // Group sentences by elementId (document section)
-    const segmentMap = new Map<string, Sentence[]>();
+    const sectionMap = new Map<string, Sentence[]>();
     sentences.forEach((sentence) => {
       const elementId = sentence.elementId;
-      if (!segmentMap.has(elementId)) {
-        segmentMap.set(elementId, []);
+      if (!sectionMap.has(elementId)) {
+        sectionMap.set(elementId, []);
       }
-      segmentMap.get(elementId)!.push(sentence);
+      sectionMap.get(elementId)!.push(sentence);
     });
 
-    // Render each segment (element) with merged sentence content
-    Array.from(segmentMap.entries()).forEach(
-      ([elementId, segmentSentences]) => {
-        // Sort sentences by order and offset
-        const orderedSentences = [...segmentSentences].sort((a, b) => {
-          if (a.order !== b.order) {
-            return a.order - b.order;
-          }
-          return (a.startOffset ?? 0) - (b.startOffset ?? 0);
+    // Render each section with its sentences
+    Array.from(sectionMap.entries()).forEach(
+      ([elementId, sectionSentences]) => {
+        // Create section container
+        const sectionElement = document.createElement('div');
+        sectionElement.className = 'review-translation-section';
+        sectionElement.dataset.elementId = elementId;
+
+        // Render sentences within the section
+        sectionSentences.forEach((sentence) => {
+          const sentenceElement = this.createSentenceElement(sentence, side);
+          sectionElement.appendChild(sentenceElement);
         });
 
-        // Merge sentence content into segment content
-        const mergedContent = orderedSentences
-          .map((s) => s.content)
-          .join('\n\n');
-
-        // Create segment element (similar to review mode)
-        const segmentElement = this.createSegmentElement(
-          elementId,
-          mergedContent,
-          side
-        );
-        pane.appendChild(segmentElement);
+        pane.appendChild(sectionElement);
       }
     );
   }
 
   /**
-   * Create a segment element (element-level rendering, similar to review mode)
+   * Create a single sentence element
    */
-  private createSegmentElement(
-    elementId: string,
-    content: string,
+  private createSentenceElement(
+    sentence: Sentence,
     side: 'source' | 'target'
   ): HTMLElement {
-    const segmentElement = document.createElement('div');
-    segmentElement.className = 'review-translation-segment';
-    segmentElement.dataset.elementId = elementId;
-    segmentElement.dataset.side = side;
-    segmentElement.tabIndex = -1;
+    const sentenceElement = document.createElement('div');
+    sentenceElement.className = 'review-translation-sentence';
+    sentenceElement.dataset.sentenceId = sentence.id;
+    sentenceElement.dataset.side = side;
+    sentenceElement.tabIndex = -1;
 
-    // Create segment content container
-    const contentEl = document.createElement('div');
-    contentEl.className = 'review-translation-segment-content';
-
-    // Render markdown content
-    const hasContent = content.trim().length > 0;
-    const isTarget = side === 'target';
-
-    if (!hasContent && isTarget) {
-      contentEl.innerHTML =
-        '<span class="review-translation-placeholder">Add translation…</span>';
-    } else if (this.markdown) {
-      try {
-        // Render as paragraph by default - we could enhance this to use actual element type
-        const html = this.markdown.renderElement(content, 'Para');
-        contentEl.innerHTML = html;
-      } catch (error) {
-        logger.warn('Failed to render markdown, falling back to plain text', {
-          elementId,
-          error,
-        });
-        contentEl.textContent = content;
-      }
-    } else {
-      contentEl.textContent = content;
+    // Get translation status
+    const status = this.getSentenceStatus(sentence.id, side);
+    if (status) {
+      sentenceElement.dataset.status = status;
+      // Add CSS class for styling based on status
+      sentenceElement.classList.add(`review-translation-sentence-${status}`);
     }
 
-    segmentElement.appendChild(contentEl);
+    // Create sentence wrapper for better layout
+    const wrapper = document.createElement('div');
+    wrapper.className = 'review-translation-sentence-wrapper';
 
-    // Bind segment-level events (double-click to edit entire segment)
-    this.bindSegmentEvents(segmentElement, elementId, side);
+    // Create sentence content - render as styled HTML using document-style rendering
+    const content = document.createElement('div');
+    content.className = 'review-translation-sentence-content';
 
-    return segmentElement;
+    // Render markdown as HTML if MarkdownModule is available
+    if (this.markdown) {
+      try {
+        // Use renderElement for proper document-style formatting instead of inline
+        const html = this.markdown.renderElement(sentence.content, 'Para');
+        content.innerHTML = html;
+      } catch (error) {
+        logger.warn('Failed to render markdown, falling back to plain text', {
+          sentenceId: sentence.id,
+          error,
+        });
+        content.textContent = sentence.content;
+      }
+    } else {
+      // Fallback to plain text if markdown module not available
+      content.textContent = sentence.content;
+    }
+
+    wrapper.appendChild(content);
+
+    // Add status chip for target sentences
+    if (side === 'target' && status) {
+      const statusChip = document.createElement('span');
+      statusChip.className = 'review-translation-status-chip';
+      statusChip.dataset.role = 'status-chip';
+      statusChip.dataset.status = status;
+      statusChip.setAttribute('role', 'status');
+      statusChip.setAttribute('aria-label', this.getStatusLabel(status));
+      statusChip.textContent = this.getStatusLabel(status);
+      wrapper.appendChild(statusChip);
+    }
+
+    sentenceElement.appendChild(wrapper);
+
+    // Add event listeners
+    this.bindSentenceEvents(sentenceElement, sentence.id, side);
+
+    return sentenceElement;
+  }
+
+  /**
+   * Get translation status for a sentence
+   */
+  private getSentenceStatus(
+    sentenceId: string,
+    side: 'source' | 'target'
+  ): string | null {
+    if (!this.document) return null;
+
+    const pairs = this.document.correspondenceMap.pairs.filter((pair) =>
+      side === 'source'
+        ? pair.sourceId === sentenceId
+        : pair.targetId === sentenceId
+    );
+
+    if (pairs.length === 0) return 'untranslated';
+
+    // Return the most relevant status
+    const statuses = pairs.map((p) => p.status);
+    if (statuses.includes('out-of-sync')) return 'out-of-sync';
+    if (statuses.includes('manual')) return 'manual';
+    if (statuses.includes('edited')) return 'edited';
+    if (statuses.includes('auto-translated')) return 'auto-translated';
+    return 'synced';
+  }
+
+  /**
+   * Get human-readable status label
+   */
+  private getStatusLabel(status: string | null): string {
+    const labels: Record<string, string> = {
+      untranslated: 'Not translated',
+      'auto-translated': 'Auto-translated',
+      manual: 'Manual translation',
+      edited: 'Edited',
+      'out-of-sync': 'Out of sync',
+      synced: 'Synced',
+    };
+    return status ? labels[status] || status : '';
+  }
+
+  /**
+   * Bind events to a sentence element
+   */
+  private bindSentenceEvents(
+    element: HTMLElement,
+    sentenceId: string,
+    side: 'source' | 'target'
+  ): void {
+    // Click to select
+    element.addEventListener('click', () => {
+      this.selectSentence(sentenceId, side);
+      const callback =
+        side === 'source'
+          ? this.callbacks.onSourceSentenceClick
+          : this.callbacks.onTargetSentenceClick;
+      callback?.(sentenceId);
+    });
+
+    // Hover to highlight correspondences
+    if (this.config.highlightOnHover) {
+      element.addEventListener('mouseenter', () => {
+        this.hoverSentence(sentenceId, side);
+      });
+
+      element.addEventListener('mouseleave', () => {
+        this.unhoverSentence(sentenceId, side);
+      });
+    }
+
+    // Double-click to edit
+    element.addEventListener('dblclick', async () => {
+      await this.enableSentenceEdit(element, sentenceId, side);
+    });
+  }
+
+  /**
+   * Select a sentence and highlight its correspondences
+   */
+  private selectSentence(sentenceId: string, side: 'source' | 'target'): void {
+    // Clear previous selection
+    this.clearSelection();
+
+    // Set selected
+    this.selectedSentence = { id: sentenceId, side };
+
+    // Add selected class
+    const element = this.findSentenceElement(sentenceId, side);
+    if (element) {
+      element.classList.add('review-translation-sentence-selected');
+      element.tabIndex = 0;
+      element.focus();
+    }
+
+    // Highlight corresponding sentences
+    this.highlightCorrespondences(sentenceId, side);
+  }
+
+  /**
+   * Hover a sentence
+   */
+  private hoverSentence(sentenceId: string, side: 'source' | 'target'): void {
+    const element = this.findSentenceElement(sentenceId, side);
+    if (element) {
+      element.classList.add('review-translation-sentence-hover');
+    }
+    this.highlightCorrespondences(sentenceId, side);
+  }
+
+  /**
+   * Unhover a sentence
+   */
+  private unhoverSentence(sentenceId: string, side: 'source' | 'target'): void {
+    const element = this.findSentenceElement(sentenceId, side);
+    if (element) {
+      element.classList.remove('review-translation-sentence-hover');
+    }
+    this.clearCorrespondenceHighlights();
+  }
+
+  /**
+   * Find a sentence element by ID
+   */
+  private findSentenceElement(
+    sentenceId: string,
+    side: 'source' | 'target'
+  ): HTMLElement | null {
+    const pane = side === 'source' ? this.sourcePane : this.targetPane;
+    if (!pane) return null;
+    return pane.querySelector(
+      `[data-sentence-id="${sentenceId}"][data-side="${side}"]`
+    );
   }
 
   private makeLoadingKey(
