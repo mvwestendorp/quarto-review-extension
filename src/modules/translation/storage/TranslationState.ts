@@ -562,8 +562,8 @@ export class TranslationState {
         // New IDs are: {elementId}-{targetLang}-{sourceIdHash}
         // We need to find a target whose ID includes the source's hash
         const sourceHash = this.hashContent(sourceId);
-        const newPatternFallback = this.document.targetSentences.find(
-          (s) => s.id.endsWith(`-${sourceHash}`)
+        const newPatternFallback = this.document.targetSentences.find((s) =>
+          s.id.endsWith(`-${sourceHash}`)
         );
         if (newPatternFallback) {
           segments.push(this.toSegment(newPatternFallback, 'target'));

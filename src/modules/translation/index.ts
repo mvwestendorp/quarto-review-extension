@@ -1010,10 +1010,13 @@ export class TranslationModule implements ChangesExtension {
         operation.data.source !== this.id &&
         operation.data.source !== 'translation-extension'
       ) {
-        logger.debug('External operation detected, updating translation state', {
-          operationId: operation.id,
-          elementId: operation.elementId,
-        });
+        logger.debug(
+          'External operation detected, updating translation state',
+          {
+            operationId: operation.id,
+            elementId: operation.elementId,
+          }
+        );
 
         // Handle the external edit
         const element = context.getElement(operation.elementId);

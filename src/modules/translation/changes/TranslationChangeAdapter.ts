@@ -42,11 +42,6 @@ export class TranslationChangeAdapter {
           type: 'edit',
           elementId: update.elementId,
           newContent: mergedContent,
-          metadata: {
-            translationEdit: true,
-            segmentCount: update.segments.length,
-            language: update.segments[0]?.language,
-          },
           source: 'translation-extension',
         });
       } else {

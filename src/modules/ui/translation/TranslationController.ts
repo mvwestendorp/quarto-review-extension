@@ -952,23 +952,35 @@ export class TranslationController {
 
   /**
    * @deprecated Use handleSourceSegmentEdit instead
-   * Backward-compatible alias for tests
+   * Backward-compatible alias for tests - converts sentence ID to element ID
    */
+  // @ts-expect-error - Deprecated method kept for backward compatibility with tests
   private async handleSourceSentenceEdit(
-    elementId: string,
+    sentenceId: string,
     newContent: string
   ): Promise<void> {
-    return this.handleSourceSegmentEdit(elementId, newContent);
+    // Convert sentence ID to element ID
+    const sentence = this.changesModule.getSentence(sentenceId);
+    if (!sentence) {
+      throw new Error(`Sentence not found: ${sentenceId}`);
+    }
+    return this.handleSourceSegmentEdit(sentence.elementId, newContent);
   }
 
   /**
    * @deprecated Use handleTargetSegmentEdit instead
-   * Backward-compatible alias for tests
+   * Backward-compatible alias for tests - converts sentence ID to element ID
    */
+  // @ts-expect-error - Deprecated method kept for backward compatibility with tests
   private async handleTargetSentenceEdit(
-    elementId: string,
+    sentenceId: string,
     newContent: string
   ): Promise<void> {
-    return this.handleTargetSegmentEdit(elementId, newContent);
+    // Convert sentence ID to element ID
+    const sentence = this.changesModule.getSentence(sentenceId);
+    if (!sentence) {
+      throw new Error(`Sentence not found: ${sentenceId}`);
+    }
+    return this.handleTargetSegmentEdit(sentence.elementId, newContent);
   }
 }
