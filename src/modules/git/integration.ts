@@ -70,7 +70,9 @@ export class GitIntegrationService {
   /**
    * Submit a review by creating a branch, committing changes, and opening a PR
    */
-  public async submitReview(payload: ReviewSubmissionPayload): Promise<SubmitReviewResult> {
+  public async submitReview(
+    payload: ReviewSubmissionPayload
+  ): Promise<SubmitReviewResult> {
     logger.info(`Starting review submission from ${payload.reviewer}`);
 
     // Step 1: Validate payload
@@ -85,7 +87,8 @@ export class GitIntegrationService {
     }
 
     // Step 3: Generate branch name
-    const branchName = payload.branchName ?? this.generateBranchName(payload.reviewer);
+    const branchName =
+      payload.branchName ?? this.generateBranchName(payload.reviewer);
     logger.debug(`Creating review branch: ${branchName}`);
 
     try {
@@ -110,8 +113,7 @@ export class GitIntegrationService {
 
       // Step 6: Commit changes to new branch
       const commitMessage =
-        payload.commitMessage ??
-        this.generateCommitMessage(payload.reviewer);
+        payload.commitMessage ?? this.generateCommitMessage(payload.reviewer);
 
       const fileResult = await this.provider.createOrUpdateFile(
         sourcePath,
@@ -131,7 +133,9 @@ export class GitIntegrationService {
         this.config.repository.baseBranch
       );
 
-      logger.info(`Pull request created: #${pullRequest.number} - ${pullRequest.url}`);
+      logger.info(
+        `Pull request created: #${pullRequest.number} - ${pullRequest.url}`
+      );
 
       // Step 8: Add review comments (optional)
       const reviewComments = await this.addReviewComments(
@@ -213,7 +217,10 @@ export class GitIntegrationService {
    * Generate a unique branch name for the review
    */
   private generateBranchName(reviewer: string): string {
-    const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, '');
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}Z$/, '');
     const sanitizedReviewer = reviewer
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '-')
@@ -239,7 +246,9 @@ Submitted via Quarto Review Extension`;
     pullRequestNumber: number,
     comments: ReviewCommentInput[] | undefined,
     commitSha: string
-  ): Promise<Array<{ id: string | number; url: string; path: string; line: number }>> {
+  ): Promise<
+    Array<{ id: string | number; url: string; path: string; line: number }>
+  > {
     if (!comments || comments.length === 0) {
       return [];
     }

@@ -104,41 +104,292 @@ describe('GitIntegrationService', () => {
   });
 
   describe('submitReview', () => {
-    it('throws "not implemented" error', async () => {
-      const payload: ReviewSubmissionPayload = {
-        reviewer: 'test-user',
-        changes: {},
-        comments: {},
-        metadata: {},
-      };
+    describe('validation', () => {
+      it('throws error when reviewer name is missing', async () => {
+        const payload: ReviewSubmissionPayload = {
+          reviewer: '',
+          documentContent: 'content',
+          pullRequest: {
+            title: 'Test PR',
+            body: 'Test body',
+          },
+        };
 
-      await expect(service.submitReview(payload)).rejects.toThrow(
-        'Git integration workflow is not implemented yet'
-      );
+        await expect(service.submitReview(payload)).rejects.toThrow(
+          'Reviewer name is required'
+        );
+      });
+
+      it('throws error when document content is missing', async () => {
+        const payload: ReviewSubmissionPayload = {
+          reviewer: 'test-user',
+          documentContent: '',
+          pullRequest: {
+            title: 'Test PR',
+            body: 'Test body',
+          },
+        };
+
+        await expect(service.submitReview(payload)).rejects.toThrow(
+          'Document content is required'
+        );
+      });
+
+      it('throws error when pull request title is missing', async () => {
+        const payload: ReviewSubmissionPayload = {
+          reviewer: 'test-user',
+          documentContent: 'content',
+          pullRequest: {
+            title: '',
+            body: 'Test body',
+          },
+        };
+
+        await expect(service.submitReview(payload)).rejects.toThrow(
+          'Pull request title is required'
+        );
+      });
+
+      it('throws error when pull request body is missing', async () => {
+        const payload: ReviewSubmissionPayload = {
+          reviewer: 'test-user',
+          documentContent: 'content',
+          pullRequest: {
+            title: 'Test PR',
+            body: '',
+          },
+        };
+
+        await expect(service.submitReview(payload)).rejects.toThrow(
+          'Pull request body is required'
+        );
+      });
+
+      it('throws error for invalid branch name', async () => {
+        const payload: ReviewSubmissionPayload = {
+          reviewer: 'test-user',
+          documentContent: 'content',
+          branchName: 'invalid branch name!',
+          pullRequest: {
+            title: 'Test PR',
+            body: 'Test body',
+          },
+        };
+
+        await expect(service.submitReview(payload)).rejects.toThrow(
+          'Invalid branch name'
+        );
+      });
+
+      it('throws error when source file is not specified', async () => {
+        const configWithoutSourceFile: ResolvedGitConfig = {
+          provider: 'github',
+          repository: {
+            owner: 'test-owner',
+            name: 'test-repo',
+            baseBranch: 'main',
+          },
+        };
+
+        const serviceWithoutSourceFile = new GitIntegrationService(
+          mockProvider,
+          configWithoutSourceFile
+        );
+
+        const payload: ReviewSubmissionPayload = {
+          reviewer: 'test-user',
+          documentContent: 'content',
+          pullRequest: {
+            title: 'Test PR',
+            body: 'Test body',
+          },
+        };
+
+        await expect(serviceWithoutSourceFile.submitReview(payload)).rejects.toThrow(
+          'No source file specified in payload or configuration'
+        );
+      });
     });
 
-    it('accepts various payload structures', async () => {
-      const payloads: ReviewSubmissionPayload[] = [
-        {
-          reviewer: 'user1',
-          changes: { type: 'edit', data: {} },
-        },
-        {
-          reviewer: 'user2',
-          changes: [{ type: 'insert' }, { type: 'delete' }],
-          comments: [{ id: '1', body: 'comment' }],
-        },
-        {
-          reviewer: 'user3',
-          changes: { operations: [] },
-          comments: { items: [] },
-          metadata: { timestamp: Date.now(), source: 'test' },
-        },
-      ];
+    describe('successful workflow', () => {
+      it('creates branch, commits, and opens PR', async () => {
+        const payload: ReviewSubmissionPayload = {
+          reviewer: 'test-user',
+          documentContent: '# Reviewed Document\n\nContent here',
+          pullRequest: {
+            title: 'Review by test-user',
+            body: 'This is my review',
+          },
+        };
 
-      for (const payload of payloads) {
-        await expect(service.submitReview(payload)).rejects.toThrow();
-      }
+        vi.mocked(mockProvider.createBranch).mockResolvedValue({
+          name: 'refs/heads/review/test-user/20231104',
+          sha: 'abc123',
+        });
+
+        vi.mocked(mockProvider.getFileContent).mockResolvedValue({
+          path: 'document.qmd',
+          sha: 'def456',
+          content: '# Original Document',
+        });
+
+        vi.mocked(mockProvider.createOrUpdateFile).mockResolvedValue({
+          path: 'document.qmd',
+          sha: 'ghi789',
+          commitSha: 'commit123',
+          url: 'https://github.com/test-owner/test-repo/blob/commit123/document.qmd',
+        });
+
+        vi.mocked(mockProvider.createPullRequest).mockResolvedValue({
+          number: 42,
+          url: 'https://github.com/test-owner/test-repo/pull/42',
+          title: 'Review by test-user',
+          body: 'This is my review',
+          state: 'open',
+          author: 'test-user',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        vi.mocked(mockProvider.createReviewComments).mockResolvedValue([]);
+
+        const result = await service.submitReview(payload);
+
+        expect(result.pullRequest.number).toBe(42);
+        expect(result.pullRequest.url).toBe(
+          'https://github.com/test-owner/test-repo/pull/42'
+        );
+        expect(result.commit.sha).toBe('commit123');
+        expect(result.comments).toEqual([]);
+
+        expect(mockProvider.createBranch).toHaveBeenCalled();
+        expect(mockProvider.getFileContent).toHaveBeenCalled();
+        expect(mockProvider.createOrUpdateFile).toHaveBeenCalled();
+        expect(mockProvider.createPullRequest).toHaveBeenCalled();
+      });
+
+      it('includes review comments when provided', async () => {
+        const payload: ReviewSubmissionPayload = {
+          reviewer: 'test-user',
+          documentContent: '# Reviewed Document',
+          pullRequest: {
+            title: 'Review by test-user',
+            body: 'This is my review',
+          },
+          comments: [
+            {
+              path: 'document.qmd',
+              line: 10,
+              body: 'Great point!',
+            },
+          ],
+        };
+
+        vi.mocked(mockProvider.createBranch).mockResolvedValue({
+          name: 'refs/heads/review/test-user/20231104',
+          sha: 'abc123',
+        });
+
+        vi.mocked(mockProvider.getFileContent).mockResolvedValue({
+          path: 'document.qmd',
+          sha: 'def456',
+          content: '# Original Document',
+        });
+
+        vi.mocked(mockProvider.createOrUpdateFile).mockResolvedValue({
+          path: 'document.qmd',
+          sha: 'ghi789',
+          commitSha: 'commit123',
+          url: 'https://github.com/test-owner/test-repo/blob/commit123/document.qmd',
+        });
+
+        vi.mocked(mockProvider.createPullRequest).mockResolvedValue({
+          number: 42,
+          url: 'https://github.com/test-owner/test-repo/pull/42',
+          title: 'Review by test-user',
+          body: 'This is my review',
+          state: 'open',
+          author: 'test-user',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        vi.mocked(mockProvider.createReviewComments).mockResolvedValue([
+          {
+            id: 'comment123',
+            url: 'https://github.com/test-owner/test-repo/pull/42#discussion_r123',
+            path: 'document.qmd',
+            line: 10,
+          },
+        ]);
+
+        const result = await service.submitReview(payload);
+
+        expect(result.comments).toHaveLength(1);
+        expect(result.comments[0].id).toBe('comment123');
+        expect(mockProvider.createReviewComments).toHaveBeenCalledWith(
+          42,
+          payload.comments,
+          'commit123'
+        );
+      });
+
+      it('gracefully handles comment creation failure', async () => {
+        const payload: ReviewSubmissionPayload = {
+          reviewer: 'test-user',
+          documentContent: '# Reviewed Document',
+          pullRequest: {
+            title: 'Review by test-user',
+            body: 'This is my review',
+          },
+          comments: [
+            {
+              path: 'document.qmd',
+              line: 10,
+              body: 'Great point!',
+            },
+          ],
+        };
+
+        vi.mocked(mockProvider.createBranch).mockResolvedValue({
+          name: 'refs/heads/review/test-user/20231104',
+          sha: 'abc123',
+        });
+
+        vi.mocked(mockProvider.getFileContent).mockResolvedValue({
+          path: 'document.qmd',
+          sha: 'def456',
+          content: '# Original Document',
+        });
+
+        vi.mocked(mockProvider.createOrUpdateFile).mockResolvedValue({
+          path: 'document.qmd',
+          sha: 'ghi789',
+          commitSha: 'commit123',
+        });
+
+        vi.mocked(mockProvider.createPullRequest).mockResolvedValue({
+          number: 42,
+          url: 'https://github.com/test-owner/test-repo/pull/42',
+          title: 'Review by test-user',
+          body: 'This is my review',
+          state: 'open',
+          author: 'test-user',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        // Simulate comment creation failure
+        vi.mocked(mockProvider.createReviewComments).mockRejectedValue(
+          new Error('GitHub API error')
+        );
+
+        // Should still succeed even if comments fail
+        const result = await service.submitReview(payload);
+
+        expect(result.pullRequest.number).toBe(42);
+        expect(result.comments).toEqual([]);
+      });
     });
   });
 
