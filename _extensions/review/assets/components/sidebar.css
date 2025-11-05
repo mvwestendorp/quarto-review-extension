@@ -41,7 +41,7 @@ body.review-sidebar-collapsed-mode {
   box-shadow: var(--review-shadow-md);
 }
 
-body.review-sidebar-collapsed-mode .review-persistent-sidebar {
+body.review-sidebar-collapsed-mode .review-toolbar {
   width: 48px;
 }
 
@@ -73,7 +73,7 @@ body.review-sidebar-collapsed-mode .review-persistent-sidebar {
 
 /* Collapsed state refinements */
 .review-sidebar-collapsed .review-sidebar-body,
-body.review-sidebar-collapsed-mode .review-sidebar-body {
+body.review-sidebar-collapsed-mode .review-toolbar .review-sidebar-body {
   display: none;
 }
 
@@ -87,7 +87,7 @@ body.review-sidebar-collapsed-mode .review-sidebar-body {
 }
 
 .review-sidebar-collapsed .review-sidebar-header .review-btn-icon,
-body.review-sidebar-collapsed-mode .review-sidebar-header .review-btn-icon {
+body.review-sidebar-collapsed-mode .review-toolbar .review-sidebar-header .review-btn-icon {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -101,7 +101,7 @@ body.review-sidebar-collapsed-mode .review-sidebar-header .review-btn-icon {
 }
 
 .review-sidebar-collapsed .review-sidebar-header,
-body.review-sidebar-collapsed-mode .review-sidebar-header {
+body.review-sidebar-collapsed-mode .review-toolbar .review-sidebar-header {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
@@ -118,7 +118,7 @@ body.review-sidebar-collapsed-mode .review-sidebar-header {
 }
 
 .review-sidebar-collapsed .review-sidebar-header::after,
-body.review-sidebar-collapsed-mode .review-sidebar-header::after {
+body.review-sidebar-collapsed-mode .review-toolbar .review-sidebar-header::after {
   content: attr(data-sidebar-label);
   writing-mode: vertical-rl;
   transform: rotate(180deg);
@@ -131,7 +131,7 @@ body.review-sidebar-collapsed-mode .review-sidebar-header::after {
 }
 
 .review-sidebar-collapsed .review-sidebar-header h3,
-body.review-sidebar-collapsed-mode .review-sidebar-header h3 {
+body.review-sidebar-collapsed-mode .review-toolbar .review-sidebar-header h3 {
   display: none;
 }
 
@@ -163,7 +163,7 @@ body.review-sidebar-collapsed-mode .review-sidebar-header h3 {
 }
 
 .review-sidebar-collapsed .review-icon-chevron,
-body.review-sidebar-collapsed-mode .review-icon-chevron {
+body.review-sidebar-collapsed-mode .review-toolbar .review-icon-chevron {
   transform: rotate(180deg);
 }
 
