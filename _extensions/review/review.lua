@@ -1017,41 +1017,45 @@ local function get_extension_path()
 
   if not output_file then
     -- Fallback to default relative path if we can't determine output location
+    debug_print("get_extension_path: No output_file available, using default: " .. ext_path)
     return ext_path
   end
 
-  -- Get the project root to calculate relative paths
-  local input_file = get_primary_input_file()
-  local abs_input = input_file and to_absolute_path(input_file)
-  local start_dir = abs_input and parent_directory(abs_input) or get_working_directory()
-  local project_root = detect_project_root() or (start_dir and find_project_root(start_dir)) or start_dir
-  project_root = normalize_path(project_root or '.')
-
-  -- Normalize the output file path
+  -- The output_file from Quarto is typically a relative path within the output directory
+  -- For example: "processes/page.html" or just "page.html"
+  -- We need to count the directory depth in this relative path
   local normalized_output = normalize_path(output_file)
 
-  -- Make the output path relative to the project root
-  -- This handles both absolute paths (e.g., D:/projects/site/processes/page.html)
-  -- and relative paths (e.g., processes/page.html)
-  local relative_output = make_relative(normalized_output, project_root)
+  debug_print("get_extension_path: output_file = " .. tostring(output_file))
+  debug_print("get_extension_path: normalized_output = " .. tostring(normalized_output))
 
-  -- Count the number of directory separators in the RELATIVE path
-  -- This gives us the actual nesting depth within the project
+  -- Remove any leading ./ or .\
+  normalized_output = normalized_output:gsub('^%./', ''):gsub('^%.\\', '')
+
+  -- Count directory separators to determine depth
+  -- We need to count how many folders deep the output file is
   local depth = 0
-  for _ in relative_output:gmatch('/') do
+
+  -- Count forward slashes
+  for _ in normalized_output:gmatch('/') do
     depth = depth + 1
   end
 
-  -- If file is at root level (no slashes in relative path), use direct path
+  debug_print("get_extension_path: depth = " .. tostring(depth))
+
+  -- If file is at root level (no slashes), use direct path
   if depth == 0 then
+    debug_print("get_extension_path: root level, returning: " .. ext_path)
     return ext_path
   end
 
   -- Build relative path with appropriate number of ../
-  -- For example, if relative depth is 1 (e.g., "processes/page.html"), we need "../"
-  -- If relative depth is 2 (e.g., "docs/api/page.html"), we need "../../"
+  -- For example, if depth is 1 (e.g., "processes/page.html"), we need "../"
   local prefix = string.rep('../', depth)
-  return prefix .. ext_path
+  local result = prefix .. ext_path
+
+  debug_print("get_extension_path: returning: " .. result)
+  return result
 end
 
 -- Meta filter to load config and inject resources
