@@ -1,32 +1,55 @@
 import { createModuleLogger } from '@utils/debug';
-import type { BaseProvider } from './providers';
-import type { ResolvedGitConfig, ReviewCommentInput } from './types';
+import type { BaseProvider, PullRequest } from './providers';
+import type { ResolvedGitConfig } from './types';
+import type { ReviewCommentInput } from './types';
 
 const logger = createModuleLogger('GitIntegration');
 
-/**
- * Payload for submitting a review via Git integration
- */
+export interface ReviewFileChange {
+  path: string;
+  content: string;
+  message?: string;
+}
+
+export type ReviewComment = ReviewCommentInput;
+
+export interface ReviewPullRequestOptions {
+  title: string;
+  body?: string;
+  draft?: boolean;
+  /**
+   * When true (default) the integration will re-use any open pull request backed by the review branch.
+   */
+  updateExisting?: boolean;
+  /**
+   * Explicit pull request number to update instead of creating a new one.
+   */
+  number?: number;
+}
+
 export interface ReviewSubmissionPayload {
   /** Name or identifier of the reviewer */
   reviewer: string;
-  /** Full content of the reviewed document */
-  documentContent: string;
-  /** Path to the file in the repository (optional, defaults to config.repository.sourceFile) */
-  sourcePath?: string;
-  /** Custom branch name (optional, auto-generated if not provided) */
+  files: ReviewFileChange[];
+  pullRequest: ReviewPullRequestOptions;
   branchName?: string;
-  /** Pull request details */
-  pullRequest: {
-    title: string;
-    body: string;
-  };
-  /** Optional line-level review comments */
-  comments?: ReviewCommentInput[];
-  /** Custom commit message (optional) */
+  baseBranch?: string;
   commitMessage?: string;
-  /** Additional metadata */
-  metadata?: Record<string, unknown>;
+  comments?: ReviewComment[];
+}
+
+export interface ReviewSubmissionResult {
+  branchName: string;
+  baseBranch: string;
+  pullRequest: PullRequest;
+  files: ReviewFileResult[];
+  reusedPullRequest: boolean;
+}
+
+export interface ReviewFileResult {
+  path: string;
+  sha: string;
+  commitSha: string;
 }
 
 /**
@@ -67,205 +90,211 @@ export class GitIntegrationService {
     return this.provider;
   }
 
-  /**
-   * Submit a review by creating a branch, committing changes, and opening a PR
-   */
   public async submitReview(
     payload: ReviewSubmissionPayload
-  ): Promise<SubmitReviewResult> {
-    logger.info(`Starting review submission from ${payload.reviewer}`);
-
-    // Step 1: Validate payload
+  ): Promise<ReviewSubmissionResult> {
     this.validatePayload(payload);
 
-    // Step 2: Determine source file path
-    const sourcePath = payload.sourcePath ?? this.config.repository.sourceFile;
-    if (!sourcePath) {
-      const error = 'No source file specified in payload or configuration';
-      logger.error(error);
-      throw new Error(error);
+    const repository = this.config.repository;
+    const baseBranch = payload.baseBranch?.trim() || repository.baseBranch;
+    const branchName = this.resolveBranchName(payload);
+
+    await this.ensureBranch(branchName, baseBranch);
+
+    const fileResults = await this.applyFileChanges(
+      branchName,
+      payload.files,
+      payload.commitMessage
+    );
+
+    const { pullRequest, reused } = await this.ensurePullRequest(
+      branchName,
+      baseBranch,
+      payload.pullRequest
+    );
+
+    await this.maybeCreateReviewComments(
+      pullRequest.number,
+      payload.comments,
+      fileResults[fileResults.length - 1]?.commitSha
+    );
+
+    return {
+      branchName,
+      baseBranch,
+      pullRequest,
+      files: fileResults,
+      reusedPullRequest: reused,
+    };
+  }
+
+  private validatePayload(payload: ReviewSubmissionPayload): void {
+    if (!payload.reviewer || !payload.reviewer.trim()) {
+      throw new Error('Reviewer information is required');
+    }
+    if (!Array.isArray(payload.files) || payload.files.length === 0) {
+      throw new Error('At least one file change must be provided');
+    }
+    payload.files.forEach((file) => {
+      if (!file.path || !file.path.trim()) {
+        throw new Error('File path is required for each change');
+      }
+    });
+    if (!payload.pullRequest?.title || !payload.pullRequest.title.trim()) {
+      throw new Error('Pull request title is required');
+    }
+  }
+
+  private resolveBranchName(payload: ReviewSubmissionPayload): string {
+    if (payload.branchName?.trim()) {
+      return this.sanitizeBranchName(payload.branchName);
     }
 
-    // Step 3: Generate branch name
-    const branchName =
-      payload.branchName ?? this.generateBranchName(payload.reviewer);
-    logger.debug(`Creating review branch: ${branchName}`);
+    const reviewer = payload.reviewer
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32);
 
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    return this.sanitizeBranchName(`review/${reviewer || 'user'}-${timestamp}`);
+  }
+
+  private sanitizeBranchName(input: string): string {
+    const cleaned = input
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^A-Za-z0-9._/-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return cleaned || 'review-branch';
+  }
+
+  private async ensureBranch(
+    branchName: string,
+    baseBranch: string
+  ): Promise<void> {
     try {
-      // Step 4: Create branch from base
-      const branch = await this.provider.createBranch(
-        branchName,
-        this.config.repository.baseBranch
-      );
-      logger.debug(`Branch created: ${branch.name} (SHA: ${branch.sha})`);
-
-      // Step 5: Get current file SHA (required for update operation)
-      const currentFile = await this.provider.getFileContent(
-        sourcePath,
-        this.config.repository.baseBranch
-      );
-
-      if (!currentFile) {
-        const error = `Source file not found: ${sourcePath} on branch ${this.config.repository.baseBranch}`;
-        logger.error(error);
-        throw new Error(error);
-      }
-
-      // Step 6: Commit changes to new branch
-      const commitMessage =
-        payload.commitMessage ?? this.generateCommitMessage(payload.reviewer);
-
-      const fileResult = await this.provider.createOrUpdateFile(
-        sourcePath,
-        payload.documentContent,
-        commitMessage,
-        branchName,
-        currentFile.sha
-      );
-
-      logger.debug(`File committed: ${fileResult.commitSha}`);
-
-      // Step 7: Create pull request
-      const pullRequest = await this.provider.createPullRequest(
-        payload.pullRequest.title,
-        payload.pullRequest.body,
-        branchName,
-        this.config.repository.baseBranch
-      );
-
-      logger.info(
-        `Pull request created: #${pullRequest.number} - ${pullRequest.url}`
-      );
-
-      // Step 8: Add review comments (optional)
-      const reviewComments = await this.addReviewComments(
-        pullRequest.number,
-        payload.comments,
-        fileResult.commitSha
-      );
-
-      // Step 9: Return result
-      return {
-        pullRequest: {
-          number: pullRequest.number,
-          url: pullRequest.url,
-          branch: branchName,
-        },
-        commit: {
-          sha: fileResult.commitSha,
-          url: fileResult.url,
-        },
-        comments: reviewComments,
-      };
+      await this.provider.createBranch(branchName, baseBranch);
+      logger.debug('Created review branch', { branchName, baseBranch });
     } catch (error) {
-      logger.error('Failed to submit review:', error);
+      if (this.isBranchExistsError(error)) {
+        logger.debug('Reusing existing branch', { branchName });
+        return;
+      }
       throw error;
     }
   }
 
-  /**
-   * Validate the review submission payload
-   */
-  private validatePayload(payload: ReviewSubmissionPayload): void {
-    if (!payload.reviewer || payload.reviewer.trim() === '') {
-      throw new Error('Reviewer name is required');
+  private isBranchExistsError(error: unknown): boolean {
+    const status = (error as Error & { status?: number })?.status;
+    if (status === 409 || status === 422) {
+      return true;
     }
-
-    if (!payload.documentContent || payload.documentContent.trim() === '') {
-      throw new Error('Document content is required');
-    }
-
-    if (!payload.pullRequest) {
-      throw new Error('Pull request details are required');
-    }
-
-    if (!payload.pullRequest.title || payload.pullRequest.title.trim() === '') {
-      throw new Error('Pull request title is required');
-    }
-
-    if (!payload.pullRequest.body || payload.pullRequest.body.trim() === '') {
-      throw new Error('Pull request body is required');
-    }
-
-    // Validate branch name if provided
-    if (payload.branchName) {
-      const validBranchName = /^[a-zA-Z0-9/_-]+$/;
-      if (!validBranchName.test(payload.branchName)) {
-        throw new Error(
-          `Invalid branch name: ${payload.branchName}. Must contain only alphanumeric characters, hyphens, underscores, and slashes.`
-        );
-      }
-    }
-
-    // Validate comments if provided
-    if (payload.comments) {
-      for (const comment of payload.comments) {
-        if (!comment.path || comment.path.trim() === '') {
-          throw new Error('Comment path is required');
-        }
-        if (!comment.body || comment.body.trim() === '') {
-          throw new Error('Comment body is required');
-        }
-        if (!comment.line || comment.line < 1) {
-          throw new Error('Comment line must be a positive integer');
-        }
-      }
-    }
+    const message = (error as Error)?.message ?? '';
+    return /already exists|reference already exists/i.test(message);
   }
 
-  /**
-   * Generate a unique branch name for the review
-   */
-  private generateBranchName(reviewer: string): string {
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[-:]/g, '')
-      .replace(/\.\d{3}Z$/, '');
-    const sanitizedReviewer = reviewer
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-|-$/g, '');
-    return `review/${sanitizedReviewer}/${timestamp}`;
-  }
+  private async applyFileChanges(
+    branchName: string,
+    files: ReviewFileChange[],
+    defaultMessage?: string
+  ): Promise<ReviewFileResult[]> {
+    const results: ReviewFileResult[] = [];
 
-  /**
-   * Generate a commit message for the review
-   */
-  private generateCommitMessage(reviewer: string): string {
-    return `Review by ${reviewer}
+    for (const file of files) {
+      const path = file.path.trim();
+      const commitMessage = file.message || defaultMessage || `Update ${path}`;
 
-Submitted via Quarto Review Extension`;
-  }
+      const existing = await this.provider
+        .getFileContent(path, branchName)
+        .catch((error) => {
+          logger.debug('Failed to read file from branch, assuming new file', {
+            path,
+            branchName,
+            error,
+          });
+          return null;
+        });
 
-  /**
-   * Add review comments to the pull request
-   * Returns empty array if no comments provided or if adding comments fails
-   */
-  private async addReviewComments(
-    pullRequestNumber: number,
-    comments: ReviewCommentInput[] | undefined,
-    commitSha: string
-  ): Promise<
-    Array<{ id: string | number; url: string; path: string; line: number }>
-  > {
-    if (!comments || comments.length === 0) {
-      return [];
-    }
-
-    try {
-      const reviewComments = await this.provider.createReviewComments(
-        pullRequestNumber,
-        comments,
-        commitSha
+      const upsertResult = await this.provider.createOrUpdateFile(
+        path,
+        file.content,
+        commitMessage,
+        branchName,
+        existing?.sha
       );
-      logger.debug(`Added ${reviewComments.length} review comments`);
-      return reviewComments;
-    } catch (error) {
-      logger.warn('Failed to add review comments:', error);
-      // Don't fail the entire submission if comments fail
-      return [];
+
+      results.push({
+        path: upsertResult.path,
+        sha: upsertResult.sha,
+        commitSha: upsertResult.commitSha,
+      });
     }
+
+    return results;
+  }
+
+  private async ensurePullRequest(
+    branchName: string,
+    baseBranch: string,
+    options: ReviewPullRequestOptions
+  ): Promise<{ pullRequest: PullRequest; reused: boolean }> {
+    if (options.number !== undefined) {
+      const updated = await this.provider.updatePullRequest(options.number, {
+        title: options.title,
+        body: options.body,
+      });
+      return { pullRequest: updated, reused: true };
+    }
+
+    if (options.updateExisting !== false) {
+      const existing = await this.findOpenPullRequest(branchName);
+      if (existing) {
+        const updated = await this.provider.updatePullRequest(existing.number, {
+          title: options.title,
+          body: options.body,
+        });
+        return { pullRequest: updated, reused: true };
+      }
+    }
+
+    const created = await this.provider.createPullRequest(
+      options.title,
+      options.body ?? '',
+      branchName,
+      baseBranch
+    );
+    return { pullRequest: created, reused: false };
+  }
+
+  private async findOpenPullRequest(
+    branchName: string
+  ): Promise<PullRequest | null> {
+    const pulls = await this.provider.listPullRequests('open');
+    const match = pulls.find((pr) => pr.headRef && pr.headRef === branchName);
+    return match ?? null;
+  }
+
+  private async maybeCreateReviewComments(
+    pullRequestNumber: number,
+    comments: ReviewComment[] | undefined,
+    commitSha?: string
+  ): Promise<void> {
+    if (!comments?.length) {
+      return;
+    }
+    if (!commitSha) {
+      logger.warn(
+        'Skipping inline review comments because commit SHA is unavailable'
+      );
+      return;
+    }
+    await this.provider.createReviewComments(
+      pullRequestNumber,
+      comments,
+      commitSha
+    );
   }
 }
 

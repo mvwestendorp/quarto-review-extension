@@ -37,6 +37,11 @@ import {
 } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
 import { QmdExportService, type ExportFormat } from '@modules/export';
+import ReviewSubmissionModal, {
+  type ReviewSubmissionInitialValues,
+} from './modals/ReviewSubmissionModal';
+import GitReviewService from '@modules/git/review-service';
+import type { UserModule } from '@modules/user';
 
 // CriticMarkup components are now handled by MilkdownEditor module
 import { ChangeSummaryDashboard } from './change-summary';
@@ -48,6 +53,17 @@ import type { CommentsModule } from '@modules/comments';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import type { Element as ReviewElement, ElementMetadata } from '@/types';
 import { UI_CONSTANTS, getAnimationDuration } from './constants';
+import { TranslationController } from './translation/TranslationController';
+import { TranslationPlugin } from './plugins/TranslationPlugin';
+import type {
+  PluginHandle,
+  ReviewUIPlugin,
+  ReviewUIContext,
+} from './plugins/types';
+import type {
+  TranslationModule,
+  TranslationModuleConfig,
+} from '@modules/translation';
 
 const logger = createModuleLogger('UIModule');
 
@@ -58,6 +74,9 @@ export interface UIConfig {
   inlineEditing?: boolean; // Use inline editing instead of modal
   persistence?: LocalDraftPersistence;
   exporter?: QmdExportService;
+  reviewService?: GitReviewService;
+  user?: UserModule;
+  translation?: import('@modules/translation').TranslationModule;
 }
 
 interface HeadingReferenceInfo {
@@ -81,6 +100,9 @@ export class UIModule {
   // Configuration
   private changeSummaryDashboard: ChangeSummaryDashboard | null = null;
   private exporter?: QmdExportService;
+  private reviewService?: GitReviewService;
+  private reviewSubmissionModal?: ReviewSubmissionModal;
+  private userModule?: UserModule;
 
   // Module instances (for Phase 3 integration - will be used when code replacement completes)
   private editorLifecycle: EditorLifecycle;
@@ -94,11 +116,20 @@ export class UIModule {
   private historyStorage: EditorHistoryStorage;
   private globalShortcutsBound = false;
   private localPersistence?: LocalDraftPersistence;
+  private isSubmittingReview = false;
+  private translationController: TranslationController | null = null;
+  private translationModule?: TranslationModule;
+  private pluginHandles = new Map<string, PluginHandle>();
+  private translationPlugin: TranslationPlugin | null = null;
+  // UI plugins will be introduced during extension refactor (Phase 3)
 
   constructor(config: UIConfig) {
     this.config = config;
     this.exporter = config.exporter;
+    this.reviewService = config.reviewService;
+    this.userModule = config.user;
     this.localPersistence = config.persistence;
+    this.translationModule = config.translation;
     logger.debug(
       'Initialized with tracked changes:',
       this.editorState.showTrackedChanges
@@ -130,6 +161,7 @@ export class UIModule {
           this.showNotification(message, type),
         onComposerClosed: () =>
           this.commentController.clearHighlight('composer'),
+        persistDocument: () => this.persistDocument(),
       },
     });
     this.contextMenuCoordinator = new ContextMenuCoordinator({
@@ -139,7 +171,7 @@ export class UIModule {
       onComment: (sectionId) => {
         const element = this.config.changes.getElementById(sectionId);
         if (element) {
-          this.openCommentComposer({ elementId: sectionId });
+          void this.openCommentComposer({ elementId: sectionId });
         }
       },
     });
@@ -177,6 +209,15 @@ export class UIModule {
           }
         : undefined
     );
+    const enableReviewSubmit = Boolean(this.reviewService);
+    this.mainSidebarModule.onSubmitReview(
+      enableReviewSubmit
+        ? () => {
+            void this.handleSubmitReview();
+          }
+        : undefined
+    );
+    this.mainSidebarModule.setSubmitReviewEnabled(enableReviewSubmit);
     this.mainSidebarModule.onTrackedChangesToggle((enabled) => {
       this.toggleTrackedChanges(enabled);
     });
@@ -238,6 +279,318 @@ export class UIModule {
     }
 
     this.mainSidebarModule.setCollapsed(collapsed);
+  }
+
+  private mountUIPlugin(
+    plugin: ReviewUIPlugin,
+    context: ReviewUIContext
+  ): PluginHandle {
+    this.unmountUIPlugin(plugin.id);
+    const handle = plugin.mount(context);
+    this.pluginHandles.set(plugin.id, handle);
+    return handle;
+  }
+
+  private unmountUIPlugin(id: string): void {
+    const handle = this.pluginHandles.get(id);
+    if (!handle) {
+      return;
+    }
+    try {
+      handle.dispose();
+    } catch (error) {
+      logger.warn('Failed to dispose UI plugin', { id, error });
+    }
+    this.pluginHandles.delete(id);
+  }
+
+  private ensureTranslationPlugin(): TranslationPlugin {
+    if (!this.translationModule) {
+      throw new Error('Translation module is not available');
+    }
+
+    if (!this.translationPlugin) {
+      this.translationPlugin = new TranslationPlugin({
+        translationModule: this.translationModule,
+        resolveConfig: () => this.resolveTranslationModuleConfig(),
+        notify: (message, type) => {
+          const mappedType = type === 'warning' ? 'info' : type;
+          this.showNotification(message, mappedType);
+        },
+        onProgress: (status) => {
+          this.mainSidebarModule.setTranslationProgress(status);
+        },
+        onBusyChange: (busy) => {
+          this.mainSidebarModule.setTranslationBusy(busy);
+        },
+      });
+    }
+
+    return this.translationPlugin;
+  }
+
+  private buildTranslationPluginContext(
+    container: HTMLElement
+  ): ReviewUIContext {
+    return {
+      container,
+      events: {
+        on: (event: string, handler: (...args: any[]) => void) => {
+          const module = this.translationModule as unknown as {
+            on?: (
+              event: string,
+              handler: (...args: any[]) => void
+            ) => () => void;
+          };
+
+          if (!module || typeof module.on !== 'function') {
+            return () => {
+              /* no-op */
+            };
+          }
+
+          return module.on(event, handler);
+        },
+      },
+    };
+  }
+
+  private resolveTranslationModuleConfig(): TranslationModuleConfig {
+    if (!this.translationModule) {
+      throw new Error('Translation module is not available');
+    }
+
+    const config = this.translationModule.getModuleConfig();
+    const documentId = this.getTranslationDocumentId();
+    if (documentId) {
+      config.documentId = documentId;
+    }
+    return config;
+  }
+
+  private getTranslationDocumentId(): string | undefined {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  }
+
+  private registerTranslationSidebarCallbacks(): void {
+    if (!this.translationController) {
+      return;
+    }
+
+    this.mainSidebarModule.onTranslateDocument(() => {
+      void this.translationController?.translateDocument();
+    });
+    this.mainSidebarModule.onTranslateSentence(() => {
+      void this.translationController?.translateSentence();
+    });
+    this.mainSidebarModule.onProviderChange((provider) => {
+      this.translationController?.setProvider(provider);
+    });
+    this.mainSidebarModule.onSourceLanguageChange((lang) => {
+      void this.translationController?.setSourceLanguage(lang);
+    });
+    this.mainSidebarModule.onTargetLanguageChange((lang) => {
+      void this.translationController?.setTargetLanguage(lang);
+    });
+    this.mainSidebarModule.onSwapLanguages(() => {
+      this.translationController?.swapLanguages();
+    });
+    this.mainSidebarModule.onAutoTranslateChange((enabled) => {
+      this.translationController?.setAutoTranslate(enabled);
+    });
+    this.mainSidebarModule.onTranslationExportUnified(() => {
+      void this.translationController?.exportUnified();
+    });
+    this.mainSidebarModule.onTranslationExportSeparated(() => {
+      void this.translationController?.exportSeparated();
+    });
+    this.mainSidebarModule.onClearLocalModelCache(() => {
+      void this.translationController?.clearLocalModelCache();
+    });
+
+    this.mainSidebarModule.onTranslationUndo(() => {
+      if (this.translationController?.undo()) {
+        this.updateTranslationUndoRedoState();
+      }
+    });
+    this.mainSidebarModule.onTranslationRedo(() => {
+      if (this.translationController?.redo()) {
+        this.updateTranslationUndoRedoState();
+      }
+    });
+  }
+
+  private resetTranslationSidebarCallbacks(): void {
+    this.mainSidebarModule.onTranslateDocument(undefined);
+    this.mainSidebarModule.onTranslateSentence(undefined);
+    this.mainSidebarModule.onProviderChange(undefined);
+    this.mainSidebarModule.onSourceLanguageChange(undefined);
+    this.mainSidebarModule.onTargetLanguageChange(undefined);
+    this.mainSidebarModule.onSwapLanguages(undefined);
+    this.mainSidebarModule.onAutoTranslateChange(undefined);
+    this.mainSidebarModule.onTranslationExportUnified(undefined);
+    this.mainSidebarModule.onTranslationExportSeparated(undefined);
+    this.mainSidebarModule.onClearLocalModelCache(undefined);
+    this.mainSidebarModule.onTranslationUndo(undefined);
+    this.mainSidebarModule.onTranslationRedo(undefined);
+  }
+
+  /**
+   * Toggle translation UI
+   */
+  private async toggleTranslation(): Promise<void> {
+    if (!this.translationModule) {
+      this.showNotification('Translation module is not available', 'error');
+      return;
+    }
+
+    try {
+      if (this.translationController) {
+        // Close existing translation UI - merge changes back to review before destroying
+        logger.info('Exiting translation mode, merging changes');
+
+        // Check if source content has changed while in translation mode
+        if (this.translationModule.hasSourceChanged()) {
+          const userConfirmed = window.confirm(
+            'The source document has been modified since you started translating.\n\n' +
+              'Your translation may be based on outdated source text.\n\n' +
+              'Do you want to continue and merge the translation changes?\n\n' +
+              '(Click OK to merge translation, or Cancel to discard translation)'
+          );
+
+          if (!userConfirmed) {
+            logger.info('User cancelled translation merge due to out-of-sync');
+            this.showNotification(
+              'Translation merge cancelled - source was modified',
+              'info'
+            );
+            return;
+          }
+
+          this.showNotification(
+            'Merging translation despite source modifications',
+            'info'
+          );
+        }
+
+        // Merge translation edits back to review mode
+        const elementUpdates = this.translationModule.mergeToElements();
+        const mergeApplied = this.translationModule.applyMergeToChanges(
+          elementUpdates,
+          this.config.changes
+        );
+
+        if (mergeApplied) {
+          this.showNotification(
+            'Translation changes merged to review mode',
+            'success'
+          );
+        }
+
+        // Clean up translation UI through plugin manager
+        this.unmountUIPlugin('translation-ui');
+        this.translationController = null;
+        this.resetTranslationSidebarCallbacks();
+
+        // Remove translation view container
+        const translationView = document.querySelector(
+          '#translation-view-container'
+        );
+        translationView?.remove();
+
+        // Show original content and comments (sidebar stays visible)
+        this.showOriginalDocument(true);
+        this.showCommentsSidebar(true);
+        document.body.classList.remove('translation-mode');
+
+        // Switch sidebar back to review mode
+        this.mainSidebarModule.setTranslationMode(false);
+        this.mainSidebarModule.setTranslationActive(false);
+
+        // Refresh review mode to show merged changes
+        this.refresh();
+
+        this.showNotification('Translation UI closed', 'info');
+      } else {
+        // Open translation UI - hide original document and comments (keep main sidebar visible)
+        this.showOriginalDocument(false);
+        this.showCommentsSidebar(false);
+        document.body.classList.add('translation-mode');
+
+        // Create translation view container (directly in document, no separate wrapper needed)
+        const container = document.createElement('div');
+        container.id = 'translation-view-container';
+        container.className = 'review-translation-view';
+
+        // Insert translation view into document
+        const mainContent = document.querySelector('#quarto-document-content');
+        if (mainContent?.parentNode) {
+          mainContent.parentNode.insertBefore(container, mainContent);
+        } else {
+          document.body.insertBefore(container, document.body.firstChild);
+        }
+
+        const plugin = this.ensureTranslationPlugin();
+        const handle = this.mountUIPlugin(
+          plugin,
+          this.buildTranslationPluginContext(container)
+        );
+
+        if (handle.ready) {
+          await handle.ready;
+        }
+
+        this.translationController = plugin.getController();
+        if (!this.translationController) {
+          throw new Error('Translation controller failed to initialize');
+        }
+
+        this.translationController.focusView();
+
+        // Set up translation mode in sidebar (show translation tools, hide review tools)
+        this.mainSidebarModule.setTranslationMode(true);
+        this.mainSidebarModule.setTranslationBusy(false);
+        this.registerTranslationSidebarCallbacks();
+
+        // Update sidebar with translation providers and languages
+        const providers = this.translationController.getAvailableProviders();
+        this.mainSidebarModule.updateTranslationProviders(providers);
+
+        const languages = this.translationController.getAvailableLanguages();
+        this.mainSidebarModule.updateTranslationLanguages(languages, languages);
+
+        this.updateTranslationUndoRedoState();
+        this.mainSidebarModule.setTranslationActive(true);
+
+        this.showNotification('Translation UI opened', 'success');
+      }
+    } catch (error) {
+      logger.error('Failed to toggle translation UI', error);
+      this.showNotification('Failed to toggle translation UI', 'error');
+    }
+  }
+
+  /**
+   * Show or hide original document content
+   */
+  private showOriginalDocument(show: boolean): void {
+    const editableElements = document.querySelectorAll('.review-editable');
+    editableElements.forEach((elem) => {
+      (elem as HTMLElement).style.display = show ? '' : 'none';
+    });
+  }
+
+  /**
+   * Show or hide comments sidebar
+   */
+  private showCommentsSidebar(show: boolean): void {
+    const sidebar = document.querySelector('.review-comments-sidebar');
+    if (sidebar) {
+      (sidebar as HTMLElement).style.display = show ? '' : 'none';
+    }
   }
 
   /**
@@ -391,6 +744,10 @@ export class UIModule {
       this.editorState.showTrackedChanges
     );
 
+    // Set baseline for tracked changes calculation
+    const currentContent = this.config.changes.getElementContent(elementId);
+    this.config.changes.setElementBaseline(elementId, currentContent);
+
     // Restore editor history if available
     this.restoreEditorHistory(elementId);
 
@@ -424,6 +781,10 @@ export class UIModule {
     this.closeEditor();
 
     this.editorState.currentElementId = elementId;
+
+    // Set baseline for tracked changes calculation
+    const currentContent = this.config.changes.getElementContent(elementId);
+    this.config.changes.setElementBaseline(elementId, currentContent);
 
     // Restore editor history if available
     this.restoreEditorHistory(elementId);
@@ -532,6 +893,10 @@ export class UIModule {
     // Save editor history before destroying the editor
     if (this.editorState.currentElementId) {
       this.saveEditorHistory(this.editorState.currentElementId);
+      // Clear the baseline for this element when closing the editor
+      this.config.changes.clearElementBaseline(
+        this.editorState.currentElementId
+      );
     }
 
     this.editorLifecycle.destroy();
@@ -686,7 +1051,14 @@ export class UIModule {
         content: elem.content,
         metadata: elem.metadata,
       }));
-      void this.localPersistence.saveDraft(payload, message);
+      const commentsSnapshot =
+        typeof this.config.comments?.getAllComments === 'function'
+          ? this.config.comments.getAllComments()
+          : undefined;
+      void this.localPersistence.saveDraft(payload, {
+        message,
+        comments: commentsSnapshot,
+      });
     } catch (error) {
       logger.warn('Failed to persist local draft', error);
     }
@@ -733,11 +1105,27 @@ export class UIModule {
         this.ensureSegmentDom(elementIds, segments, removedIds);
       });
 
+      if (typeof this.config.comments?.importComments === 'function') {
+        const commentsToImport = draftPayload.comments ?? [];
+        this.config.comments.importComments(commentsToImport);
+      }
+
       this.refresh();
-      this.showNotification(
-        'Restored local draft from previous session.',
-        'info'
-      );
+
+      const sessionKey = this.buildDraftRestoreSessionKey();
+      const sessionStorage =
+        typeof window !== 'undefined' ? window.sessionStorage : null;
+      const shouldNotify = sessionStorage
+        ? !sessionStorage.getItem(sessionKey)
+        : true;
+
+      if (shouldNotify) {
+        this.showNotification(
+          'Restored local draft from previous session.',
+          'info'
+        );
+        sessionStorage?.setItem(sessionKey, '1');
+      }
     } catch (error) {
       logger.warn('Failed to restore local draft', error);
     }
@@ -781,6 +1169,167 @@ export class UIModule {
       logger.error('Failed to export QMD files', error);
       this.showNotification('Failed to export QMD files.', 'error');
     }
+  }
+
+  private async handleSubmitReview(): Promise<void> {
+    if (!this.reviewService) {
+      this.showNotification(
+        'Git review submission is not configured.',
+        'error'
+      );
+      return;
+    }
+    if (this.isSubmittingReview) {
+      return;
+    }
+
+    const reviewer = this.getReviewerDisplayName();
+    const repoConfig = this.reviewService.getRepositoryConfig();
+    const baseBranch = repoConfig?.baseBranch ?? 'main';
+    const format: ExportFormat = this.editorState.showTrackedChanges
+      ? 'critic'
+      : 'clean';
+
+    const initialValues = this.buildReviewInitialValues(reviewer, baseBranch);
+    const modal = this.getReviewSubmissionModal();
+    const formValues = await modal.open(initialValues);
+    if (!formValues) {
+      return;
+    }
+
+    const resolvedReviewer = formValues.reviewer.trim() || reviewer;
+    const resolvedBranch = this.sanitizeBranchName(
+      formValues.branchName.trim() || initialValues.branchName
+    );
+    const resolvedBaseBranch = formValues.baseBranch.trim() || baseBranch;
+    const resolvedCommitMessage =
+      formValues.commitMessage.trim() || initialValues.commitMessage;
+    const resolvedTitle =
+      formValues.pullRequestTitle.trim() || initialValues.pullRequestTitle;
+    const resolvedBody = formValues.pullRequestBody.trim();
+    const patToken = formValues.patToken;
+
+    if (formValues.requirePat) {
+      this.reviewService.updateAuthToken(patToken);
+    } else if (patToken) {
+      this.reviewService.updateAuthToken(patToken);
+    }
+
+    const loading = this.showLoading('Submitting review to Git…');
+    this.isSubmittingReview = true;
+    this.mainSidebarModule.setSubmitReviewPending(true);
+
+    try {
+      const context = await this.reviewService.submitReview({
+        reviewer: resolvedReviewer,
+        branchName: resolvedBranch,
+        baseBranch: resolvedBaseBranch,
+        commitMessage: resolvedCommitMessage,
+        format,
+        pullRequest: {
+          title: resolvedTitle,
+          body: resolvedBody,
+          draft: formValues.draft,
+        },
+      });
+
+      const pr = context.result.pullRequest;
+      const message = pr.url
+        ? `Review submitted: ${pr.url}`
+        : `Review submitted: PR #${pr.number}`;
+      this.showNotification(message, 'success');
+    } catch (error) {
+      logger.error('Failed to submit git review', error);
+      const message =
+        error instanceof Error && error.message
+          ? `Review submission failed: ${error.message}`
+          : 'Failed to submit review to Git provider.';
+      this.showNotification(message, 'error');
+    } finally {
+      this.hideLoading(loading);
+      this.isSubmittingReview = false;
+      this.mainSidebarModule.setSubmitReviewPending(false);
+      this.mainSidebarModule.setSubmitReviewEnabled(
+        Boolean(this.reviewService)
+      );
+    }
+  }
+
+  private getReviewerDisplayName(): string {
+    const user = this.userModule?.getCurrentUser?.();
+    if (!user) {
+      return 'Reviewer';
+    }
+    return (
+      user.name?.trim() || user.email?.trim() || user.id?.trim() || 'Reviewer'
+    );
+  }
+
+  private buildPullRequestBody(reviewer: string): string {
+    const lines = [
+      `Automated review submission by ${reviewer}.`,
+      '',
+      'This pull request was generated from the Quarto Review web UI.',
+    ];
+    return lines.join('\n');
+  }
+
+  private buildReviewInitialValues(
+    reviewer: string,
+    baseBranch: string
+  ): ReviewSubmissionInitialValues {
+    const requirePat = this.reviewService!.requiresAuthToken();
+    return {
+      reviewer,
+      baseBranch,
+      branchName: this.generateSuggestedBranchName(reviewer),
+      commitMessage: `Review updates from ${reviewer}`,
+      pullRequestTitle: `Review updates from ${reviewer}`,
+      pullRequestBody: this.buildPullRequestBody(reviewer),
+      draft: false,
+      requirePat,
+      patToken: '',
+    };
+  }
+
+  private getReviewSubmissionModal(): ReviewSubmissionModal {
+    if (!this.reviewSubmissionModal) {
+      this.reviewSubmissionModal = new ReviewSubmissionModal();
+    }
+    return this.reviewSubmissionModal;
+  }
+
+  private buildDraftRestoreSessionKey(): string {
+    const filename =
+      typeof this.localPersistence?.getFilename === 'function'
+        ? this.localPersistence.getFilename()
+        : 'review-draft.json';
+    return `quarto-review:draft-restored:${filename}`;
+  }
+
+  private generateSuggestedBranchName(reviewer: string): string {
+    const slug = reviewer
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32);
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')
+      .replace('T', '-')
+      .slice(0, 19);
+    const raw = slug ? `review/${slug}-${timestamp}` : `review/${timestamp}`;
+    return this.sanitizeBranchName(raw);
+  }
+
+  private sanitizeBranchName(name: string): string {
+    const cleaned = name
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^A-Za-z0-9._/-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    return cleaned || 'review-branch';
   }
 
   private createEditorModal(_content: string, type: string): HTMLElement {
@@ -1475,6 +2024,18 @@ export class UIModule {
     );
   }
 
+  /**
+   * Update translation undo/redo button state in sidebar
+   */
+  private updateTranslationUndoRedoState(): void {
+    if (!this.translationController) {
+      return;
+    }
+    const canUndo = this.translationController.canUndo();
+    const canRedo = this.translationController.canRedo();
+    this.mainSidebarModule.updateTranslationUndoRedoState(canUndo, canRedo);
+  }
+
   private cacheInitialHeadingReferences(): void {
     try {
       const elements = this.config.changes.getCurrentState();
@@ -1859,6 +2420,17 @@ export class UIModule {
       );
       this.syncToolbarState();
       this.applySidebarCollapsedState(this.uiState.isSidebarCollapsed, toolbar);
+
+      // Set up translation toggle after sidebar is created
+      const enableTranslation = Boolean(this.translationModule);
+      this.mainSidebarModule.onToggleTranslation(
+        enableTranslation
+          ? () => {
+              void this.toggleTranslation();
+            }
+          : undefined
+      );
+      this.mainSidebarModule.setTranslationEnabled(enableTranslation);
     }
     return toolbar;
   }
@@ -1876,10 +2448,10 @@ export class UIModule {
     return sidebar;
   }
 
-  private openCommentComposer(context: {
+  private async openCommentComposer(context: {
     elementId: string;
     existingComment?: ReturnType<CommentsModule['parse']>[0];
-  }): void {
+  }): Promise<void> {
     this.contextMenuCoordinator?.close();
     this.commentsSidebarModule?.show();
 
@@ -1887,7 +2459,7 @@ export class UIModule {
       ? `${context.elementId}:${context.existingComment.start}`
       : undefined;
 
-    this.commentController.openComposer({
+    await this.commentController.openComposer({
       elementId: context.elementId,
       existingComment: context.existingComment,
       commentKey,
@@ -1971,6 +2543,21 @@ export class UIModule {
 
   public destroy(): void {
     this.closeEditor();
+
+    // Clean up translation controller
+    if (this.translationController) {
+      this.translationController.destroy();
+      this.translationController = null;
+    }
+    // Remove translation mode wrapper and container
+    const translationWrapper = document.querySelector(
+      '#translation-mode-wrapper'
+    );
+    translationWrapper?.remove();
+    const translationContainer = document.querySelector(
+      '#translation-ui-container'
+    );
+    translationContainer?.remove();
 
     // Clean up module instances and their event listeners
     this.editorToolbarModule?.destroy();

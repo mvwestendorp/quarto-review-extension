@@ -1,4 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  vi,
+  beforeAll,
+  beforeEach,
+  afterEach,
+} from 'vitest';
 import { UIModule } from '@modules/ui';
 import type { UIConfig } from '@modules/ui';
 
@@ -31,7 +39,14 @@ const createChangesStub = () => ({
   markAsSaved: vi.fn(),
 } as any);
 
-const createConfigStub = (draftContent: string | null): UIConfig => {
+interface DraftOptions {
+  comments?: Array<Record<string, unknown>>;
+}
+
+const createConfigStub = (
+  draftContent: string | null,
+  options: DraftOptions = {}
+): UIConfig => {
   const changes = createChangesStub();
   const persistence = {
     saveDraft: vi.fn(),
@@ -48,6 +63,7 @@ const createConfigStub = (draftContent: string | null): UIConfig => {
                 metadata: { type: 'Para' },
               },
             ],
+            comments: options.comments ?? [],
           }
     ),
   };
@@ -64,6 +80,8 @@ const createConfigStub = (draftContent: string | null): UIConfig => {
     createComment: vi.fn(),
     accept: vi.fn(),
     refresh: vi.fn(),
+    getAllComments: vi.fn().mockReturnValue(options.comments ?? []),
+    importComments: vi.fn(),
   } as any;
 
   return {
@@ -76,8 +94,63 @@ const createConfigStub = (draftContent: string | null): UIConfig => {
 };
 
 describe('Local draft restore', () => {
+  let originalSessionStorage: Storage | null = null;
+
+  beforeAll(() => {
+    try {
+      originalSessionStorage = window.sessionStorage;
+    } catch {
+      originalSessionStorage = null;
+    }
+  });
+
   beforeEach(() => {
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) =>
+      setTimeout(() => cb(Date.now()), 0)
+    );
+    vi.stubGlobal('cancelAnimationFrame', (handle: number) => {
+      clearTimeout(handle);
+    });
+    const storageMap = new Map<string, string>();
+    const mockSessionStorage: Storage = {
+      get length() {
+        return storageMap.size;
+      },
+      clear() {
+        storageMap.clear();
+      },
+      getItem(key: string) {
+        return storageMap.has(key) ? storageMap.get(key) ?? null : null;
+      },
+      key(index: number) {
+        return Array.from(storageMap.keys())[index] ?? null;
+      },
+      removeItem(key: string) {
+        storageMap.delete(key);
+      },
+      setItem(key: string, value: string) {
+        storageMap.set(key, value);
+      },
+    };
+
+    Object.defineProperty(window, 'sessionStorage', {
+      configurable: true,
+      value: mockSessionStorage,
+    });
     document.body.innerHTML = '';
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    if (originalSessionStorage) {
+      Object.defineProperty(window, 'sessionStorage', {
+        configurable: true,
+        value: originalSessionStorage,
+      });
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      delete (window as unknown as Record<string, unknown>).sessionStorage;
+    }
   });
 
   it('applies restored draft when content differs', async () => {
@@ -85,6 +158,26 @@ describe('Local draft restore', () => {
     const ui = new UIModule(config);
     await Promise.resolve();
     expect(config.changes.replaceElementWithSegments).toHaveBeenCalled();
+  });
+
+  it('imports comments saved in the local draft', async () => {
+    const sampleComment = {
+      id: 'comment-1',
+      elementId: 'section-1',
+      content: 'Draft comment',
+      userId: 'reviewer-1',
+      timestamp: Date.now(),
+      resolved: false,
+      type: 'comment',
+    };
+    const config = createConfigStub('Updated content', {
+      comments: [sampleComment],
+    });
+    const ui = new UIModule(config);
+    await Promise.resolve();
+    expect(config.comments.importComments).toHaveBeenCalledWith([
+      sampleComment,
+    ]);
   });
 
   it('skips restore when draft matches current content', async () => {

@@ -8,6 +8,7 @@ import {
 } from 'vitest';
 import { CommentController } from '@modules/ui/comments/CommentController';
 import { MODULE_EVENTS } from '@modules/ui/shared';
+import { getAnimationDuration } from '@modules/ui/constants';
 
 type CommentMatch = {
   type: string;
@@ -147,13 +148,18 @@ const attachController = () => {
 };
 
 describe('CommentController section comment caching', () => {
-  beforeEach(() => {
-    document.body.innerHTML = `
+beforeEach(() => {
+  document.body.innerHTML = `
       <div class="review-main">
         <div data-review-id="section-1" class="review-editable">Paragraph content</div>
       </div>
     `;
-  });
+});
+
+afterEach(() => {
+  document.body.innerHTML = '';
+  vi.useRealTimers();
+});
 
   it('caches markup after adding a new section comment', () => {
     const { controller, configBundle } = attachController();
@@ -228,5 +234,98 @@ describe('CommentController section comment caching', () => {
     expect(controller['sectionCommentCache'].get('section-1')).toContain(
       '{>>submitted comment<<}'
     );
+  });
+
+  it('highlights comment sections and sanitizes inline artifacts', () => {
+    const { controller, mocks } = attachController();
+    document.body.appendChild(mocks.sidebarElement);
+    const section = document.querySelector(
+      '[data-review-id="section-1"]'
+    ) as HTMLElement;
+
+    const criticComment = document.createElement('span');
+    criticComment.dataset.criticType = 'comment';
+    section.appendChild(criticComment);
+
+    const criticHighlight = document.createElement('span');
+    criticHighlight.dataset.criticType = 'highlight';
+    criticHighlight.dataset.commentAnchor = 'section-1:0';
+    criticHighlight.tabIndex = 0;
+    criticHighlight.setAttribute('role', 'button');
+    section.appendChild(criticHighlight);
+
+    const commentItem = document.createElement('div');
+    commentItem.className = 'review-comment-item';
+    commentItem.dataset.elementId = 'section-1';
+    commentItem.dataset.commentKey = 'section-1:0';
+    mocks.body.appendChild(commentItem);
+
+    controller.highlightSection('section-1', 'hover', 'section-1:0');
+
+    expect(section.classList.contains('review-comment-section-highlight')).toBe(
+      true
+    );
+    expect(commentItem.classList.contains('review-comment-item-highlight')).toBe(
+      true
+    );
+    expect(criticComment.style.display).toBe('none');
+    expect(criticComment.getAttribute('aria-hidden')).toBe('true');
+    expect(criticHighlight.getAttribute('data-comment-anchor')).toBeNull();
+    expect(criticHighlight.classList.contains('review-comment-anchor')).toBe(
+      false
+    );
+    mocks.sidebarElement.remove();
+  });
+
+  it('clears highlight state based on source prioritisation', () => {
+    const { controller } = attachController();
+    const section = document.querySelector(
+      '[data-review-id="section-1"]'
+    ) as HTMLElement;
+
+    controller.highlightSection('section-1', 'composer', 'section-1:0');
+    expect(section.classList.contains('review-comment-section-highlight')).toBe(
+      true
+    );
+
+    controller.clearHighlight('composer');
+    expect(section.classList.contains('review-comment-section-highlight')).toBe(
+      false
+    );
+
+    controller.highlightSection('section-1', 'hover');
+    expect(section.classList.contains('review-comment-section-highlight')).toBe(
+      true
+    );
+    controller.clearHighlight('hover');
+    expect(section.classList.contains('review-comment-section-highlight')).toBe(
+      false
+    );
+  });
+
+  it('focuses comment anchors and removes highlight after animation duration', () => {
+    vi.useFakeTimers();
+    const { controller } = attachController();
+    const section = document.querySelector(
+      '[data-review-id="section-1"]'
+    ) as HTMLElement;
+    const anchor = document.createElement('span');
+    anchor.dataset.commentAnchor = 'section-1:0';
+    anchor.scrollIntoView = vi.fn();
+    section.appendChild(anchor);
+
+    controller.focusCommentAnchor('section-1', 'section-1:0');
+
+    expect(anchor.classList.contains('review-comment-anchor-highlight')).toBe(
+      true
+    );
+
+    vi.advanceTimersByTime(getAnimationDuration('LONG_HIGHLIGHT'));
+    vi.advanceTimersByTime(getAnimationDuration('LONG_HIGHLIGHT'));
+
+    expect(anchor.classList.contains('review-comment-anchor-highlight')).toBe(
+      false
+    );
+    vi.useRealTimers();
   });
 });

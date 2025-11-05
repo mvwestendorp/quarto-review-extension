@@ -1,6 +1,6 @@
 /**
  * Gitea/Forgejo Provider
- * Gitea and Forgejo share the same API
+ * Gitea and Forgejo share the same API surface.
  */
 
 import {
@@ -17,6 +17,33 @@ import type {
   ReviewCommentInput,
   ReviewCommentResult,
 } from '../types';
+
+function decodeBase64(content: string): string {
+  if (typeof atob === 'function') {
+    return decodeURIComponent(
+      Array.prototype.map
+        .call(
+          atob(content),
+          (c: string) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
+        )
+        .join('')
+    );
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(content, 'base64').toString('utf-8');
+  }
+  throw new Error('Base64 decoding is not supported in this environment');
+}
+
+function encodeBase64(content: string): string {
+  if (typeof btoa === 'function') {
+    return btoa(unescape(encodeURIComponent(content)));
+  }
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(content, 'utf-8').toString('base64');
+  }
+  throw new Error('Base64 encoding is not supported in this environment');
+}
 
 export class GiteaProvider extends BaseProvider {
   constructor(config: ProviderConfig) {
@@ -38,31 +65,100 @@ export class GiteaProvider extends BaseProvider {
   }
 
   async getCurrentUser(): Promise<GitUser> {
-    return this.notImplemented();
+    const response = await this.request<GiteaCurrentUser>('/user');
+    return {
+      login: response.login,
+      name: response.full_name ?? undefined,
+      avatarUrl: response.avatar_url ?? undefined,
+    };
   }
 
   async createBranch(
-    _branchName: string,
-    _fromBranch: string
+    branchName: string,
+    fromBranch: string
   ): Promise<CreateBranchResult> {
-    return this.notImplemented();
+    const baseRef = await this.request<GiteaRef>(
+      `/repos/${this.config.owner}/${this.config.repo}/git/refs/heads/${encodeURIComponent(
+        fromBranch
+      )}`
+    );
+
+    const response = await this.request<GiteaRef>(
+      `/repos/${this.config.owner}/${this.config.repo}/git/refs`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ref: `refs/heads/${branchName}`,
+          sha: baseRef.object.sha,
+        }),
+      }
+    );
+
+    return {
+      name: response.ref,
+      sha: response.object.sha,
+    };
   }
 
   async getFileContent(
-    _path: string,
-    _ref: string
+    path: string,
+    ref: string
   ): Promise<RepositoryFile | null> {
-    return this.notImplemented();
+    const endpoint = `/repos/${this.config.owner}/${this.config.repo}/contents/${encodeURIComponent(
+      path
+    )}?ref=${encodeURIComponent(ref)}`;
+
+    try {
+      const response = await this.request<GiteaFileContent>(endpoint);
+
+      return {
+        path: response.path,
+        sha: response.sha ?? response.git_url ?? '',
+        content: decodeBase64(response.content),
+      };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error as Error & { status?: number }).status === 404
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   async createOrUpdateFile(
-    _path: string,
-    _content: string,
-    _message: string,
-    _branch: string,
-    _sha?: string
+    path: string,
+    content: string,
+    message: string,
+    branch: string,
+    sha?: string
   ): Promise<FileUpsertResult> {
-    return this.notImplemented();
+    const endpoint = `/repos/${this.config.owner}/${this.config.repo}/contents/${encodeURIComponent(
+      path
+    )}`;
+
+    const response = await this.request<GiteaFileResponse>(endpoint, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message,
+        content: encodeBase64(content),
+        branch,
+        sha,
+      }),
+    });
+
+    const fileUrl =
+      response.content.html_url ?? this.buildFileUrl(branch, path);
+
+    return {
+      path: response.content.path,
+      sha: response.content.sha,
+      commitSha: response.commit.sha,
+      ...(fileUrl ? { url: fileUrl } : {}),
+    };
   }
 
   async createPullRequest(
@@ -87,10 +183,21 @@ export class GiteaProvider extends BaseProvider {
   }
 
   async updatePullRequest(
-    _number: number,
-    _updates: Partial<Pick<PullRequest, 'title' | 'body'>>
+    number: number,
+    updates: Partial<Pick<PullRequest, 'title' | 'body'>>
   ): Promise<PullRequest> {
-    return this.notImplemented();
+    const endpoint = `/repos/${this.config.owner}/${this.config.repo}/pulls/${number}`;
+
+    const response = await this.request<GiteaPullRequest>(endpoint, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: updates.title,
+        body: updates.body,
+      }),
+    });
+
+    return this.mapPullRequest(response);
   }
 
   async getPullRequest(number: number): Promise<PullRequest> {
@@ -122,11 +229,42 @@ export class GiteaProvider extends BaseProvider {
   }
 
   async createReviewComments(
-    _number: number,
-    _comments: ReviewCommentInput[],
-    _commitSha: string
+    number: number,
+    comments: ReviewCommentInput[],
+    commitSha: string
   ): Promise<ReviewCommentResult[]> {
-    return this.notImplemented();
+    if (!comments.length) {
+      return [];
+    }
+
+    const endpoint = `/repos/${this.config.owner}/${this.config.repo}/pulls/${number}/reviews`;
+
+    const response = await this.request<GiteaReviewResponse>(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event: 'COMMENT',
+        body: '',
+        commit_id: commitSha,
+        comments: comments.map((comment) => ({
+          path: comment.path,
+          line: comment.line,
+          side: comment.side ?? 'RIGHT',
+          body: comment.body,
+        })),
+      }),
+    });
+
+    return response.comments.map((comment) => {
+      const url = comment.html_url ?? this.buildPullRequestUrl(number) ?? '';
+
+      return {
+        id: comment.id,
+        url,
+        path: comment.path,
+        line: comment.line,
+      };
+    });
   }
 
   async createIssue(title: string, body: string): Promise<Issue> {
@@ -193,7 +331,9 @@ export class GiteaProvider extends BaseProvider {
   }
 
   async hasWriteAccess(): Promise<boolean> {
-    return this.notImplemented();
+    const endpoint = `/repos/${this.config.owner}/${this.config.repo}`;
+    const response = await this.request<GiteaRepository>(endpoint);
+    return Boolean(response.permissions?.push);
   }
 
   private mapPullRequest(pr: GiteaPullRequest): PullRequest {
@@ -206,6 +346,9 @@ export class GiteaProvider extends BaseProvider {
       createdAt: pr.created_at,
       updatedAt: pr.updated_at,
       url: pr.html_url,
+      headRef: pr.head?.ref ?? pr.head?.label,
+      baseRef: pr.base?.ref ?? pr.base?.label,
+      draft: pr.draft ?? false,
     };
   }
 
@@ -221,14 +364,51 @@ export class GiteaProvider extends BaseProvider {
     };
   }
 
-  private notImplemented<T = never>(): T {
-    throw new Error('Gitea provider git integration is not implemented yet');
+  private buildFileUrl(branch: string, path: string): string | undefined {
+    const baseUrl = this.getWebBaseUrl();
+    if (!baseUrl || !this.config.owner || !this.config.repo) {
+      return undefined;
+    }
+    return `${baseUrl}/${this.config.owner}/${this.config.repo}/src/branch/${encodeURIComponent(
+      branch
+    )}/${path}`;
+  }
+
+  private buildPullRequestUrl(number: number): string | undefined {
+    const baseUrl = this.getWebBaseUrl();
+    if (!baseUrl || !this.config.owner || !this.config.repo) {
+      return undefined;
+    }
+    return `${baseUrl}/${this.config.owner}/${this.config.repo}/pulls/${number}`;
+  }
+
+  private getWebBaseUrl(): string | undefined {
+    if (!this.config.url) {
+      return undefined;
+    }
+    return this.config.url.replace(/\/api\/v1\/?$/, '');
   }
 }
 
 // Gitea API types
 interface GiteaUser {
   login: string;
+}
+
+interface GiteaCurrentUser extends GiteaUser {
+  full_name?: string;
+  avatar_url?: string;
+}
+
+interface GiteaRef {
+  ref: string;
+  node_id?: string;
+  url?: string;
+  object: {
+    sha: string;
+    type: string;
+    url?: string;
+  };
 }
 
 interface GiteaPullRequest {
@@ -241,6 +421,15 @@ interface GiteaPullRequest {
   created_at: string;
   updated_at: string;
   html_url: string;
+  head?: {
+    ref?: string;
+    label?: string;
+  };
+  base?: {
+    ref?: string;
+    label?: string;
+  };
+  draft?: boolean;
 }
 
 interface GiteaIssue {
@@ -253,11 +442,48 @@ interface GiteaIssue {
   html_url: string;
 }
 
+interface GiteaFileContent {
+  path: string;
+  sha?: string;
+  git_url?: string;
+  content: string;
+}
+
+interface GiteaFileResponse {
+  content: {
+    path: string;
+    sha: string;
+    html_url?: string;
+  };
+  commit: {
+    sha: string;
+  };
+}
+
+interface GiteaReviewResponse {
+  id: number;
+  body: string;
+  commit_id: string;
+  comments: Array<{
+    id: number;
+    path: string;
+    line: number;
+    side?: 'LEFT' | 'RIGHT';
+    body: string;
+    html_url?: string;
+  }>;
+}
+
 interface GiteaRepository {
   name: string;
   description: string;
   html_url: string;
   default_branch: string;
+  permissions?: {
+    admin?: boolean;
+    push?: boolean;
+    pull?: boolean;
+  };
 }
 
 // ForgejoProvider is an alias for GiteaProvider (same API)

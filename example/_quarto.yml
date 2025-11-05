@@ -27,5 +27,18 @@ review:
     modules:
       - UIModule
       - ChangesModule
+      - TranslationModule
+      - TranslationState
+      - TranslationController
+      - TranslationView
+      - TranslationChangesModule
+  git:
+    provider: github
+    owner: mvwestendorp
+    repo: quarto-review-extension-github-demo
+    base-branch: main # optional; defaults to `main`
+    auth:
+      mode: pat
+      token: ''
 filters:
   - review

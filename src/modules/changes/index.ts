@@ -19,12 +19,20 @@ import {
   changesToCriticMarkup,
   stripCriticMarkup,
 } from './converters';
+import {
+  ChangesExtensionRegistry,
+  type ChangesExtension,
+  type ExtensionChange,
+} from './extensions';
 
 export class ChangesModule {
   private originalElements: Element[] = [];
   private operations: Operation[] = [];
   private redoStack: Operation[] = [];
   private saved: boolean = true;
+  // Track the baseline (content before current edit session) for each element
+  private elementBaselines: Map<string, string> = new Map();
+  private readonly extensionRegistry = new ChangesExtensionRegistry(this);
 
   /**
    * Initialize from DOM - parse HTML to extract original elements
@@ -155,9 +163,13 @@ export class ChangesModule {
       data,
     };
 
+    this.extensionRegistry.emit('beforeOperation', { operation });
+
     this.operations.push(operation);
     this.redoStack = []; // Clear redo stack when new operation is added
     this.saved = false;
+
+    this.extensionRegistry.emit('afterOperation', { operation });
   }
 
   /**
@@ -167,7 +179,7 @@ export class ChangesModule {
     content: string,
     metadata: ElementMetadata,
     position: InsertData['position'],
-    userId?: string,
+    source?: string,
     options?: { parentId?: string; generated?: boolean }
   ): string {
     const elementId = `temp-${this.generateOperationId()}`;
@@ -178,9 +190,10 @@ export class ChangesModule {
       position,
       parentId: options?.parentId,
       generated: options?.generated,
+      source,
     };
 
-    this.addOperation('insert', elementId, data, userId);
+    this.addOperation('insert', elementId, data, source);
     return elementId;
   }
 
@@ -269,7 +282,7 @@ export class ChangesModule {
   /**
    * Delete an element
    */
-  public delete(elementId: string, userId?: string): void {
+  public delete(elementId: string, source?: string): void {
     const element = this.findElement(elementId);
     if (!element) {
       throw new Error(`Element ${elementId} not found`);
@@ -279,9 +292,10 @@ export class ChangesModule {
       type: 'delete',
       originalContent: element.content,
       originalMetadata: element.metadata,
+      source,
     };
 
-    this.addOperation('delete', elementId, data, userId);
+    this.addOperation('delete', elementId, data, source);
   }
 
   /**
@@ -290,7 +304,7 @@ export class ChangesModule {
   public edit(
     elementId: string,
     newContent: string,
-    userId?: string,
+    source?: string,
     newMetadata?: ElementMetadata
   ): void {
     const element = this.findElement(elementId);
@@ -318,6 +332,7 @@ export class ChangesModule {
       oldContent,
       newContent,
       changes,
+      source,
     };
 
     if (metadataChanged) {
@@ -325,7 +340,7 @@ export class ChangesModule {
       data.newMetadata = newMetadata;
     }
 
-    this.addOperation('edit', elementId, data, userId);
+    this.addOperation('edit', elementId, data, source);
   }
 
   /**
@@ -335,15 +350,16 @@ export class ChangesModule {
     elementId: string,
     fromPosition: number,
     toPosition: number,
-    userId?: string
+    source?: string
   ): void {
     const data: MoveData = {
       type: 'move',
       fromPosition,
       toPosition,
+      source,
     };
 
-    this.addOperation('move', elementId, data, userId);
+    this.addOperation('move', elementId, data, source);
   }
 
   /**
@@ -355,6 +371,8 @@ export class ChangesModule {
 
     this.redoStack.push(operation);
     this.saved = false;
+    // Clear baselines when undoing to ensure tracked changes are recalculated
+    this.clearAllBaselines();
     return true;
   }
 
@@ -371,6 +389,8 @@ export class ChangesModule {
 
     this.operations.push(operation);
     this.saved = false;
+    // Clear baselines when redoing to ensure tracked changes are recalculated
+    this.clearAllBaselines();
     return true;
   }
 
@@ -398,6 +418,52 @@ export class ChangesModule {
   public getElementById(id: string): Element | null {
     const element = this.findElement(id);
     return element || null;
+  }
+
+  /**
+   * Register an extension that hooks into the change lifecycle.
+   */
+  public registerExtension(extension: ChangesExtension): () => void {
+    return this.extensionRegistry.registerExtension(extension);
+  }
+
+  /**
+   * Apply a change originating from an extension.
+   */
+  public applyExtensionChange(change: ExtensionChange): string | void {
+    switch (change.type) {
+      case 'edit':
+        this.edit(
+          change.elementId,
+          change.newContent,
+          change.source,
+          change.metadata
+        );
+        return;
+      case 'insert':
+        return this.insert(
+          change.content,
+          change.metadata,
+          change.position,
+          change.source,
+          change.options
+        );
+      case 'delete':
+        this.delete(change.elementId, change.source);
+        return;
+      case 'move':
+        this.move(
+          change.elementId,
+          change.fromPosition,
+          change.toPosition,
+          change.source
+        );
+        return;
+      default: {
+        const exhaustive: never = change;
+        return exhaustive;
+      }
+    }
   }
 
   /**
@@ -600,8 +666,10 @@ export class ChangesModule {
    * and applies tracked changes in accept mode.
    */
   public toCleanMarkdown(): string {
-    const elements = this.getCurrentState();
-    return elements.map((e) => stripCriticMarkup(e.content, true)).join('\n\n');
+    const markdown = this.toMarkdown();
+    return stripCriticMarkup(markdown, true, {
+      preserveCommentsAsHtml: true,
+    });
   }
 
   /**
@@ -690,10 +758,21 @@ export class ChangesModule {
     return current.find((e) => e.id === id);
   }
 
+  /**
+   * Get the baseline content for an element (content before current edit session)
+   * This is used to display tracked changes in CriticMarkup format
+   */
   private getElementBaseline(id: string): string {
+    // If a baseline was explicitly set for this element, use it
+    if (this.elementBaselines.has(id)) {
+      return this.elementBaselines.get(id) || '';
+    }
+
+    // Otherwise, use the original element content if it exists
     const original = this.findOriginalElement(id);
     if (original) return original.content;
 
+    // For newly inserted elements, use the content from the first insert operation
     const firstInsert = this.operations.find(
       (op) => op.type === 'insert' && op.elementId === id
     );
@@ -703,6 +782,30 @@ export class ChangesModule {
     }
 
     return '';
+  }
+
+  /**
+   * Set or update the baseline for an element
+   * This is called when opening an element for editing to preserve the current state
+   * as the "baseline" for diff calculations
+   */
+  public setElementBaseline(id: string, content: string): void {
+    this.elementBaselines.set(id, content);
+  }
+
+  /**
+   * Clear the baseline for an element (called when closing the editor)
+   * This allows the module to revert to using original/insert content as baseline
+   */
+  public clearElementBaseline(id: string): void {
+    this.elementBaselines.delete(id);
+  }
+
+  /**
+   * Clear all element baselines (called on undo/redo to reset tracking)
+   */
+  public clearAllBaselines(): void {
+    this.elementBaselines.clear();
   }
 
   private findOriginalElement(id: string): Element | undefined {
@@ -744,7 +847,17 @@ export class ChangesModule {
     this.operations = [];
     this.redoStack = [];
     this.saved = true;
+    this.elementBaselines.clear();
   }
 }
+
+export type {
+  ChangesExtension,
+  ChangesExtensionContext,
+  ChangesExtensionEvent,
+  ExtensionChange,
+  ExtensionEventHandler,
+  ExtensionEventPayload,
+} from './extensions';
 
 export default ChangesModule;

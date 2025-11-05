@@ -1,0 +1,106 @@
+Bugs
+
+- Consistency in configuring review
+    - Git means git everywhere, not for single document
+- Document PAT permissions
+- Adding a new segment/section does not show up in the html/Milkdown formatting as a change
+- Update documentation
+    - Have clear separation between user and developer documentation
+    - Remove development documents 
+    - Have it all published on GitHub
+- refactor & modularise ?
+
+## UI
+
+- Collapsing/expanding the sidebars should not influence the horizontal size of the document if there is sufficient room available for all windows
+- The arrow button is in the wrong direction on the collapsed comments window
+- Restructure the interface: Review on the right, configuration on the left.
+- Lists have different html formatting when being edited.
+- Add summary on the number of changes and comment in the export UI
+
+## Export
+
+- For code blocks that show in the document or have tables or figures, the export should reconstruct the label, caption and other option given by the #| label: fig-this-is-a-codeblock-for-a-figure
+- Translation export should also export the complete Quarto project.
+
+
+## Milkdown
+
+- Editing comments can use the Milkdown editor too for formatting. CriticMarkup should be disabled.
+- CriticMarkup is not shown consistently. Pre-existing criticmarkup in the original markdown only shows in the html after an edit. Adding CriticMarkup syntax manually shows up in the html, but only for the characters of the syntax itself, which are shown as whitespaces with a green line. Reopening the editor does show the expected formatting in Milkdown.
+- An important improvement is to edit the markdown including the changes in the editor window. So if text is deleted, it should show up with strikethrough markings when opening it for editing again. Now the resulting text is shown without any markings related to CriticMarkup. Adding CriticMarkup syntax manually is now seen as an addition of those characters.
+- When adding text which forms a new section, the formatting doesn't show that this is an addition using the green line. It also doesn't show up with CriticMarkup in the export.
+
+## Translation
+
+- Translation config UI
+    - Source and Target drop down don't do much. Swapping languages shouldn't be necessary. The naming isn't really correct since the translation process can be in two directions, first language 1, translate, work in language 2, translate, work in language 1, etc, To prevent an infinite loop, the user's changes should result in a change in the translation, but that shouldn't lead to a new translation unless there are inconsistencies, in which case this should be the user who decides on what to do.
+- The labelling/visuals for original, vs manual vs automatic translation should be on a sentence and word level. 
+- The messages in the top right overlap when there are multiple messages.
+- The markdown formatting is not in automatically translated text. E.g. headings etc should be reapplied. The editing experience should be the same as in the review mode.
+
+## UI
+
+- Do UI integration in the review module, to show which section have a translation, what type and whether it is up to date by using some visual per segment in the top right. Make the translation module available on a segment level.
+- Bug where comment visual UI element are not consistently restored. For example, I have made a comment for two sections but after refreshing I only see the visual in the corner of the section for one comment. The two comments are visible in the sidebar.
+
+## Structure
+
+Use same terminology throughout the applications
+
+## Tests
+
+Check all buttons for side effects. Opening & closing the translation window changes the document causing a lot of deletions.
+
+---
+
+# Update to review workflow
+
+## Status quo
+
+Use Quarto + webpage for publishing reports
+But drafts are in Word version
+
+Reviewing is more labour intensive:
+
+- Reviewers either see non-final version (Word) or have to copy-paste
+- Reconciling reviews is copy-pasting again
+
+## Solution
+
+Opportunity: directly work in webpage output, feeding back suggestion to source files
+
+- Use a Quarto extension to add a review module in the browser
+- Send review to backend on git provider for reconciliation
+- Bonus: options for improving handling multilingual reports
+
+## Advantages
+
+- Original reports remain untouched
+- Complex reconciliation systems are pre-existing
+- Review report in the form it is published in
+
+## Limitations
+
+Not intended as a complete editor!
+
+Writing complete reports is not supported.
+
+Use existing tools for this.
+
+## Functionality
+
+- Edit text in place (with editing options)
+- Track changes
+- Add comments
+- Send back reviews in a consistent format
+
+## Editing text
+
+
+## Adding comment
+
+## Submitting a review
+
+## Bonus: Translation
+

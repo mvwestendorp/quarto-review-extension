@@ -1,6 +1,7 @@
 import { createModuleLogger } from '@utils/debug';
 import type { CriticMarkupMatch } from '@modules/comments';
 import type { SectionCommentSnapshot } from './CommentController';
+import { escapeHtml } from '../shared';
 
 const logger = createModuleLogger('CommentsSidebar');
 
@@ -92,10 +93,10 @@ export class CommentsSidebar {
       section.className = 'review-comments-section';
       section.dataset.sectionId = snapshot.element.id;
 
-      const header = document.createElement('div');
+      /*const header = document.createElement('div');
       header.className = 'review-comments-section-header';
       header.textContent = this.getSectionLabel(snapshot);
-      section.appendChild(header);
+      section.appendChild(header);*/
 
       const list = document.createElement('div');
       list.className = 'review-comments-list';
@@ -229,7 +230,7 @@ export class CommentsSidebar {
 
     const body = document.createElement('div');
     body.className = 'review-comment-item-body';
-    body.innerHTML = `<div class="review-comment-text">${this.escapeHtml(
+    body.innerHTML = `<div class="review-comment-text">${escapeHtml(
       this.extractPlainText(match.content)
     )}</div>`;
     container.appendChild(body);
@@ -271,22 +272,7 @@ export class CommentsSidebar {
     return container;
   }
 
-  private getSectionLabel(snapshot: SectionCommentSnapshot): string {
-    const plain = this.extractPlainText(snapshot.element.content);
-    const type = snapshot.element.metadata.type;
-    return plain ? `${type}: ${plain}` : type;
-  }
-
   private extractPlainText(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
-  }
-
-  private escapeHtml(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
   }
 }

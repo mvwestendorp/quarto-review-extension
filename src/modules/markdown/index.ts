@@ -49,6 +49,13 @@ export class MarkdownModule {
     };
   }
 
+  /**
+   * Get the renderer instance for extension/customization
+   */
+  public getRenderer(): MarkdownRenderer {
+    return this.renderer;
+  }
+
   private resolveRendererOptions(
     override?: Partial<RendererOptions>
   ): RendererOptions {

@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import type { ReviewGitConfig } from '@/types';
-import GitModule from '@/modules/git/index';
 import type { BaseProvider } from '@/modules/git/providers';
 
 // Mock dependencies
@@ -20,9 +19,26 @@ vi.mock('@utils/debug', () => ({
     error: vi.fn(),
   })),
 }));
+const integrationSubmitReviewMock = vi.fn();
+const integrationGetRepositoryConfigMock = vi.fn();
 
+vi.mock('@/modules/git/integration', () => {
+  class GitIntegrationServiceMock {
+    submitReview = integrationSubmitReviewMock;
+    getRepositoryConfig = integrationGetRepositoryConfigMock;
+    getProvider = vi.fn();
+  }
+
+  return {
+    __esModule: true,
+    default: GitIntegrationServiceMock,
+  };
+});
+
+import GitModule from '@/modules/git/index';
 import { resolveGitConfig } from '@/modules/git/config';
 import { createProvider } from '@/modules/git/providers';
+import GitIntegrationService from '@/modules/git/integration';
 
 describe('GitModule', () => {
   beforeEach(() => {
@@ -43,6 +59,7 @@ describe('GitModule', () => {
     it('initializes with valid config', () => {
       const mockProvider = {
         getCurrentUser: vi.fn(),
+        updateAuthToken: vi.fn(),
       } as unknown as BaseProvider;
 
       const mockResolution = {
@@ -138,26 +155,21 @@ describe('GitModule', () => {
   });
 
   describe('submitReview', () => {
-    it('throws error when git integration is disabled', async () => {
+    it('throws error when git integration is disabled', () => {
       vi.mocked(resolveGitConfig).mockReturnValueOnce(null);
 
       const module = new GitModule();
 
-      await expect(
+      expect(() =>
         module.submitReview({
           reviewer: 'test-user',
-          changes: {},
+          files: [{ path: 'document.qmd', content: 'content' }],
+          pullRequest: { title: 'Review' },
         })
-      ).rejects.toThrow('Git integration is not configured');
+      ).toThrow('Git integration is not configured');
     });
 
     it('calls integration service when enabled', async () => {
-      const mockIntegration = {
-        submitReview: vi.fn().mockResolvedValueOnce(undefined),
-        getRepositoryConfig: vi.fn(),
-        getProvider: vi.fn(),
-      };
-
       const mockResolution = {
         config: {
           provider: 'github' as const,
@@ -173,11 +185,41 @@ describe('GitModule', () => {
       vi.mocked(resolveGitConfig).mockReturnValueOnce(mockResolution);
       vi.mocked(createProvider).mockReturnValueOnce({} as BaseProvider);
 
-      // We need to manually inject the integration since we can't easily mock the constructor
+      integrationSubmitReviewMock.mockResolvedValueOnce({
+        branchName: 'feature/review',
+        baseBranch: 'main',
+        pullRequest: {
+          number: 123,
+          title: 'Review',
+          body: '',
+          state: 'open',
+          author: 'bot',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          url: 'https://example.com/pr/123',
+        },
+        files: [
+          {
+            path: 'document.qmd',
+            sha: '123',
+            commitSha: 'commit-1',
+          },
+        ],
+        reusedPullRequest: false,
+      });
+
       const module = new GitModule({ provider: 'github', owner: 'test-owner', repo: 'test-repo' });
 
-      // Note: This test would need refactoring to properly mock the integration service
-      // The current implementation doesn't expose integration for testing
+      const payload = {
+        reviewer: 'test-user',
+        files: [{ path: 'document.qmd', content: 'content' }],
+        pullRequest: { title: 'Review' },
+      };
+
+      const result = await module.submitReview(payload);
+
+      expect(integrationSubmitReviewMock).toHaveBeenCalledWith(payload);
+      expect(result.pullRequest.number).toBe(123);
     });
   });
 

@@ -208,6 +208,16 @@ export class CommentsModule {
     return Array.from(this.comments.values());
   }
 
+  public importComments(comments: Comment[]): void {
+    this.comments.clear();
+    comments.forEach((comment) => {
+      if (!comment?.id) {
+        return;
+      }
+      this.comments.set(comment.id, { ...comment });
+    });
+  }
+
   /**
    * Resolve a comment
    */

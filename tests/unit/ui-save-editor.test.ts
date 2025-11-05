@@ -55,10 +55,16 @@ const {
       onClearDrafts: vi.fn(),
       onExportClean: vi.fn(),
       onExportCritic: vi.fn(),
+      onSubmitReview: vi.fn(),
+      setSubmitReviewEnabled: vi.fn(),
+      setSubmitReviewPending: vi.fn(),
       setCollapsed: vi.fn(),
       setTrackedChangesVisible: vi.fn(),
       updateUndoRedoState: vi.fn(),
       setHasUnsavedChanges: vi.fn(),
+      onToggleTranslation: vi.fn(),
+      setTranslationEnabled: vi.fn(),
+      setTranslationActive: vi.fn(),
       destroy: vi.fn(),
     };
   });
@@ -221,6 +227,10 @@ const createStubConfig = (
       hasUnsavedOperations: vi.fn().mockReturnValue(false),
       markAsSaved: vi.fn(),
       toMarkdown: changeMocks.toMarkdown,
+      setElementBaseline: vi.fn(),
+      clearElementBaseline: vi.fn(),
+      getElementBaseline: vi.fn(),
+      clearAllBaselines: vi.fn(),
     } as any,
     markdown: {
       render: vi.fn((input) => markdownModule.render(input)),
@@ -566,7 +576,7 @@ describe('UIModule.saveEditor comment handling', () => {
           content: 'Original content',
         }),
       ]),
-      undefined
+      expect.any(Object)
     );
   });
 });

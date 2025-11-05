@@ -410,6 +410,9 @@ describe('GitHubProvider', () => {
         createdAt: '2024-01-01T00:00:00Z',
         updatedAt: '2024-01-01T00:00:00Z',
         url: 'https://github.com/test-owner/test-repo/pull/42',
+        headRef: undefined,
+        baseRef: undefined,
+        draft: false,
       });
     });
 
@@ -448,8 +451,32 @@ describe('GitHubProvider', () => {
       const prs = await provider.listPullRequests('open');
 
       expect(prs).toHaveLength(2);
-      expect(prs[0].number).toBe(1);
-      expect(prs[1].number).toBe(2);
+      expect(prs[0]).toEqual({
+        number: 1,
+        title: 'First PR',
+        body: 'First',
+        state: 'open',
+        author: 'user1',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        url: 'https://github.com/test-owner/test-repo/pull/1',
+        headRef: undefined,
+        baseRef: undefined,
+        draft: false,
+      });
+      expect(prs[1]).toEqual({
+        number: 2,
+        title: 'Second PR',
+        body: 'Second',
+        state: 'open',
+        author: 'user2',
+        createdAt: '2024-01-02T00:00:00Z',
+        updatedAt: '2024-01-02T00:00:00Z',
+        url: 'https://github.com/test-owner/test-repo/pull/2',
+        headRef: undefined,
+        baseRef: undefined,
+        draft: false,
+      });
 
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining('state=open'),
