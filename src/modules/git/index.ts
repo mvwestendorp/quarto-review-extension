@@ -9,6 +9,7 @@ import GitIntegrationService, {
 } from './integration';
 import type { ResolvedGitConfig } from './types';
 import { EmbeddedSourceStore, type EmbeddedSourceRecord } from './fallback';
+import { GitConfigError, GitError } from './errors';
 
 const logger = createModuleLogger('GitModule');
 
@@ -118,10 +119,21 @@ export class GitModule {
     payload: ReviewSubmissionPayload
   ): Promise<ReviewSubmissionResult> {
     if (!this.integration) {
-      throw new Error('Git integration is not configured');
+      throw new GitConfigError(
+        'Git integration is not configured. Add review.git configuration to your document metadata.'
+      );
     }
 
-    return this.integration.submitReview(payload);
+    try {
+      return this.integration.submitReview(payload);
+    } catch (error) {
+      const gitError = new GitError(
+        'Failed to submit review',
+        error instanceof Error ? error : undefined
+      );
+      logger.error('Review submission failed:', gitError);
+      throw gitError;
+    }
   }
 
   /**
@@ -135,19 +147,29 @@ export class GitModule {
   ): Promise<string> {
     const message = typeof _summary === 'string' ? _summary : 'Update file';
 
-    if (!this.integration) {
-      const result = await this.fallbackStore.saveFile(
-        _filepath,
-        _content,
-        message
-      );
-      return result.version;
-    }
+    try {
+      if (!this.integration) {
+        const result = await this.fallbackStore.saveFile(
+          _filepath,
+          _content,
+          message
+        );
+        logger.info(`Saved to fallback store: ${_filepath} (v${result.version})`);
+        return result.version;
+      }
 
-    logger.warn(
-      'Direct git saves are not supported yet. Submit a review instead.'
-    );
-    return '';
+      logger.warn(
+        'Direct git saves are not supported yet. Submit a review instead.'
+      );
+      return '';
+    } catch (error) {
+      const gitError = new GitError(
+        `Failed to save file: ${_filepath}`,
+        error instanceof Error ? error : undefined
+      );
+      logger.error('Save operation failed:', gitError);
+      throw gitError;
+    }
   }
 
   public async listEmbeddedSources(): Promise<EmbeddedSourceRecord[]> {
@@ -169,5 +191,17 @@ export type {
 } from './integration';
 
 export type { ReviewFileChange, ReviewComment } from './integration';
+
+// Export error classes for proper error handling
+export {
+  GitError,
+  GitConfigError,
+  GitAuthError,
+  GitNetworkError,
+  GitProviderError,
+  GitValidationError,
+  isGitError,
+  isRetryableError,
+} from './errors';
 
 export default GitModule;

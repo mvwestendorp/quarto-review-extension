@@ -52,7 +52,7 @@ import type { MarkdownModule } from '@modules/markdown';
 import type { CommentsModule } from '@modules/comments';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import type { Element as ReviewElement, ElementMetadata } from '@/types';
-import { UI_CONSTANTS, getAnimationDuration } from './constants';
+import { UI_CONSTANTS } from './constants';
 import { TranslationController } from './translation/TranslationController';
 import { TranslationPlugin } from './plugins/TranslationPlugin';
 import type {
@@ -64,6 +64,9 @@ import type {
   TranslationModule,
   TranslationModuleConfig,
 } from '@modules/translation';
+import { NotificationService } from '@/services/NotificationService';
+import { LoadingService } from '@/services/LoadingService';
+import { PersistenceManager } from '@/services/PersistenceManager';
 
 const logger = createModuleLogger('UIModule');
 
@@ -121,6 +124,10 @@ export class UIModule {
   private translationModule?: TranslationModule;
   private pluginHandles = new Map<string, PluginHandle>();
   private translationPlugin: TranslationPlugin | null = null;
+  private isEditorOperationInProgress = false; // Prevent concurrent editor operations
+  private notificationService: NotificationService;
+  private loadingService: LoadingService;
+  private persistenceManager: PersistenceManager;
   // UI plugins will be introduced during extension refactor (Phase 3)
 
   constructor(config: UIConfig) {
@@ -130,6 +137,11 @@ export class UIModule {
     this.userModule = config.user;
     this.localPersistence = config.persistence;
     this.translationModule = config.translation;
+
+    // Initialize services
+    this.notificationService = new NotificationService();
+    this.loadingService = new LoadingService();
+
     logger.debug(
       'Initialized with tracked changes:',
       this.editorState.showTrackedChanges
@@ -161,7 +173,7 @@ export class UIModule {
           this.showNotification(message, type),
         onComposerClosed: () =>
           this.commentController.clearHighlight('composer'),
-        persistDocument: () => this.persistDocument(),
+        persistDocument: () => this.persistenceManager.persistDocument(),
       },
     });
     this.contextMenuCoordinator = new ContextMenuCoordinator({
@@ -180,6 +192,35 @@ export class UIModule {
       maxSize: UI_CONSTANTS.MAX_HISTORY_SIZE_BYTES,
       maxStates: UI_CONSTANTS.MAX_HISTORY_STATES,
     });
+
+    // Initialize persistence manager
+    this.persistenceManager = new PersistenceManager(
+      {
+        localPersistence: this.localPersistence,
+        changes: this.config.changes,
+        comments: this.config.comments,
+        historyStorage: this.historyStorage,
+        notificationService: this.notificationService,
+      },
+      {
+        onDraftRestored: (elements) => {
+          elements.forEach((entry) => {
+            const element = this.config.changes.getElementById(entry.id);
+            if (!element) {
+              return;
+            }
+            const segments = this.segmentContentIntoElements(
+              entry.content,
+              (entry.metadata as ElementMetadata | undefined) ?? element.metadata
+            );
+            const { elementIds, removedIds } =
+              this.config.changes.replaceElementWithSegments(entry.id, segments);
+            this.ensureSegmentDom(elementIds, segments, removedIds);
+          });
+        },
+        refresh: () => this.refresh(),
+      }
+    );
 
     this.mainSidebarModule.onUndo(() => {
       if (this.config.changes.undo()) {
@@ -225,7 +266,7 @@ export class UIModule {
       this.toggleSidebarCollapsed();
     });
     this.mainSidebarModule.onClearDrafts(() => {
-      void this.confirmAndClearLocalDrafts();
+      void this.persistenceManager.confirmAndClearLocalDrafts();
     });
 
     this.cacheInitialHeadingReferences();
@@ -236,7 +277,7 @@ export class UIModule {
     });
 
     if (this.localPersistence) {
-      void this.restoreLocalDraft();
+      void this.persistenceManager.restoreLocalDraft();
     }
   }
 
@@ -710,6 +751,12 @@ export class UIModule {
   }
 
   public openEditor(elementId: string): void {
+    // Prevent concurrent editor operations (race condition fix)
+    if (this.isEditorOperationInProgress) {
+      logger.warn('Editor operation already in progress, ignoring request');
+      return;
+    }
+
     const element = document.querySelector(
       `[data-review-id="${elementId}"]`
     ) as HTMLElement | null;
@@ -724,6 +771,9 @@ export class UIModule {
         `Redirecting edit to list root ${targetId} (clicked ${elementId})`
       );
     }
+
+    // Set lock before opening editor
+    this.isEditorOperationInProgress = true;
 
     // Check if inline editing is enabled
     if (this.config.inlineEditing) {
@@ -886,6 +936,9 @@ export class UIModule {
       this.editorState.activeEditorToolbar = null;
       this.editorLifecycle.destroy();
       this.editorState.milkdownEditor = null;
+
+      // Release lock on error
+      this.isEditorOperationInProgress = false;
     }
   }
 
@@ -934,6 +987,9 @@ export class UIModule {
       this.editorState.currentElementId = null;
       this.editorState.currentEditorContent = '';
     }
+
+    // Release editor operation lock
+    this.isEditorOperationInProgress = false;
   }
 
   private saveEditor(): void {
@@ -1034,122 +1090,10 @@ export class UIModule {
       logger.debug('No meaningful content change detected for primary segment');
     }
 
-    this.persistDocument();
+    this.persistenceManager.persistDocument();
 
     this.closeEditor();
     this.refresh();
-  }
-
-  private persistDocument(message?: string): void {
-    if (!this.localPersistence) {
-      return;
-    }
-    try {
-      const elements = this.config.changes.getCurrentState();
-      const payload = elements.map((elem) => ({
-        id: elem.id,
-        content: elem.content,
-        metadata: elem.metadata,
-      }));
-      const commentsSnapshot =
-        typeof this.config.comments?.getAllComments === 'function'
-          ? this.config.comments.getAllComments()
-          : undefined;
-      void this.localPersistence.saveDraft(payload, {
-        message,
-        comments: commentsSnapshot,
-      });
-    } catch (error) {
-      logger.warn('Failed to persist local draft', error);
-    }
-  }
-
-  private async restoreLocalDraft(): Promise<void> {
-    if (!this.localPersistence) {
-      return;
-    }
-    try {
-      const draftPayload = await this.localPersistence.loadDraft();
-      if (!draftPayload) {
-        return;
-      }
-      const currentState = this.config.changes.getCurrentState();
-      if (currentState.length === 0) {
-        return;
-      }
-
-      const currentMap = new Map(
-        currentState.map((elem) => [elem.id, elem.content])
-      );
-
-      const hasDifference = draftPayload.elements.some((entry) => {
-        const currentContent = currentMap.get(entry.id);
-        return currentContent !== entry.content;
-      });
-
-      if (!hasDifference) {
-        return;
-      }
-
-      draftPayload.elements.forEach((entry) => {
-        const element = this.config.changes.getElementById(entry.id);
-        if (!element) {
-          return;
-        }
-        const segments = this.segmentContentIntoElements(
-          entry.content,
-          (entry.metadata as ElementMetadata) ?? element.metadata
-        );
-        const { elementIds, removedIds } =
-          this.config.changes.replaceElementWithSegments(entry.id, segments);
-        this.ensureSegmentDom(elementIds, segments, removedIds);
-      });
-
-      if (typeof this.config.comments?.importComments === 'function') {
-        const commentsToImport = draftPayload.comments ?? [];
-        this.config.comments.importComments(commentsToImport);
-      }
-
-      this.refresh();
-
-      const sessionKey = this.buildDraftRestoreSessionKey();
-      const sessionStorage =
-        typeof window !== 'undefined' ? window.sessionStorage : null;
-      const shouldNotify = sessionStorage
-        ? !sessionStorage.getItem(sessionKey)
-        : true;
-
-      if (shouldNotify) {
-        this.showNotification(
-          'Restored local draft from previous session.',
-          'info'
-        );
-        sessionStorage?.setItem(sessionKey, '1');
-      }
-    } catch (error) {
-      logger.warn('Failed to restore local draft', error);
-    }
-  }
-
-  private async confirmAndClearLocalDrafts(): Promise<void> {
-    if (!this.localPersistence) {
-      this.showNotification('Local draft storage is not available.', 'error');
-      return;
-    }
-    const confirmed = window.confirm(
-      'This will remove all locally saved drafts and editor history. This action cannot be undone. Continue?'
-    );
-    if (!confirmed) {
-      return;
-    }
-    await this.localPersistence.clearAll();
-    this.historyStorage.clearAll();
-    this.showNotification('Local drafts cleared.', 'success');
-    if (typeof window !== 'undefined') {
-      window.setTimeout(() => {
-        window.location.reload();
-      }, 150);
-    }
   }
 
   private async handleExportQmd(format: ExportFormat): Promise<void> {
@@ -1297,14 +1241,6 @@ export class UIModule {
       this.reviewSubmissionModal = new ReviewSubmissionModal();
     }
     return this.reviewSubmissionModal;
-  }
-
-  private buildDraftRestoreSessionKey(): string {
-    const filename =
-      typeof this.localPersistence?.getFilename === 'function'
-        ? this.localPersistence.getFilename()
-        : 'review-draft.json';
-    return `quarto-review:draft-restored:${filename}`;
   }
 
   private generateSuggestedBranchName(reviewer: string): string {
@@ -2511,34 +2447,15 @@ export class UIModule {
     message: string,
     type: 'info' | 'success' | 'error' = 'info'
   ): void {
-    const notification = document.createElement('div');
-    notification.className = `review-notification review-notification-${type}`;
-    notification.textContent = message;
-    document.body.appendChild(notification);
-    setTimeout(() => {
-      notification.classList.add('review-notification-show');
-    }, 10);
-    setTimeout(() => {
-      notification.classList.remove('review-notification-show');
-      setTimeout(() => notification.remove(), getAnimationDuration('SLOW'));
-    }, UI_CONSTANTS.NOTIFICATION_DISPLAY_DURATION_MS);
+    this.notificationService.show(message, type);
   }
 
   public showLoading(message = 'Loading...'): HTMLElement {
-    const loading = document.createElement('div');
-    loading.className = 'review-loading';
-    loading.innerHTML = `
-      <div class="review-loading-content">
-        <div class="review-loading-spinner"></div>
-        <p>${message}</p>
-      </div>
-    `;
-    document.body.appendChild(loading);
-    return loading;
+    return this.loadingService.show({ message });
   }
 
   public hideLoading(loading: HTMLElement): void {
-    loading.remove();
+    this.loadingService.hide(loading);
   }
 
   public destroy(): void {
@@ -2567,6 +2484,10 @@ export class UIModule {
     this.contextMenuCoordinator?.destroy();
     this.changeSummaryDashboard?.destroy();
     this.mainSidebarModule.destroy();
+
+    // Clean up services
+    this.notificationService.destroy();
+    this.loadingService.destroy();
 
     // Remove DOM elements
     const toolbar = document.querySelector('.review-toolbar');
