@@ -40,6 +40,7 @@ export interface ExportOptions {
 interface ProjectContext {
   sources: EmbeddedSourceRecord[];
   hasProjectConfig: boolean;
+  renderPatterns?: string[];
 }
 
 /**
@@ -173,7 +174,18 @@ export class QmdExportService {
         return;
       }
 
-      if (this.isQmdFile(normalizedName)) {
+      if (this.isQmdFile(normalizedName) || this.isMdFile(normalizedName)) {
+        // Check if this file should be rendered according to _quarto.yml
+        if (
+          context.renderPatterns &&
+          !this.shouldRenderFile(normalizedName, context.renderPatterns)
+        ) {
+          logger.debug('Skipping file excluded by render patterns', {
+            filename: normalizedName,
+          });
+          return;
+        }
+
         files.push({
           filename: normalizedName,
           content: record.content,
@@ -217,7 +229,17 @@ export class QmdExportService {
       const hasProjectConfig = sources.some((record) =>
         this.isQuartoConfig(record.filename)
       );
-      return { sources, hasProjectConfig };
+
+      // Parse render patterns from _quarto.yml if it exists
+      let renderPatterns: string[] | undefined;
+      const quartoConfig = sources.find((record) =>
+        this.isQuartoConfig(record.filename)
+      );
+      if (quartoConfig) {
+        renderPatterns = this.parseRenderPatterns(quartoConfig.content);
+      }
+
+      return { sources, hasProjectConfig, renderPatterns };
     } catch (error) {
       logger.warn('Failed to read embedded sources for export', error);
       return { sources: [], hasProjectConfig: false };
@@ -274,9 +296,110 @@ export class QmdExportService {
     return filename.toLowerCase().endsWith('.qmd');
   }
 
+  private isMdFile(filename: string | undefined): boolean {
+    if (!filename) return false;
+    return filename.toLowerCase().endsWith('.md');
+  }
+
   private isQuartoConfig(filename: string | undefined): boolean {
     if (!filename) return false;
     return /(?:^|\/)_quarto\.ya?ml$/i.test(filename);
+  }
+
+  /**
+   * Parse render patterns from _quarto.yml content.
+   * Returns array of patterns, or undefined if no render config found.
+   */
+  private parseRenderPatterns(configContent: string): string[] | undefined {
+    try {
+      // Simple YAML parsing for render list
+      // Look for "render:" followed by a list of patterns
+      const renderMatch = configContent.match(
+        /^[ \t]*render:\s*\n((?:[ \t]+-.+\n?)+)/m
+      );
+      if (!renderMatch) {
+        // No render config means all .qmd and .md files should be rendered
+        return undefined;
+      }
+
+      const renderSection = renderMatch[1];
+      const patterns: string[] = [];
+
+      // Extract each pattern from the list
+      const patternMatches = renderSection.matchAll(/^[ \t]+-[ \t]+(.+)$/gm);
+      for (const match of patternMatches) {
+        let pattern = match[1].trim();
+        // Remove quotes if present
+        pattern = pattern.replace(/^["']|["']$/g, '');
+        if (pattern) {
+          patterns.push(pattern);
+        }
+      }
+
+      logger.debug('Parsed render patterns from _quarto.yml', { patterns });
+      return patterns.length > 0 ? patterns : undefined;
+    } catch (error) {
+      logger.warn('Failed to parse render patterns from _quarto.yml', error);
+      return undefined;
+    }
+  }
+
+  /**
+   * Check if a file should be rendered based on render patterns.
+   * Implements Quarto's render pattern logic:
+   * - Patterns can be explicit files (index.qmd)
+   * - Patterns can be globs (processes/*.qmd)
+   * - Patterns starting with ! are negations
+   * - Later patterns override earlier ones
+   */
+  private shouldRenderFile(
+    filename: string,
+    patterns: string[]
+  ): boolean {
+    let shouldRender = false;
+
+    for (const pattern of patterns) {
+      const isNegation = pattern.startsWith('!');
+      const actualPattern = isNegation ? pattern.slice(1) : pattern;
+
+      if (this.matchesPattern(filename, actualPattern)) {
+        shouldRender = !isNegation;
+      }
+    }
+
+    return shouldRender;
+  }
+
+  /**
+   * Check if a filename matches a glob pattern.
+   * Supports:
+   * - Exact matches: index.qmd
+   * - Wildcards: *.qmd, *.md
+   * - Directory globs: processes/*.qmd
+   * - Recursive globs would need more complex logic, but not used in example
+   */
+  private matchesPattern(filename: string, pattern: string): boolean {
+    // Exact match
+    if (filename === pattern) {
+      return true;
+    }
+
+    // Convert glob pattern to regex
+    // Escape regex special chars except * and /
+    let regexPattern = pattern
+      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\*/g, '[^/]*');
+
+    // Anchor the pattern
+    regexPattern = `^${regexPattern}$`;
+
+    try {
+      const regex = new RegExp(regexPattern);
+      return regex.test(filename);
+    } catch (error) {
+      logger.warn('Invalid glob pattern', { pattern, error });
+      return false;
+    }
   }
 
   private triggerDownload(blob: Blob, filename: string): void {
