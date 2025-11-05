@@ -1,5 +1,5 @@
 import { createModuleLogger } from '@utils/debug';
-import type { CriticMarkupMatch } from '@modules/comments';
+import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 import { escapeHtml } from '../shared';
 
@@ -7,8 +7,8 @@ const logger = createModuleLogger('CommentsSidebar');
 
 export interface CommentsSidebarCallbacks {
   onNavigate: (elementId: string, commentKey: string) => void;
-  onRemove: (elementId: string, match: CriticMarkupMatch) => void;
-  onEdit: (elementId: string, match: CriticMarkupMatch) => void;
+  onRemove: (elementId: string, comment: Comment) => void;
+  onEdit: (elementId: string, comment: Comment) => void;
   onHover: (elementId: string, commentKey: string) => void;
   onLeave: () => void;
 }
@@ -101,8 +101,8 @@ export class CommentsSidebar {
       const list = document.createElement('div');
       list.className = 'review-comments-list';
 
-      snapshot.matches.forEach((match, index) => {
-        const item = this.renderComment(snapshot, match, index);
+      snapshot.comments.forEach((comment, index) => {
+        const item = this.renderComment(snapshot, comment, index);
         list.appendChild(item);
       });
 
@@ -207,23 +207,23 @@ export class CommentsSidebar {
 
   private renderComment(
     snapshot: SectionCommentSnapshot,
-    match: CriticMarkupMatch,
+    comment: Comment,
     index: number
   ): HTMLElement {
     const elementId = snapshot.element.id;
-    const commentKey = `${elementId}:${match.start}`;
+    const commentKey = `${elementId}:${comment.id}`;
 
     const container = document.createElement('div');
     container.className = 'review-comment-item';
     container.dataset.commentKey = commentKey;
     container.dataset.elementId = elementId;
-    container.dataset.commentStart = String(match.start);
+    container.dataset.commentId = comment.id;
     container.setAttribute('role', 'article');
 
     const header = document.createElement('div');
     header.className = 'review-comment-item-header';
     header.innerHTML = `
-      <span class="review-comment-position">${index + 1}/${snapshot.matches.length}</span>
+      <span class="review-comment-position">${index + 1}/${snapshot.comments.length}</span>
       <span class="review-comment-link" aria-hidden="true">⟶</span>
     `;
     container.appendChild(header);
@@ -231,7 +231,7 @@ export class CommentsSidebar {
     const body = document.createElement('div');
     body.className = 'review-comment-item-body';
     body.innerHTML = `<div class="review-comment-text">${escapeHtml(
-      this.extractPlainText(match.content)
+      this.extractPlainText(comment.content)
     )}</div>`;
     container.appendChild(body);
 
@@ -253,7 +253,7 @@ export class CommentsSidebar {
       container
         .querySelector('[data-action="remove"]')
         ?.addEventListener('click', () => {
-          this.callbacks?.onRemove(elementId, match);
+          this.callbacks?.onRemove(elementId, comment);
         });
 
       container.addEventListener('mouseenter', () => {
@@ -265,7 +265,7 @@ export class CommentsSidebar {
       });
 
       container.addEventListener('dblclick', () => {
-        this.callbacks?.onEdit(elementId, match);
+        this.callbacks?.onEdit(elementId, comment);
       });
     }
 

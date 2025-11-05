@@ -329,6 +329,10 @@ describe('UIModule translation toggle side-effects', () => {
       createComment: vi.fn(),
       accept: vi.fn(),
       refresh: vi.fn(),
+      getCommentsForElement: vi.fn().mockReturnValue([]),
+      addComment: vi.fn(),
+      updateComment: vi.fn().mockReturnValue(true),
+      deleteComment: vi.fn().mockReturnValue(true),
     } as unknown as CommentsModule;
 
     const translationModuleStub = {
@@ -425,6 +429,10 @@ describe('UIModule translation toggle side-effects', () => {
       createComment: vi.fn(),
       accept: vi.fn(),
       refresh: vi.fn(),
+      getCommentsForElement: vi.fn().mockReturnValue([]),
+      addComment: vi.fn(),
+      updateComment: vi.fn().mockReturnValue(true),
+      deleteComment: vi.fn().mockReturnValue(true),
     } as unknown as CommentsModule;
 
     const translationModule = new TranslationModule(

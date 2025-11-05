@@ -69,6 +69,7 @@ export interface CommentSubmittedDetail {
   elementId: string;
   content: string;
   isEdit: boolean;
+  commentId?: string; // ID of comment being edited
 }
 
 export interface CommentCancelledDetail {

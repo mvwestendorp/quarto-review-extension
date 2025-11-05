@@ -1,0 +1,229 @@
+--[[
+Quarto Review Extension - Main Filter (Modularized)
+Adds deterministic IDs to elements for review functionality
+]]--
+
+-- Require all modules
+local path_utils = require('_extensions.review.lib.path-utils')
+local project_detection = require('_extensions.review.lib.project-detection')
+local string_utils = require('_extensions.review.lib.string-utils')
+local markdown_conversion = require('_extensions.review.lib.markdown-conversion')
+local config_module = require('_extensions.review.lib.config')
+local element_wrapping = require('_extensions.review.lib.element-wrapping')
+
+-- Global configuration
+local config = {
+  id_prefix = "",  -- Will be set to filename by detect_document_identifier
+  id_separator = ".",
+  enabled = true,
+  debug = false,
+  document_prefix_applied = false,
+  editable_elements = {
+    Para = true,
+    Header = true,
+    CodeBlock = true,
+    BulletList = true,
+    OrderedList = true,
+    BlockQuote = true,
+    Table = true
+  }
+}
+
+-- Context to track position in document tree
+local context = {
+  section_stack = {},
+  section_counters = {},
+  element_counters = {}
+}
+
+-- Calculate the correct relative path to the extension assets from the output file
+local function get_extension_path()
+  local ext_path = "_extensions/review/assets"
+
+  -- Try to get the output file path to calculate relative depth
+  local output_file = nil
+  if quarto and quarto.doc and quarto.doc.output_file then
+    output_file = quarto.doc.output_file
+  end
+
+  if not output_file then
+    config_module.debug_print("get_extension_path: No output_file available, using default: " .. ext_path, config.debug)
+    return ext_path
+  end
+
+  config_module.debug_print("get_extension_path: output_file = " .. tostring(output_file), config.debug)
+
+  -- Normalize the output file path
+  local normalized_output = path_utils.normalize_path(output_file)
+  config_module.debug_print("get_extension_path: normalized_output = " .. tostring(normalized_output), config.debug)
+
+  -- Detect the project root
+  local input_file = project_detection.get_primary_input_file()
+  local abs_input = input_file and path_utils.to_absolute_path(input_file)
+  local start_dir = abs_input and path_utils.parent_directory(abs_input) or path_utils.get_working_directory()
+  local project_root = project_detection.detect_project_root() or (start_dir and project_detection.find_project_root(start_dir)) or start_dir
+  project_root = path_utils.normalize_path(project_root or '.')
+  config_module.debug_print("get_extension_path: project_root = " .. tostring(project_root), config.debug)
+
+  -- Strip the project root and any output directory from the path
+  local relative_output = normalized_output
+
+  -- If output_file is absolute, make it relative to project root
+  if normalized_output:match('^[A-Za-z]:') or normalized_output:sub(1, 1) == '/' then
+    relative_output = path_utils.make_relative(normalized_output, project_root)
+    config_module.debug_print("get_extension_path: made relative to project root = " .. tostring(relative_output), config.debug)
+  end
+
+  -- Remove leading ./ or .\
+  relative_output = relative_output:gsub('^%./', ''):gsub('^%.\\', '')
+
+  -- Strip output directory prefixes
+  relative_output = relative_output:gsub('^_site/', ''):gsub('^_output/', '')
+                                   :gsub('^output/', ''):gsub('^site/', '')
+                                   :gsub('^website/', ''):gsub('^docs/', '')
+  config_module.debug_print("get_extension_path: after stripping output dir = " .. tostring(relative_output), config.debug)
+
+  -- Count directory separators to determine depth
+  local depth = 0
+  for _ in relative_output:gmatch('/') do
+    depth = depth + 1
+  end
+  config_module.debug_print("get_extension_path: depth = " .. tostring(depth), config.debug)
+
+  -- If file is at root level, use direct path
+  if depth == 0 then
+    config_module.debug_print("get_extension_path: root level, returning: " .. ext_path, config.debug)
+    return ext_path
+  end
+
+  -- Build relative path with appropriate number of ../
+  local prefix = string.rep('../', depth)
+  local result = prefix .. ext_path
+  config_module.debug_print("get_extension_path: returning: " .. result, config.debug)
+
+  return result
+end
+
+-- Meta filter to load config and inject resources
+function Meta(meta)
+  config.document_prefix_applied = false
+  config.id_prefix = ""
+  context.section_stack = {}
+  context.section_counters = {}
+  context.element_counters = {}
+
+  config_module.load_config(meta, config)
+
+  -- Only inject resources for HTML format
+  if quarto.doc.is_format("html") and config.enabled then
+    local ext_path = get_extension_path()
+
+    -- Add CSS to header
+    quarto.doc.include_text("in-header", '<link rel="stylesheet" href="' .. ext_path .. '/review.css" />')
+
+    -- Build initialization config
+    local init_config = {
+      autoSave = false,
+      enableTranslation = config_module.has_translation_support()
+    }
+
+    -- Add debug config if present
+    local debug_config = config_module.build_debug_config(meta)
+    if debug_config then
+      init_config.debug = debug_config
+    end
+
+    -- Add git configuration if present
+    if meta.review and meta.review.git then
+      local git_config = string_utils.meta_to_json(meta.review.git)
+      if git_config then
+        init_config.git = git_config
+      end
+    end
+
+    -- Collect project sources and build embedded script
+    local project_sources = project_detection.collect_project_sources()
+    local config_json = string_utils.table_to_json(init_config)
+    local embedded_sources_script = config_module.build_embedded_sources_script(project_sources)
+
+    -- Build title wrapping script
+    local title_id = config.id_prefix .. config.id_separator .. 'document-title'
+    local title_script = [[
+<script>
+  // Wrap the document title with review attributes
+  document.addEventListener('DOMContentLoaded', function() {
+    const titleEl = document.querySelector('h1.title');
+    if (titleEl && !titleEl.hasAttribute('data-review-id')) {
+      const titleMarkdown = titleEl.textContent;
+      titleEl.setAttribute('data-review-id', ']] .. title_id .. [[');
+      titleEl.setAttribute('data-review-type', 'Title');
+      titleEl.setAttribute('data-review-origin', 'source');
+      titleEl.setAttribute('data-review-markdown', titleMarkdown);
+      titleEl.classList.add('review-editable');
+    }
+  });
+</script>
+]]
+
+    -- Add JS and initialization to body
+    local after_body = title_script .. [[
+<script type="module" src="]] .. ext_path .. [[/review.js"></script>
+<div data-review data-review-config=']] .. config_json .. [['></div>
+]]
+    if embedded_sources_script then
+      after_body = after_body .. embedded_sources_script .. "\n"
+    end
+    quarto.doc.include_text("after-body", after_body)
+  end
+
+  return meta
+end
+
+-- Post-processor to unwrap nested review-editable divs
+function unwrap_nested_editable(elem)
+  if elem.t == "Div" and elem.classes:includes("review-editable") then
+    local function unwrap_in_blocks(blocks)
+      local result = pandoc.List()
+      for _, block in ipairs(blocks) do
+        if block.t == "Div" and block.classes:includes("review-editable") then
+          -- Unwrap inner div
+          for _, inner_block in ipairs(block.content) do
+            result:insert(inner_block)
+          end
+        else
+          -- Recurse if block has content
+          if block.content and type(block.content) == "table" then
+            block.content = unwrap_in_blocks(block.content)
+          end
+          result:insert(block)
+        end
+      end
+      return result
+    end
+
+    -- Only apply unwrapping if the content contains nested editable divs
+    local contains_nested_editable = false
+    for _, block in ipairs(elem.content) do
+      if block.t == "Div" and block.classes:includes("review-editable") then
+        contains_nested_editable = true
+        break
+      end
+    end
+
+    if contains_nested_editable then
+      elem.content = unwrap_in_blocks(elem.content)
+    end
+  end
+
+  return elem
+end
+
+-- Create filter functions using the element-wrapping module
+local filters = element_wrapping.create_filter_functions(config, context)
+
+-- Return filters in order
+return {
+  {Meta = Meta},
+  filters,
+  {Div = unwrap_nested_editable}
+}

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CommentBadges, type CommentBadgeCallbacks } from '@modules/ui/comments/CommentBadges';
 import type { SectionCommentSnapshot } from '@modules/ui/comments/CommentController';
-import type { CriticMarkupMatch } from '@modules/comments';
+import type { Comment } from '@/types';
 
 describe('CommentBadges', () => {
   let badges: CommentBadges;
@@ -22,14 +22,16 @@ describe('CommentBadges', () => {
     id: string,
     commentCount: number
   ): SectionCommentSnapshot => {
-    const matches: CriticMarkupMatch[] = [];
+    const comments: Comment[] = [];
     for (let i = 0; i < commentCount; i++) {
-      matches.push({
-        type: 'comment',
-        start: i * 10,
-        end: i * 10 + 5,
+      comments.push({
+        id: `comment-${id}-${i}`,
+        elementId: id,
+        userId: 'test-user',
+        timestamp: Date.now(),
         content: `Comment ${i + 1}`,
-        comment: `Comment ${i + 1}`,
+        resolved: false,
+        type: 'comment',
       });
     }
 
@@ -39,7 +41,7 @@ describe('CommentBadges', () => {
         content: 'Test content',
         metadata: { type: 'Para' },
       },
-      matches,
+      comments,
     };
   };
 
@@ -324,12 +326,14 @@ describe('CommentBadges', () => {
           content: 'Test content',
           metadata: { type: 'Para' },
         },
-        matches: [{
-          type: 'comment',
-          start: 0,
-          end: 5,
+        comments: [{
+          id: 'comment-1',
+          elementId: 'section-1',
+          userId: 'test-user',
+          timestamp: Date.now(),
           content: '',
-          comment: '',
+          resolved: false,
+          type: 'comment',
         }],
       };
 
@@ -356,7 +360,7 @@ describe('CommentBadges', () => {
       expect(newDomElement.querySelector('.review-section-comment-indicator')).not.toBeNull();
     });
 
-    it('handles comment key with no match', () => {
+    it('handles comment key with no comments', () => {
       const domElement = createDOMElement('section-1');
       const section: SectionCommentSnapshot = {
         element: {
@@ -364,16 +368,16 @@ describe('CommentBadges', () => {
           content: 'Test content',
           metadata: { type: 'Para' },
         },
-        matches: [],
+        comments: [],
       };
 
-      // Should handle empty matches gracefully - creates indicator with default values
+      // Should handle empty comments gracefully - creates indicator with default values
       badges.syncIndicators([section], callbacks);
 
       const indicator = domElement.querySelector('.review-section-comment-indicator');
       expect(indicator).not.toBeNull();
       expect(indicator?.getAttribute('data-comment-key')).toBe('section-1');
-      expect(indicator?.getAttribute('data-comment-start')).toBe('');
+      expect(indicator?.getAttribute('data-comment-id')).toBe('');
     });
 
     it('trims whitespace in comment preview', () => {
@@ -384,12 +388,14 @@ describe('CommentBadges', () => {
           content: 'Test content',
           metadata: { type: 'Para' },
         },
-        matches: [{
-          type: 'comment',
-          start: 0,
-          end: 5,
+        comments: [{
+          id: 'comment-1',
+          elementId: 'section-1',
+          userId: 'test-user',
+          timestamp: Date.now(),
           content: '  Multi\n  line  \n  comment  ',
-          comment: '  Multi\n  line  \n  comment  ',
+          resolved: false,
+          type: 'comment',
         }],
       };
 
