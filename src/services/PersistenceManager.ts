@@ -24,6 +24,7 @@ export interface PersistenceCallbacks {
   onDraftRestored: (
     elements: Array<{ id: string; content: string; metadata?: unknown }>
   ) => void;
+  onCommentsImported?: () => void;
   refresh: () => void;
 }
 
@@ -95,17 +96,27 @@ export class PersistenceManager {
         return currentContent !== entry.content;
       });
 
-      if (!hasDifference) {
+      // Import comments first (even if no text changes)
+      const hasComments =
+        typeof this.config.comments?.importComments === 'function' &&
+        Array.isArray(draftPayload.comments) &&
+        draftPayload.comments.length > 0;
+
+      if (hasComments) {
+        const commentsToImport = draftPayload.comments ?? [];
+        this.config.comments?.importComments(commentsToImport);
+        // Notify that comments were imported from storage
+        this.callbacks.onCommentsImported?.();
+      }
+
+      // If no text differences and no comments, return early
+      if (!hasDifference && !hasComments) {
         return;
       }
 
-      // Notify callback to handle element restoration
-      this.callbacks.onDraftRestored(draftPayload.elements);
-
-      // Import comments if available
-      if (typeof this.config.comments?.importComments === 'function') {
-        const commentsToImport = draftPayload.comments ?? [];
-        this.config.comments.importComments(commentsToImport);
+      // Notify callback to handle element restoration (only if text changed)
+      if (hasDifference) {
+        this.callbacks.onDraftRestored(draftPayload.elements);
       }
 
       this.callbacks.refresh();

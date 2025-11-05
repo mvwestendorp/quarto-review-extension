@@ -116,6 +116,7 @@ export class UIModule {
   private globalShortcutsBound = false;
   private localPersistence?: LocalDraftPersistence;
   private isSubmittingReview = false;
+  private commentsImportedFromStorage = false;
   private translationController: TranslationController | null = null;
   private translationModule?: TranslationModule;
   private pluginHandles = new Map<string, PluginHandle>();
@@ -224,6 +225,10 @@ export class UIModule {
               );
             this.ensureSegmentDom(elementIds, segments, removedIds);
           });
+        },
+        onCommentsImported: () => {
+          // Mark that comments were imported to avoid duplicate migration
+          this.commentsImportedFromStorage = true;
         },
         refresh: () => this.refresh(),
       }
@@ -395,6 +400,17 @@ export class UIModule {
         }
         this.mainSidebarModule.setCollapsed(uiState.isSidebarCollapsed);
       }
+
+      // Also update comments sidebar collapsed state
+      const commentsSidebar = document.querySelector(
+        '.review-comments-sidebar'
+      );
+      if (commentsSidebar) {
+        commentsSidebar.classList.toggle(
+          'review-sidebar-collapsed',
+          uiState.isSidebarCollapsed
+        );
+      }
     });
 
     // Listen for comment state changes
@@ -429,6 +445,12 @@ export class UIModule {
         'review-sidebar-collapsed-mode',
         collapsed
       );
+    }
+
+    // Also collapse/expand the comments sidebar
+    const commentsSidebar = document.querySelector('.review-comments-sidebar');
+    if (commentsSidebar) {
+      commentsSidebar.classList.toggle('review-sidebar-collapsed', collapsed);
     }
 
     this.mainSidebarModule.setCollapsed(collapsed);
@@ -2380,6 +2402,14 @@ export class UIModule {
    * This is a one-time migration for existing documents with inline comments
    */
   private migrateInlineComments(): void {
+    // Skip migration if comments were already imported from localStorage
+    if (this.commentsImportedFromStorage) {
+      logger.debug(
+        'Skipping inline comment migration - comments already imported from storage'
+      );
+      return;
+    }
+
     const elements = this.config.changes.getCurrentState();
     let migratedCount = 0;
 
@@ -2393,6 +2423,8 @@ export class UIModule {
       }
 
       // Add each comment to CommentsModule storage
+      // Note: We leave the inline CriticMarkup in the content to avoid creating
+      // spurious edit operations. The CommentsModule will handle rendering.
       commentMatches.forEach((match) => {
         const userId = this.userModule?.getCurrentUser?.()?.id ?? 'migrated';
         this.config.comments.addComment(
@@ -2403,17 +2435,6 @@ export class UIModule {
         );
         migratedCount++;
       });
-
-      // Remove inline comments from content
-      let cleanedContent = element.content;
-      commentMatches.forEach((match) => {
-        cleanedContent = this.config.comments.accept(cleanedContent, match);
-      });
-
-      // Update element with cleaned content (without edit operation)
-      if (cleanedContent !== element.content) {
-        this.config.changes.edit(element.id, cleanedContent);
-      }
     });
 
     if (migratedCount > 0) {

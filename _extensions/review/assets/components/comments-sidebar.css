@@ -1,14 +1,24 @@
 /**
- * Component: Comments Sidebar (persistent pill-style panel)
+ * Component: Comments Sidebar (positioned below main review tools)
  */
 
 .review-comments-sidebar {
   position: fixed !important;
-  top: 80px;
+  top: calc(80px + 400px); /* Below main sidebar (80px + max-height of main) */
   left: auto;
   right: clamp(16px, 2vw, 24px);
   z-index: calc(var(--review-z-toolbar) - 2);
   backdrop-filter: blur(8px);
+  width: 280px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+  border-top: none; /* Connects to main sidebar above */
+  border-radius: 0 0 16px 16px; /* Only bottom corners rounded */
+  box-shadow: var(--review-shadow-xl);
+  max-height: calc(100vh - 80px - 400px - 24px); /* Remaining viewport height */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 body.review-sidebar-collapsed-mode .review-comments-sidebar {
@@ -45,10 +55,13 @@ body.review-sidebar-collapsed-mode .review-comments-sidebar {
   margin: 6px 0;
 }
 
+/* Hide comments sidebar when main sidebar is collapsed */
 .review-comments-sidebar.review-sidebar-collapsed {
-  width: 48px;
-  align-items: center;
-  padding: 12px 4px;
+  display: none; /* Completely hide when collapsed */
+}
+
+body.review-sidebar-collapsed-mode .review-comments-sidebar {
+  display: none; /* Hide in collapsed mode */
 }
 
 .review-comments-sidebar.review-sidebar-collapsed .review-sidebar-body {
