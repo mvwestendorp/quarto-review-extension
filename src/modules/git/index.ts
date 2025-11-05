@@ -20,6 +20,16 @@ export class GitModule {
   private authToken?: string;
 
   constructor(rawConfig?: ReviewGitConfig) {
+    console.log('[GitModule] Constructor called with rawConfig:', rawConfig);
+    console.log(
+      '[GitModule] rawConfig type:',
+      typeof rawConfig,
+      'is null:',
+      rawConfig === null,
+      'is undefined:',
+      rawConfig === undefined
+    );
+
     this.resolution = resolveGitConfig(rawConfig);
     this.fallbackStore = new EmbeddedSourceStore();
 
@@ -27,6 +37,10 @@ export class GitModule {
       logger.warn('Git integration disabled (no configuration provided)');
       logger.info(
         'To enable git integration, add review.git configuration to your document metadata'
+      );
+      console.log(
+        '[GitModule] No resolution - raw config was:',
+        JSON.stringify(rawConfig, null, 2)
       );
       return;
     }

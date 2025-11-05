@@ -27,14 +27,29 @@ const VALID_PROVIDERS: GitProviderType[] = [
 export function resolveGitConfig(
   rawConfig?: ReviewGitConfig | null
 ): GitConfigResolution | null {
+  console.log('[resolveGitConfig] Called with:', rawConfig);
+  console.log(
+    '[resolveGitConfig] Type:',
+    typeof rawConfig,
+    'Keys:',
+    rawConfig ? Object.keys(rawConfig) : 'N/A'
+  );
+
   if (!rawConfig) {
+    console.log('[resolveGitConfig] Returning null - no config provided');
     return null;
   }
 
   const provider = normalizeProvider(rawConfig.provider);
+  console.log('[resolveGitConfig] Normalized provider:', provider);
+
   if (!provider) {
     logger.warn(
       'Git integration disabled: missing or unsupported `review.git.provider` configuration'
+    );
+    console.log(
+      '[resolveGitConfig] No valid provider. Raw provider value:',
+      rawConfig.provider
     );
     return null;
   }
@@ -42,9 +57,15 @@ export function resolveGitConfig(
   const owner = (rawConfig.owner || '').trim();
   const name = (rawConfig.repo || '').trim();
 
+  console.log('[resolveGitConfig] Owner:', owner, 'Repo:', name);
+
   if (!owner || !name) {
     logger.warn(
       'Git integration disabled: `review.git.owner` and `review.git.repo` are required'
+    );
+    console.log(
+      '[resolveGitConfig] Missing owner or repo. rawConfig:',
+      JSON.stringify(rawConfig, null, 2)
     );
     return null;
   }
