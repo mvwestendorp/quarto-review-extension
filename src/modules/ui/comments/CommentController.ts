@@ -174,7 +174,7 @@ export class CommentController {
 
       this.callbacks.requestRefresh();
       // Show sidebar after refresh completes (sidebar will show remaining comments or empty state)
-      this.sidebar?.show();
+      this.callbacks.ensureSidebarVisible?.();
       this.callbacks.persistDocument?.();
       this.callbacks.showNotification('Comment removed', 'success');
     } catch (error) {
@@ -193,7 +193,7 @@ export class CommentController {
 
       this.callbacks.requestRefresh();
       // Show sidebar after refresh completes
-      this.sidebar?.show();
+      this.callbacks.ensureSidebarVisible?.();
       this.callbacks.persistDocument?.();
       window.getSelection()?.removeAllRanges();
       this.callbacks.showNotification('Comment added successfully', 'success');
@@ -215,7 +215,7 @@ export class CommentController {
 
       this.callbacks.requestRefresh();
       // Show sidebar after refresh completes
-      this.sidebar?.show();
+      this.callbacks.ensureSidebarVisible?.();
       this.callbacks.persistDocument?.();
       this.callbacks.showNotification('Comment updated', 'success');
     } catch (error) {
@@ -316,7 +316,6 @@ export class CommentController {
       },
     });
   }
-
 
   public highlightSection(
     elementId: string,

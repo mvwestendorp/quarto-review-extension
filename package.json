@@ -21,7 +21,7 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "test:coverage:check": "vitest --coverage --run",
-    "test:lua": "lua5.4 tests/lua/sanitize-identifier.test.lua",
+    "test:lua": "lua5.4 tests/lua/sanitize-identifier.test.lua && lua5.4 tests/lua/path-utils.test.lua && lua5.4 tests/lua/string-utils.test.lua && lua5.4 tests/lua/config.test.lua && lua5.4 tests/lua/project-detection.test.lua && lua5.4 tests/lua/markdown-conversion.test.lua && lua5.4 tests/lua/element-wrapping.test.lua",
     "test:e2e": "playwright test",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
@@ -49,7 +49,9 @@
   "devDependencies": {
     "@playwright/test": "^1.56.1",
     "@types/diff": "^7.0.2",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^24.9.2",
+    "@types/unist": "^3.0.3",
     "@typescript-eslint/eslint-plugin": "^8.46.2",
     "@typescript-eslint/parser": "^8.46.2",
     "@vitest/coverage-v8": "^4.0.5",

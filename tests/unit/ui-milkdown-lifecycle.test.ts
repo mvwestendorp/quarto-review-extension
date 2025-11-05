@@ -232,13 +232,15 @@ describe('UIModule Milkdown lifecycle handling', () => {
     expect(lifecycle).toBeDefined();
     expect(lifecycle.getEditor()).not.toBeNull();
 
-    (ui as any).editorState.activeEditor = null;
-    (ui as any).editorState.currentElementId = null;
+    (ui as any).stateStore.setEditorState({
+      activeEditor: null,
+      currentElementId: null,
+    });
 
     ui.closeEditor();
 
     expect(activeInstance.destroy).toHaveBeenCalledTimes(1);
     expect(lifecycle.getEditor()).toBeNull();
-    expect((ui as any).editorState.milkdownEditor).toBeNull();
+    expect((ui as any).stateStore.getEditorState().milkdownEditor).toBeNull();
   });
 });

@@ -303,7 +303,7 @@ describe('UIModule sidebar state handling', () => {
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(true);
     expect(mainSidebar?.setCollapsed).toHaveBeenLastCalledWith(true);
-    expect((ui as any).uiState.isSidebarCollapsed).toBe(true);
+    expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(true);
 
     ui.toggleSidebarCollapsed(false);
 
@@ -312,7 +312,7 @@ describe('UIModule sidebar state handling', () => {
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(false);
     expect(mainSidebar?.setCollapsed).toHaveBeenLastCalledWith(false);
-    expect((ui as any).uiState.isSidebarCollapsed).toBe(false);
+    expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(false);
   });
 
   it('clears local drafts when confirmation is accepted', async () => {

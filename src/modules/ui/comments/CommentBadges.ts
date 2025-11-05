@@ -150,9 +150,7 @@ export class CommentBadges {
     indicator.dataset.commentKey = commentKey;
     indicator.dataset.commentId = firstComment ? firstComment.id : '';
 
-    const preview = (firstComment?.content || '')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const preview = (firstComment?.content || '').replace(/\s+/g, ' ').trim();
     const tooltip =
       count > 1
         ? `${count} comments${preview ? ` • "${preview}"` : ''}`

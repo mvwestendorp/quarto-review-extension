@@ -323,12 +323,17 @@ export class QmdExportService {
       }
 
       const renderSection = renderMatch[1];
+      if (!renderSection) {
+        return undefined;
+      }
       const patterns: string[] = [];
 
       // Extract each pattern from the list
       const patternMatches = renderSection.matchAll(/^[ \t]+-[ \t]+(.+)$/gm);
       for (const match of patternMatches) {
-        let pattern = match[1].trim();
+        const capturedPattern = match[1];
+        if (!capturedPattern) continue;
+        let pattern = capturedPattern.trim();
         // Remove quotes if present
         pattern = pattern.replace(/^["']|["']$/g, '');
         if (pattern) {
@@ -352,10 +357,7 @@ export class QmdExportService {
    * - Patterns starting with ! are negations
    * - Later patterns override earlier ones
    */
-  private shouldRenderFile(
-    filename: string,
-    patterns: string[]
-  ): boolean {
+  private shouldRenderFile(filename: string, patterns: string[]): boolean {
     let shouldRender = false;
 
     for (const pattern of patterns) {

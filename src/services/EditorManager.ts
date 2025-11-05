@@ -10,10 +10,10 @@ import type { MarkdownModule } from '@modules/markdown';
 import { EditorLifecycle } from '@modules/ui/editor/EditorLifecycle';
 import { EditorToolbar } from '@modules/ui/editor/EditorToolbar';
 import { EditorHistoryStorage } from '@modules/ui/editor/EditorHistoryStorage';
-import type { EditorState } from '@modules/ui/shared';
 import type { DiffHighlightRange } from '@modules/ui/editor/MilkdownEditor';
 import type { ElementMetadata } from '@/types';
 import { NotificationService } from './NotificationService';
+import { StateStore } from './StateStore';
 
 const logger = createModuleLogger('EditorManager');
 
@@ -69,7 +69,7 @@ export interface EditorCallbacks {
 export class EditorManager {
   private config: EditorManagerConfig;
   private callbacks: EditorCallbacks;
-  private editorState: EditorState;
+  private stateStore: StateStore;
   private editorLifecycle: EditorLifecycle;
   private editorToolbar: EditorToolbar | null = null;
   private isOperationInProgress = false;
@@ -77,11 +77,11 @@ export class EditorManager {
   constructor(
     config: EditorManagerConfig,
     callbacks: EditorCallbacks,
-    editorState: EditorState
+    stateStore: StateStore
   ) {
     this.config = config;
     this.callbacks = callbacks;
-    this.editorState = editorState;
+    this.stateStore = stateStore;
     this.editorLifecycle = config.editorLifecycle;
     this.editorToolbar = new EditorToolbar();
   }
@@ -90,14 +90,14 @@ export class EditorManager {
    * Check if editor is currently open
    */
   public isEditorOpen(): boolean {
-    return !!this.editorState.currentElementId;
+    return !!this.stateStore.getEditorState().currentElementId;
   }
 
   /**
    * Get current element being edited
    */
   public getCurrentElementId(): string | null {
-    return this.editorState.currentElementId;
+    return this.stateStore.getEditorState().currentElementId;
   }
 
   /**
@@ -158,11 +158,11 @@ export class EditorManager {
       return;
     }
 
-    this.editorState.currentElementId = elementId;
+    this.stateStore.setEditorState({ currentElementId: elementId });
     logger.debug('Opening modal editor for', { elementId });
     logger.trace(
       'Tracked changes enabled:',
-      this.editorState.showTrackedChanges
+      this.stateStore.getEditorState().showTrackedChanges
     );
 
     // Set baseline for tracked changes calculation
@@ -183,7 +183,7 @@ export class EditorManager {
 
     const modal = this.callbacks.createEditorModal(plainContent, type);
     document.body.appendChild(modal);
-    this.editorState.activeEditor = modal;
+    this.stateStore.setEditorState({ activeEditor: modal });
 
     // Delay so DOM renders
     requestAnimationFrame(() => {
@@ -206,7 +206,7 @@ export class EditorManager {
     // Close any existing inline editor
     this.closeEditor();
 
-    this.editorState.currentElementId = elementId;
+    this.stateStore.setEditorState({ currentElementId: elementId });
 
     // Set baseline for tracked changes calculation
     const currentContent = this.config.changes.getElementContent(elementId);
@@ -243,7 +243,7 @@ export class EditorManager {
     const inlineEditor = element.querySelector(
       '.review-inline-editor-container'
     ) as HTMLElement;
-    this.editorState.activeEditor = inlineEditor;
+    this.stateStore.setEditorState({ activeEditor: inlineEditor });
 
     // Add event listeners
     inlineEditor.querySelectorAll('[data-action="cancel"]').forEach((btn) => {
@@ -270,24 +270,22 @@ export class EditorManager {
    * Close the current editor
    */
   public closeEditor(): void {
+    const editorState = this.stateStore.getEditorState();
+
     // Save editor history before destroying the editor
-    if (this.editorState.currentElementId) {
-      this.saveEditorHistory(this.editorState.currentElementId);
+    if (editorState.currentElementId) {
+      this.saveEditorHistory(editorState.currentElementId);
       // Clear the baseline for this element when closing the editor
-      this.config.changes.clearElementBaseline(
-        this.editorState.currentElementId
-      );
+      this.config.changes.clearElementBaseline(editorState.currentElementId);
     }
 
     this.editorLifecycle.destroy();
-    this.editorState.milkdownEditor = null;
-    this.editorState.activeEditorToolbar = null;
 
-    if (this.editorState.activeEditor) {
+    if (editorState.activeEditor) {
       // For inline editing, restore the element
-      if (this.config.inlineEditing && this.editorState.currentElementId) {
+      if (this.config.inlineEditing && editorState.currentElementId) {
         const element = document.querySelector(
-          `[data-review-id="${this.editorState.currentElementId}"]`
+          `[data-review-id="${editorState.currentElementId}"]`
         ) as HTMLElement;
         if (element) {
           element.classList.remove('review-editable-editing');
@@ -299,12 +297,18 @@ export class EditorManager {
         }
       } else {
         // For modal editing, just remove the modal
-        this.editorState.activeEditor.remove();
+        editorState.activeEditor.remove();
       }
-      this.editorState.activeEditor = null;
-      this.editorState.currentElementId = null;
-      this.editorState.currentEditorContent = '';
     }
+
+    // Clear all editor state
+    this.stateStore.setEditorState({
+      activeEditor: null,
+      currentElementId: null,
+      currentEditorContent: '',
+      milkdownEditor: null,
+      activeEditorToolbar: null,
+    });
 
     // Release editor operation lock
     this.isOperationInProgress = false;
@@ -317,14 +321,13 @@ export class EditorManager {
    * Save the current editor content
    */
   public saveEditor(): void {
-    if (
-      !this.editorState.milkdownEditor ||
-      !this.editorState.currentElementId
-    ) {
+    const editorState = this.stateStore.getEditorState();
+
+    if (!editorState.milkdownEditor || !editorState.currentElementId) {
       return;
     }
 
-    const elementId = this.editorState.currentElementId;
+    const elementId = editorState.currentElementId;
     const element = this.config.changes.getElementById(elementId);
     if (!element) {
       logger.error('Element not found for saving:', elementId);
@@ -332,7 +335,7 @@ export class EditorManager {
     }
 
     try {
-      const newContent = this.editorState.currentEditorContent;
+      const newContent = editorState.currentEditorContent;
 
       // Segment the content and replace element
       const segments = this.callbacks.segmentContentIntoElements(
@@ -363,12 +366,13 @@ export class EditorManager {
    * Save editor history to persistent storage
    */
   private saveEditorHistory(elementId: string): void {
-    if (!this.editorState.currentEditorContent) {
+    const editorState = this.stateStore.getEditorState();
+    if (!editorState.currentEditorContent) {
       return;
     }
     this.config.historyStorage.save(
       elementId,
-      this.editorState.currentEditorContent
+      editorState.currentEditorContent
     );
   }
 
@@ -382,7 +386,9 @@ export class EditorManager {
     }
     const lastState = history.states[history.states.length - 1];
     if (lastState && lastState.content) {
-      this.editorState.currentEditorContent = lastState.content;
+      this.stateStore.setEditorState({
+        currentEditorContent: lastState.content,
+      });
       logger.debug('Restored editor history for', elementId);
     }
   }

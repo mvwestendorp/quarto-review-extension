@@ -324,9 +324,11 @@ describe('UIModule.saveEditor comment handling', () => {
       removedIds: [],
     });
 
-    (ui as any).editorState.currentElementId = 'section-1';
-    (ui as any).editorState.currentEditorContent = '\n\nUpdated content';
-    (ui as any).editorState.milkdownEditor = {} as any;
+    (ui as any).stateStore.setEditorState({
+      currentElementId: 'section-1',
+      currentEditorContent: '\n\nUpdated content',
+      milkdownEditor: {} as any,
+    });
 
     (ui as any).saveEditor();
 
@@ -354,9 +356,11 @@ describe('UIModule.saveEditor comment handling', () => {
       .spyOn(ui as any, 'showNotification')
       .mockImplementation(() => {});
 
-    (ui as any).editorState.currentElementId = 'section-1';
-    (ui as any).editorState.currentEditorContent = '<br />\nOriginal content';
-    (ui as any).editorState.milkdownEditor = {} as any;
+    (ui as any).stateStore.setEditorState({
+      currentElementId: 'section-1',
+      currentEditorContent: '<br />\nOriginal content',
+      milkdownEditor: {} as any,
+    });
 
     const consumeSpy = getCommentControllerStub()?.consumeSectionCommentMarkup;
     consumeSpy?.mockReturnValue(undefined);
@@ -430,9 +434,11 @@ describe('UIModule.saveEditor comment handling', () => {
       removedIds: [],
     });
 
-    (ui as any).editorState.currentElementId = 'section-1';
-    (ui as any).editorState.currentEditorContent = '<br />Original content';
-    (ui as any).editorState.milkdownEditor = {} as any;
+    (ui as any).stateStore.setEditorState({
+      currentElementId: 'section-1',
+      currentEditorContent: '<br />Original content',
+      milkdownEditor: {} as any,
+    });
 
     const generatedPreview = (ui as any).collectGeneratedSegments('section-1');
     expect(generatedPreview).toHaveLength(1);
@@ -469,9 +475,11 @@ describe('UIModule.saveEditor comment handling', () => {
     (ui as any).closeEditor = vi.fn();
     (ui as any).refresh = vi.fn();
 
-    (ui as any).editorState.currentElementId = 'section-1';
-    (ui as any).editorState.currentEditorContent = 'Original content';
-    (ui as any).editorState.milkdownEditor = {} as any;
+    (ui as any).stateStore.setEditorState({
+      currentElementId: 'section-1',
+      currentEditorContent: 'Original content',
+      milkdownEditor: {} as any,
+    });
 
     (ui as any).saveEditor();
 
