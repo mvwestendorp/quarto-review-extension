@@ -19,6 +19,7 @@ import {
   type TranslationConfig,
 } from '@modules/translation';
 import type { ReviewGitConfig } from '@/types';
+import { BUILD_INFO, getBuildString } from './version';
 
 // Export debug logger and configuration
 export {
@@ -114,6 +115,15 @@ export class QuartoReview {
       debugLogger.setConfig(this.config.debug);
     }
 
+    // Log build information
+    console.log(
+      `%c🎨 Quarto Review Extension ${getBuildString()}`,
+      'color: #2563eb; font-weight: bold; font-size: 14px'
+    );
+    console.log(
+      `Build: ${BUILD_INFO.buildNumber} | Date: ${BUILD_INFO.buildDate}`
+    );
+
     registerSupplementalEditableSegments();
 
     // Initialize modules
@@ -127,6 +137,14 @@ export class QuartoReview {
     });
     if (this.git.isEnabled()) {
       this.reviewService = new GitReviewService(this.git, this.exporter);
+      console.log('✓ Git review service initialized');
+    } else {
+      console.warn(
+        '⚠ Git integration is disabled. Submit Review button will be unavailable.'
+      );
+      console.info(
+        'To enable: Add review.git configuration with provider, owner, and repo to your document metadata'
+      );
     }
     this.draftFilename = this.deriveDraftFilename();
     this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore(), {
