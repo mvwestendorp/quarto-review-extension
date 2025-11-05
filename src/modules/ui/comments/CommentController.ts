@@ -24,6 +24,7 @@ export interface CommentControllerCallbacks {
   ) => void;
   onComposerClosed?: () => void;
   persistDocument?: () => void;
+  getUserId?: () => string;
 }
 
 interface CommentComposerContext {
@@ -148,13 +149,13 @@ export class CommentController {
   }
 
   public handleSubmission(detail: any): void {
-    const { elementId, content, isEdit, start } = detail ?? {};
+    const { elementId, content, isEdit, commentId } = detail ?? {};
     if (!elementId || typeof content !== 'string') {
       return;
     }
 
-    if (isEdit && typeof start === 'number') {
-      this.updateSectionComment(elementId, start, content);
+    if (isEdit && commentId) {
+      this.updateSectionComment(commentId, content);
     } else {
       this.addSectionComment(elementId, content);
     }
@@ -162,16 +163,16 @@ export class CommentController {
     this.closeComposer();
   }
 
-  public removeComment(
-    elementId: string,
-    match: ReturnType<CommentsModule['parse']>[0]
-  ): void {
+  public removeComment(commentId: string): void {
     try {
-      const currentContent = this.config.changes.getElementContent(elementId);
-      const newContent = this.config.comments.accept(currentContent, match);
-      this.config.changes.edit(elementId, newContent);
-      const extracted = this.extractSectionComments(newContent);
-      this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
+      // Delete comment from CommentsModule (not from content)
+      const success = this.config.comments.deleteComment(commentId);
+
+      if (!success) {
+        this.callbacks.showNotification('Comment not found', 'error');
+        return;
+      }
+
       this.callbacks.requestRefresh();
       this.callbacks.ensureSidebarVisible?.();
       this.callbacks.persistDocument?.();
@@ -184,24 +185,12 @@ export class CommentController {
 
   private addSectionComment(elementId: string, comment: string): void {
     try {
-      const currentContent = this.config.changes.getElementContent(elementId);
+      // Get userId from callback or use anonymous
+      const userId = this.callbacks.getUserId?.() ?? 'anonymous';
 
-      const existingComments = this.config.comments
-        .parse(currentContent)
-        .filter((m) => m.type === 'comment');
+      // Store comment in CommentsModule (not in content)
+      this.config.comments.addComment(elementId, comment, userId, 'comment');
 
-      const lastCommentIndex = existingComments.length - 1;
-      const lastComment =
-        lastCommentIndex >= 0 ? existingComments[lastCommentIndex] : undefined;
-      const newContent = lastComment
-        ? currentContent.substring(0, lastComment.start) +
-          this.config.comments.createComment(comment) +
-          currentContent.substring(lastComment.end)
-        : currentContent + this.config.comments.createComment(comment);
-
-      this.config.changes.edit(elementId, newContent);
-      const extracted = this.extractSectionComments(newContent);
-      this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
       this.callbacks.requestRefresh();
       this.callbacks.ensureSidebarVisible?.();
       this.callbacks.persistDocument?.();
@@ -213,30 +202,16 @@ export class CommentController {
     }
   }
 
-  private updateSectionComment(
-    elementId: string,
-    start: number,
-    comment: string
-  ): void {
+  private updateSectionComment(commentId: string, content: string): void {
     try {
-      const currentContent = this.config.changes.getElementContent(elementId);
-      const comments = this.config.comments
-        .parse(currentContent)
-        .filter((m) => m.type === 'comment');
-      const target = comments.find((match) => match.start === start);
-      if (!target) {
-        this.addSectionComment(elementId, comment);
+      // Update comment in CommentsModule (not in content)
+      const success = this.config.comments.updateComment(commentId, content);
+
+      if (!success) {
+        this.callbacks.showNotification('Comment not found', 'error');
         return;
       }
 
-      const newContent =
-        currentContent.substring(0, target.start) +
-        this.config.comments.createComment(comment) +
-        currentContent.substring(target.end);
-
-      this.config.changes.edit(elementId, newContent);
-      const extracted = this.extractSectionComments(newContent);
-      this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
       this.callbacks.requestRefresh();
       this.callbacks.ensureSidebarVisible?.();
       this.callbacks.persistDocument?.();
@@ -260,19 +235,15 @@ export class CommentController {
     if (!Array.isArray(rawState)) {
       return [];
     }
-    const parse =
-      typeof this.config.comments.parse === 'function'
-        ? this.config.comments.parse.bind(this.config.comments)
-        : () => [];
+
     const snapshots: SectionCommentSnapshot[] = [];
 
     rawState.forEach((element) => {
-      const matches = parse(element.content).filter(
-        (m) => m.type === 'comment'
-      );
+      // Get comments from CommentsModule storage instead of parsing content
+      const comments = this.config.comments.getCommentsForElement(element.id);
 
-      if (matches.length > 0) {
-        snapshots.push({ element, matches });
+      if (comments.length > 0) {
+        snapshots.push({ element, comments });
       }
     });
 
@@ -281,8 +252,8 @@ export class CommentController {
 
   public getCommentCounts(): Map<string, number> {
     const counts = new Map<string, number>();
-    this.getSectionComments().forEach(({ element, matches }) => {
-      counts.set(element.id, matches.length);
+    this.getSectionComments().forEach(({ element, comments }) => {
+      counts.set(element.id, comments.length);
     });
     return counts;
   }
@@ -298,15 +269,16 @@ export class CommentController {
       onNavigate: (elementId, commentKey) => {
         this.focusCommentAnchor(elementId, commentKey);
       },
-      onRemove: (elementId, match) => {
-        this.removeComment(elementId, match);
+      onRemove: (elementId, comment) => {
+        this.removeComment(comment.id);
         this.clearHighlight();
       },
-      onEdit: (elementId, match) => {
+      onEdit: (elementId, comment) => {
         this.openComposer({
           elementId,
-          existingComment: match,
-          commentKey: match ? `${elementId}:${match.start}` : undefined,
+          existingComment: comment.content,
+          commentId: comment.id,
+          commentKey: `${elementId}:${comment.id}`,
         });
       },
       onHover: (elementId, commentKey) => {
@@ -578,5 +550,5 @@ export class CommentController {
 
 export interface SectionCommentSnapshot {
   element: ReviewElement;
-  matches: ReturnType<CommentsModule['parse']>;
+  comments: ReturnType<CommentsModule['getCommentsForElement']>;
 }

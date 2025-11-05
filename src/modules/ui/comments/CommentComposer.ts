@@ -25,6 +25,7 @@ export interface ComposerContext {
   elementId: string;
   existingComment?: string;
   elementLabel?: string;
+  commentId?: string; // ID of comment being edited
 }
 
 /**
@@ -288,6 +289,7 @@ export class CommentComposer extends ModuleEventEmitter {
       elementId: this.currentContext.elementId,
       content,
       isEdit,
+      commentId: this.currentContext.commentId,
     } as CommentSubmittedDetail);
 
     // Also call callback if provided

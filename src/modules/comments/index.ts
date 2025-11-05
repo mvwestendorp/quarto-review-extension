@@ -219,6 +219,18 @@ export class CommentsModule {
   }
 
   /**
+   * Update comment content
+   */
+  public updateComment(id: string, content: string): boolean {
+    const comment = this.comments.get(id);
+    if (!comment) return false;
+
+    comment.content = content;
+    comment.timestamp = Date.now(); // Update timestamp
+    return true;
+  }
+
+  /**
    * Resolve a comment
    */
   public resolveComment(id: string): boolean {

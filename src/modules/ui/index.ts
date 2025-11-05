@@ -179,6 +179,8 @@ export class UIModule {
         onComposerClosed: () =>
           this.commentController.clearHighlight('composer'),
         persistDocument: () => this.persistenceManager.persistDocument(),
+        getUserId: () =>
+          this.userModule?.getCurrentUser?.()?.id ?? 'anonymous',
       },
     });
     this.contextMenuCoordinator = new ContextMenuCoordinator({
