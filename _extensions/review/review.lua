@@ -1020,23 +1020,36 @@ local function get_extension_path()
     return ext_path
   end
 
-  -- Normalize the path and count directory depth
-  local normalized = normalize_path(output_file)
-  local depth = 0
+  -- Get the project root to calculate relative paths
+  local input_file = get_primary_input_file()
+  local abs_input = input_file and to_absolute_path(input_file)
+  local start_dir = abs_input and parent_directory(abs_input) or get_working_directory()
+  local project_root = detect_project_root() or (start_dir and find_project_root(start_dir)) or start_dir
+  project_root = normalize_path(project_root or '.')
 
-  -- Count the number of directory separators to determine depth
-  -- Each separator indicates one level of nesting that we need to navigate up from
-  for _ in normalized:gmatch('/') do
+  -- Normalize the output file path
+  local normalized_output = normalize_path(output_file)
+
+  -- Make the output path relative to the project root
+  -- This handles both absolute paths (e.g., D:/projects/site/processes/page.html)
+  -- and relative paths (e.g., processes/page.html)
+  local relative_output = make_relative(normalized_output, project_root)
+
+  -- Count the number of directory separators in the RELATIVE path
+  -- This gives us the actual nesting depth within the project
+  local depth = 0
+  for _ in relative_output:gmatch('/') do
     depth = depth + 1
   end
 
-  -- If file is at root level (no slashes), use direct path
+  -- If file is at root level (no slashes in relative path), use direct path
   if depth == 0 then
     return ext_path
   end
 
   -- Build relative path with appropriate number of ../
-  -- For example, if depth is 2 (e.g., "docs/api/page.html"), we need "../../"
+  -- For example, if relative depth is 1 (e.g., "processes/page.html"), we need "../"
+  -- If relative depth is 2 (e.g., "docs/api/page.html"), we need "../../"
   local prefix = string.rep('../', depth)
   return prefix .. ext_path
 end
