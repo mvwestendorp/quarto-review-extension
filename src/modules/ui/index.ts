@@ -31,9 +31,7 @@ import {
   type UIState,
   type CommentState,
 } from './shared';
-import {
-  normalizeContentForComparison,
-} from './shared/editor-content';
+import { normalizeContentForComparison } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
 import { QmdExportService, type ExportFormat } from '@modules/export';
 import ReviewSubmissionModal, {
@@ -178,8 +176,7 @@ export class UIModule {
         onComposerClosed: () =>
           this.commentController.clearHighlight('composer'),
         persistDocument: () => this.persistenceManager.persistDocument(),
-        getUserId: () =>
-          this.userModule?.getCurrentUser?.()?.id ?? 'anonymous',
+        getUserId: () => this.userModule?.getCurrentUser?.()?.id ?? 'anonymous',
       },
     });
     this.contextMenuCoordinator = new ContextMenuCoordinator({
@@ -944,7 +941,6 @@ export class UIModule {
 
     this.ensureSegmentDom(elementIds, segments, removedIds);
 
-
     this.updateHeadingReferencesAfterSave(
       elementId,
       segments,
@@ -1336,12 +1332,11 @@ export class UIModule {
     trackedContent: string;
     diffHighlights: DiffHighlightRange[];
   } {
-    const { plainContent, trackedContent } =
-      this.prepareEditorContentVariants(
-        elementId,
-        type,
-        this.editorState.showTrackedChanges
-      );
+    const { plainContent, trackedContent } = this.prepareEditorContentVariants(
+      elementId,
+      type,
+      this.editorState.showTrackedChanges
+    );
 
     const diffHighlights = this.editorState.showTrackedChanges
       ? this.computeDiffHighlightRanges(trackedContent)
@@ -2359,7 +2354,9 @@ export class UIModule {
     });
 
     if (migratedCount > 0) {
-      logger.info(`Migrated ${migratedCount} inline comments to CommentsModule storage`);
+      logger.info(
+        `Migrated ${migratedCount} inline comments to CommentsModule storage`
+      );
       // Refresh UI to show migrated comments
       requestAnimationFrame(() => {
         this.refreshCommentUI();

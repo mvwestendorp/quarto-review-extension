@@ -357,10 +357,7 @@ export class QmdExportService {
    * - Patterns starting with ! are negations
    * - Later patterns override earlier ones
    */
-  private shouldRenderFile(
-    filename: string,
-    patterns: string[]
-  ): boolean {
+  private shouldRenderFile(filename: string, patterns: string[]): boolean {
     let shouldRender = false;
 
     for (const pattern of patterns) {
