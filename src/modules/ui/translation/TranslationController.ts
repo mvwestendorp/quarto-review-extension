@@ -358,10 +358,10 @@ export class TranslationController {
         highlightOnHover: config.highlightOnHover,
       },
       {
-        onSourceSegmentEdit: (elementId, content) =>
-          this.handleSourceSegmentEdit(elementId, content),
-        onTargetSegmentEdit: (elementId, content) =>
-          this.handleTargetSegmentEdit(elementId, content),
+        onSourceSentenceEdit: (sentenceId: string, content: string) =>
+          this.handleSourceSentenceEdit(sentenceId, content),
+        onTargetSentenceEdit: (sentenceId: string, content: string) =>
+          this.handleTargetSentenceEdit(sentenceId, content),
       },
       markdown,
       this.editorBridge
@@ -619,112 +619,6 @@ export class TranslationController {
   }
 
   /**
-   * Handle source segment edit (segment-based - preferred)
-   * Called when user edits entire segment in translation view
-   */
-  private async handleSourceSegmentEdit(
-    elementId: string,
-    newContent: string
-  ): Promise<void> {
-    logger.info('Source segment edited', {
-      elementId,
-      contentLength: newContent.length,
-    });
-
-    try {
-      // Phase 3: Use extension pattern - only update ChangesModule
-      // TranslationModule reacts via onElementChanged extension handler
-      const mainChanges = this.config.translationModuleConfig.changes;
-      mainChanges.edit(elementId, newContent);
-
-      this.showNotification('Source segment updated', 'success');
-      this.translationModule.saveToStorageNow();
-      this.refreshViewFromState();
-
-      // Auto-retranslate if enabled
-      // Note: This will translate all sentences in the updated segment
-      if (this.config.translationModuleConfig.config.autoTranslateOnEdit) {
-        const translationDoc2 = this.translationModule.getDocument();
-        const affectedSentenceIds =
-          translationDoc2?.sourceSentences
-            .filter((s) => s.elementId === elementId)
-            .map((s) => s.id) ?? [];
-
-        if (affectedSentenceIds.length > 0) {
-          this.clearSentenceErrors(affectedSentenceIds);
-          this.markSentencesLoading(affectedSentenceIds, true);
-          try {
-            // Translate all sentences in this segment
-            for (const sentenceId of affectedSentenceIds) {
-              await this.translationModule.translateSentence(sentenceId);
-            }
-            this.showNotification('Translation updated', 'success');
-            this.refreshViewFromState();
-            this.clearSentenceErrors(affectedSentenceIds);
-          } catch (error) {
-            const message =
-              error instanceof Error
-                ? error.message || 'Segment translation failed.'
-                : 'Segment translation failed.';
-            this.markSentencesError(affectedSentenceIds, message);
-            this.view?.setErrorBanner({
-              message,
-              onRetry: () => {
-                this.handleSourceSegmentEdit(elementId, newContent).catch(
-                  (err) => {
-                    logger.error('Retry translation failed', err);
-                  }
-                );
-              },
-            });
-          } finally {
-            this.markSentencesLoading(affectedSentenceIds, false);
-          }
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to update source segment', error);
-      this.showNotification('Failed to update segment', 'error');
-    }
-  }
-
-  /**
-   * Handle target segment edit (segment-based - preferred)
-   * Called when user edits entire segment in translation view
-   */
-  private async handleTargetSegmentEdit(
-    elementId: string,
-    newContent: string
-  ): Promise<void> {
-    logger.info('Target segment edited', {
-      elementId,
-      contentLength: newContent.length,
-    });
-
-    try {
-      // Phase 3: Use extension pattern - only update ChangesModule
-      // TranslationModule reacts via onElementChanged extension handler
-      const mainChanges = this.config.translationModuleConfig.changes;
-      mainChanges.edit(elementId, newContent);
-
-      this.showNotification('Target segment updated', 'success');
-      this.translationModule.saveToStorageNow();
-      this.refreshViewFromState();
-
-      // Clear any errors for sentences in this segment (after TranslationModule has re-segmented)
-      const translationDoc = this.translationModule.getDocument();
-      const affectedSentenceIds =
-        translationDoc?.targetSentences
-          .filter((s) => s.elementId === elementId)
-          .map((s) => s.id) ?? [];
-      this.clearSentenceErrors(affectedSentenceIds);
-    } catch (error) {
-      logger.error('Failed to update target segment', error);
-      this.showNotification('Failed to update segment', 'error');
-    }
-  }
-
-  /**
    * Handle translation module updates
    */
   private handleTranslationUpdate(): void {
@@ -951,38 +845,86 @@ export class TranslationController {
   }
 
   /**
-   * @deprecated Use handleSourceSegmentEdit instead
-   * Backward-compatible alias for tests - edits individual sentence
+   * Handle source sentence edit - individual sentence level
+   * Called when user edits a single sentence in translation view
    */
-  // @ts-expect-error - Deprecated method kept for backward compatibility with tests
   private async handleSourceSentenceEdit(
     sentenceId: string,
     newContent: string
   ): Promise<void> {
-    // Legacy sentence-based editing (pre-segment harmonization)
-    // Track the edit operation in TranslationChangesModule
-    this.changesModule.editSentence(sentenceId, newContent, 'source');
-    // Update internal translation state
-    this.translationModule.updateSentence(sentenceId, newContent, true);
-    this.translationModule.saveToStorageNow();
-    this.refreshViewFromState();
+    logger.info('Source sentence edited', {
+      sentenceId,
+      contentLength: newContent.length,
+    });
+
+    try {
+      // Track the edit operation in TranslationChangesModule
+      this.changesModule.editSentence(sentenceId, newContent, 'source');
+      // Update internal translation state
+      this.translationModule.updateSentence(sentenceId, newContent, true);
+      this.translationModule.saveToStorageNow();
+      this.showNotification('Source sentence updated', 'success');
+      this.refreshViewFromState();
+
+      // Auto-retranslate if enabled
+      if (this.config.translationModuleConfig.config.autoTranslateOnEdit) {
+        this.clearSentenceErrors([sentenceId]);
+        this.markSentencesLoading([sentenceId], true);
+        try {
+          await this.translationModule.translateSentence(sentenceId);
+          this.showNotification('Translation updated', 'success');
+          this.refreshViewFromState();
+          this.clearSentenceErrors([sentenceId]);
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message || 'Sentence translation failed.'
+              : 'Sentence translation failed.';
+          this.markSentencesError([sentenceId], message);
+          this.view?.setErrorBanner({
+            message,
+            onRetry: () => {
+              this.handleSourceSentenceEdit(sentenceId, newContent).catch(
+                (err) => {
+                  logger.error('Retry translation failed', err);
+                }
+              );
+            },
+          });
+        } finally {
+          this.markSentencesLoading([sentenceId], false);
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to update source sentence', error);
+      this.showNotification('Failed to update sentence', 'error');
+    }
   }
 
   /**
-   * @deprecated Use handleTargetSegmentEdit instead
-   * Backward-compatible alias for tests - edits individual sentence
+   * Handle target sentence edit - individual sentence level
+   * Called when user edits a single sentence in translation view
    */
-  // @ts-expect-error - Deprecated method kept for backward compatibility with tests
   private async handleTargetSentenceEdit(
     sentenceId: string,
     newContent: string
   ): Promise<void> {
-    // Legacy sentence-based editing (pre-segment harmonization)
-    // Track the edit operation in TranslationChangesModule
-    this.changesModule.editSentence(sentenceId, newContent, 'target');
-    // Update internal translation state
-    this.translationModule.updateSentence(sentenceId, newContent, false);
-    this.translationModule.saveToStorageNow();
-    this.refreshViewFromState();
+    logger.info('Target sentence edited', {
+      sentenceId,
+      contentLength: newContent.length,
+    });
+
+    try {
+      // Track the edit operation in TranslationChangesModule
+      this.changesModule.editSentence(sentenceId, newContent, 'target');
+      // Update internal translation state
+      this.translationModule.updateSentence(sentenceId, newContent, false);
+      this.translationModule.saveToStorageNow();
+      this.showNotification('Target sentence updated', 'success');
+      this.refreshViewFromState();
+    } catch (error) {
+      logger.error('Failed to update target sentence', error);
+      this.showNotification('Failed to update sentence', 'error');
+    }
   }
 }

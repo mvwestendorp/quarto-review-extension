@@ -17,8 +17,8 @@ export interface TranslationViewConfig {
 }
 
 export interface TranslationViewCallbacks {
-  onSourceSegmentEdit?: (elementId: string, newContent: string) => void;
-  onTargetSegmentEdit?: (elementId: string, newContent: string) => void;
+  onSourceSentenceEdit?: (sentenceId: string, newContent: string) => void;
+  onTargetSentenceEdit?: (sentenceId: string, newContent: string) => void;
 }
 
 type ActiveEditorContext = {
@@ -413,7 +413,7 @@ export class TranslationView {
       statusChip.dataset.role = 'status-chip';
       statusChip.dataset.status = status;
       statusChip.setAttribute('role', 'status');
-      statusChip.setAttribute('aria-label', this.getStatusLabel(status));
+      statusChip.setAttribute('aria-label', this.getStatusAriaLabel(status));
       statusChip.textContent = this.getStatusLabel(status);
       wrapper.appendChild(statusChip);
     }
@@ -473,6 +473,21 @@ export class TranslationView {
    * Get human-readable status label
    */
   private getStatusLabel(status: string | null): string {
+    const labels: Record<string, string> = {
+      untranslated: 'Not translated',
+      'auto-translated': 'Auto-translated',
+      manual: 'Manual translation',
+      edited: 'Edited',
+      'out-of-sync': 'Out of sync',
+      synced: 'Synced',
+    };
+    return status ? labels[status] || status : '';
+  }
+
+  /**
+   * Get aria-label for status
+   */
+  private getStatusAriaLabel(status: string | null): string {
     const labels: Record<string, string> = {
       untranslated: 'Not translated',
       'auto-translated': 'Auto-translated',
@@ -826,10 +841,6 @@ export class TranslationView {
     this.activeEditorContext.cancel();
   }
 
-  private clearActiveEditorContext(): void {
-    this.activeEditorContext = null;
-  }
-
   public focusContainer(): void {
     this.element?.focus();
   }
@@ -975,6 +986,9 @@ export class TranslationView {
           const module = this.editorBridge?.getModule();
           const newContent = module?.getContent() || sentence.content;
 
+          // Update sentence content in document
+          sentence.content = newContent;
+
           if (this.markdown) {
             try {
               const html = this.markdown.renderElement(newContent, 'Para');
@@ -990,21 +1004,33 @@ export class TranslationView {
           // Notify callback
           const callback =
             side === 'source'
-              ? this.callbacks.onSourceSegmentEdit
-              : this.callbacks.onTargetSegmentEdit;
-          callback?.(sentence.elementId, newContent);
+              ? this.callbacks.onSourceSentenceEdit
+              : this.callbacks.onTargetSentenceEdit;
+          callback?.(sentence.id, newContent);
         } else {
           // Restore original display
           this.restoreSentenceDisplay(contentEl, sentence);
         }
 
         this.editorBridge?.destroy();
+        this.activeEditorContext = null;
         return Boolean(saved);
       };
 
       const cancel = (): void => {
         this.restoreSentenceDisplay(contentEl, sentence);
         this.editorBridge?.cancelEdit();
+        this.activeEditorContext = null;
+      };
+
+      // Set active editor context
+      this.activeEditorContext = {
+        sentence,
+        side,
+        sentenceElement: element,
+        contentEl,
+        save,
+        cancel,
       };
 
       // Attach button event listeners
