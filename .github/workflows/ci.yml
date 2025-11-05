@@ -196,9 +196,6 @@ jobs:
           cp README.md public/
           cp CHANGELOG.md public/
           cp SECURITY.md public/
-          cp docs/TEST_COVERAGE_PLAN.md public/
-          cp docs/TEST_COVERAGE_PROGRESS.md public/
-          cp docs/SECURITY_CI_PROPOSAL.md public/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
