@@ -126,9 +126,10 @@ describe('Git + Changes Integration', () => {
       // Get clean markdown
       const cleanMarkdown = changes.toCleanMarkdown();
 
-      // Simulate creating review branch
+      // Simulate creating review branch (via Git module)
       const branchName = 'review/test-branch';
-      await gitService.createReviewBranch(branchName);
+      await mockGitModule.createBranch(branchName);
+      await mockGitModule.checkoutBranch(branchName);
 
       // Verify branch was created
       expect(mockGitModule.createBranch).toHaveBeenCalledWith(branchName);

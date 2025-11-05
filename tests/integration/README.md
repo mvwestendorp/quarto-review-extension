@@ -14,10 +14,10 @@ Tests the interaction between `GitReviewService` and `ChangesModule`:
 - Multi-file export
 - Operation restoration from persistence
 
-**Status**: ✅ 15/15 tests passing
+**Status**: ✅ 12/12 tests passing
 
 ### 2. Persistence + Changes Integration (`persistence-changes.integration.test.ts`)
-Tests the interaction between `PersistenceManager` and `ChangesModule`:
+Tests the interaction between `LocalDraftPersistence` and `ChangesModule`:
 - Draft persistence with state and operations
 - Restoring drafts across sessions
 - Multiple save/load cycles
@@ -29,7 +29,7 @@ Tests the interaction between `PersistenceManager` and `ChangesModule`:
 - Auto-save workflow
 - Cross-session persistence
 
-**Status**: ⚠️ 9/14 tests passing (needs LocalDraftPersistence API adjustments)
+**Status**: ✅ 13/13 tests passing
 
 ### 3. Export + Changes Integration (`export-changes.integration.test.ts`)
 Tests the interaction between `QmdExportService` and `ChangesModule`:
@@ -46,7 +46,7 @@ Tests the interaction between `QmdExportService` and `ChangesModule`:
 - Performance with large documents
 - Git integration
 
-**Status**: ⚠️ 5/15 tests passing (needs QmdExportService API verification)
+**Status**: ✅ 19/19 tests passing
 
 ## Running Integration Tests
 
@@ -62,9 +62,9 @@ npm test -- tests/integration/git-changes.integration.test.ts
 
 ## Current Status
 
-**29 of 44 tests passing** (66% pass rate)
+**✅ 44 of 44 tests passing (100% pass rate)**
 
-The integration tests provide comprehensive coverage of multi-module interactions. Test failures are due to minor API mismatches that need to be resolved by verifying actual module method signatures.
+All integration tests provide comprehensive coverage of multi-module interactions with verified API signatures.
 
 ## Coverage
 
@@ -73,33 +73,91 @@ Integration tests complement unit tests by:
 - Verifying data flows across module boundaries
 - Catching integration issues that unit tests miss
 - Testing end-to-end workflows
+- Verifying API contracts between modules
 
-## TODO
+## Test Patterns
 
-- [ ] Fix API mismatches in persistence tests
-  - Verify LocalDraftPersistence.saveDraft() signature
-  - Check operation restoration flow
-  - Fix cross-session persistence test
+### Module Mocking
+Tests use `vitest` mocks for external dependencies:
+```typescript
+const mockGitModule = {
+  isAvailable: vi.fn().mockResolvedValue(true),
+  getConfig: vi.fn().mockReturnValue({ ... }),
+  createBranch: vi.fn().mockResolvedValue(undefined),
+  // ... other methods
+} as unknown as GitModule;
+```
 
-- [ ] Fix API mismatches in export tests
-  - Verify QmdExportService constructor and methods
-  - Check exportToQmd() return format
-  - Verify file writing integration
+### Helper Functions
+Tests include helper functions to construct test data:
+```typescript
+function buildChangesWithElements(elements: Element[]): ChangesModule {
+  const changes = new ChangesModule();
+  (changes as unknown as { originalElements: Element[] }).originalElements =
+    elements.map((element) => ({ ...element }));
+  return changes;
+}
+```
 
-- [ ] Create UI + Comments integration tests
-  - Use correct CommentsModule API: `addComment(elementId, content, userId)`
-  - Use `getCommentsForElement(elementId)` instead of `getCommentsByElementId`
-  - Use `getComment(id)` instead of `getCommentById`
+### Test Organization
+Each test suite follows this structure:
+1. **Setup**: Create mocks and initialize modules
+2. **Test Groups**: Organized by feature area
+3. **Assertions**: Verify both state and interactions
 
-- [ ] Create Translation + UI integration tests
-  - Verify TranslationModule API methods
-  - Check state management interface
+## Module Interactions Tested
 
-- [ ] Add more integration tests:
-  - [ ] UI + Export integration
-  - [ ] Git + Translation integration
-  - [ ] Comments + Translation integration
-  - [ ] Full end-to-end workflow tests
+### Git ↔ Changes
+- Export clean markdown for commits
+- Export tracked markdown for review
+- Operations history for PR descriptions
+- Conflict detection
+- Multi-file workflows
+
+### Persistence ↔ Changes
+- Draft save/restore with operations
+- Cross-session recovery
+- Operation history preservation
+- Auto-save patterns
+
+### Export ↔ Changes
+- Bundle creation with different formats
+- Multi-file export coordination
+- Metadata preservation
+- Format conversion (clean vs. critic)
+
+## Adding New Integration Tests
+
+To add new integration tests:
+
+1. Create a new file in `tests/integration/`:
+```typescript
+import { describe, it, expect, beforeEach } from 'vitest';
+import { ModuleA } from '@modules/a';
+import { ModuleB } from '@modules/b';
+
+describe('ModuleA + ModuleB Integration', () => {
+  // Setup and tests
+});
+```
+
+2. Follow existing patterns:
+   - Use mocks for external dependencies
+   - Test real interactions, not implementation details
+   - Verify both state changes and method calls
+   - Include error handling scenarios
+
+3. Update this README with the new test suite
+
+## Future Integration Tests
+
+Potential additional test suites:
+- [ ] UI + Comments integration (comment creation, threading, resolution)
+- [ ] Translation + UI integration (translation workflows, state sync)
+- [ ] Comments + Translation integration
+- [ ] UI + Export integration
+- [ ] Git + Translation integration
+- [ ] Full end-to-end workflow tests
 
 ## Notes
 
@@ -107,4 +165,4 @@ Integration tests complement unit tests by:
 - Tests create isolated DOM environments using jsdom
 - Each test suite is independent and can run in parallel
 - Tests follow AAA pattern: Arrange, Act, Assert
-- **Important**: Some tests have API mismatches and serve as templates showing expected integration patterns. These will be fixed once actual module APIs are verified.
+- All tests verify actual module APIs, not assumed interfaces

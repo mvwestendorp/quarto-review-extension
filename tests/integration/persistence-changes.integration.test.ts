@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ChangesModule } from '@modules/changes';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
+import { EmbeddedSourceStore } from '@modules/git/fallback';
 import type { Element, ElementMetadata, Operation } from '@/types';
 
 const baseMetadata: ElementMetadata = {
@@ -19,17 +20,23 @@ function buildChangesWithElements(elements: Element[]): ChangesModule {
   return changes;
 }
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
+// Mock storage
+const storageMock = (() => {
+  let store: Record<string, { content: string; commitMessage?: string }> = {};
 
   return {
-    getItem: (key: string) => store[key] || null,
-    setItem: (key: string, value: string) => {
-      store[key] = value;
+    getSource: async (filename: string) => {
+      return store[filename] || null;
     },
-    removeItem: (key: string) => {
-      delete store[key];
+    saveFile: async (
+      filename: string,
+      content: string,
+      commitMessage: string
+    ) => {
+      store[filename] = { content, commitMessage };
+    },
+    clearAll: async () => {
+      store = {};
     },
     clear: () => {
       store = {};
@@ -40,15 +47,17 @@ const localStorageMock = (() => {
 describe('Persistence + Changes Integration', () => {
   let changes: ChangesModule;
   let persistence: LocalDraftPersistence;
+  let mockStore: EmbeddedSourceStore;
 
   beforeEach(() => {
-    // Setup localStorage mock
-    Object.defineProperty(global, 'localStorage', {
-      value: localStorageMock,
-      writable: true,
-    });
+    storageMock.clear();
 
-    localStorageMock.clear();
+    // Create mock store
+    mockStore = {
+      getSource: vi.fn(storageMock.getSource),
+      saveFile: vi.fn(storageMock.saveFile),
+      clearAll: vi.fn(storageMock.clearAll),
+    } as unknown as EmbeddedSourceStore;
 
     // Initialize changes
     changes = buildChangesWithElements([
@@ -56,12 +65,14 @@ describe('Persistence + Changes Integration', () => {
       { id: 'p-2', content: 'Second paragraph', metadata: baseMetadata },
     ]);
 
-    // Initialize persistence
-    persistence = new LocalDraftPersistence({ key: 'test-draft' });
+    // Initialize persistence with mock store
+    persistence = new LocalDraftPersistence(mockStore, {
+      filename: 'test-draft.json',
+    });
   });
 
   afterEach(() => {
-    localStorageMock.clear();
+    storageMock.clear();
   });
 
   describe('Draft Persistence', () => {
@@ -331,19 +342,44 @@ describe('Persistence + Changes Integration', () => {
       expect(draft).toBeNull();
     });
 
-    it('should clear history separately from drafts', async () => {
-      // Persistence supports clearing history
-      await persistence.clearHistory();
+    it('should persist across multiple clear/save cycles', async () => {
+      // Save a draft
+      await persistence.saveDraft(
+        changes.getCurrentState().map((el) => ({
+          id: el.id,
+          content: el.content,
+          metadata: el.metadata,
+        })),
+        { operations: changes.getOperations() as Operation[] }
+      );
 
-      // Draft should still load (if it existed)
-      const draft = await persistence.loadDraft();
-      // No draft in this test, should be null
+      // Clear all
+      await persistence.clearAll();
+
+      // Should be gone
+      let draft = await persistence.loadDraft();
       expect(draft).toBeNull();
+
+      // Save again
+      changes.edit('p-1', 'New edit');
+      await persistence.saveDraft(
+        changes.getCurrentState().map((el) => ({
+          id: el.id,
+          content: el.content,
+          metadata: el.metadata,
+        })),
+        { operations: changes.getOperations() as Operation[] }
+      );
+
+      // Should load new draft
+      draft = await persistence.loadDraft();
+      expect(draft).toBeDefined();
+      expect(draft?.operations).toHaveLength(1);
     });
   });
 
   describe('Persistence Error Handling', () => {
-    it('should handle localStorage quota exceeded', async () => {
+    it('should handle storage quota exceeded', async () => {
       // Create large state
       const largeChanges = buildChangesWithElements(
         Array.from({ length: 1000 }, (_, i) => ({
@@ -371,8 +407,8 @@ describe('Persistence + Changes Integration', () => {
     });
 
     it('should handle corrupted draft data', async () => {
-      // Manually corrupt localStorage
-      localStorageMock.setItem('test-draft', 'invalid json');
+      // Manually corrupt storage
+      await storageMock.saveFile('test-draft.json', 'invalid json', 'test');
 
       // Try to load
       const draft = await persistence.loadDraft();
@@ -427,8 +463,10 @@ describe('Persistence + Changes Integration', () => {
         }
       );
 
-      // Simulate page reload: Create new instances
-      const newPersistence = new LocalDraftPersistence({ key: 'test-draft' });
+      // Simulate page reload: Create new instances with same store
+      const newPersistence = new LocalDraftPersistence(mockStore, {
+        filename: 'test-draft.json',
+      });
       const newChanges = buildChangesWithElements([
         { id: 'p-1', content: 'First paragraph', metadata: baseMetadata },
         { id: 'p-2', content: 'Second paragraph', metadata: baseMetadata },

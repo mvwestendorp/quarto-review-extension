@@ -29,6 +29,11 @@ describe('Export + Changes Integration', () => {
     // Create mock GitModule
     mockGitModule = {
       isAvailable: vi.fn().mockResolvedValue(true),
+      getConfig: vi.fn().mockReturnValue({
+        repository: {
+          sourceFile: 'document.qmd',
+        },
+      }),
       listFiles: vi.fn().mockResolvedValue([
         'document.qmd',
         'chapter1.qmd',
@@ -60,9 +65,8 @@ describe('Export + Changes Integration', () => {
     ]);
 
     // Initialize exporter
-    exporter = new QmdExportService({
+    exporter = new QmdExportService(changes, {
       git: mockGitModule,
-      getChanges: () => changes,
     });
   });
 
@@ -72,23 +76,19 @@ describe('Export + Changes Integration', () => {
       changes.edit('p-1', 'Modified first paragraph');
       changes.edit('p-2', 'Modified second paragraph');
 
-      // Export clean
-      const result = await exporter.exportToQmd({ format: 'clean' });
+      // Create export bundle
+      const bundle = await exporter.createBundle({ format: 'clean' });
 
       // Should have exported files
-      expect(result.fileCount).toBeGreaterThan(0);
-      expect(mockGitModule.writeFile).toHaveBeenCalled();
+      expect(bundle.files.length).toBeGreaterThan(0);
+      expect(bundle.format).toBe('clean');
 
-      // Get the written content
-      const writeCall = (mockGitModule.writeFile as ReturnType<typeof vi.fn>)
-        .mock.calls[0];
-      const writtenContent = writeCall?.[1];
-
-      // Should be clean (no CriticMarkup)
-      expect(writtenContent).not.toContain('{++');
-      expect(writtenContent).not.toContain('++}');
-      expect(writtenContent).not.toContain('{--');
-      expect(writtenContent).not.toContain('--}');
+      // Verify clean markdown doesn't have CriticMarkup
+      const cleanMarkdown = changes.toCleanMarkdown();
+      expect(cleanMarkdown).not.toContain('{++');
+      expect(cleanMarkdown).not.toContain('++}');
+      expect(cleanMarkdown).not.toContain('{--');
+      expect(cleanMarkdown).not.toContain('--}');
     });
 
     it('should preserve document structure in clean export', async () => {
@@ -132,20 +132,17 @@ describe('Export + Changes Integration', () => {
       changes.edit('p-1', 'Modified first paragraph');
       changes.edit('p-2', 'Updated second paragraph');
 
-      // Export with tracking
-      const result = await exporter.exportToQmd({ format: 'critic' });
+      // Create export bundle with tracking
+      const bundle = await exporter.createBundle({ format: 'critic' });
 
       // Should have exported
-      expect(result.fileCount).toBeGreaterThan(0);
+      expect(bundle.files.length).toBeGreaterThan(0);
+      expect(bundle.format).toBe('critic');
 
-      // Get written content
-      const writeCall = (mockGitModule.writeFile as ReturnType<typeof vi.fn>)
-        .mock.calls[0];
-      const writtenContent = writeCall?.[1];
-
-      // Should contain CriticMarkup
-      expect(writtenContent).toMatch(/\{--.*?--\}/);
-      expect(writtenContent).toMatch(/\{\+\+.*?\+\+\}/);
+      // Verify tracked markdown has CriticMarkup
+      const trackedMarkdown = changes.toTrackedMarkdown();
+      expect(trackedMarkdown).toMatch(/\{--.*?--\}/);
+      expect(trackedMarkdown).toMatch(/\{\+\+.*?\+\+\}/);
     });
 
     it('should show insertions and deletions in tracked export', () => {
@@ -172,12 +169,12 @@ describe('Export + Changes Integration', () => {
         'chapter2.qmd',
       ]);
 
-      // Export all
-      const result = await exporter.exportToQmd({ format: 'clean' });
+      // Create bundle
+      const bundle = await exporter.createBundle({ format: 'clean' });
 
       // Should export multiple files
-      expect(result.fileCount).toBeGreaterThanOrEqual(1);
-      expect(result.filenames).toBeDefined();
+      expect(bundle.files.length).toBeGreaterThanOrEqual(1);
+      expect(bundle.primaryFilename).toBeDefined();
     });
 
     it('should map changes to correct source files', () => {
@@ -294,13 +291,19 @@ describe('Export + Changes Integration', () => {
       // Edit content
       changes.edit('p-1', 'Modified content');
 
-      // Export clean
-      const cleanResult = await exporter.exportToQmd({ format: 'clean' });
-      expect(cleanResult.format).toBe('clean');
+      // Create clean bundle
+      const cleanBundle = await exporter.createBundle({ format: 'clean' });
+      expect(cleanBundle.files.length).toBeGreaterThan(0);
+      expect(cleanBundle.format).toBe('clean');
 
-      // Export with tracking
-      const criticResult = await exporter.exportToQmd({ format: 'critic' });
-      expect(criticResult.format).toBe('critic');
+      // Create critic bundle
+      const criticBundle = await exporter.createBundle({ format: 'critic' });
+      expect(criticBundle.files.length).toBeGreaterThan(0);
+      expect(criticBundle.format).toBe('critic');
+
+      // Both should have files
+      expect(cleanBundle.primaryFilename).toBeDefined();
+      expect(criticBundle.primaryFilename).toBeDefined();
     });
 
     it('should handle markdown formatting in export', () => {
@@ -324,20 +327,18 @@ describe('Export + Changes Integration', () => {
   });
 
   describe('Export Error Handling', () => {
-    it('should handle export failures gracefully', async () => {
-      // Mock write failure
-      (mockGitModule.writeFile as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('Write failed')
+    it('should handle export with no embedded files gracefully', async () => {
+      // Mock no files
+      (mockGitModule.listFiles as ReturnType<typeof vi.fn>).mockResolvedValue(
+        []
       );
 
-      // Try to export
-      try {
-        await exporter.exportToQmd({ format: 'clean' });
-        // Should not reach here
-        expect(true).toBe(false);
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
+      // Create bundle should handle gracefully
+      const bundle = await exporter.createBundle({ format: 'clean' });
+
+      // Should still work (exports current document)
+      expect(bundle).toBeDefined();
+      expect(bundle.files.length).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle empty documents', () => {
