@@ -5,6 +5,7 @@ import type {
   UIState,
   CommentState,
   ContextMenuState,
+  TranslationState,
 } from '@modules/ui/shared';
 
 describe('StateStore', () => {
@@ -53,6 +54,17 @@ describe('StateStore', () => {
       expect(contextMenuState.contextMenuScrollHandler).toBeNull();
     });
 
+    it('should have initial translation state', () => {
+      const translationState = store.getTranslationState();
+      expect(translationState.isActive).toBe(false);
+      expect(translationState.selectedSourceSentenceId).toBeNull();
+      expect(translationState.selectedTargetSentenceId).toBeNull();
+      expect(translationState.isBusy).toBe(false);
+      expect(translationState.progressPhase).toBe('idle');
+      expect(translationState.progressMessage).toBe('');
+      expect(translationState.progressPercent).toBeUndefined();
+    });
+
     it('should support debug mode', () => {
       const debugStore = createStateStore({ debug: true });
       expect(debugStore).toBeDefined();
@@ -78,6 +90,11 @@ describe('StateStore', () => {
 
     it('should return read-only context menu state', () => {
       const state = store.getContextMenuState();
+      expect(state).toBeDefined();
+    });
+
+    it('should return read-only translation state', () => {
+      const state = store.getTranslationState();
       expect(state).toBeDefined();
     });
 
@@ -137,6 +154,62 @@ describe('StateStore', () => {
       expect(state.activeEditor).toBe(mockElement);
       expect(state.currentElementId).toBe('element-1');
       expect(state.currentEditorContent).toBe('test');
+    });
+
+    it('should update translation state', () => {
+      store.setTranslationState({ isActive: true });
+      const state = store.getTranslationState();
+      expect(state.isActive).toBe(true);
+    });
+
+    it('should update translation selection state', () => {
+      store.setTranslationState({
+        selectedSourceSentenceId: 'source-1',
+        selectedTargetSentenceId: 'target-1',
+      });
+      const state = store.getTranslationState();
+      expect(state.selectedSourceSentenceId).toBe('source-1');
+      expect(state.selectedTargetSentenceId).toBe('target-1');
+    });
+
+    it('should update translation progress state', () => {
+      store.setTranslationState({
+        isBusy: true,
+        progressPhase: 'running',
+        progressMessage: 'Translating...',
+        progressPercent: 45,
+      });
+      const state = store.getTranslationState();
+      expect(state.isBusy).toBe(true);
+      expect(state.progressPhase).toBe('running');
+      expect(state.progressMessage).toBe('Translating...');
+      expect(state.progressPercent).toBe(45);
+    });
+
+    it('should merge translation updates with existing state', () => {
+      store.setTranslationState({ isActive: true });
+      store.setTranslationState({ isBusy: true });
+      const state = store.getTranslationState();
+      expect(state.isActive).toBe(true);
+      expect(state.isBusy).toBe(true);
+    });
+
+    it('should allow updating multiple translation properties at once', () => {
+      store.setTranslationState({
+        isActive: true,
+        selectedSourceSentenceId: 'source-1',
+        isBusy: true,
+        progressPhase: 'running',
+        progressMessage: 'Translating document...',
+        progressPercent: 25,
+      });
+      const state = store.getTranslationState();
+      expect(state.isActive).toBe(true);
+      expect(state.selectedSourceSentenceId).toBe('source-1');
+      expect(state.isBusy).toBe(true);
+      expect(state.progressPhase).toBe('running');
+      expect(state.progressMessage).toBe('Translating document...');
+      expect(state.progressPercent).toBe(25);
     });
   });
 
@@ -199,6 +272,49 @@ describe('StateStore', () => {
       store.setEditorState({ currentElementId: 'test' });
       expect(listener1).toHaveBeenCalled();
       expect(listener2).toHaveBeenCalled();
+    });
+
+    it('should emit translation:changed event', () => {
+      const listener = vi.fn();
+      store.on('translation:changed', listener);
+      store.setTranslationState({ isActive: true });
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({ isActive: true })
+      );
+    });
+
+    it('should emit translation:changed with progress updates', () => {
+      const listener = vi.fn();
+      store.on('translation:changed', listener);
+      store.setTranslationState({
+        isBusy: true,
+        progressPhase: 'running',
+        progressMessage: 'Translating...',
+        progressPercent: 50,
+      });
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          isBusy: true,
+          progressPhase: 'running',
+          progressMessage: 'Translating...',
+          progressPercent: 50,
+        })
+      );
+    });
+
+    it('should emit translation:changed with selection updates', () => {
+      const listener = vi.fn();
+      store.on('translation:changed', listener);
+      store.setTranslationState({
+        selectedSourceSentenceId: 'source-1',
+        selectedTargetSentenceId: 'target-1',
+      });
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedSourceSentenceId: 'source-1',
+          selectedTargetSentenceId: 'target-1',
+        })
+      );
     });
 
     it('should handle listener errors gracefully', () => {
@@ -317,12 +433,38 @@ describe('StateStore', () => {
       expect(state.activeContextMenu).toBeNull();
     });
 
+    it('should reset translation state', () => {
+      store.setTranslationState({
+        isActive: true,
+        selectedSourceSentenceId: 'source-1',
+        selectedTargetSentenceId: 'target-1',
+        isBusy: true,
+        progressPhase: 'running',
+        progressMessage: 'Translating...',
+        progressPercent: 50,
+      });
+      store.resetTranslationState();
+      const state = store.getTranslationState();
+      expect(state.isActive).toBe(false);
+      expect(state.selectedSourceSentenceId).toBeNull();
+      expect(state.selectedTargetSentenceId).toBeNull();
+      expect(state.isBusy).toBe(false);
+      expect(state.progressPhase).toBe('idle');
+      expect(state.progressMessage).toBe('');
+      expect(state.progressPercent).toBeUndefined();
+    });
+
     it('should reset all state', () => {
       const mockElement = document.createElement('div');
       store.setEditorState({ activeEditor: mockElement });
       store.setUIState({ isSidebarCollapsed: true });
       store.setCommentState({ activeCommentComposer: mockElement });
       store.setContextMenuState({ activeContextMenu: mockElement });
+      store.setTranslationState({
+        isActive: true,
+        isBusy: true,
+        progressPhase: 'running',
+      });
 
       store.resetAll();
 
@@ -331,6 +473,9 @@ describe('StateStore', () => {
       expect(state.ui.isSidebarCollapsed).toBe(false);
       expect(state.comment.activeCommentComposer).toBeNull();
       expect(state.contextMenu.activeContextMenu).toBeNull();
+      expect(state.translation.isActive).toBe(false);
+      expect(state.translation.isBusy).toBe(false);
+      expect(state.translation.progressPhase).toBe('idle');
     });
 
     it('should emit events when resetting', () => {
@@ -345,12 +490,14 @@ describe('StateStore', () => {
       const uiListener = vi.fn();
       const commentListener = vi.fn();
       const contextMenuListener = vi.fn();
+      const translationListener = vi.fn();
       const stateListener = vi.fn();
 
       store.on('editor:changed', editorListener);
       store.on('ui:changed', uiListener);
       store.on('comment:changed', commentListener);
       store.on('contextMenu:changed', contextMenuListener);
+      store.on('translation:changed', translationListener);
       store.on('state:changed', stateListener);
 
       store.resetAll();
@@ -359,6 +506,7 @@ describe('StateStore', () => {
       expect(uiListener).toHaveBeenCalled();
       expect(commentListener).toHaveBeenCalled();
       expect(contextMenuListener).toHaveBeenCalled();
+      expect(translationListener).toHaveBeenCalled();
       expect(stateListener).toHaveBeenCalled();
     });
   });
@@ -415,6 +563,97 @@ describe('StateStore', () => {
       store.setEditorState({ currentElementId: 'elem-3' });
 
       expect(updates).toEqual(['elem-1', 'elem-2', 'elem-3']);
+    });
+
+    it('should track translation workflow state changes', () => {
+      const progressUpdates: Array<{
+        phase: string;
+        message: string;
+        percent?: number;
+      }> = [];
+
+      store.on<TranslationState>('translation:changed', (state) => {
+        progressUpdates.push({
+          phase: state.progressPhase,
+          message: state.progressMessage,
+          percent: state.progressPercent,
+        });
+      });
+
+      // Simulate translation workflow
+      store.setTranslationState({
+        isActive: true,
+        isBusy: true,
+        progressPhase: 'running',
+        progressMessage: 'Initializing...',
+      });
+
+      store.setTranslationState({
+        progressPhase: 'running',
+        progressMessage: 'Translating sentences...',
+        progressPercent: 50,
+      });
+
+      store.setTranslationState({
+        progressPhase: 'success',
+        progressMessage: 'Translation complete',
+        progressPercent: 100,
+        isBusy: false,
+      });
+
+      expect(progressUpdates).toHaveLength(3);
+      expect(progressUpdates[0]).toEqual({
+        phase: 'running',
+        message: 'Initializing...',
+        percent: undefined,
+      });
+      expect(progressUpdates[1]).toEqual({
+        phase: 'running',
+        message: 'Translating sentences...',
+        percent: 50,
+      });
+      expect(progressUpdates[2]).toEqual({
+        phase: 'success',
+        message: 'Translation complete',
+        percent: 100,
+      });
+    });
+
+    it('should handle translation selection changes', () => {
+      const selections: Array<{
+        source: string | null;
+        target: string | null;
+      }> = [];
+
+      store.on<TranslationState>('translation:changed', (state) => {
+        selections.push({
+          source: state.selectedSourceSentenceId,
+          target: state.selectedTargetSentenceId,
+        });
+      });
+
+      // Select source sentence
+      store.setTranslationState({
+        selectedSourceSentenceId: 'source-1',
+        selectedTargetSentenceId: null,
+      });
+
+      // Select target sentence
+      store.setTranslationState({
+        selectedSourceSentenceId: null,
+        selectedTargetSentenceId: 'target-1',
+      });
+
+      // Select both
+      store.setTranslationState({
+        selectedSourceSentenceId: 'source-2',
+        selectedTargetSentenceId: 'target-2',
+      });
+
+      expect(selections).toHaveLength(3);
+      expect(selections[0]).toEqual({ source: 'source-1', target: null });
+      expect(selections[1]).toEqual({ source: null, target: 'target-1' });
+      expect(selections[2]).toEqual({ source: 'source-2', target: 'target-2' });
     });
   });
 });
