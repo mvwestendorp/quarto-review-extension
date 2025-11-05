@@ -234,10 +234,22 @@ export class QmdExportService {
       const segments = path.split('/').filter(Boolean);
       const last = segments.pop();
       if (last) {
-        const base = last.replace(/\.(html?|htm)$/i, '');
-        if (base) {
-          return `${base}.qmd`;
+        // Check if the last segment looks like an HTML file
+        if (/\.html?$/i.test(last)) {
+          const base = last.replace(/\.(html?|htm)$/i, '');
+          if (base) {
+            return `${base}.qmd`;
+          }
         }
+        // If last segment exists but doesn't look like HTML, it might be a folder
+        // Fall through to check for index.html
+      }
+
+      // If pathname ends with / or we couldn't extract a filename,
+      // we're likely at a directory being served with index.html
+      // Default to index.qmd instead of document.qmd
+      if (path.endsWith('/') || !last) {
+        return 'index.qmd';
       }
     }
     return 'document.qmd';
