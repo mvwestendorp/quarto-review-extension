@@ -27,6 +27,8 @@ jobs:
 
       - name: Package extension
         run: npm run package:extension
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4

@@ -1,4 +1,5 @@
 import { createModuleLogger } from '@utils/debug';
+import { getBuildString, getFullBuildInfo } from '../../../version';
 
 const logger = createModuleLogger('MainSidebar');
 
@@ -347,6 +348,37 @@ export class MainSidebar {
       </p>
     `;
     //body.appendChild(helpSection);
+
+    // Build info section at the bottom
+    const buildInfoSection = document.createElement('div');
+    buildInfoSection.className = 'review-sidebar-section review-build-info';
+    buildInfoSection.style.cssText = `
+      margin-top: auto;
+      padding-top: 8px;
+      border-top: 1px solid var(--review-border-color, #e5e7eb);
+      font-size: 11px;
+      color: var(--review-text-muted, #6b7280);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: help;
+    `;
+
+    const infoIcon = document.createElement('span');
+    infoIcon.textContent = 'ℹ️';
+    infoIcon.style.fontSize = '14px';
+
+    const buildText = document.createElement('span');
+    buildText.textContent = `v${getBuildString()}`;
+    buildText.style.userSelect = 'text';
+
+    buildInfoSection.appendChild(infoIcon);
+    buildInfoSection.appendChild(buildText);
+
+    // Add tooltip with full build info
+    buildInfoSection.title = getFullBuildInfo();
+
+    body.appendChild(buildInfoSection);
 
     container.appendChild(body);
 
