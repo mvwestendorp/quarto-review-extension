@@ -35,6 +35,17 @@ export class ChangesModule {
   private readonly extensionRegistry = new ChangesExtensionRegistry(this);
 
   /**
+   * Initialize with existing operations (for restore/reload from persistence)
+   * This allows restoring the operation history without recalculating diffs
+   */
+  public initializeWithOperations(operations: readonly Operation[]): void {
+    // Create a mutable copy of the operations array
+    this.operations = [...operations];
+    this.redoStack = [];
+    this.saved = false;
+  }
+
+  /**
    * Initialize from DOM - parse HTML to extract original elements
    */
   public initializeFromDOM(): void {
