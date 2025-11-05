@@ -368,19 +368,22 @@ export class UIModule {
    */
   private setupStateListeners(): void {
     // Listen for editor state changes
-    this.stateStore.on('editor:changed', (editorState) => {
-      logger.debug('Editor state changed', editorState);
+    this.stateStore.on<import('./shared').EditorState>(
+      'editor:changed',
+      (editorState) => {
+        logger.debug('Editor state changed', editorState);
 
-      // When showTrackedChanges changes, update the sidebar UI
-      // Note: refresh() is already called when toggleTrackedChanges is invoked,
-      // so we only need to ensure the sidebar reflects the current state
-      this.mainSidebarModule.setTrackedChangesVisible(
-        editorState.showTrackedChanges
-      );
-    });
+        // When showTrackedChanges changes, update the sidebar UI
+        // Note: refresh() is already called when toggleTrackedChanges is invoked,
+        // so we only need to ensure the sidebar reflects the current state
+        this.mainSidebarModule.setTrackedChangesVisible(
+          editorState.showTrackedChanges
+        );
+      }
+    );
 
     // Listen for UI state changes
-    this.stateStore.on('ui:changed', (uiState) => {
+    this.stateStore.on<import('./shared').UIState>('ui:changed', (uiState) => {
       logger.debug('UI state changed', uiState);
 
       // Update sidebar collapsed state in the UI
@@ -414,7 +417,7 @@ export class UIModule {
     });
 
     // Listen for comment state changes
-    this.stateStore.on('comment:changed', (commentState) => {
+    this.stateStore.on<CommentState>('comment:changed', (commentState) => {
       logger.debug('Comment state changed', commentState);
       // Comment state changes are handled by CommentController
       // which already has a reference to the state
