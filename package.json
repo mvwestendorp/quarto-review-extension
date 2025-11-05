@@ -21,7 +21,7 @@
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "test:coverage:check": "vitest --coverage --run",
-    "test:lua": "lua5.4 tests/lua/sanitize-identifier.test.lua && lua5.4 tests/lua/path-utils.test.lua && lua5.4 tests/lua/string-utils.test.lua && lua5.4 tests/lua/config.test.lua",
+    "test:lua": "lua5.4 tests/lua/sanitize-identifier.test.lua && lua5.4 tests/lua/path-utils.test.lua && lua5.4 tests/lua/string-utils.test.lua && lua5.4 tests/lua/config.test.lua && lua5.4 tests/lua/project-detection.test.lua && lua5.4 tests/lua/markdown-conversion.test.lua && lua5.4 tests/lua/element-wrapping.test.lua",
     "test:e2e": "playwright test",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",

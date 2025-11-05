@@ -54,6 +54,9 @@ lua5.4 tests/lua/sanitize-identifier.test.lua
 lua5.4 tests/lua/path-utils.test.lua
 lua5.4 tests/lua/string-utils.test.lua
 lua5.4 tests/lua/config.test.lua
+lua5.4 tests/lua/project-detection.test.lua
+lua5.4 tests/lua/markdown-conversion.test.lua
+lua5.4 tests/lua/element-wrapping.test.lua
 ```
 
 ## Test Format
@@ -125,6 +128,41 @@ Comprehensive test suite for the `config` module (~40 tests):
 - **debug_print()**: Debug output handling
 - **build_embedded_sources_script()**: Source script generation
 - **Configuration merging**: Meta precedence, defaults preservation
+
+### `project-detection.test.lua` ✨ NEW
+
+Comprehensive test suite for the `project-detection` module (~40 tests):
+
+- **should_skip_directory()**: Directory filtering (.git, node_modules, etc.)
+- **find_project_root()**: _quarto.yml detection, path traversal
+- **get_primary_input_file()**: Input file detection from PANDOC_STATE
+- **detect_project_root()**: Project root from quarto.project, environment vars
+- **detect_project_root_from_extension()**: Extension path detection
+- **collect_project_sources()**: Source file collection, filtering, relative paths
+- **Edge cases**: Windows paths, empty strings, nil handling
+
+### `markdown-conversion.test.lua` ✨ NEW
+
+Comprehensive test suite for the `markdown-conversion` module (~35 tests):
+
+- **codeblock_to_markdown()**: Code fence generation, language classes
+- **Chunk options**: label, fig-cap, echo, eval formatting
+- **Class filtering**: cell-, code-, quarto- prefix removal
+- **Attribute filtering**: data- attribute exclusion
+- **Option formatting**: Quotes, booleans, nil handling
+- **Option sorting**: Priority ordering (label first)
+- **Edge cases**: Empty code, nested backticks, multiline, special chars
+
+### `element-wrapping.test.lua` ✨ NEW
+
+Comprehensive test suite for the `element-wrapping` module (~45 tests):
+
+- **create_filter_functions()**: Filter creation for all element types
+- **Filter types**: Para, Header, CodeBlock, BulletList, OrderedList, BlockQuote, Table
+- **Configuration**: enabled flag, editable_elements control, debug mode
+- **Context handling**: section_stack, element_counters, processing_list flag
+- **ID generation**: prefix, separator configuration
+- **Edge cases**: All elements disabled, missing config fields
 
 ## Expected Test Output
 
@@ -215,7 +253,10 @@ To debug test failures, examine:
 - **path-utils.test.lua**: ~50 tests  ✨
 - **string-utils.test.lua**: ~35 tests ✨
 - **config.test.lua**: ~40 tests ✨
-- **TOTAL**: ~177 tests across 4 test files
+- **project-detection.test.lua**: ~40 tests ✨
+- **markdown-conversion.test.lua**: ~35 tests ✨
+- **element-wrapping.test.lua**: ~45 tests ✨
+- **TOTAL**: ~297 tests across 7 test files
 
 ## Related Documentation
 
