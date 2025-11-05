@@ -24,11 +24,6 @@ import {
   trimLineEnd,
   isSetextUnderline,
   isWhitespaceChar,
-  createInitialEditorState,
-  createInitialUIState,
-  createInitialCommentState,
-  type EditorState,
-  type UIState,
   type CommentState,
 } from './shared';
 import { normalizeContentForComparison } from './shared/editor-content';
@@ -69,6 +64,7 @@ import {
   type EditorManagerConfig,
   type EditorCallbacks,
 } from '@/services/EditorManager';
+import { StateStore } from '@/services/StateStore';
 
 const logger = createModuleLogger('UIModule');
 
@@ -93,10 +89,8 @@ interface HeadingReferenceInfo {
 export class UIModule {
   private config: UIConfig;
 
-  // Consolidated state objects (Phase 5)
-  private editorState: EditorState = createInitialEditorState();
-  private uiState: UIState = createInitialUIState();
-  private commentState: CommentState = createInitialCommentState();
+  // Central state store (replaces individual state objects)
+  private stateStore: StateStore;
 
   // Cache and utility maps
   private headingReferenceLookup = new Map<string, HeadingReferenceInfo>();
@@ -140,13 +134,16 @@ export class UIModule {
     this.localPersistence = config.persistence;
     this.translationModule = config.translation;
 
+    // Initialize central state store
+    this.stateStore = new StateStore();
+
     // Initialize services
     this.notificationService = new NotificationService();
     this.loadingService = new LoadingService();
 
     logger.debug(
       'Initialized with tracked changes:',
-      this.editorState.showTrackedChanges
+      this.stateStore.getEditorState().showTrackedChanges
     );
 
     // Initialize module instances
@@ -163,7 +160,7 @@ export class UIModule {
         comments: this.config.comments,
         markdown: this.config.markdown,
       },
-      commentState: this.commentState,
+      commentState: this.stateStore.getCommentState() as CommentState,
       sidebar: this.commentsSidebarModule,
       composer: this.commentComposerModule,
       badges: this.commentBadgesModule,
@@ -256,10 +253,10 @@ export class UIModule {
       refresh: () => this.refresh(),
       onEditorClosed: () => {
         // Clear heading reference cache
-        if (this.editorState.currentElementId) {
-          this.activeHeadingReferenceCache.delete(
-            this.editorState.currentElementId
-          );
+        const currentElementId =
+          this.stateStore.getEditorState().currentElementId;
+        if (currentElementId) {
+          this.activeHeadingReferenceCache.delete(currentElementId);
         }
       },
       onEditorSaved: () => {
@@ -276,7 +273,7 @@ export class UIModule {
     this.editorManager = new EditorManager(
       editorManagerConfig,
       editorCallbacks,
-      this.editorState
+      this.stateStore
     );
 
     this.mainSidebarModule.onUndo(() => {
@@ -370,7 +367,7 @@ export class UIModule {
     sidebar?: HTMLElement
   ): void {
     const toolbar = sidebar ?? this.getOrCreateToolbar();
-    this.uiState.isSidebarCollapsed = collapsed;
+    this.stateStore.setUIState({ isSidebarCollapsed: collapsed });
 
     toolbar.classList.toggle('review-sidebar-collapsed', collapsed);
     if (document.body) {
@@ -699,15 +696,17 @@ export class UIModule {
    * Toggle visibility of tracked changes
    */
   public toggleTrackedChanges(force?: boolean): void {
+    const currentShowTrackedChanges =
+      this.stateStore.getEditorState().showTrackedChanges;
     const nextState =
-      typeof force === 'boolean' ? force : !this.editorState.showTrackedChanges;
+      typeof force === 'boolean' ? force : !currentShowTrackedChanges;
 
-    if (this.editorState.showTrackedChanges === nextState) {
+    if (currentShowTrackedChanges === nextState) {
       this.mainSidebarModule.setTrackedChangesVisible(nextState);
       return;
     }
 
-    this.editorState.showTrackedChanges = nextState;
+    this.stateStore.setEditorState({ showTrackedChanges: nextState });
     this.mainSidebarModule.setTrackedChangesVisible(nextState);
     this.refresh();
   }
@@ -716,7 +715,7 @@ export class UIModule {
    * Get current tracked changes mode
    */
   public isShowingTrackedChanges(): boolean {
-    return this.editorState.showTrackedChanges;
+    return this.stateStore.getEditorState().showTrackedChanges;
   }
 
   public attachEventListeners(): void {
@@ -805,7 +804,7 @@ export class UIModule {
     }
     this.globalShortcutsBound = true;
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.editorState.activeEditor) {
+      if (e.key === 'Escape' && this.stateStore.getEditorState().activeEditor) {
         this.closeEditor();
       }
     });
@@ -821,10 +820,10 @@ export class UIModule {
     content: string,
     diffHighlights: DiffHighlightRange[] = []
   ): Promise<void> {
-    this.editorState.currentEditorContent = content;
+    this.stateStore.setEditorState({ currentEditorContent: content });
     try {
       // Determine the element type to configure toolbar/context behaviour.
-      const elementId = this.editorState.currentElementId;
+      const elementId = this.stateStore.getEditorState().currentElementId;
       let elementType = 'default';
       if (elementId) {
         const element = document.querySelector(
@@ -841,11 +840,11 @@ export class UIModule {
         diffHighlights,
         elementType,
         onContentChange: (markdown) => {
-          this.editorState.currentEditorContent = markdown;
+          this.stateStore.setEditorState({ currentEditorContent: markdown });
         },
       });
 
-      this.editorState.milkdownEditor = editor;
+      this.stateStore.setEditorState({ milkdownEditor: editor });
 
       logger.debug('Milkdown editor initialized successfully');
     } catch (error) {
@@ -865,9 +864,11 @@ export class UIModule {
           </div>
         `;
       }
-      this.editorState.activeEditorToolbar = null;
+      this.stateStore.setEditorState({
+        activeEditorToolbar: null,
+        milkdownEditor: null,
+      });
       this.editorLifecycle.destroy();
-      this.editorState.milkdownEditor = null;
 
       // TODO: Notify EditorManager of initialization failure to release operation lock
       // For now, the lock will timeout or be released on next successful operation
@@ -880,14 +881,12 @@ export class UIModule {
   }
 
   private saveEditor(): void {
-    if (!this.editorState.milkdownEditor || !this.editorState.currentElementId)
-      return;
-    const elementId = this.editorState.currentElementId;
+    const editorState = this.stateStore.getEditorState();
+    if (!editorState.milkdownEditor || !editorState.currentElementId) return;
+    const elementId = editorState.currentElementId;
 
     // Get markdown content from tracked state
-    let newContent = normalizeListMarkers(
-      this.editorState.currentEditorContent
-    );
+    let newContent = normalizeListMarkers(editorState.currentEditorContent);
     const cachedHeadingReference =
       this.activeHeadingReferenceCache.get(elementId);
     if (cachedHeadingReference) {
@@ -902,7 +901,7 @@ export class UIModule {
       newContent = leadingWhitespaceResult.content;
       this.showWhitespaceIgnoredNotification();
     }
-    this.editorState.currentEditorContent = newContent;
+    this.stateStore.setEditorState({ currentEditorContent: newContent });
 
     const elementData = this.config.changes.getElementById(elementId);
     if (!elementData) {
@@ -992,7 +991,8 @@ export class UIModule {
     const reviewer = this.getReviewerDisplayName();
     const repoConfig = this.reviewService.getRepositoryConfig();
     const baseBranch = repoConfig?.baseBranch ?? 'main';
-    const format: ExportFormat = this.editorState.showTrackedChanges
+    const format: ExportFormat = this.stateStore.getEditorState()
+      .showTrackedChanges
       ? 'critic'
       : 'clean';
 
@@ -1177,6 +1177,10 @@ export class UIModule {
       operations.filter((op) => op.type === 'edit').map((op) => op.elementId)
     );
 
+    const currentElementId = this.stateStore.getEditorState().currentElementId;
+    const showTrackedChanges =
+      this.stateStore.getEditorState().showTrackedChanges;
+
     currentState.forEach((elem) => {
       const relevantOperations = operations.filter(
         (op) => op.elementId === elem.id
@@ -1186,7 +1190,7 @@ export class UIModule {
       // IMPORTANT: Always check if element was previously modified (shown in DOM)
       // This ensures undo/redo properly updates display even when removing operations
       const wasPreviouslyModified =
-        elem.id === this.editorState.currentElementId ||
+        elem.id === currentElementId ||
         document.querySelector(
           `[data-review-id="${elem.id}"][data-review-modified="true"]`
         );
@@ -1196,7 +1200,7 @@ export class UIModule {
       }
 
       // If showing tracked changes, get content with CriticMarkup visualization
-      if (this.editorState.showTrackedChanges) {
+      if (showTrackedChanges) {
         const hasEdits = relevantOperations.some((op) => op.type === 'edit');
 
         if (hasEdits) {
@@ -1332,13 +1336,15 @@ export class UIModule {
     trackedContent: string;
     diffHighlights: DiffHighlightRange[];
   } {
+    const showTrackedChanges =
+      this.stateStore.getEditorState().showTrackedChanges;
     const { plainContent, trackedContent } = this.prepareEditorContentVariants(
       elementId,
       type,
-      this.editorState.showTrackedChanges
+      showTrackedChanges
     );
 
-    const diffHighlights = this.editorState.showTrackedChanges
+    const diffHighlights = showTrackedChanges
       ? this.computeDiffHighlightRanges(trackedContent)
       : [];
 
@@ -1808,7 +1814,7 @@ export class UIModule {
     const canRedo = this.config.changes.canRedo();
     this.mainSidebarModule.updateUndoRedoState(canUndo, canRedo);
     this.mainSidebarModule.setTrackedChangesVisible(
-      this.editorState.showTrackedChanges
+      this.stateStore.getEditorState().showTrackedChanges
     );
   }
 
@@ -2204,10 +2210,13 @@ export class UIModule {
       toolbar = this.createPersistentSidebar();
       document.body.appendChild(toolbar);
       this.mainSidebarModule.setTrackedChangesVisible(
-        this.editorState.showTrackedChanges
+        this.stateStore.getEditorState().showTrackedChanges
       );
       this.syncToolbarState();
-      this.applySidebarCollapsedState(this.uiState.isSidebarCollapsed, toolbar);
+      this.applySidebarCollapsedState(
+        this.stateStore.getUIState().isSidebarCollapsed,
+        toolbar
+      );
 
       // Set up translation toggle after sidebar is created
       const enableTranslation = Boolean(this.translationModule);
