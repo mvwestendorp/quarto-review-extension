@@ -411,7 +411,8 @@ export class TranslationController {
           this.handleTargetSentenceEdit(sentenceId, content),
       },
       markdown,
-      this.editorBridge
+      this.editorBridge,
+      this.stateStore || undefined
     );
 
     const viewElement = this.view.create();

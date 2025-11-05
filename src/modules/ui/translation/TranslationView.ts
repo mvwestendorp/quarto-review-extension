@@ -8,6 +8,8 @@ import type { MarkdownModule } from '@modules/markdown';
 import type { TranslationDocument, Sentence } from '@modules/translation/types';
 import type { TranslationEditorBridge } from './TranslationEditorBridge';
 import type { TranslationProgressStatus } from './TranslationController';
+import type { StateStore } from '@/services/StateStore';
+import type { TranslationState } from '@modules/ui/shared';
 
 const logger = createModuleLogger('TranslationView');
 
@@ -37,6 +39,8 @@ export class TranslationView {
   private document: TranslationDocument | null = null;
   private markdown: MarkdownModule | null = null;
   private editorBridge: TranslationEditorBridge | null = null;
+  private stateStore: StateStore | null = null;
+  private stateStoreUnsubscribe: (() => void) | null = null;
 
   // UI elements
   private sourcePane: HTMLElement | null = null;
@@ -82,15 +86,73 @@ export class TranslationView {
     config: TranslationViewConfig,
     callbacks: TranslationViewCallbacks,
     markdown?: MarkdownModule,
-    editorBridge?: TranslationEditorBridge
+    editorBridge?: TranslationEditorBridge,
+    stateStore?: StateStore
   ) {
     this.viewConfig = config;
     this.callbacks = callbacks;
     this.markdown = markdown || null;
     this.editorBridge = editorBridge || null;
+    this.stateStore = stateStore || null;
     this.handleResize = () => {
       this.scheduleSentenceAlignment();
     };
+
+    // Subscribe to StateStore translation state changes
+    if (this.stateStore) {
+      this.stateStoreUnsubscribe = this.stateStore.on<TranslationState>(
+        'translation:changed',
+        (state: Readonly<TranslationState>) => {
+          this.handleStateStoreUpdate(state);
+        }
+      );
+    }
+  }
+
+  /**
+   * Handle StateStore translation state updates
+   */
+  private handleStateStoreUpdate(state: Readonly<TranslationState>): void {
+    logger.debug('StateStore translation state updated in view', {
+      isBusy: state.isBusy,
+      progressPhase: state.progressPhase,
+      hasSelectedSource: !!state.selectedSourceSentenceId,
+      hasSelectedTarget: !!state.selectedTargetSentenceId,
+    });
+
+    // Update progress status if it changed
+    if (
+      state.progressPhase !== this.progressStatus?.phase ||
+      state.progressMessage !== this.progressStatus?.message ||
+      state.progressPercent !== this.progressStatus?.percent
+    ) {
+      this.setDocumentProgress({
+        phase: state.progressPhase,
+        message: state.progressMessage,
+        percent: state.progressPercent,
+      });
+    }
+
+    // Update selected sentence if it changed
+    if (state.selectedSourceSentenceId && state.selectedSourceSentenceId !== this.selectedSentence?.id) {
+      this.selectedSentence = {
+        id: state.selectedSourceSentenceId,
+        side: 'source',
+      };
+      // Re-apply selection UI if already rendered
+      if (this.element) {
+        this.restoreSelection();
+      }
+    } else if (state.selectedTargetSentenceId && state.selectedTargetSentenceId !== this.selectedSentence?.id) {
+      this.selectedSentence = {
+        id: state.selectedTargetSentenceId,
+        side: 'target',
+      };
+      // Re-apply selection UI if already rendered
+      if (this.element) {
+        this.restoreSelection();
+      }
+    }
   }
 
   /**
@@ -545,6 +607,14 @@ export class TranslationView {
 
     // Set selected
     this.selectedSentence = { id: sentenceId, side };
+
+    // Update StateStore if available
+    if (this.stateStore) {
+      this.stateStore.setTranslationState({
+        selectedSourceSentenceId: side === 'source' ? sentenceId : null,
+        selectedTargetSentenceId: side === 'target' ? sentenceId : null,
+      });
+    }
 
     // Add selected class
     const element = this.findSentenceElement(sentenceId, side);
@@ -1176,6 +1246,12 @@ export class TranslationView {
       this.alignFrameId = null;
     }
 
+    // Unsubscribe from StateStore
+    if (this.stateStoreUnsubscribe) {
+      this.stateStoreUnsubscribe();
+      this.stateStoreUnsubscribe = null;
+    }
+
     if (this.element) {
       this.element.remove();
       this.element = null;
@@ -1204,6 +1280,7 @@ export class TranslationView {
       retryButton: null,
     };
     this.activeEditorContext = null;
+    this.stateStore = null;
   }
 
   public setErrorBanner(
