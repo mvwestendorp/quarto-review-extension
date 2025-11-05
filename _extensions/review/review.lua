@@ -540,24 +540,33 @@ function build_debug_config(meta)
   if meta.review and meta.review.debug then
     local debug_meta = meta.review.debug
 
-    if debug_meta.enabled ~= nil then
-      debug_config.enabled = meta_to_json(debug_meta.enabled)
+    -- Handle case where debug is just a boolean true/false
+    if type(debug_meta) == 'boolean' or (debug_meta.t == 'MetaBool') then
+      debug_config.enabled = meta_to_json(debug_meta)
+      return debug_config
     end
 
-    if debug_meta.level then
-      debug_config.level = pandoc.utils.stringify(debug_meta.level)
-    end
+    -- Handle case where debug is a configuration object
+    if type(debug_meta) == 'table' then
+      if debug_meta.enabled ~= nil then
+        debug_config.enabled = meta_to_json(debug_meta.enabled)
+      end
 
-    if debug_meta.modules then
-      debug_config.modules = meta_to_json(debug_meta.modules)
-    end
+      if debug_meta.level then
+        debug_config.level = pandoc.utils.stringify(debug_meta.level)
+      end
 
-    if debug_meta['exclude-modules'] then
-      debug_config.excludeModules = meta_to_json(debug_meta['exclude-modules'])
-    end
+      if debug_meta.modules then
+        debug_config.modules = meta_to_json(debug_meta.modules)
+      end
 
-    if debug_meta['format-timestamp'] ~= nil then
-      debug_config.formatTimestamp = meta_to_json(debug_meta['format-timestamp'])
+      if debug_meta['exclude-modules'] then
+        debug_config.excludeModules = meta_to_json(debug_meta['exclude-modules'])
+      end
+
+      if debug_meta['format-timestamp'] ~= nil then
+        debug_config.formatTimestamp = meta_to_json(debug_meta['format-timestamp'])
+      end
     end
   end
 
@@ -1021,26 +1030,45 @@ local function get_extension_path()
     return ext_path
   end
 
-  -- The output_file from Quarto is typically a relative path within the output directory
-  -- For example: "processes/page.html" or just "page.html"
-  -- We need to count the directory depth in this relative path
-  local normalized_output = normalize_path(output_file)
-
   debug_print("get_extension_path: output_file = " .. tostring(output_file))
+
+  -- Normalize the output file path (converts backslashes to forward slashes)
+  local normalized_output = normalize_path(output_file)
   debug_print("get_extension_path: normalized_output = " .. tostring(normalized_output))
 
-  -- Remove any leading ./ or .\
-  normalized_output = normalized_output:gsub('^%./', ''):gsub('^%.\\', '')
+  -- Detect the project root
+  local input_file = get_primary_input_file()
+  local abs_input = input_file and to_absolute_path(input_file)
+  local start_dir = abs_input and parent_directory(abs_input) or get_working_directory()
+  local project_root = detect_project_root() or (start_dir and find_project_root(start_dir)) or start_dir
+  project_root = normalize_path(project_root or '.')
+  debug_print("get_extension_path: project_root = " .. tostring(project_root))
 
-  -- Count directory separators to determine depth
-  -- We need to count how many folders deep the output file is
-  local depth = 0
+  -- Strip the project root and any output directory from the path
+  -- to get the path relative to the project root
+  local relative_output = normalized_output
 
-  -- Count forward slashes
-  for _ in normalized_output:gmatch('/') do
-    depth = depth + 1
+  -- If output_file is absolute, make it relative to project root
+  if normalized_output:match('^[A-Za-z]:') or normalized_output:sub(1, 1) == '/' then
+    relative_output = make_relative(normalized_output, project_root)
+    debug_print("get_extension_path: made relative to project root = " .. tostring(relative_output))
   end
 
+  -- Remove leading ./ or .\
+  relative_output = relative_output:gsub('^%./', ''):gsub('^%.\\', '')
+
+  -- Strip output directory prefixes (common patterns: _site, _output, output, site, website, docs)
+  -- These are typically where Quarto puts the rendered HTML files
+  relative_output = relative_output:gsub('^_site/', ''):gsub('^_output/', '')
+                                   :gsub('^output/', ''):gsub('^site/', '')
+                                   :gsub('^website/', ''):gsub('^docs/', '')
+  debug_print("get_extension_path: after stripping output dir = " .. tostring(relative_output))
+
+  -- Count directory separators to determine depth within the output structure
+  local depth = 0
+  for _ in relative_output:gmatch('/') do
+    depth = depth + 1
+  end
   debug_print("get_extension_path: depth = " .. tostring(depth))
 
   -- If file is at root level (no slashes), use direct path
@@ -1050,11 +1078,10 @@ local function get_extension_path()
   end
 
   -- Build relative path with appropriate number of ../
-  -- For example, if depth is 1 (e.g., "processes/page.html"), we need "../"
   local prefix = string.rep('../', depth)
   local result = prefix .. ext_path
-
   debug_print("get_extension_path: returning: " .. result)
+
   return result
 end
 
