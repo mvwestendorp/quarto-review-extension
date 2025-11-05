@@ -53,7 +53,11 @@
 
 ## Architecture Analysis
 
-### Core Principle: Sentences as Refinement Layer
+### Core Principle: Dual-Level Architecture
+
+**CRITICAL DISTINCTION:**
+- **Editing**: Happens at SEGMENT level (full context, consistent with review mode)
+- **Visual Cues + Translation**: Happens at SENTENCE level (fine-grained control)
 
 ```
 ┌─────────────────────────────────────┐
@@ -76,18 +80,110 @@
             │
 ┌─────────────────────────────────────┐
 │   TranslationView (UI Layer)        │
-│   - Sentence-level visualization    │
-│   - Status indicators per sentence  │
-│   - Edits segments via ChangesModule│
-│   - Sentences guide translation flow│
+│   - RENDERS: Sentence-level visual  │
+│   - STATUS: Per-sentence indicators │
+│   - EDITS: Segment-level via        │
+│     ChangesModule (full context)    │
+│   - TRANSLATES: Sentence-level ops  │
 └─────────────────────────────────────┘
 ```
 
-**Key Insight:** Sentences are NOT internal-only. They are a visible refinement layer that:
-- Guide translation workflow (smaller, manageable units)
-- Track correspondence between source and target at fine granularity
-- Show translation status (auto vs manual, edited, synced, out-of-sync)
-- Enable selective translation (translate one sentence at a time)
+**Segment (Editing Unit):**
+```
+┌─ Segment (Click to edit entire segment) ──────────┐
+│                                                    │
+│  • Sentence 1 [Auto-translated] [Translate]       │
+│  • Sentence 2 [Manual] [Approve]                  │
+│  • Sentence 3 [Out-of-sync] [Re-translate]        │
+│                                                    │
+│  [Edit Segment] ← Opens Milkdown for full segment │
+└────────────────────────────────────────────────────┘
+```
+
+**Key Architecture Points:**
+
+1. **Editing (Segment-level):**
+   - User clicks "Edit" on a segment (not individual sentences)
+   - Opens Milkdown editor with FULL segment content
+   - All sentences in segment visible during edit
+   - Changes saved at segment level via ChangesModule
+   - Undo/redo works at segment level
+
+2. **Visual Cues (Sentence-level):**
+   - Each sentence shows its translation status
+   - Color coding, icons, status chips per sentence
+   - Hover highlights corresponding sentence in other pane
+   - Correspondence lines connect related sentences
+
+3. **Translation Operations (Sentence-level):**
+   - "Translate this sentence" button per sentence
+   - Can translate individual sentences without full segment
+   - Translation status tracked per sentence
+   - Approval workflow per sentence
+
+4. **Benefits:**
+   - Natural editing with full context (segment-level)
+   - Fine-grained translation control (sentence-level)
+   - Clear visual feedback (sentence-level)
+   - Consistent with review mode editing (segment-level)
+
+---
+
+## Current Implementation vs Target Architecture
+
+### What's Currently Correct ✅
+
+1. **Sentence-level rendering** - Sentences are displayed with individual status indicators
+2. **Sentence-level translation operations** - Can translate individual sentences
+3. **Visual status indicators** - Status chips showing auto/manual/edited per sentence
+4. **Correspondence visualization** - Lines connecting related sentences
+
+### What Needs to Change 🔧
+
+1. **Editing Level** (Currently: sentence-level → Should be: segment-level)
+   - **Current:** Double-clicking a sentence opens editor for just that sentence
+   - **Target:** Clicking "Edit" on a segment opens editor for entire segment
+   - **Implementation:**
+     - Remove sentence double-click editing
+     - Add segment-level edit button/trigger
+     - Editor receives full segment content (all sentences merged)
+     - After save, segment content is split back into sentences for status tracking
+
+2. **Editor Bridge** (Currently: sentence-focused → Should be: segment-focused)
+   - **Current:** `TranslationEditorBridge` has `initializeSentenceEditor()`
+   - **Target:** Should have `initializeSegmentEditor()`
+   - **Implementation:**
+     - Update EditorBridge to work with segments (element IDs)
+     - Pass full segment content to Milkdown
+     - Use same editor configuration as review mode
+
+3. **Callbacks** (Currently: sentence IDs → Should be: element IDs)
+   - **Current:** `onSourceSentenceEdit(sentenceId, content)`
+   - **Target:** `onSourceSegmentEdit(elementId, content)`
+   - **Implementation:**
+     - Update callback signatures
+     - Controller receives element ID and full segment content
+     - TranslationModule re-segments content into sentences internally
+
+4. **TranslationChangesModule** (Currently: separate undo stack → Should be: use ChangesModule)
+   - **Current:** Separate undo/redo for translation at sentence level
+   - **Target:** Use main ChangesModule for segment-level undo/redo
+   - **Implementation:**
+     - Remove TranslationChangesModule
+     - Translation edits go through ChangesModule
+     - TranslationModule listens to ChangesModule operations
+     - Re-segments content after each edit
+
+### What to Keep (Already Correct) ✅
+
+- Sentence rendering and display
+- Status indicators per sentence
+- Sentence-level translation buttons
+- Correspondence mapping
+- Progress tracking
+- Error states per sentence
+- Keyboard shortcuts
+- Focus management
 
 ---
 
@@ -226,16 +322,62 @@ type TranslationStatus =
 
 ### Phase A: State Management Integration (2-3 hours)
 
+**Status:** ✅ Task 1 Complete | 🔄 Tasks 2-3 In Progress
+
 **Tasks:**
-1. Extend StateStore with translation state domain
-2. Update TranslationController to use StateStore
-3. Update TranslationView to react to state changes
+1. ✅ Extend StateStore with translation state domain
+2. 🔄 Update TranslationController to use StateStore
+3. 🔄 Update TranslationView to react to state changes
 4. Remove local state management code
 
 **Files:**
-- `src/services/StateStore.ts` - Add translation state
-- `src/modules/ui/translation/TranslationController.ts` - Use StateStore
-- `src/modules/ui/translation/TranslationView.ts` - Subscribe to state
+- ✅ `src/services/StateStore.ts` - Added translation state
+- ✅ `src/modules/ui/shared/UIState.ts` - Added TranslationState interface
+- 🔄 `src/modules/ui/translation/TranslationController.ts` - Use StateStore
+- 🔄 `src/modules/ui/translation/TranslationView.ts` - Subscribe to state
+
+---
+
+### Phase A2: Segment-Level Editing (3-4 hours) **[NEW - CRITICAL]**
+
+**Status:** ☐ Not Started
+
+**Goal:** Change editing from sentence-level to segment-level while keeping sentence-level visual cues
+
+**Tasks:**
+1. Update TranslationView rendering to show segments with sentence visual cues inside
+2. Add segment-level edit triggers (edit button per segment)
+3. Update TranslationEditorBridge to work with segments instead of sentences
+4. Change callbacks from `onSentenceEdit()` to `onSegmentEdit()`
+5. Update TranslationController to handle segment edits
+6. Ensure TranslationModule re-segments content after edits
+7. Remove sentence double-click editing
+8. Keep sentence-level translation buttons and status indicators
+
+**Files:**
+- `src/modules/ui/translation/TranslationView.ts` - Render segments, add edit triggers
+- `src/modules/ui/translation/TranslationEditorBridge.ts` - Change to segment editing
+- `src/modules/ui/translation/TranslationController.ts` - Handle segment callbacks
+- `src/modules/translation/index.ts` - Re-segmentation logic
+
+**Key Changes:**
+```typescript
+// Before (sentence-level editing):
+onSentenceEdit(sentenceId: string, newContent: string)
+
+// After (segment-level editing):
+onSegmentEdit(elementId: string, newContent: string)
+// TranslationModule internally re-segments the content into sentences
+```
+
+**Visual Structure:**
+```
+Segment Container
+├─ Sentence 1 (visual status, translate button)
+├─ Sentence 2 (visual status, translate button)
+├─ Sentence 3 (visual status, translate button)
+└─ [Edit Segment] button (opens full segment in Milkdown)
+```
 
 ---
 
@@ -301,14 +443,24 @@ type TranslationStatus =
 
 ## Timeline
 
-**Total Estimate:** 12-17 hours
+**Total Estimate:** 15-21 hours (updated with Phase A2)
 
 **Priority Order:**
-1. Phase A (State Management) - Foundation for everything else
-2. Phase C (Visual Clues) - Most user-visible improvement
-3. Phase D (Workflow) - Enhanced UX
-4. Phase B (Services) - Code quality improvement
-5. Phase E (Testing) - Ensure quality
+1. ✅ Phase A Task 1 (State Management) - COMPLETE - Foundation established
+2. **Phase A2 (Segment-Level Editing) - NEXT - Critical architecture fix**
+3. Phase A Tasks 2-3 (Controller/View StateStore integration)
+4. Phase C (Visual Clues) - Most user-visible improvement
+5. Phase D (Workflow) - Enhanced UX
+6. Phase B (Services) - Code quality improvement
+7. Phase E (Testing) - Ensure quality
+
+**Rationale for Phase A2 Priority:**
+Phase A2 (segment-level editing) is critical because:
+- Aligns editing with core architecture (segments are the atomic unit)
+- Consistent with review mode (same editing experience)
+- Foundation for proper undo/redo integration
+- Enables removal of TranslationChangesModule
+- Must be done before other refactoring to avoid rework
 
 ---
 
