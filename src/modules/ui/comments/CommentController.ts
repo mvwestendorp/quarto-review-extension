@@ -173,7 +173,8 @@ export class CommentController {
       const extracted = this.extractSectionComments(newContent);
       this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
       this.callbacks.requestRefresh();
-      this.callbacks.ensureSidebarVisible?.();
+      // Show sidebar after refresh completes (sidebar will show remaining comments or empty state)
+      this.sidebar?.show();
       this.callbacks.persistDocument?.();
       this.callbacks.showNotification('Comment removed', 'success');
     } catch (error) {
@@ -203,7 +204,8 @@ export class CommentController {
       const extracted = this.extractSectionComments(newContent);
       this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
       this.callbacks.requestRefresh();
-      this.callbacks.ensureSidebarVisible?.();
+      // Show sidebar after refresh completes
+      this.sidebar?.show();
       this.callbacks.persistDocument?.();
       window.getSelection()?.removeAllRanges();
       this.callbacks.showNotification('Comment added successfully', 'success');
@@ -238,7 +240,8 @@ export class CommentController {
       const extracted = this.extractSectionComments(newContent);
       this.cacheSectionCommentMarkup(elementId, extracted.commentMarkup);
       this.callbacks.requestRefresh();
-      this.callbacks.ensureSidebarVisible?.();
+      // Show sidebar after refresh completes
+      this.sidebar?.show();
       this.callbacks.persistDocument?.();
       this.callbacks.showNotification('Comment updated', 'success');
     } catch (error) {
