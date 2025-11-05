@@ -120,7 +120,9 @@ export class QuartoReview {
       `%c🎨 Quarto Review Extension ${getBuildString()}`,
       'color: #2563eb; font-weight: bold; font-size: 14px'
     );
-    console.log(`Build: ${BUILD_INFO.buildNumber} | Date: ${BUILD_INFO.buildDate}`);
+    console.log(
+      `Build: ${BUILD_INFO.buildNumber} | Date: ${BUILD_INFO.buildDate}`
+    );
 
     registerSupplementalEditableSegments();
 
@@ -137,8 +139,12 @@ export class QuartoReview {
       this.reviewService = new GitReviewService(this.git, this.exporter);
       console.log('✓ Git review service initialized');
     } else {
-      console.warn('⚠ Git integration is disabled. Submit Review button will be unavailable.');
-      console.info('To enable: Add review.git configuration with provider, owner, and repo to your document metadata');
+      console.warn(
+        '⚠ Git integration is disabled. Submit Review button will be unavailable.'
+      );
+      console.info(
+        'To enable: Add review.git configuration with provider, owner, and repo to your document metadata'
+      );
     }
     this.draftFilename = this.deriveDraftFilename();
     this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore(), {

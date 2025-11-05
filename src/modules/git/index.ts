@@ -25,7 +25,9 @@ export class GitModule {
 
     if (!this.resolution) {
       logger.warn('Git integration disabled (no configuration provided)');
-      logger.info('To enable git integration, add review.git configuration to your document metadata');
+      logger.info(
+        'To enable git integration, add review.git configuration to your document metadata'
+      );
       return;
     }
 
@@ -36,8 +38,12 @@ export class GitModule {
           : undefined;
       this.authToken = initialToken;
 
-      logger.info(`Initializing git integration with provider: ${this.resolution.config.provider}`);
-      logger.debug(`Repository: ${this.resolution.config.repository.owner}/${this.resolution.config.repository.name}`);
+      logger.info(
+        `Initializing git integration with provider: ${this.resolution.config.provider}`
+      );
+      logger.debug(
+        `Repository: ${this.resolution.config.repository.owner}/${this.resolution.config.repository.name}`
+      );
       logger.debug(`Auth mode: ${this.resolution.config.auth?.mode || 'none'}`);
 
       this.provider = createProvider(this.resolution.config);
@@ -45,7 +51,9 @@ export class GitModule {
         this.provider.updateAuthToken(initialToken);
         logger.debug('Auth token provided in configuration');
       } else if (this.resolution.config.auth?.mode === 'pat') {
-        logger.info('PAT auth mode enabled - token will be requested when submitting review');
+        logger.info(
+          'PAT auth mode enabled - token will be requested when submitting review'
+        );
       }
 
       this.integration = new GitIntegrationService(
@@ -58,7 +66,9 @@ export class GitModule {
       );
     } catch (error) {
       logger.error('Failed to initialize git provider:', error);
-      logger.error('Git integration will be disabled. Check your configuration.');
+      logger.error(
+        'Git integration will be disabled. Check your configuration.'
+      );
     }
   }
 
