@@ -661,6 +661,25 @@ export class ChangesModule {
   }
 
   /**
+   * Convert current state to markdown with comments appended
+   * @param commentsMap - Map of elementId to CriticMarkup comment string
+   */
+  public toMarkdownWithComments(commentsMap: Map<string, string>): string {
+    const elements = this.getCurrentState();
+    return elements
+      .map((e) => {
+        const commentMarkup = commentsMap.get(e.id);
+        if (commentMarkup && commentMarkup.trim()) {
+          // Append comments to content with proper spacing
+          const content = e.content.replace(/\s+$/u, '');
+          return `${content} ${commentMarkup}`;
+        }
+        return e.content;
+      })
+      .join('\n\n');
+  }
+
+  /**
    * Convert current state to clean markdown suitable for Git commits
    * Strips all CriticMarkup annotations (comments, highlights, etc.)
    * and applies tracked changes in accept mode.

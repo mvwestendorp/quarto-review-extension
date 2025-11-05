@@ -6,7 +6,10 @@
  * Base error class for all Git-related errors
  */
 export class GitError extends Error {
-  constructor(message: string, public readonly cause?: Error) {
+  constructor(
+    message: string,
+    public readonly cause?: Error
+  ) {
     super(message);
     this.name = 'GitError';
     if (cause) {
@@ -39,7 +42,11 @@ export class GitAuthError extends GitError {
  * Error thrown when Git network operations fail
  */
 export class GitNetworkError extends GitError {
-  constructor(message: string, public readonly retryable: boolean = true, cause?: Error) {
+  constructor(
+    message: string,
+    public readonly retryable: boolean = true,
+    cause?: Error
+  ) {
     super(message, cause);
     this.name = 'GitNetworkError';
   }

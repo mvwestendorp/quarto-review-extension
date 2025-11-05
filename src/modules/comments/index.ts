@@ -219,6 +219,18 @@ export class CommentsModule {
   }
 
   /**
+   * Update comment content
+   */
+  public updateComment(id: string, content: string): boolean {
+    const comment = this.comments.get(id);
+    if (!comment) return false;
+
+    comment.content = content;
+    comment.timestamp = Date.now(); // Update timestamp
+    return true;
+  }
+
+  /**
    * Resolve a comment
    */
   public resolveComment(id: string): boolean {
@@ -238,6 +250,22 @@ export class CommentsModule {
 
     comment.resolved = false;
     return true;
+  }
+
+  /**
+   * Get all comments for an element formatted as CriticMarkup
+   * Returns empty string if no comments exist
+   */
+  public getCommentsAsCriticMarkup(elementId: string): string {
+    const comments = this.getCommentsForElement(elementId);
+    if (comments.length === 0) {
+      return '';
+    }
+
+    // Format each comment as CriticMarkup and join with space
+    return comments
+      .map((comment) => this.createComment(comment.content))
+      .join(' ');
   }
 
   /**

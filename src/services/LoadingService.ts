@@ -54,7 +54,10 @@ export class LoadingService {
   /**
    * Create loader DOM element
    */
-  private createLoaderElement(message: string, showBackdrop: boolean): HTMLElement {
+  private createLoaderElement(
+    message: string,
+    showBackdrop: boolean
+  ): HTMLElement {
     const loader = document.createElement('div');
     loader.className = 'review-loading';
 

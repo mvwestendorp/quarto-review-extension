@@ -154,7 +154,9 @@ export class GitModule {
           _content,
           message
         );
-        logger.info(`Saved to fallback store: ${_filepath} (v${result.version})`);
+        logger.info(
+          `Saved to fallback store: ${_filepath} (v${result.version})`
+        );
         return result.version;
       }
 

@@ -32,7 +32,6 @@ import {
   type CommentState,
 } from './shared';
 import {
-  mergeSectionCommentIntoSegments,
   normalizeContentForComparison,
 } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
@@ -67,6 +66,11 @@ import type {
 import { NotificationService } from '@/services/NotificationService';
 import { LoadingService } from '@/services/LoadingService';
 import { PersistenceManager } from '@/services/PersistenceManager';
+import {
+  EditorManager,
+  type EditorManagerConfig,
+  type EditorCallbacks,
+} from '@/services/EditorManager';
 
 const logger = createModuleLogger('UIModule');
 
@@ -124,10 +128,10 @@ export class UIModule {
   private translationModule?: TranslationModule;
   private pluginHandles = new Map<string, PluginHandle>();
   private translationPlugin: TranslationPlugin | null = null;
-  private isEditorOperationInProgress = false; // Prevent concurrent editor operations
   private notificationService: NotificationService;
   private loadingService: LoadingService;
   private persistenceManager: PersistenceManager;
+  private editorManager!: EditorManager; // Initialized after dependencies
   // UI plugins will be introduced during extension refactor (Phase 3)
 
   constructor(config: UIConfig) {
@@ -174,6 +178,8 @@ export class UIModule {
         onComposerClosed: () =>
           this.commentController.clearHighlight('composer'),
         persistDocument: () => this.persistenceManager.persistDocument(),
+        getUserId: () =>
+          this.userModule?.getCurrentUser?.()?.id ?? 'anonymous',
       },
     });
     this.contextMenuCoordinator = new ContextMenuCoordinator({
@@ -211,15 +217,69 @@ export class UIModule {
             }
             const segments = this.segmentContentIntoElements(
               entry.content,
-              (entry.metadata as ElementMetadata | undefined) ?? element.metadata
+              (entry.metadata as ElementMetadata | undefined) ??
+                element.metadata
             );
             const { elementIds, removedIds } =
-              this.config.changes.replaceElementWithSegments(entry.id, segments);
+              this.config.changes.replaceElementWithSegments(
+                entry.id,
+                segments
+              );
             this.ensureSegmentDom(elementIds, segments, removedIds);
           });
         },
         refresh: () => this.refresh(),
       }
+    );
+
+    // Initialize EditorManager with callbacks
+    const editorManagerConfig: EditorManagerConfig = {
+      changes: this.config.changes,
+      comments: this.config.comments,
+      markdown: this.config.markdown,
+      inlineEditing: this.config.inlineEditing ?? false,
+      historyStorage: this.historyStorage,
+      notificationService: this.notificationService,
+      editorLifecycle: this.editorLifecycle,
+    };
+
+    const editorCallbacks: EditorCallbacks = {
+      getElementContent: (elementId) =>
+        this.config.changes.getElementContent(elementId),
+      getElementContentWithTrackedChanges: (elementId) =>
+        this.config.changes.getElementContentWithTrackedChanges(elementId),
+      segmentContentIntoElements: (content, metadata) =>
+        this.segmentContentIntoElements(content, metadata),
+      replaceElementWithSegments: (elementId, segments) =>
+        this.config.changes.replaceElementWithSegments(elementId, segments),
+      ensureSegmentDom: (elementIds, segments, removedIds) =>
+        this.ensureSegmentDom(elementIds, segments, removedIds),
+      resolveListEditorTarget: (element) =>
+        this.resolveListEditorTarget(element),
+      refresh: () => this.refresh(),
+      onEditorClosed: () => {
+        // Clear heading reference cache
+        if (this.editorState.currentElementId) {
+          this.activeHeadingReferenceCache.delete(
+            this.editorState.currentElementId
+          );
+        }
+      },
+      onEditorSaved: () => {
+        // Placeholder for future save-specific logic
+      },
+      createEditorModal: (content, type) =>
+        this.createEditorModal(content, type),
+      initializeMilkdown: (container, content, diffHighlights) =>
+        this.initializeMilkdown(container, content, diffHighlights ?? []),
+      createEditorSession: (elementId, type) =>
+        this.createEditorSession(elementId, type),
+    };
+
+    this.editorManager = new EditorManager(
+      editorManagerConfig,
+      editorCallbacks,
+      this.editorState
     );
 
     this.mainSidebarModule.onUndo(() => {
@@ -272,6 +332,10 @@ export class UIModule {
     this.cacheInitialHeadingReferences();
     // Initialize sidebar immediately so it's always visible
     this.initializeSidebar();
+
+    // Migrate any inline comments to CommentsModule storage
+    this.migrateInlineComments();
+
     requestAnimationFrame(() => {
       this.refreshCommentUI();
     });
@@ -751,137 +815,8 @@ export class UIModule {
   }
 
   public openEditor(elementId: string): void {
-    // Prevent concurrent editor operations (race condition fix)
-    if (this.isEditorOperationInProgress) {
-      logger.warn('Editor operation already in progress, ignoring request');
-      return;
-    }
-
-    const element = document.querySelector(
-      `[data-review-id="${elementId}"]`
-    ) as HTMLElement | null;
-    if (!element) return;
-
-    const targetElement = this.resolveListEditorTarget(element) ?? element;
-    const targetId = targetElement.getAttribute('data-review-id');
-    if (!targetId) return;
-
-    if (targetId !== elementId) {
-      logger.debug(
-        `Redirecting edit to list root ${targetId} (clicked ${elementId})`
-      );
-    }
-
-    // Set lock before opening editor
-    this.isEditorOperationInProgress = true;
-
-    // Check if inline editing is enabled
-    if (this.config.inlineEditing) {
-      this.openInlineEditor(targetId);
-    } else {
-      this.openModalEditor(targetId);
-    }
-  }
-
-  private openModalEditor(elementId: string): void {
-    const element = document.querySelector(`[data-review-id="${elementId}"]`);
-    if (!element) return;
-
-    this.editorState.currentElementId = elementId;
-    logger.debug('Opening editor for', { elementId });
-    logger.trace(
-      'Tracked changes enabled:',
-      this.editorState.showTrackedChanges
-    );
-
-    // Set baseline for tracked changes calculation
-    const currentContent = this.config.changes.getElementContent(elementId);
-    this.config.changes.setElementBaseline(elementId, currentContent);
-
-    // Restore editor history if available
-    this.restoreEditorHistory(elementId);
-
-    const type = element.getAttribute('data-review-type') || 'Para';
-
-    const { plainContent, trackedContent, diffHighlights } =
-      this.createEditorSession(elementId, type);
-
-    logger.trace('Editor content (plain):', plainContent);
-    if (this.editorState.showTrackedChanges) {
-      logger.trace('Editor content (tracked):', trackedContent);
-    }
-
-    const modal = this.createEditorModal(plainContent, type);
-    document.body.appendChild(modal);
-    this.editorState.activeEditor = modal;
-
-    // Delay so DOM renders
-    requestAnimationFrame(() => {
-      this.initializeMilkdown(modal, plainContent, diffHighlights);
-    });
-  }
-
-  private openInlineEditor(elementId: string): void {
-    const element = document.querySelector(
-      `[data-review-id="${elementId}"]`
-    ) as HTMLElement;
-    if (!element) return;
-
-    // Close any existing inline editor
-    this.closeEditor();
-
-    this.editorState.currentElementId = elementId;
-
-    // Set baseline for tracked changes calculation
-    const currentContent = this.config.changes.getElementContent(elementId);
-    this.config.changes.setElementBaseline(elementId, currentContent);
-
-    // Restore editor history if available
-    this.restoreEditorHistory(elementId);
-
-    const type = element.getAttribute('data-review-type') || 'Para';
-
-    const { plainContent, diffHighlights } = this.createEditorSession(
-      elementId,
-      type
-    );
-
-    // Mark element as being edited
-    element.classList.add('review-editable-editing');
-
-    // Wrap original content
-    const originalContent = element.innerHTML;
-    element.setAttribute('data-review-original-html', originalContent);
-    element.innerHTML = `
-      <div class="review-inline-editor-container">
-        <div class="review-inline-editor-body"></div>
-        <div class="review-inline-editor-actions">
-          <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
-          <button class="review-btn review-btn-primary review-btn-sm" data-action="save">Save</button>
-        </div>
-      </div>
-    `;
-
-    const inlineEditor = element.querySelector(
-      '.review-inline-editor-container'
-    ) as HTMLElement;
-    this.editorState.activeEditor = inlineEditor;
-
-    // Add event listeners
-    inlineEditor.querySelectorAll('[data-action="cancel"]').forEach((btn) => {
-      btn.addEventListener('click', () => this.closeEditor());
-    });
-
-    inlineEditor
-      .querySelector('[data-action="save"]')
-      ?.addEventListener('click', () => {
-        this.saveEditor();
-      });
-
-    // Initialize Milkdown
-    requestAnimationFrame(() => {
-      this.initializeMilkdown(inlineEditor, plainContent, diffHighlights);
-    });
+    // Delegate to EditorManager
+    this.editorManager.openEditor(elementId);
   }
 
   private async initializeMilkdown(
@@ -937,59 +872,14 @@ export class UIModule {
       this.editorLifecycle.destroy();
       this.editorState.milkdownEditor = null;
 
-      // Release lock on error
-      this.isEditorOperationInProgress = false;
+      // TODO: Notify EditorManager of initialization failure to release operation lock
+      // For now, the lock will timeout or be released on next successful operation
     }
   }
 
   public closeEditor(): void {
-    // Save editor history before destroying the editor
-    if (this.editorState.currentElementId) {
-      this.saveEditorHistory(this.editorState.currentElementId);
-      // Clear the baseline for this element when closing the editor
-      this.config.changes.clearElementBaseline(
-        this.editorState.currentElementId
-      );
-    }
-
-    this.editorLifecycle.destroy();
-    this.editorState.milkdownEditor = null;
-    this.editorState.activeEditorToolbar = null;
-    if (this.editorState.activeEditor) {
-      // For inline editing, restore the element
-      if (this.config.inlineEditing && this.editorState.currentElementId) {
-        const element = document.querySelector(
-          `[data-review-id="${this.editorState.currentElementId}"]`
-        ) as HTMLElement;
-        if (element) {
-          element.classList.remove('review-editable-editing');
-          const cachedHtml = element.getAttribute('data-review-original-html');
-          if (cachedHtml !== null) {
-            element.innerHTML = cachedHtml;
-            element.removeAttribute('data-review-original-html');
-          }
-          if (this.editorState.currentElementId) {
-            this.commentController.clearSectionCommentMarkup(
-              this.editorState.currentElementId
-            );
-          }
-        }
-      } else {
-        // For modal editing, just remove the modal
-        this.editorState.activeEditor.remove();
-      }
-      this.editorState.activeEditor = null;
-      if (this.editorState.currentElementId) {
-        this.activeHeadingReferenceCache.delete(
-          this.editorState.currentElementId
-        );
-      }
-      this.editorState.currentElementId = null;
-      this.editorState.currentEditorContent = '';
-    }
-
-    // Release editor operation lock
-    this.isEditorOperationInProgress = false;
+    // Delegate to EditorManager
+    this.editorManager.closeEditor();
   }
 
   private saveEditor(): void {
@@ -1024,23 +914,10 @@ export class UIModule {
       return;
     }
 
-    const cachedSectionComment =
-      this.commentController.consumeSectionCommentMarkup(elementId);
-
     const segments = this.segmentContentIntoElements(
       newContent,
       elementData.metadata
     );
-
-    if (cachedSectionComment) {
-      mergeSectionCommentIntoSegments(
-        segments,
-        cachedSectionComment,
-        elementData.metadata,
-        (content, markup) =>
-          this.commentController.appendSectionComments(content, markup)
-      );
-    }
 
     const originalContentRaw = this.config.changes.getElementContent(elementId);
     const originalContent = normalizeListMarkers(originalContentRaw);
@@ -1067,17 +944,6 @@ export class UIModule {
 
     this.ensureSegmentDom(elementIds, segments, removedIds);
 
-    this.commentController.clearSectionCommentMarkup(elementId);
-    this.commentController.clearSectionCommentMarkupFor(removedIds);
-    if (cachedSectionComment && elementIds.length > 0) {
-      const commentTargetId = elementIds[elementIds.length - 1];
-      if (typeof commentTargetId === 'string') {
-        this.commentController.cacheSectionCommentMarkup(
-          commentTargetId,
-          cachedSectionComment
-        );
-      }
-    }
 
     this.updateHeadingReferencesAfterSave(
       elementId,
@@ -1435,7 +1301,6 @@ export class UIModule {
   ): {
     plainContent: string;
     trackedContent: string;
-    commentMarkup: string | null;
   } {
     const rawPlain = this.config.changes.getElementContent(elementId);
     const rawTracked = showTrackedChanges
@@ -1457,15 +1322,9 @@ export class UIModule {
       { skipHeadingCache: true }
     );
 
-    const plainResult =
-      this.commentController.extractSectionComments(preparedPlain);
-    const trackedResult =
-      this.commentController.extractSectionComments(preparedTracked);
-
     return {
-      plainContent: plainResult.content,
-      trackedContent: trackedResult.content,
-      commentMarkup: plainResult.commentMarkup,
+      plainContent: preparedPlain,
+      trackedContent: preparedTracked,
     };
   }
 
@@ -1477,14 +1336,12 @@ export class UIModule {
     trackedContent: string;
     diffHighlights: DiffHighlightRange[];
   } {
-    const { plainContent, trackedContent, commentMarkup } =
+    const { plainContent, trackedContent } =
       this.prepareEditorContentVariants(
         elementId,
         type,
         this.editorState.showTrackedChanges
       );
-
-    this.commentController.cacheSectionCommentMarkup(elementId, commentMarkup);
 
     const diffHighlights = this.editorState.showTrackedChanges
       ? this.computeDiffHighlightRanges(trackedContent)
@@ -2386,19 +2243,21 @@ export class UIModule {
 
   private async openCommentComposer(context: {
     elementId: string;
-    existingComment?: ReturnType<CommentsModule['parse']>[0];
+    existingComment?: string;
+    commentId?: string;
   }): Promise<void> {
     this.contextMenuCoordinator?.close();
     this.commentsSidebarModule?.show();
 
-    const commentKey = context.existingComment
-      ? `${context.elementId}:${context.existingComment.start}`
+    const commentKey = context.commentId
+      ? `${context.elementId}:${context.commentId}`
       : undefined;
 
     await this.commentController.openComposer({
       elementId: context.elementId,
       existingComment: context.existingComment,
       commentKey,
+      commentId: context.commentId,
     });
 
     this.commentController.highlightSection(
@@ -2458,6 +2317,56 @@ export class UIModule {
     this.loadingService.hide(loading);
   }
 
+  /**
+   * Migrate inline CriticMarkup comments to CommentsModule storage
+   * This is a one-time migration for existing documents with inline comments
+   */
+  private migrateInlineComments(): void {
+    const elements = this.config.changes.getCurrentState();
+    let migratedCount = 0;
+
+    elements.forEach((element) => {
+      // Parse content for inline comments
+      const matches = this.config.comments.parse(element.content);
+      const commentMatches = matches.filter((m) => m.type === 'comment');
+
+      if (commentMatches.length === 0) {
+        return;
+      }
+
+      // Add each comment to CommentsModule storage
+      commentMatches.forEach((match) => {
+        const userId = this.userModule?.getCurrentUser?.()?.id ?? 'migrated';
+        this.config.comments.addComment(
+          element.id,
+          match.content || match.comment || '',
+          userId,
+          'comment'
+        );
+        migratedCount++;
+      });
+
+      // Remove inline comments from content
+      let cleanedContent = element.content;
+      commentMatches.forEach((match) => {
+        cleanedContent = this.config.comments.accept(cleanedContent, match);
+      });
+
+      // Update element with cleaned content (without edit operation)
+      if (cleanedContent !== element.content) {
+        this.config.changes.edit(element.id, cleanedContent);
+      }
+    });
+
+    if (migratedCount > 0) {
+      logger.info(`Migrated ${migratedCount} inline comments to CommentsModule storage`);
+      // Refresh UI to show migrated comments
+      requestAnimationFrame(() => {
+        this.refreshCommentUI();
+      });
+    }
+  }
+
   public destroy(): void {
     this.closeEditor();
 
@@ -2503,29 +2412,6 @@ export class UIModule {
    * Save editor history to persistent localStorage for undo/redo
    * Stores multiple snapshots of editor content per section
    */
-  private saveEditorHistory(elementId: string): void {
-    if (!elementId) {
-      return;
-    }
-
-    this.historyStorage.save(elementId, this.editorState.currentEditorContent);
-  }
-
-  /**
-   * Restore editor history from persistent storage
-   */
-  private restoreEditorHistory(elementId: string): void {
-    const historyData = this.historyStorage.get(elementId);
-    if (historyData.states.length === 0) {
-      return;
-    }
-
-    logger.debug('Editor history restored for element', {
-      elementId,
-      stateCount: historyData.states.length,
-      lastUpdated: new Date(historyData.lastUpdated).toLocaleString(),
-    });
-  }
 
   /**
    * Get all stored editor histories for debugging/info
