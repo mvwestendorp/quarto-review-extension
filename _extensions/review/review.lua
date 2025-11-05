@@ -1002,6 +1002,45 @@ function Table(elem)
   return make_editable(elem, 'Table', nil)
 end
 
+-- Calculate the correct relative path to the extension assets from the output file
+-- This ensures that documents in subfolders can correctly reference the extension assets
+-- Example: for output file "processes/page.html", returns "../_extensions/review/assets"
+-- so that the browser can resolve the path from the subfolder back to the root
+local function get_extension_path()
+  local ext_path = "_extensions/review/assets"
+
+  -- Try to get the output file path to calculate relative depth
+  local output_file = nil
+  if quarto and quarto.doc and quarto.doc.output_file then
+    output_file = quarto.doc.output_file
+  end
+
+  if not output_file then
+    -- Fallback to default relative path if we can't determine output location
+    return ext_path
+  end
+
+  -- Normalize the path and count directory depth
+  local normalized = normalize_path(output_file)
+  local depth = 0
+
+  -- Count the number of directory separators to determine depth
+  -- Each separator indicates one level of nesting that we need to navigate up from
+  for _ in normalized:gmatch('/') do
+    depth = depth + 1
+  end
+
+  -- If file is at root level (no slashes), use direct path
+  if depth == 0 then
+    return ext_path
+  end
+
+  -- Build relative path with appropriate number of ../
+  -- For example, if depth is 2 (e.g., "docs/api/page.html"), we need "../../"
+  local prefix = string.rep('../', depth)
+  return prefix .. ext_path
+end
+
 -- Meta filter to load config and inject resources
 function Meta(meta)
   config.document_prefix_applied = false
@@ -1015,7 +1054,7 @@ function Meta(meta)
   -- Only inject resources for HTML format
   if quarto.doc.is_format("html") and config.enabled then
     -- Get the extension directory path (relative to the document)
-    local ext_path = "_extensions/review/assets"
+    local ext_path = get_extension_path()
 
     -- Add CSS to header
     quarto.doc.include_text("in-header", '<link rel="stylesheet" href="' .. ext_path .. '/review.css" />')
