@@ -33,3 +33,9 @@ export {
   getGlobalProviderRegistry,
   resetGlobalProviderRegistry,
 } from './ProviderRegistry';
+
+export { ProviderAdapter } from './ProviderAdapter';
+export type { ProviderAdapterConfig } from './ProviderAdapter';
+
+export { MockHTTPProvider } from './MockHTTPProvider';
+export type { MockHTTPConfig } from './MockHTTPProvider';
