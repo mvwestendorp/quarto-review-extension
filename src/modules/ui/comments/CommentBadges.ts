@@ -1,9 +1,9 @@
-import type { CriticMarkupMatch } from '@modules/comments';
+import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 
 export interface CommentBadgeCallbacks {
   onShowComments: (elementId: string, commentKey: string) => void;
-  onOpenComposer: (elementId: string, match: CriticMarkupMatch | null) => void;
+  onOpenComposer: (elementId: string, comment: Comment | null) => void;
   onHover: (elementId: string) => void;
   onLeave: () => void;
 }
@@ -13,7 +13,7 @@ export interface CommentBadgeCallbacks {
  */
 export class CommentBadges {
   private indicators = new Map<string, HTMLButtonElement>();
-  private latestMatch = new Map<string, CriticMarkupMatch | null>();
+  private latestComment = new Map<string, Comment | null>();
 
   syncIndicators(
     sections: SectionCommentSnapshot[],
@@ -25,7 +25,7 @@ export class CommentBadges {
       if (!activeIds.has(sectionId)) {
         indicator.remove();
         this.indicators.delete(sectionId);
-        this.latestMatch.delete(sectionId);
+        this.latestComment.delete(sectionId);
       }
     }
 
@@ -54,7 +54,7 @@ export class CommentBadges {
       indicator.remove();
     }
     this.indicators.clear();
-    this.latestMatch.clear();
+    this.latestComment.clear();
   }
 
   private ensureIndicator(
@@ -113,8 +113,8 @@ export class CommentBadges {
 
     indicator.addEventListener('dblclick', (event) => {
       stop(event);
-      const match = this.latestMatch.get(sectionId) ?? null;
-      callbacks.onOpenComposer(sectionId, match);
+      const comment = this.latestComment.get(sectionId) ?? null;
+      callbacks.onOpenComposer(sectionId, comment);
     });
 
     indicator.addEventListener('mouseenter', () => {
@@ -133,24 +133,24 @@ export class CommentBadges {
     domElement: HTMLElement,
     snapshot: SectionCommentSnapshot
   ): void {
-    const { element, matches } = snapshot;
-    const firstMatch = matches[0] ?? null;
-    this.latestMatch.set(element.id, firstMatch);
+    const { element, comments } = snapshot;
+    const firstComment = comments[0] ?? null;
+    this.latestComment.set(element.id, firstComment);
 
-    const count = matches.length;
+    const count = comments.length;
     const countSpan = indicator.querySelector('.review-badge-count');
     if (countSpan) {
       countSpan.textContent = count > 1 ? String(count) : '1';
       countSpan.classList.toggle('is-hidden', count <= 1);
     }
 
-    const commentKey = firstMatch
-      ? `${element.id}:${firstMatch.start}`
+    const commentKey = firstComment
+      ? `${element.id}:${firstComment.id}`
       : element.id;
     indicator.dataset.commentKey = commentKey;
-    indicator.dataset.commentStart = firstMatch ? String(firstMatch.start) : '';
+    indicator.dataset.commentId = firstComment ? firstComment.id : '';
 
-    const preview = (firstMatch?.comment || firstMatch?.content || '')
+    const preview = (firstComment?.content || '')
       .replace(/\s+/g, ' ')
       .trim();
     const tooltip =

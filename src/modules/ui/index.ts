@@ -2276,19 +2276,21 @@ export class UIModule {
 
   private async openCommentComposer(context: {
     elementId: string;
-    existingComment?: ReturnType<CommentsModule['parse']>[0];
+    existingComment?: string;
+    commentId?: string;
   }): Promise<void> {
     this.contextMenuCoordinator?.close();
     this.commentsSidebarModule?.show();
 
-    const commentKey = context.existingComment
-      ? `${context.elementId}:${context.existingComment.start}`
+    const commentKey = context.commentId
+      ? `${context.elementId}:${context.commentId}`
       : undefined;
 
     await this.commentController.openComposer({
       elementId: context.elementId,
       existingComment: context.existingComment,
       commentKey,
+      commentId: context.commentId,
     });
 
     this.commentController.highlightSection(

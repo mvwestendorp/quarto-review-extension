@@ -29,8 +29,9 @@ export interface CommentControllerCallbacks {
 
 interface CommentComposerContext {
   elementId: string;
-  existingComment?: ReturnType<CommentsModule['parse']>[0];
+  existingComment?: string;
   commentKey?: string;
+  commentId?: string;
 }
 
 export class CommentController {
@@ -87,7 +88,7 @@ export class CommentController {
       ? this.getElementLabel(element.content, element.metadata.type)
       : 'Document section';
 
-    const existingCommentContent = context.existingComment?.content;
+    const existingCommentContent = context.existingComment;
 
     await this.composer.open(
       {
@@ -95,6 +96,7 @@ export class CommentController {
         elementId: context.elementId,
         existingComment: existingCommentContent,
         elementLabel,
+        commentId: context.commentId,
       },
       body
     );
@@ -105,10 +107,8 @@ export class CommentController {
     if (composerElement) {
       composerElement.dataset.elementId = context.elementId;
       composerElement.dataset.commentKey = context.commentKey ?? '';
-      if (context.existingComment) {
-        composerElement.dataset.commentStart = String(
-          context.existingComment.start
-        );
+      if (context.commentId) {
+        composerElement.dataset.commentId = context.commentId;
       }
       this.commentState.activeCommentComposer = composerElement;
       this.commentState.activeComposerInsertionAnchor =
@@ -269,7 +269,7 @@ export class CommentController {
       onNavigate: (elementId, commentKey) => {
         this.focusCommentAnchor(elementId, commentKey);
       },
-      onRemove: (elementId, comment) => {
+      onRemove: (_elementId, comment) => {
         this.removeComment(comment.id);
         this.clearHighlight();
       },
@@ -298,11 +298,12 @@ export class CommentController {
           this.highlightSection(elementId, 'hover');
         }
       },
-      onOpenComposer: (elementId, match) => {
+      onOpenComposer: (elementId, comment) => {
         this.openComposer({
           elementId,
-          existingComment: match ?? undefined,
-          commentKey: match ? `${elementId}:${match.start}` : undefined,
+          existingComment: comment?.content,
+          commentKey: comment ? `${elementId}:${comment.id}` : undefined,
+          commentId: comment?.id,
         });
       },
       onHover: (_elementId) => {
