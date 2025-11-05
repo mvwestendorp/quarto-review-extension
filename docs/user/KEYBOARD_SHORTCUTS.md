@@ -38,6 +38,35 @@ Complete reference for all keyboard shortcuts in the Quarto Review Extension.
 | `Ctrl+End` | `Cmd+End` | Go to end |
 | `Ctrl+F` | `Cmd+F` | Find text |
 
+## Translation Mode Shortcuts
+
+### Translation Operations
+
+| Windows/Linux | Mac | Action |
+|---|---|---|
+| `Ctrl+T` | `Cmd+T` | Translate entire document |
+| `Ctrl+Shift+T` | `Cmd+Shift+T` | Translate selected sentence |
+| `Ctrl+Alt+S` | `Cmd+Option+S` | Swap source and target languages |
+
+### Editing Translations
+
+| Windows/Linux | Mac | Action |
+|---|---|---|
+| `Double-click` | `Double-click` | Edit sentence (source or target) |
+| `Ctrl+S` | `Cmd+S` | Save current sentence edit |
+| `Escape` | `Escape` | Cancel sentence edit |
+| `Ctrl+Z` | `Cmd+Z` | Undo translation edit |
+| `Ctrl+Shift+Z` | `Cmd+Shift+Z` | Redo translation edit |
+| `Ctrl+Y` | `Cmd+Y` | Redo translation edit (alternative) |
+
+### Navigation
+
+| Windows/Linux | Mac | Action |
+|---|---|---|
+| `Click` | `Click` | Select sentence |
+| `Tab` | `Tab` | Navigate between sentences |
+| `Shift+Tab` | `Shift+Tab` | Navigate backwards |
+
 ## Search Shortcuts
 
 ### Opening & Closing
@@ -123,6 +152,17 @@ Undo                Ctrl+Z / Cmd+Z
 Redo                Ctrl+Shift+Z / Cmd+Shift+Z
 Bold                Ctrl+B / Cmd+B
 Italic              Ctrl+I / Cmd+I
+```
+
+### Translation Mode
+
+```
+Translate Document  Ctrl+T / Cmd+T
+Translate Sentence  Ctrl+Shift+T / Cmd+Shift+T
+Swap Languages      Ctrl+Alt+S / Cmd+Option+S
+Edit Sentence       Double-click
+Save Edit           Ctrl+S / Cmd+S
+Cancel Edit         Escape
 ```
 
 ### Search Only
