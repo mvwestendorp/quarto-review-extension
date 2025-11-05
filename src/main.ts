@@ -9,9 +9,10 @@ import { CommentsModule } from '@modules/comments';
 import { UIModule } from '@modules/ui';
 import { registerSupplementalEditableSegments } from '@modules/ui/segment-preprocessor';
 import { GitModule } from '@modules/git';
+import { isGitError, isRetryableError } from '@modules/git/errors';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import { UserModule } from '@modules/user';
-import { debugLogger, type DebugConfig } from '@utils/debug';
+import { debugLogger, type DebugConfig, createModuleLogger } from '@utils/debug';
 import { QmdExportService } from '@modules/export';
 import GitReviewService from '@modules/git/review-service';
 import {
@@ -20,6 +21,8 @@ import {
 } from '@modules/translation';
 import type { ReviewGitConfig } from '@/types';
 import { BUILD_INFO, getBuildString } from './version';
+
+const logger = createModuleLogger('QuartoReview');
 
 // Export debug logger and configuration
 export {
@@ -234,7 +237,21 @@ export class QuartoReview {
     this.autoSaveInterval = window.setInterval(() => {
       if (this.changes.hasUnsavedOperations()) {
         this.save().catch((error) => {
-          console.error('Auto-save failed:', error);
+          // Improved error handling for auto-save
+          if (isGitError(error)) {
+            logger.error('Auto-save failed with Git error:', error);
+
+            if (isRetryableError(error)) {
+              logger.info('Error is retryable, will retry on next auto-save interval');
+            } else {
+              logger.warn('Error is not retryable, manual intervention may be required');
+            }
+          } else {
+            logger.error('Auto-save failed with unexpected error:', error);
+          }
+
+          // Note: We don't show a notification here to avoid spamming the user
+          // The error is logged and will be retried on the next interval
         });
       }
     }, this.config.autoSaveInterval);
