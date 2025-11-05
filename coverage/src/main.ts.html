@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">63.07% </span>
+                <span class="strong">59.15% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>41/65</span>
+                <span class='fraction'>42/71</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">64.7% </span>
+                <span class="strong">60% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>33/51</span>
+                <span class='fraction'>33/55</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">63.07% </span>
+                <span class="strong">59.15% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>41/65</span>
+                <span class='fraction'>42/71</span>
             </div>
         
             
@@ -357,7 +357,24 @@
 <a name='L292'></a><a href='#L292'>292</a>
 <a name='L293'></a><a href='#L293'>293</a>
 <a name='L294'></a><a href='#L294'>294</a>
-<a name='L295'></a><a href='#L295'>295</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L295'></a><a href='#L295'>295</a>
+<a name='L296'></a><a href='#L296'>296</a>
+<a name='L297'></a><a href='#L297'>297</a>
+<a name='L298'></a><a href='#L298'>298</a>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a>
+<a name='L309'></a><a href='#L309'>309</a>
+<a name='L310'></a><a href='#L310'>310</a>
+<a name='L311'></a><a href='#L311'>311</a>
+<a name='L312'></a><a href='#L312'>312</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -379,6 +396,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -593,7 +613,21 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -662,9 +696,10 @@ import { CommentsModule } from '@modules/comments';
 import { UIModule } from '@modules/ui';
 import { registerSupplementalEditableSegments } from '@modules/ui/segment-preprocessor';
 import { GitModule } from '@modules/git';
+import { isGitError, isRetryableError } from '@modules/git/errors';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import { UserModule } from '@modules/user';
-import { debugLogger, type DebugConfig } from '@utils/debug';
+import { debugLogger, type DebugConfig, createModuleLogger } from '@utils/debug';
 import { QmdExportService } from '@modules/export';
 import GitReviewService from '@modules/git/review-service';
 import {
@@ -673,6 +708,8 @@ import {
 } from '@modules/translation';
 import type { ReviewGitConfig } from '@/types';
 import { BUILD_INFO, getBuildString } from './version';
+&nbsp;
+const logger = createModuleLogger('QuartoReview');
 &nbsp;
 // Export debug logger and configuration
 export {
@@ -887,7 +924,21 @@ export class QuartoReview {
 <span class="cstat-no" title="statement not covered" >    this.autoSaveInterval = window.setInterval(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >      if (this.changes.hasUnsavedOperations()) {</span>
 <span class="cstat-no" title="statement not covered" >        this.save().catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >          console.error('Auto-save failed:', error);</span>
+          // Improved error handling for auto-save
+<span class="cstat-no" title="statement not covered" >          if (isGitError(error)) {</span>
+<span class="cstat-no" title="statement not covered" >            logger.error('Auto-save failed with Git error:', error);</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >            if (isRetryableError(error)) {</span>
+<span class="cstat-no" title="statement not covered" >              logger.info('Error is retryable, will retry on next auto-save interval');</span>
+            } else {
+<span class="cstat-no" title="statement not covered" >              logger.warn('Error is not retryable, manual intervention may be required');</span>
+            }
+          } else {
+<span class="cstat-no" title="statement not covered" >            logger.error('Auto-save failed with unexpected error:', error);</span>
+          }
+&nbsp;
+          // Note: We don't show a notification here to avoid spamming the user
+          // The error is logged and will be retried on the next interval
         });
       }
     }, this.config.autoSaveInterval);
@@ -952,7 +1003,7 @@ export default QuartoReview;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-05T12:05:12.436Z
+                at 2025-11-05T13:24:01.111Z
             </div>
         <script src="../prettify.js"></script>
         <script>
