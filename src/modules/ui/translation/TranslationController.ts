@@ -358,6 +358,12 @@ export class TranslationController {
         highlightOnHover: config.highlightOnHover,
       },
       {
+        // Segment-level editing (primary)
+        onSourceSegmentEdit: (elementId: string, content: string) =>
+          this.handleSourceSegmentEdit(elementId, content),
+        onTargetSegmentEdit: (elementId: string, content: string) =>
+          this.handleTargetSegmentEdit(elementId, content),
+        // Sentence-level editing (deprecated, kept for compatibility)
         onSourceSentenceEdit: (sentenceId: string, content: string) =>
           this.handleSourceSentenceEdit(sentenceId, content),
         onTargetSentenceEdit: (sentenceId: string, content: string) =>
@@ -845,7 +851,101 @@ export class TranslationController {
   }
 
   /**
+   * Handle source segment edit - full segment level (PREFERRED)
+   * Called when user edits an entire segment via "Edit Segment" button
+   * Segment content will be re-segmented into sentences by TranslationModule
+   */
+  private async handleSourceSegmentEdit(
+    elementId: string,
+    newContent: string
+  ): Promise<void> {
+    logger.info('Source segment edited', {
+      elementId,
+      contentLength: newContent.length,
+    });
+
+    try {
+      // TODO: Call main ChangesModule.edit(elementId, newContent) for proper integration
+      // For now, update TranslationModule which will re-segment content
+      this.translationModule.updateSegmentContent(elementId, newContent, true);
+      this.translationModule.saveToStorageNow();
+      this.showNotification('Source segment updated', 'success');
+      this.refreshViewFromState();
+
+      // Auto-retranslate if enabled (at sentence level after re-segmentation)
+      if (this.config.translationModuleConfig.config.autoTranslateOnEdit) {
+        // Get all sentence IDs for this element for progress tracking
+        const document = this.translationModule.getDocument();
+        const sentenceIds =
+          document?.sourceSentences
+            .filter((s) => s.elementId === elementId)
+            .map((s) => s.id) ?? [];
+
+        if (sentenceIds.length > 0) {
+          this.clearSentenceErrors(sentenceIds);
+          this.markSentencesLoading(sentenceIds, true);
+          try {
+            // Translate all sentences in this segment
+            for (const sentenceId of sentenceIds) {
+              await this.translationModule.translateSentence(sentenceId);
+            }
+            this.showNotification('Segment translated', 'success');
+            this.refreshViewFromState();
+            this.clearSentenceErrors(sentenceIds);
+          } catch (error) {
+            const message =
+              error instanceof Error
+                ? error.message || 'Segment translation failed.'
+                : 'Segment translation failed.';
+            logger.error('Failed to auto-translate segment', error);
+            this.markSentencesError(sentenceIds, message);
+            this.view?.setErrorBanner({
+              message,
+              onRetry: () => {
+                void this.handleSourceSegmentEdit(elementId, newContent);
+              },
+            });
+          } finally {
+            this.markSentencesLoading(sentenceIds, false);
+          }
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to update source segment', error);
+      this.showNotification('Failed to update segment', 'error');
+    }
+  }
+
+  /**
+   * Handle target segment edit - full segment level (PREFERRED)
+   * Called when user edits an entire segment via "Edit Segment" button
+   * Segment content will be re-segmented into sentences by TranslationModule
+   */
+  private async handleTargetSegmentEdit(
+    elementId: string,
+    newContent: string
+  ): Promise<void> {
+    logger.info('Target segment edited', {
+      elementId,
+      contentLength: newContent.length,
+    });
+
+    try {
+      // TODO: Call main ChangesModule.edit(elementId, newContent) for proper integration
+      // For now, update TranslationModule which will re-segment content
+      this.translationModule.updateSegmentContent(elementId, newContent, false);
+      this.translationModule.saveToStorageNow();
+      this.showNotification('Target segment updated', 'success');
+      this.refreshViewFromState();
+    } catch (error) {
+      logger.error('Failed to update target segment', error);
+      this.showNotification('Failed to update segment', 'error');
+    }
+  }
+
+  /**
    * Handle source sentence edit - individual sentence level
+   * @deprecated Use handleSourceSegmentEdit instead - kept for compatibility
    * Called when user edits a single sentence in translation view
    */
   private async handleSourceSentenceEdit(
