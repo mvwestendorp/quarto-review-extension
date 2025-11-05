@@ -697,6 +697,84 @@ export class TranslationModule implements ChangesExtension {
   }
 
   /**
+   * Update element content with re-segmentation
+   * Public API for controllers to trigger re-segmentation when content changes
+   *
+   * @param elementId - The ID of the element to update
+   * @param newContent - The new content for the element
+   * @param role - Whether this is a 'source' or 'target' element
+   */
+  updateSegmentContent(
+    elementId: string,
+    newContent: string,
+    role: 'source' | 'target'
+  ): void {
+    logger.info('Updating segment content with re-segmentation', {
+      elementId,
+      role,
+      contentLength: newContent.length,
+    });
+
+    const doc = this.state.getDocument();
+    if (!doc) {
+      logger.warn('No translation document available for segment update', {
+        elementId,
+      });
+      return;
+    }
+
+    // Determine language based on role
+    const language =
+      role === 'source'
+        ? this.config.config.sourceLanguage
+        : this.config.config.targetLanguage;
+
+    // Re-segment the new content into sentences
+    const newSentences = this.segmenter.segmentText(
+      newContent,
+      language,
+      elementId
+    );
+
+    logger.debug('Re-segmented element content', {
+      elementId,
+      role,
+      oldSentenceCount:
+        role === 'source'
+          ? doc.sourceSentences.filter((s) => s.elementId === elementId).length
+          : doc.targetSentences.filter((s) => s.elementId === elementId).length,
+      newSentenceCount: newSentences.length,
+    });
+
+    // Replace sentences for this element
+    if (role === 'source') {
+      this.replaceSourceSentencesForElement(elementId, newSentences);
+
+      // Mark corresponding target sentences as out-of-sync
+      this.markTargetSentencesOutOfSync(elementId);
+    } else {
+      this.replaceTargetSentencesForElement(elementId, newSentences);
+
+      // Update correspondence pairs
+      this.updateCorrespondenceForElement(elementId);
+    }
+
+    // Sync back to changes module
+    this.syncElementWithChangesModule(elementId, role);
+
+    // Emit translation-specific event
+    this.emitTranslationEvent('translation:state-updated', {
+      document: this.state.getDocument(),
+    });
+
+    logger.info('Segment content updated successfully', {
+      elementId,
+      role,
+      newSentenceCount: newSentences.length,
+    });
+  }
+
+  /**
    * Re-translate sentences that are out of sync
    */
   async retranslateAffectedSentences(sourceId: string): Promise<void> {
