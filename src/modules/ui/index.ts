@@ -2423,8 +2423,6 @@ export class UIModule {
       }
 
       // Add each comment to CommentsModule storage
-      // Note: We leave the inline CriticMarkup in the content to avoid creating
-      // spurious edit operations. The CommentsModule will handle rendering.
       commentMatches.forEach((match) => {
         const userId = this.userModule?.getCurrentUser?.()?.id ?? 'migrated';
         this.config.comments.addComment(
@@ -2435,6 +2433,18 @@ export class UIModule {
         );
         migratedCount++;
       });
+
+      // Remove inline comments from content to avoid duplication
+      // This will create an edit operation, but only once during initial migration
+      let cleanedContent = element.content;
+      commentMatches.forEach((match) => {
+        cleanedContent = this.config.comments.accept(cleanedContent, match);
+      });
+
+      // Update element with cleaned content
+      if (cleanedContent !== element.content) {
+        this.config.changes.edit(element.id, cleanedContent, 'migration');
+      }
     });
 
     if (migratedCount > 0) {
@@ -2445,6 +2455,9 @@ export class UIModule {
       requestAnimationFrame(() => {
         this.refreshCommentUI();
       });
+
+      // Save to localStorage with cleaned content to prevent false differences on next load
+      this.persistenceManager.persistDocument('Migrated inline comments');
     }
   }
 
