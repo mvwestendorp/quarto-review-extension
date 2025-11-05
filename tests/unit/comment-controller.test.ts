@@ -74,6 +74,10 @@ const createMockConfig = () => {
         parse: parseMock,
         createComment: createCommentMock,
         accept: acceptMock,
+        getCommentsForElement: vi.fn().mockReturnValue([]),
+        addComment: vi.fn().mockReturnValue({ id: 'comment-1', elementId: 'elem-1', content: 'Test', userId: 'user-1', timestamp: Date.now(), resolved: false, type: 'comment' }),
+        updateComment: vi.fn().mockReturnValue(true),
+        deleteComment: vi.fn().mockReturnValue(true),
       },
       markdown: {
         renderSync: vi.fn(),
@@ -161,47 +165,54 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-  it('caches markup after adding a new section comment', () => {
-    const { controller, configBundle } = attachController();
+  it('adds comment to CommentsModule storage', () => {
+    const { controller, configBundle, mocks } = attachController();
 
     controller['addSectionComment']('section-1', 'new comment');
 
-    expect(configBundle.config.changes.edit).toHaveBeenCalledWith(
+    // Should call addComment on CommentsModule instead of changes.edit
+    expect(configBundle.config.comments.addComment).toHaveBeenCalledWith(
       'section-1',
-      expect.stringContaining('{>>new comment<<}')
+      'new comment',
+      'anonymous',
+      'comment'
     );
-    expect(controller['sectionCommentCache'].has('section-1')).toBe(true);
+    // Should show success notification
+    expect(mocks.callbacks.showNotification).toHaveBeenCalledWith(
+      'Comment added successfully',
+      'success'
+    );
   });
 
-  it('updates existing comment and refreshes cache', () => {
-    const { controller, configBundle } = attachController();
-
-    const initialContent =
-      'Paragraph content {>>old comment<<}';
-    configBundle.store.set('section-1', initialContent);
-
-    controller['updateSectionComment']('section-1', 10, 'updated text');
-
-    expect(configBundle.config.changes.edit).toHaveBeenCalledWith(
-      'section-1',
-      expect.stringContaining('{>>updated text<<}')
-    );
-    expect(controller['sectionCommentCache'].has('section-1')).toBe(true);
-    const markup = controller.consumeSectionCommentMarkup('section-1');
-    expect(markup).toContain('{>>updated text<<}');
-  });
-
-  it('removes comment and updates cache and notifications', () => {
+  it('updates existing comment in CommentsModule storage', () => {
     const { controller, configBundle, mocks } = attachController();
 
-    const currentContent = configBundle.store.get('section-1') ?? '';
-    const match = configBundle.parseMock(currentContent)[0];
+    // Update comment by ID (new signature)
+    controller['updateSectionComment']('comment-1', 'updated text');
 
-    controller.removeComment('section-1', match);
+    // Should call updateComment on CommentsModule instead of changes.edit
+    expect(configBundle.config.comments.updateComment).toHaveBeenCalledWith(
+      'comment-1',
+      'updated text'
+    );
+    // Should show success notification
+    expect(mocks.callbacks.showNotification).toHaveBeenCalledWith(
+      'Comment updated',
+      'success'
+    );
+  });
 
-    expect(configBundle.acceptMock).toHaveBeenCalled();
-    expect(configBundle.config.changes.edit).toHaveBeenCalled();
-    expect(controller['sectionCommentCache'].has('section-1')).toBe(false);
+  it('removes comment from CommentsModule storage', () => {
+    const { controller, configBundle, mocks } = attachController();
+
+    // Remove comment by ID (new signature)
+    controller.removeComment('comment-1');
+
+    // Should call deleteComment on CommentsModule instead of changes.edit
+    expect(configBundle.config.comments.deleteComment).toHaveBeenCalledWith(
+      'comment-1'
+    );
+    // Should trigger refresh and notifications
     expect(mocks.callbacks.requestRefresh).toHaveBeenCalled();
     expect(mocks.callbacks.ensureSidebarVisible).toHaveBeenCalled();
     expect(mocks.callbacks.showNotification).toHaveBeenCalledWith(
@@ -210,8 +221,8 @@ afterEach(() => {
     );
   });
 
-  it('clears composer on submission and handles new addition', () => {
-    const { controller, mocks } = attachController();
+  it('handles comment submission and adds to CommentsModule', () => {
+    const { controller, configBundle, mocks } = attachController();
 
     const composerHandlers =
       (mocks.composer.on as Mock).mock.calls as Array<
@@ -225,14 +236,20 @@ afterEach(() => {
     submitHandler?.({
       elementId: 'section-1',
       content: 'submitted comment',
+      isEdit: false,
     });
 
+    // Should call addComment on CommentsModule
+    expect(configBundle.config.comments.addComment).toHaveBeenCalledWith(
+      'section-1',
+      'submitted comment',
+      'anonymous',
+      'comment'
+    );
+    // Should show success notification
     expect(mocks.callbacks.showNotification).toHaveBeenCalledWith(
       'Comment added successfully',
       'success'
-    );
-    expect(controller['sectionCommentCache'].get('section-1')).toContain(
-      '{>>submitted comment<<}'
     );
   });
 

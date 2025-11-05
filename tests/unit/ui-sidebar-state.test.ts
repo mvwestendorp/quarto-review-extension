@@ -243,6 +243,10 @@ const createStubConfig = (overrides: Partial<UIConfig> = {}): UIConfig => {
       createComment: vi.fn().mockReturnValue('{>>comment<<}'),
       accept: vi.fn().mockReturnValue(''),
       refresh: vi.fn(),
+      getCommentsForElement: vi.fn().mockReturnValue([]),
+      addComment: vi.fn(),
+      updateComment: vi.fn().mockReturnValue(true),
+      deleteComment: vi.fn().mockReturnValue(true),
     } as any,
     inlineEditing: false,
     persistence: {

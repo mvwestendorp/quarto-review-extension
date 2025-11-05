@@ -82,6 +82,10 @@ const createConfigStub = (
     refresh: vi.fn(),
     getAllComments: vi.fn().mockReturnValue(options.comments ?? []),
     importComments: vi.fn(),
+    getCommentsForElement: vi.fn().mockReturnValue([]),
+    addComment: vi.fn(),
+    updateComment: vi.fn().mockReturnValue(true),
+    deleteComment: vi.fn().mockReturnValue(true),
   } as any;
 
   return {
