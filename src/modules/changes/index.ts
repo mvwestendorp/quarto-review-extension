@@ -179,7 +179,7 @@ export class ChangesModule {
     content: string,
     metadata: ElementMetadata,
     position: InsertData['position'],
-    userId?: string,
+    source?: string,
     options?: { parentId?: string; generated?: boolean }
   ): string {
     const elementId = `temp-${this.generateOperationId()}`;
@@ -190,9 +190,10 @@ export class ChangesModule {
       position,
       parentId: options?.parentId,
       generated: options?.generated,
+      source,
     };
 
-    this.addOperation('insert', elementId, data, userId);
+    this.addOperation('insert', elementId, data, source);
     return elementId;
   }
 
@@ -281,7 +282,7 @@ export class ChangesModule {
   /**
    * Delete an element
    */
-  public delete(elementId: string, userId?: string): void {
+  public delete(elementId: string, source?: string): void {
     const element = this.findElement(elementId);
     if (!element) {
       throw new Error(`Element ${elementId} not found`);
@@ -291,9 +292,10 @@ export class ChangesModule {
       type: 'delete',
       originalContent: element.content,
       originalMetadata: element.metadata,
+      source,
     };
 
-    this.addOperation('delete', elementId, data, userId);
+    this.addOperation('delete', elementId, data, source);
   }
 
   /**
@@ -302,7 +304,7 @@ export class ChangesModule {
   public edit(
     elementId: string,
     newContent: string,
-    userId?: string,
+    source?: string,
     newMetadata?: ElementMetadata
   ): void {
     const element = this.findElement(elementId);
@@ -330,6 +332,7 @@ export class ChangesModule {
       oldContent,
       newContent,
       changes,
+      source,
     };
 
     if (metadataChanged) {
@@ -337,7 +340,7 @@ export class ChangesModule {
       data.newMetadata = newMetadata;
     }
 
-    this.addOperation('edit', elementId, data, userId);
+    this.addOperation('edit', elementId, data, source);
   }
 
   /**
@@ -347,15 +350,16 @@ export class ChangesModule {
     elementId: string,
     fromPosition: number,
     toPosition: number,
-    userId?: string
+    source?: string
   ): void {
     const data: MoveData = {
       type: 'move',
       fromPosition,
       toPosition,
+      source,
     };
 
-    this.addOperation('move', elementId, data, userId);
+    this.addOperation('move', elementId, data, source);
   }
 
   /**

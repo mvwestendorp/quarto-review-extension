@@ -122,11 +122,29 @@ export class TranslationModule implements ChangesExtension {
     return this.documentId;
   }
 
+  /**
+   * Resolve document ID from current window location
+   * Uses pathname + search + hash to ensure translation sessions are keyed
+   * to the currently active document, not the first one loaded in session
+   */
   private resolveDocumentId(): string {
     if (typeof window !== 'undefined' && window.location) {
-      return (
-        window.location.pathname + window.location.search + window.location.hash
-      );
+      // Include all parts of URL to uniquely identify the document
+      const pathname = window.location.pathname;
+      const search = window.location.search;
+      const hash = window.location.hash;
+
+      // Create stable document key that incorporates active context
+      const documentKey = `${pathname}${search}${hash}`;
+
+      logger.debug('Resolved document ID from location', {
+        pathname,
+        search,
+        hash,
+        documentKey,
+      });
+
+      return documentKey || 'unknown-document';
     }
     return 'unknown-document';
   }
@@ -980,10 +998,40 @@ export class TranslationModule implements ChangesExtension {
 
   register(context: ChangesExtensionContext): void {
     this.extensionContext = context;
+
+    // Pass context to adapter so it can use extension API
+    this.changeAdapter.setExtensionContext(context);
+
+    // Listen to external changes (from UI or other extensions)
+    context.on('afterOperation', ({ operation }) => {
+      // Only react to edits from external sources
+      if (
+        operation.type === 'edit' &&
+        operation.data.source !== this.id &&
+        operation.data.source !== 'translation-extension'
+      ) {
+        logger.debug(
+          'External operation detected, updating translation state',
+          {
+            operationId: operation.id,
+            elementId: operation.elementId,
+          }
+        );
+
+        // Handle the external edit
+        const element = context.getElement(operation.elementId);
+        if (element) {
+          this.handleExternalElementEdit(operation.elementId, element.content);
+        }
+      }
+    });
+
+    logger.info('Translation extension registered with ChangesModule');
   }
 
   dispose(): void {
     this.extensionContext = null;
+    logger.info('Translation extension disposed');
   }
 
   /**

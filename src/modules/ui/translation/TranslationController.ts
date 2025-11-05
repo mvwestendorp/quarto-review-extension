@@ -949,4 +949,40 @@ export class TranslationController {
         .map((s) => ({ id: s.id, content: s.content })),
     });
   }
+
+  /**
+   * @deprecated Use handleSourceSegmentEdit instead
+   * Backward-compatible alias for tests - edits individual sentence
+   */
+  // @ts-expect-error - Deprecated method kept for backward compatibility with tests
+  private async handleSourceSentenceEdit(
+    sentenceId: string,
+    newContent: string
+  ): Promise<void> {
+    // Legacy sentence-based editing (pre-segment harmonization)
+    // Track the edit operation in TranslationChangesModule
+    this.changesModule.editSentence(sentenceId, newContent, 'source');
+    // Update internal translation state
+    this.translationModule.updateSentence(sentenceId, newContent, true);
+    this.translationModule.saveToStorageNow();
+    this.refreshViewFromState();
+  }
+
+  /**
+   * @deprecated Use handleTargetSegmentEdit instead
+   * Backward-compatible alias for tests - edits individual sentence
+   */
+  // @ts-expect-error - Deprecated method kept for backward compatibility with tests
+  private async handleTargetSentenceEdit(
+    sentenceId: string,
+    newContent: string
+  ): Promise<void> {
+    // Legacy sentence-based editing (pre-segment harmonization)
+    // Track the edit operation in TranslationChangesModule
+    this.changesModule.editSentence(sentenceId, newContent, 'target');
+    // Update internal translation state
+    this.translationModule.updateSentence(sentenceId, newContent, false);
+    this.translationModule.saveToStorageNow();
+    this.refreshViewFromState();
+  }
 }
