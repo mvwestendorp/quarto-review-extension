@@ -2,8 +2,12 @@
 
 [![CI](https://github.com/mvwestendorp/quarto-review-extension/workflows/CI/badge.svg)](https://github.com/mvwestendorp/quarto-review-extension/actions)
 [![Test Coverage](https://img.shields.io/badge/coverage-71.27%25-yellow)](https://mvwestendorp.github.io/quarto-review-extension/coverage/)
-[![Documentation](https://img.shields.io/badge/docs-latest-blue)](https://mvwestendorp.github.io/quarto-review-extension/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green?logo=node.js)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue?logo=github)](https://mvwestendorp.github.io/quarto-review-extension/)
+[![Code Quality](https://img.shields.io/badge/code%20quality-strict%20TS-success)](https://www.typescriptlang.org/tsconfig#strict)
+[![Security](https://img.shields.io/badge/security-Trivy%20%2B%20npm%20audit-informational?logo=security)](https://github.com/mvwestendorp/quarto-review-extension/security)
 
 A Quarto extension for collaborative document review with in-browser editing capabilities.
 
@@ -133,7 +137,7 @@ Our documentation is organized into three main categories for easy navigation:
   - [Architecture](./docs/dev/ARCHITECTURE.md) - System design
   - [Module Guide](./docs/dev/MODULES.md) - API and module documentation
   - [Contributing Guide](./docs/dev/CONTRIBUTING.md) - Code standards and PR process
-  - [API Reference](./docs/generated/api/) - Auto-generated from JSDoc
+  - [API Reference](https://mvwestendorp.github.io/quarto-review-extension/api/) - Auto-generated from JSDoc
 
 - **[User Documentation](./docs/user/)** - Features, tutorials, and reference
   - [Features Guide](./docs/user/FEATURES.md) - Detailed feature explanations

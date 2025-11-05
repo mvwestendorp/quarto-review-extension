@@ -289,7 +289,7 @@ kill -9 <PID>
 - Check [Architecture Guide](./ARCHITECTURE.md) for design questions
 - See [Module Guide](./MODULES.md) for specific module questions
 - Look at existing tests for usage examples
-- Check [Generated API Docs](../generated/api/index.html) for API reference
+- Check [API Documentation](https://mvwestendorp.github.io/quarto-review-extension/api/) for API reference
 
 ## Resources
 

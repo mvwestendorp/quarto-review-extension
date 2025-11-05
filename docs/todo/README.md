@@ -41,7 +41,7 @@ Development roadmap and planned features for the Quarto Review Extension.
   - Visual diff markers
   - Zoom controls
   - Responsive tabs on mobile
-- **Planning Document:** [FEATURE_PLAN_06_SIDEBYSIDE.md](../../FEATURE_PLAN_06_SIDEBYSIDE.md)
+- **Planning Document:** [FEATURE_PLAN_06_SIDEBYSIDE.md](./FEATURE_PLAN_06_SIDEBYSIDE.md)
 
 ### Medium Priority (1-3 Months)
 
@@ -79,7 +79,7 @@ Development roadmap and planned features for the Quarto Review Extension.
 2. Public API (OpenAI, Google, Anthropic, HuggingFace)
 3. Private API (FastAPI + Llama 2/Mistral)
 
-**Planning Document:** [FEATURE_PLAN_12_AI_INTEGRATION.md](../../FEATURE_PLAN_12_AI_INTEGRATION.md)
+**Planning Document:** [FEATURE_PLAN_12_AI_INTEGRATION.md](./FEATURE_PLAN_12_AI_INTEGRATION.md)
 
 #### Feature #3: Translation Support
 

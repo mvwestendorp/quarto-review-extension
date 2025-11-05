@@ -394,6 +394,6 @@ review:
 
 ## Next Steps
 
-1. See [TRANSLATION_PROGRESS.md](./TRANSLATION_PROGRESS.md) for implementation details
-2. Check [example/doc-translation.qmd](../example/doc-translation.qmd) for a working example
-3. Read API documentation for advanced usage
+1. Check [example/doc-translation.qmd](../example/doc-translation.qmd) for a working example
+2. Read [API documentation](https://mvwestendorp.github.io/quarto-review-extension/api/) for advanced usage
+3. Review [Translation Refactor Documentation](./translation-refactor/README.md) for implementation details

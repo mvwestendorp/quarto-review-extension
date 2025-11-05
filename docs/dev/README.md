@@ -6,7 +6,7 @@ This directory contains documentation for developers working on the Quarto Revie
 
 - **[Architecture Guide](./ARCHITECTURE.md)** - System design and module structure
 - **[Module Guide](./MODULES.md)** - Detailed module documentation
-- **[API Reference](../generated/api/index.html)** - Auto-generated from JSDoc (build time)
+- **[API Reference](https://mvwestendorp.github.io/quarto-review-extension/api/)** - Auto-generated TypeDoc API documentation
 - **[Setup Guide](./SETUP.md)** - Development environment setup
 - **[Contributing Guide](./CONTRIBUTING.md)** - How to contribute code
 - **[Debug Mode Guide](../user/DEBUG.md)** - Enable debugging in development
