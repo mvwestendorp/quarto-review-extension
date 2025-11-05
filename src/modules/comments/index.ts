@@ -253,6 +253,22 @@ export class CommentsModule {
   }
 
   /**
+   * Get all comments for an element formatted as CriticMarkup
+   * Returns empty string if no comments exist
+   */
+  public getCommentsAsCriticMarkup(elementId: string): string {
+    const comments = this.getCommentsForElement(elementId);
+    if (comments.length === 0) {
+      return '';
+    }
+
+    // Format each comment as CriticMarkup and join with space
+    return comments
+      .map((comment) => this.createComment(comment.content))
+      .join(' ');
+  }
+
+  /**
    * Delete a comment
    */
   public deleteComment(id: string): boolean {

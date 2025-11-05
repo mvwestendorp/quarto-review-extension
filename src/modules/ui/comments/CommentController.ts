@@ -41,7 +41,6 @@ export class CommentController {
   private composer: CommentComposer | null;
   private badges: CommentBadges | null;
   private callbacks: CommentControllerCallbacks;
-  private sectionCommentCache = new Map<string, string>();
 
   constructor(options: {
     config: CommentControllerConfig;
@@ -315,60 +314,6 @@ export class CommentController {
     });
   }
 
-  public cacheSectionCommentMarkup(
-    elementId: string,
-    markup: string | null
-  ): void {
-    if (markup && markup.trim()) {
-      this.sectionCommentCache.set(elementId, markup);
-    } else {
-      this.sectionCommentCache.delete(elementId);
-    }
-  }
-
-  public consumeSectionCommentMarkup(elementId: string): string | undefined {
-    const markup = this.sectionCommentCache.get(elementId);
-    if (markup !== undefined) {
-      this.sectionCommentCache.delete(elementId);
-    }
-    return markup;
-  }
-
-  public clearSectionCommentMarkup(elementId: string): void {
-    this.sectionCommentCache.delete(elementId);
-  }
-
-  public clearSectionCommentMarkupFor(ids: string[]): void {
-    ids.forEach((id) => this.sectionCommentCache.delete(id));
-  }
-
-  public extractSectionComments(content: string): {
-    content: string;
-    commentMarkup: string | null;
-  } {
-    let working = content;
-    const captured: string[] = [];
-    const pattern = /\s*\{>>[\s\S]*?<<\}\s*$/;
-
-    while (true) {
-      const match = working.match(pattern);
-      if (!match || match.index === undefined) {
-        break;
-      }
-      captured.unshift(match[0]);
-      working = working.slice(0, match.index);
-    }
-
-    return {
-      content: working.replace(/\s+$/u, ''),
-      commentMarkup: captured.length > 0 ? captured.join('') : null,
-    };
-  }
-
-  public appendSectionComments(content: string, commentMarkup: string): string {
-    const base = content.replace(/\s+$/u, '');
-    return `${base}${commentMarkup}`;
-  }
 
   public highlightSection(
     elementId: string,

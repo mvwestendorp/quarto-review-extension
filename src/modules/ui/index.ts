@@ -32,7 +32,6 @@ import {
   type CommentState,
 } from './shared';
 import {
-  mergeSectionCommentIntoSegments,
   normalizeContentForComparison,
 } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
@@ -259,11 +258,8 @@ export class UIModule {
         this.resolveListEditorTarget(element),
       refresh: () => this.refresh(),
       onEditorClosed: () => {
-        // Clear section comment markup and heading reference cache
+        // Clear heading reference cache
         if (this.editorState.currentElementId) {
-          this.commentController.clearSectionCommentMarkup(
-            this.editorState.currentElementId
-          );
           this.activeHeadingReferenceCache.delete(
             this.editorState.currentElementId
           );
@@ -336,6 +332,10 @@ export class UIModule {
     this.cacheInitialHeadingReferences();
     // Initialize sidebar immediately so it's always visible
     this.initializeSidebar();
+
+    // Migrate any inline comments to CommentsModule storage
+    this.migrateInlineComments();
+
     requestAnimationFrame(() => {
       this.refreshCommentUI();
     });
@@ -914,23 +914,10 @@ export class UIModule {
       return;
     }
 
-    const cachedSectionComment =
-      this.commentController.consumeSectionCommentMarkup(elementId);
-
     const segments = this.segmentContentIntoElements(
       newContent,
       elementData.metadata
     );
-
-    if (cachedSectionComment) {
-      mergeSectionCommentIntoSegments(
-        segments,
-        cachedSectionComment,
-        elementData.metadata,
-        (content, markup) =>
-          this.commentController.appendSectionComments(content, markup)
-      );
-    }
 
     const originalContentRaw = this.config.changes.getElementContent(elementId);
     const originalContent = normalizeListMarkers(originalContentRaw);
@@ -957,17 +944,6 @@ export class UIModule {
 
     this.ensureSegmentDom(elementIds, segments, removedIds);
 
-    this.commentController.clearSectionCommentMarkup(elementId);
-    this.commentController.clearSectionCommentMarkupFor(removedIds);
-    if (cachedSectionComment && elementIds.length > 0) {
-      const commentTargetId = elementIds[elementIds.length - 1];
-      if (typeof commentTargetId === 'string') {
-        this.commentController.cacheSectionCommentMarkup(
-          commentTargetId,
-          cachedSectionComment
-        );
-      }
-    }
 
     this.updateHeadingReferencesAfterSave(
       elementId,
@@ -1325,7 +1301,6 @@ export class UIModule {
   ): {
     plainContent: string;
     trackedContent: string;
-    commentMarkup: string | null;
   } {
     const rawPlain = this.config.changes.getElementContent(elementId);
     const rawTracked = showTrackedChanges
@@ -1347,15 +1322,9 @@ export class UIModule {
       { skipHeadingCache: true }
     );
 
-    const plainResult =
-      this.commentController.extractSectionComments(preparedPlain);
-    const trackedResult =
-      this.commentController.extractSectionComments(preparedTracked);
-
     return {
-      plainContent: plainResult.content,
-      trackedContent: trackedResult.content,
-      commentMarkup: plainResult.commentMarkup,
+      plainContent: preparedPlain,
+      trackedContent: preparedTracked,
     };
   }
 
@@ -1367,14 +1336,12 @@ export class UIModule {
     trackedContent: string;
     diffHighlights: DiffHighlightRange[];
   } {
-    const { plainContent, trackedContent, commentMarkup } =
+    const { plainContent, trackedContent } =
       this.prepareEditorContentVariants(
         elementId,
         type,
         this.editorState.showTrackedChanges
       );
-
-    this.commentController.cacheSectionCommentMarkup(elementId, commentMarkup);
 
     const diffHighlights = this.editorState.showTrackedChanges
       ? this.computeDiffHighlightRanges(trackedContent)
@@ -2348,6 +2315,56 @@ export class UIModule {
 
   public hideLoading(loading: HTMLElement): void {
     this.loadingService.hide(loading);
+  }
+
+  /**
+   * Migrate inline CriticMarkup comments to CommentsModule storage
+   * This is a one-time migration for existing documents with inline comments
+   */
+  private migrateInlineComments(): void {
+    const elements = this.config.changes.getCurrentState();
+    let migratedCount = 0;
+
+    elements.forEach((element) => {
+      // Parse content for inline comments
+      const matches = this.config.comments.parse(element.content);
+      const commentMatches = matches.filter((m) => m.type === 'comment');
+
+      if (commentMatches.length === 0) {
+        return;
+      }
+
+      // Add each comment to CommentsModule storage
+      commentMatches.forEach((match) => {
+        const userId = this.userModule?.getCurrentUser?.()?.id ?? 'migrated';
+        this.config.comments.addComment(
+          element.id,
+          match.content || match.comment || '',
+          userId,
+          'comment'
+        );
+        migratedCount++;
+      });
+
+      // Remove inline comments from content
+      let cleanedContent = element.content;
+      commentMatches.forEach((match) => {
+        cleanedContent = this.config.comments.accept(cleanedContent, match);
+      });
+
+      // Update element with cleaned content (without edit operation)
+      if (cleanedContent !== element.content) {
+        this.config.changes.edit(element.id, cleanedContent);
+      }
+    });
+
+    if (migratedCount > 0) {
+      logger.info(`Migrated ${migratedCount} inline comments to CommentsModule storage`);
+      // Refresh UI to show migrated comments
+      requestAnimationFrame(() => {
+        this.refreshCommentUI();
+      });
+    }
   }
 
   public destroy(): void {
