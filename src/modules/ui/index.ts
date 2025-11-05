@@ -137,6 +137,9 @@ export class UIModule {
     // Initialize central state store
     this.stateStore = new StateStore();
 
+    // Set up reactive listeners for state changes
+    this.setupStateListeners();
+
     // Initialize services
     this.notificationService = new NotificationService();
     this.loadingService = new LoadingService();
@@ -283,6 +286,7 @@ export class UIModule {
     });
     initializeDebugTools({
       changes: this.config.changes,
+      comments: this.config.comments,
     });
     this.mainSidebarModule.onRedo(() => {
       if (this.config.changes.redo()) {
@@ -351,6 +355,56 @@ export class UIModule {
     } else {
       this.getOrCreateToolbar();
     }
+  }
+
+  /**
+   * Set up reactive listeners for state changes
+   * Automatically updates UI when state changes occur
+   */
+  private setupStateListeners(): void {
+    // Listen for editor state changes
+    this.stateStore.on('editor:changed', (editorState) => {
+      logger.debug('Editor state changed', editorState);
+
+      // When showTrackedChanges changes, update the sidebar UI
+      // Note: refresh() is already called when toggleTrackedChanges is invoked,
+      // so we only need to ensure the sidebar reflects the current state
+      this.mainSidebarModule.setTrackedChangesVisible(
+        editorState.showTrackedChanges
+      );
+    });
+
+    // Listen for UI state changes
+    this.stateStore.on('ui:changed', (uiState) => {
+      logger.debug('UI state changed', uiState);
+
+      // Update sidebar collapsed state in the UI
+      const toolbar = document.querySelector(
+        '.review-toolbar'
+      ) as HTMLElement | null;
+      if (toolbar) {
+        toolbar.classList.toggle(
+          'review-sidebar-collapsed',
+          uiState.isSidebarCollapsed
+        );
+        if (document.body) {
+          document.body.classList.toggle(
+            'review-sidebar-collapsed-mode',
+            uiState.isSidebarCollapsed
+          );
+        }
+        this.mainSidebarModule.setCollapsed(uiState.isSidebarCollapsed);
+      }
+    });
+
+    // Listen for comment state changes
+    this.stateStore.on('comment:changed', (commentState) => {
+      logger.debug('Comment state changed', commentState);
+      // Comment state changes are handled by CommentController
+      // which already has a reference to the state
+    });
+
+    logger.info('State listeners initialized - UI will react to state changes');
   }
 
   public toggleSidebarCollapsed(force?: boolean): void {
@@ -2375,6 +2429,9 @@ export class UIModule {
 
   public destroy(): void {
     this.closeEditor();
+
+    // Clean up state store listeners
+    this.stateStore.destroy();
 
     // Clean up translation controller
     if (this.translationController) {
