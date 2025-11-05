@@ -117,7 +117,8 @@ export class EditorManager {
       throw new Error(`Element ${elementId} not found`);
     }
 
-    const targetElement = this.callbacks.resolveListEditorTarget(element) ?? element;
+    const targetElement =
+      this.callbacks.resolveListEditorTarget(element) ?? element;
     const targetId = targetElement.getAttribute('data-review-id');
     if (!targetId) {
       throw new Error(`Target element ${elementId} has no data-review-id`);
@@ -257,7 +258,11 @@ export class EditorManager {
 
     // Initialize Milkdown in the inline editor
     requestAnimationFrame(() => {
-      this.callbacks.initializeMilkdown(inlineEditor, plainContent, diffHighlights);
+      this.callbacks.initializeMilkdown(
+        inlineEditor,
+        plainContent,
+        diffHighlights
+      );
     });
   }
 
@@ -312,7 +317,10 @@ export class EditorManager {
    * Save the current editor content
    */
   public saveEditor(): void {
-    if (!this.editorState.milkdownEditor || !this.editorState.currentElementId) {
+    if (
+      !this.editorState.milkdownEditor ||
+      !this.editorState.currentElementId
+    ) {
       return;
     }
 

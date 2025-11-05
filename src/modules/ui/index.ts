@@ -216,10 +216,14 @@ export class UIModule {
             }
             const segments = this.segmentContentIntoElements(
               entry.content,
-              (entry.metadata as ElementMetadata | undefined) ?? element.metadata
+              (entry.metadata as ElementMetadata | undefined) ??
+                element.metadata
             );
             const { elementIds, removedIds } =
-              this.config.changes.replaceElementWithSegments(entry.id, segments);
+              this.config.changes.replaceElementWithSegments(
+                entry.id,
+                segments
+              );
             this.ensureSegmentDom(elementIds, segments, removedIds);
           });
         },
@@ -249,7 +253,8 @@ export class UIModule {
         this.config.changes.replaceElementWithSegments(elementId, segments),
       ensureSegmentDom: (elementIds, segments, removedIds) =>
         this.ensureSegmentDom(elementIds, segments, removedIds),
-      resolveListEditorTarget: (element) => this.resolveListEditorTarget(element),
+      resolveListEditorTarget: (element) =>
+        this.resolveListEditorTarget(element),
       refresh: () => this.refresh(),
       onEditorClosed: () => {
         // Clear section comment markup and heading reference cache
@@ -265,7 +270,8 @@ export class UIModule {
       onEditorSaved: () => {
         // Placeholder for future save-specific logic
       },
-      createEditorModal: (content, type) => this.createEditorModal(content, type),
+      createEditorModal: (content, type) =>
+        this.createEditorModal(content, type),
       initializeMilkdown: (container, content, diffHighlights) =>
         this.initializeMilkdown(container, content, diffHighlights ?? []),
       createEditorSession: (elementId, type) =>
@@ -810,7 +816,6 @@ export class UIModule {
     // Delegate to EditorManager
     this.editorManager.openEditor(elementId);
   }
-
 
   private async initializeMilkdown(
     container: HTMLElement,

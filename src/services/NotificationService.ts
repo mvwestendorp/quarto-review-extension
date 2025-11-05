@@ -33,7 +33,11 @@ export class NotificationService {
       dismissible = true,
     } = options;
 
-    const notification = this.createNotificationElement(message, type, dismissible);
+    const notification = this.createNotificationElement(
+      message,
+      type,
+      dismissible
+    );
     document.body.appendChild(notification);
     this.activeNotifications.add(notification);
 

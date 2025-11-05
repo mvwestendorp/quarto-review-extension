@@ -21,7 +21,9 @@ export interface PersistenceManagerConfig {
 }
 
 export interface PersistenceCallbacks {
-  onDraftRestored: (elements: Array<{ id: string; content: string; metadata?: unknown }>) => void;
+  onDraftRestored: (
+    elements: Array<{ id: string; content: string; metadata?: unknown }>
+  ) => void;
   refresh: () => void;
 }
 
@@ -32,7 +34,10 @@ export class PersistenceManager {
   private config: PersistenceManagerConfig;
   private callbacks: PersistenceCallbacks;
 
-  constructor(config: PersistenceManagerConfig, callbacks: PersistenceCallbacks) {
+  constructor(
+    config: PersistenceManagerConfig,
+    callbacks: PersistenceCallbacks
+  ) {
     this.config = config;
     this.callbacks = callbacks;
   }
@@ -128,7 +133,9 @@ export class PersistenceManager {
    */
   public async confirmAndClearLocalDrafts(): Promise<void> {
     if (!this.config.localPersistence) {
-      this.config.notificationService.error('Local draft storage is not available.');
+      this.config.notificationService.error(
+        'Local draft storage is not available.'
+      );
       return;
     }
     const confirmed = window.confirm(

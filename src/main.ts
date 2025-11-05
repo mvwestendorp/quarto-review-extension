@@ -12,7 +12,11 @@ import { GitModule } from '@modules/git';
 import { isGitError, isRetryableError } from '@modules/git/errors';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import { UserModule } from '@modules/user';
-import { debugLogger, type DebugConfig, createModuleLogger } from '@utils/debug';
+import {
+  debugLogger,
+  type DebugConfig,
+  createModuleLogger,
+} from '@utils/debug';
 import { QmdExportService } from '@modules/export';
 import GitReviewService from '@modules/git/review-service';
 import {
@@ -242,9 +246,13 @@ export class QuartoReview {
             logger.error('Auto-save failed with Git error:', error);
 
             if (isRetryableError(error)) {
-              logger.info('Error is retryable, will retry on next auto-save interval');
+              logger.info(
+                'Error is retryable, will retry on next auto-save interval'
+              );
             } else {
-              logger.warn('Error is not retryable, manual intervention may be required');
+              logger.warn(
+                'Error is not retryable, manual intervention may be required'
+              );
             }
           } else {
             logger.error('Auto-save failed with unexpected error:', error);
