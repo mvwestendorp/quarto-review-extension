@@ -16,15 +16,15 @@ export interface BuildInfo {
 export const BUILD_INFO: BuildInfo = {
   version: '0.1.0',
   buildNumber: 'dev',
-  buildDate: '2025-11-05T08:10:43.862Z',
-  commit: '60fe3f1a7efbd31e0281d7481bdea11f32f85e8c',
+  buildDate: '2025-11-05T08:15:50.745Z',
+  commit: 'fe017a957e4003357e0bbaf68e99202bf1a75426',
 };
 
 /**
  * Get formatted build string for display
  */
 export function getBuildString(): string {
-  const { version, buildNumber, buildDate } = BUILD_INFO;
+  const { version, buildNumber } = BUILD_INFO;
   if (buildNumber === 'dev') {
     return `${version}-dev`;
   }

@@ -57,7 +57,7 @@ export const BUILD_INFO: BuildInfo = {
  * Get formatted build string for display
  */
 export function getBuildString(): string {
-  const { version, buildNumber, buildDate } = BUILD_INFO;
+  const { version, buildNumber } = BUILD_INFO;
   if (buildNumber === 'dev') {
     return \`\${version}-dev\`;
   }
