@@ -42,8 +42,10 @@ export {
   createInitialUIState,
   createInitialCommentState,
   createInitialContextMenuState,
+  createInitialTranslationState,
   type EditorState,
   type UIState,
   type CommentState,
   type ContextMenuState,
+  type TranslationState,
 } from './UIState';
