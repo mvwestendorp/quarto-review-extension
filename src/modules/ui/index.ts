@@ -1055,9 +1055,12 @@ export class UIModule {
         typeof this.config.comments?.getAllComments === 'function'
           ? this.config.comments.getAllComments()
           : undefined;
+      // Save operations to preserve edit history across sessions
+      const operations = this.config.changes.getOperations();
       void this.localPersistence.saveDraft(payload, {
         message,
         comments: commentsSnapshot,
+        operations,
       });
     } catch (error) {
       logger.warn('Failed to persist local draft', error);
@@ -1091,19 +1094,53 @@ export class UIModule {
         return;
       }
 
-      draftPayload.elements.forEach((entry) => {
-        const element = this.config.changes.getElementById(entry.id);
-        if (!element) {
-          return;
-        }
-        const segments = this.segmentContentIntoElements(
-          entry.content,
-          (entry.metadata as ElementMetadata) ?? element.metadata
+      // CRITICAL FIX: Check if we have saved operations to restore
+      const hasOperationsToRestore =
+        draftPayload.operations &&
+        Array.isArray(draftPayload.operations) &&
+        draftPayload.operations.length > 0 &&
+        typeof this.config.changes.initializeWithOperations === 'function';
+
+      if (!hasOperationsToRestore) {
+        // No operations saved - need to calculate diffs via replaceElementWithSegments
+        // This happens on first restore after initial edit
+        draftPayload.elements.forEach((entry) => {
+          const element = this.config.changes.getElementById(entry.id);
+          if (!element) {
+            return;
+          }
+          const segments = this.segmentContentIntoElements(
+            entry.content,
+            (entry.metadata as ElementMetadata) ?? element.metadata
+          );
+          const { elementIds, removedIds } =
+            this.config.changes.replaceElementWithSegments(entry.id, segments);
+          this.ensureSegmentDom(elementIds, segments, removedIds);
+        });
+      } else {
+        // Operations exist - restore them instead of recalculating
+        // This prevents duplicate operation creation
+        this.config.changes.initializeWithOperations(draftPayload.operations);
+        logger.debug(
+          'Restored operations from draft',
+          draftPayload.operations.length
         );
-        const { elementIds, removedIds } =
-          this.config.changes.replaceElementWithSegments(entry.id, segments);
-        this.ensureSegmentDom(elementIds, segments, removedIds);
-      });
+
+        // Update DOM to reflect the saved content WITHOUT creating new operations
+        // Simply call updateElementDisplay which refreshes the visual display
+        draftPayload.elements.forEach((entry) => {
+          const element = this.config.changes.getElementById(entry.id);
+          if (!element) {
+            return;
+          }
+          // Update the element display directly - operations were already restored above
+          this.updateElementDisplay({
+            ...element,
+            content: entry.content,
+            metadata: (entry.metadata as ElementMetadata) ?? element.metadata,
+          });
+        });
+      }
 
       if (typeof this.config.comments?.importComments === 'function') {
         const commentsToImport = draftPayload.comments ?? [];

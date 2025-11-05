@@ -1,6 +1,6 @@
 import { EmbeddedSourceStore } from '@modules/git/fallback';
 import { createModuleLogger } from '@utils/debug';
-import type { Comment } from '@/types';
+import type { Comment, Operation } from '@/types';
 
 const logger = createModuleLogger('LocalDraftPersistence');
 const LEGACY_DRAFT_FILENAME = 'document.qmd';
@@ -22,6 +22,7 @@ interface DraftPayload {
   savedAt: string;
   elements: DraftElementPayload[];
   comments?: DraftCommentPayload[];
+  operations?: Operation[];
 }
 
 export class LocalDraftPersistence {
@@ -42,27 +43,39 @@ export class LocalDraftPersistence {
 
   public async saveDraft(
     elements: DraftElementPayload[],
-    options?: string | { message?: string; comments?: DraftCommentPayload[] }
+    options?:
+      | string
+      | {
+          message?: string;
+          comments?: DraftCommentPayload[];
+          operations?: Operation[];
+        }
   ): Promise<void> {
     try {
       let message = this.defaultMessage;
       let comments: DraftCommentPayload[] | undefined;
+      let operations: Operation[] | undefined;
 
       if (typeof options === 'string') {
         message = options;
       } else if (options) {
         message = options.message ?? this.defaultMessage;
         comments = options.comments;
+        operations = options.operations;
       }
 
       const payload: DraftPayload = {
         savedAt: new Date().toISOString(),
         elements,
         comments,
+        operations,
       };
       const serialized = JSON.stringify(payload);
       await this.store.saveFile(this.filename, serialized, message);
-      logger.debug('Saved local draft', { filename: this.filename });
+      logger.debug('Saved local draft', {
+        filename: this.filename,
+        operationCount: operations?.length ?? 0,
+      });
     } catch (error) {
       logger.warn('Failed to persist local draft', error);
     }
