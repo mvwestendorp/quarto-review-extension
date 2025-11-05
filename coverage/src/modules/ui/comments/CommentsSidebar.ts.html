@@ -620,7 +620,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { createModuleLogger } from '@utils/debug';
-import type { CriticMarkupMatch } from '@modules/comments';
+import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 import { escapeHtml } from '../shared';
 &nbsp;
@@ -628,8 +628,8 @@ const logger = createModuleLogger('CommentsSidebar');
 &nbsp;
 export interface CommentsSidebarCallbacks {
   onNavigate: (elementId: string, commentKey: string) =&gt; void;
-  onRemove: (elementId: string, match: CriticMarkupMatch) =&gt; void;
-  onEdit: (elementId: string, match: CriticMarkupMatch) =&gt; void;
+  onRemove: (elementId: string, comment: Comment) =&gt; void;
+  onEdit: (elementId: string, comment: Comment) =&gt; void;
   onHover: (elementId: string, commentKey: string) =&gt; void;
   onLeave: () =&gt; void;
 }
@@ -722,8 +722,8 @@ export class CommentsSidebar {
       const list = <span class="cstat-no" title="statement not covered" >document.createElement('div');</span>
 <span class="cstat-no" title="statement not covered" >      list.className = 'review-comments-list';</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >      snapshot.matches.forEach(<span class="fstat-no" title="function not covered" >(m</span>atch, index) =&gt; {</span>
-        const item = <span class="cstat-no" title="statement not covered" >this.renderComment(snapshot, match, index);</span>
+<span class="cstat-no" title="statement not covered" >      snapshot.comments.forEach(<span class="fstat-no" title="function not covered" >(c</span>omment, index) =&gt; {</span>
+        const item = <span class="cstat-no" title="statement not covered" >this.renderComment(snapshot, comment, index);</span>
 <span class="cstat-no" title="statement not covered" >        list.appendChild(item);</span>
       });
 &nbsp;
@@ -828,23 +828,23 @@ export class CommentsSidebar {
 &nbsp;
   private <span class="fstat-no" title="function not covered" >renderComment(</span>
     snapshot: SectionCommentSnapshot,
-    match: CriticMarkupMatch,
+    comment: Comment,
     index: number
   ): HTMLElement {
     const elementId = <span class="cstat-no" title="statement not covered" >snapshot.element.id;</span>
-    const commentKey = <span class="cstat-no" title="statement not covered" >`${elementId}:${match.start}`;</span>
+    const commentKey = <span class="cstat-no" title="statement not covered" >`${elementId}:${comment.id}`;</span>
 &nbsp;
     const container = <span class="cstat-no" title="statement not covered" >document.createElement('div');</span>
 <span class="cstat-no" title="statement not covered" >    container.className = 'review-comment-item';</span>
 <span class="cstat-no" title="statement not covered" >    container.dataset.commentKey = commentKey;</span>
 <span class="cstat-no" title="statement not covered" >    container.dataset.elementId = elementId;</span>
-<span class="cstat-no" title="statement not covered" >    container.dataset.commentStart = String(match.start);</span>
+<span class="cstat-no" title="statement not covered" >    container.dataset.commentId = comment.id;</span>
 <span class="cstat-no" title="statement not covered" >    container.setAttribute('role', 'article');</span>
 &nbsp;
     const header = <span class="cstat-no" title="statement not covered" >document.createElement('div');</span>
 <span class="cstat-no" title="statement not covered" >    header.className = 'review-comment-item-header';</span>
 <span class="cstat-no" title="statement not covered" >    header.innerHTML = `</span>
-      &lt;span class="review-comment-position"&gt;${index + 1}/${snapshot.matches.length}&lt;/span&gt;
+      &lt;span class="review-comment-position"&gt;${index + 1}/${snapshot.comments.length}&lt;/span&gt;
       &lt;span class="review-comment-link" aria-hidden="true"&gt;⟶&lt;/span&gt;
     `;
 <span class="cstat-no" title="statement not covered" >    container.appendChild(header);</span>
@@ -852,7 +852,7 @@ export class CommentsSidebar {
     const body = <span class="cstat-no" title="statement not covered" >document.createElement('div');</span>
 <span class="cstat-no" title="statement not covered" >    body.className = 'review-comment-item-body';</span>
 <span class="cstat-no" title="statement not covered" >    body.innerHTML = `&lt;div class="review-comment-text"&gt;${escapeHtml(</span>
-      this.extractPlainText(match.content)
+      this.extractPlainText(comment.content)
     )}&lt;/div&gt;`;
 <span class="cstat-no" title="statement not covered" >    container.appendChild(body);</span>
 &nbsp;
@@ -874,7 +874,7 @@ export class CommentsSidebar {
 <span class="cstat-no" title="statement not covered" >      container</span>
         .querySelector('[data-action="remove"]')
         ?.addEventListener('click', <span class="fstat-no" title="function not covered" >() =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >          this.callbacks?.onRemove(elementId, match);</span>
+<span class="cstat-no" title="statement not covered" >          this.callbacks?.onRemove(elementId, comment);</span>
         });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      container.addEventListener('mouseenter', <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
@@ -886,7 +886,7 @@ export class CommentsSidebar {
       });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      container.addEventListener('dblclick', <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >        this.callbacks?.onEdit(elementId, match);</span>
+<span class="cstat-no" title="statement not covered" >        this.callbacks?.onEdit(elementId, comment);</span>
       });
     }
 &nbsp;
@@ -904,7 +904,7 @@ export class CommentsSidebar {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-05T13:24:01.111Z
+                at 2025-11-05T16:17:46.573Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
