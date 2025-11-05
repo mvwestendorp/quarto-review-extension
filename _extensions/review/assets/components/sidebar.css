@@ -13,21 +13,22 @@ body.review-sidebar-collapsed-mode {
   padding-inline-end: clamp(0px, 6vw, 68px);
 }
 
-/* Persistent Sidebar */
+/* Persistent Sidebar - Main Review Tools (positioned above comments) */
 .review-persistent-sidebar {
   position: fixed !important;
   top: 80px;
-  right: 24px;
+  right: clamp(16px, 2vw, 24px);
   width: 280px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
-  border-radius: 16px;
+  border-radius: 16px 16px 0 0; /* No bottom radius - connects to comments */
+  border-bottom: none; /* Connects to comments sidebar */
   box-shadow: var(--review-shadow-xl);
   display: flex;
   flex-direction: column;
-  z-index: calc(var(--review-z-toolbar) - 1);
-  max-height: calc(100vh - 104px);
+  z-index: calc(var(--review-z-toolbar) + 1); /* Above comments sidebar */
+  max-height: 400px; /* Limit height to leave room for comments */
   overflow: hidden;
   transition:
     width 0.3s ease,
@@ -39,10 +40,14 @@ body.review-sidebar-collapsed-mode {
 .review-persistent-sidebar.review-sidebar-collapsed {
   width: 48px;
   box-shadow: var(--review-shadow-md);
+  border-radius: 16px; /* Full rounded when collapsed (not connected) */
+  border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.1); /* Restore border */
 }
 
 body.review-sidebar-collapsed-mode .review-toolbar {
   width: 48px;
+  border-radius: 16px;
+  border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
 }
 
 .review-sidebar-header {

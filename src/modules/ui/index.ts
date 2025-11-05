@@ -116,6 +116,7 @@ export class UIModule {
   private globalShortcutsBound = false;
   private localPersistence?: LocalDraftPersistence;
   private isSubmittingReview = false;
+  private commentsImportedFromStorage = false;
   private translationController: TranslationController | null = null;
   private translationModule?: TranslationModule;
   private pluginHandles = new Map<string, PluginHandle>();
@@ -136,6 +137,9 @@ export class UIModule {
 
     // Initialize central state store
     this.stateStore = new StateStore();
+
+    // Set up reactive listeners for state changes
+    this.setupStateListeners();
 
     // Initialize services
     this.notificationService = new NotificationService();
@@ -222,6 +226,10 @@ export class UIModule {
             this.ensureSegmentDom(elementIds, segments, removedIds);
           });
         },
+        onCommentsImported: () => {
+          // Mark that comments were imported to avoid duplicate migration
+          this.commentsImportedFromStorage = true;
+        },
         refresh: () => this.refresh(),
       }
     );
@@ -283,6 +291,7 @@ export class UIModule {
     });
     initializeDebugTools({
       changes: this.config.changes,
+      comments: this.config.comments,
     });
     this.mainSidebarModule.onRedo(() => {
       if (this.config.changes.redo()) {
@@ -353,6 +362,67 @@ export class UIModule {
     }
   }
 
+  /**
+   * Set up reactive listeners for state changes
+   * Automatically updates UI when state changes occur
+   */
+  private setupStateListeners(): void {
+    // Listen for editor state changes
+    this.stateStore.on('editor:changed', (editorState) => {
+      logger.debug('Editor state changed', editorState);
+
+      // When showTrackedChanges changes, update the sidebar UI
+      // Note: refresh() is already called when toggleTrackedChanges is invoked,
+      // so we only need to ensure the sidebar reflects the current state
+      this.mainSidebarModule.setTrackedChangesVisible(
+        editorState.showTrackedChanges
+      );
+    });
+
+    // Listen for UI state changes
+    this.stateStore.on('ui:changed', (uiState) => {
+      logger.debug('UI state changed', uiState);
+
+      // Update sidebar collapsed state in the UI
+      const toolbar = document.querySelector(
+        '.review-toolbar'
+      ) as HTMLElement | null;
+      if (toolbar) {
+        toolbar.classList.toggle(
+          'review-sidebar-collapsed',
+          uiState.isSidebarCollapsed
+        );
+        if (document.body) {
+          document.body.classList.toggle(
+            'review-sidebar-collapsed-mode',
+            uiState.isSidebarCollapsed
+          );
+        }
+        this.mainSidebarModule.setCollapsed(uiState.isSidebarCollapsed);
+      }
+
+      // Also update comments sidebar collapsed state
+      const commentsSidebar = document.querySelector(
+        '.review-comments-sidebar'
+      );
+      if (commentsSidebar) {
+        commentsSidebar.classList.toggle(
+          'review-sidebar-collapsed',
+          uiState.isSidebarCollapsed
+        );
+      }
+    });
+
+    // Listen for comment state changes
+    this.stateStore.on('comment:changed', (commentState) => {
+      logger.debug('Comment state changed', commentState);
+      // Comment state changes are handled by CommentController
+      // which already has a reference to the state
+    });
+
+    logger.info('State listeners initialized - UI will react to state changes');
+  }
+
   public toggleSidebarCollapsed(force?: boolean): void {
     const sidebar = this.getOrCreateToolbar();
     const nextState =
@@ -375,6 +445,12 @@ export class UIModule {
         'review-sidebar-collapsed-mode',
         collapsed
       );
+    }
+
+    // Also collapse/expand the comments sidebar
+    const commentsSidebar = document.querySelector('.review-comments-sidebar');
+    if (commentsSidebar) {
+      commentsSidebar.classList.toggle('review-sidebar-collapsed', collapsed);
     }
 
     this.mainSidebarModule.setCollapsed(collapsed);
@@ -2326,6 +2402,14 @@ export class UIModule {
    * This is a one-time migration for existing documents with inline comments
    */
   private migrateInlineComments(): void {
+    // Skip migration if comments were already imported from localStorage
+    if (this.commentsImportedFromStorage) {
+      logger.debug(
+        'Skipping inline comment migration - comments already imported from storage'
+      );
+      return;
+    }
+
     const elements = this.config.changes.getCurrentState();
     let migratedCount = 0;
 
@@ -2350,15 +2434,16 @@ export class UIModule {
         migratedCount++;
       });
 
-      // Remove inline comments from content
+      // Remove inline comments from content to avoid duplication
+      // This will create an edit operation, but only once during initial migration
       let cleanedContent = element.content;
       commentMatches.forEach((match) => {
         cleanedContent = this.config.comments.accept(cleanedContent, match);
       });
 
-      // Update element with cleaned content (without edit operation)
+      // Update element with cleaned content
       if (cleanedContent !== element.content) {
-        this.config.changes.edit(element.id, cleanedContent);
+        this.config.changes.edit(element.id, cleanedContent, 'migration');
       }
     });
 
@@ -2370,11 +2455,17 @@ export class UIModule {
       requestAnimationFrame(() => {
         this.refreshCommentUI();
       });
+
+      // Save to localStorage with cleaned content to prevent false differences on next load
+      this.persistenceManager.persistDocument('Migrated inline comments');
     }
   }
 
   public destroy(): void {
     this.closeEditor();
+
+    // Clean up state store listeners
+    this.stateStore.destroy();
 
     // Clean up translation controller
     if (this.translationController) {

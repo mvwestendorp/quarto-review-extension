@@ -24,6 +24,7 @@ export interface PersistenceCallbacks {
   onDraftRestored: (
     elements: Array<{ id: string; content: string; metadata?: unknown }>
   ) => void;
+  onCommentsImported?: () => void;
   refresh: () => void;
 }
 
@@ -51,11 +52,32 @@ export class PersistenceManager {
     }
     try {
       const elements = this.config.changes.getCurrentState();
-      const payload = elements.map((elem) => ({
-        id: elem.id,
-        content: elem.content,
-        metadata: elem.metadata,
-      }));
+
+      // Strip inline comment markup from content before saving
+      // since comments are now stored separately in the comments array
+      const payload = elements.map((elem) => {
+        let cleanContent = elem.content;
+
+        // Remove inline CriticMarkup comments {>>...<<} from content
+        if (this.config.comments) {
+          const matches = this.config.comments.parse(elem.content);
+          const commentMatches = matches.filter((m) => m.type === 'comment');
+
+          // Process in reverse order to maintain string indices
+          for (let i = commentMatches.length - 1; i >= 0; i--) {
+            const match = commentMatches[i];
+            if (!match) continue;
+            cleanContent = this.config.comments.accept(cleanContent, match);
+          }
+        }
+
+        return {
+          id: elem.id,
+          content: cleanContent,
+          metadata: elem.metadata,
+        };
+      });
+
       const commentsSnapshot =
         typeof this.config.comments?.getAllComments === 'function'
           ? this.config.comments.getAllComments()
@@ -95,17 +117,27 @@ export class PersistenceManager {
         return currentContent !== entry.content;
       });
 
-      if (!hasDifference) {
+      // Import comments first (even if no text changes)
+      const hasComments =
+        typeof this.config.comments?.importComments === 'function' &&
+        Array.isArray(draftPayload.comments) &&
+        draftPayload.comments.length > 0;
+
+      if (hasComments) {
+        const commentsToImport = draftPayload.comments ?? [];
+        this.config.comments?.importComments(commentsToImport);
+        // Notify that comments were imported from storage
+        this.callbacks.onCommentsImported?.();
+      }
+
+      // If no text differences and no comments, return early
+      if (!hasDifference && !hasComments) {
         return;
       }
 
-      // Notify callback to handle element restoration
-      this.callbacks.onDraftRestored(draftPayload.elements);
-
-      // Import comments if available
-      if (typeof this.config.comments?.importComments === 'function') {
-        const commentsToImport = draftPayload.comments ?? [];
-        this.config.comments.importComments(commentsToImport);
+      // Notify callback to handle element restoration (only if text changed)
+      if (hasDifference) {
+        this.callbacks.onDraftRestored(draftPayload.elements);
       }
 
       this.callbacks.refresh();

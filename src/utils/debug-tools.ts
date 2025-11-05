@@ -1,6 +1,7 @@
 import { createModuleLogger, debugLogger } from './debug';
 import type { ChangesModule } from '@modules/changes';
-import type { Operation } from '@/types';
+import type { CommentsModule } from '@modules/comments';
+import type { Operation, Comment } from '@/types';
 
 type InstrumentedChangesModule = ChangesModule & {
   __debugInstrumented?: boolean;
@@ -8,14 +9,17 @@ type InstrumentedChangesModule = ChangesModule & {
 
 interface DebugToolsOptions {
   changes: ChangesModule;
+  comments?: CommentsModule;
 }
 
 interface ReviewDebugHelpers {
   operations: () => Readonly<Operation[]>;
+  comments: () => Readonly<Comment[]>;
   inspectElement: (elementId: string) => {
     elementId: string;
     markdown?: string;
     html?: string | null;
+    comments?: Readonly<Comment[]>;
   } | null;
   printElement: (elementId: string) => void;
 }
@@ -23,10 +27,12 @@ interface ReviewDebugHelpers {
 export class DebugTools {
   private readonly logger = createModuleLogger('DebugTools');
   private readonly changes: InstrumentedChangesModule;
+  private readonly comments?: CommentsModule;
   private helpersRegistered = false;
 
   constructor(options: DebugToolsOptions) {
     this.changes = options.changes as InstrumentedChangesModule;
+    this.comments = options.comments;
   }
 
   enable(): void {
@@ -78,6 +84,7 @@ export class DebugTools {
         Array.isArray(this.changes.getOperations?.())
           ? this.changes.getOperations()
           : [],
+      comments: () => this.comments?.getAllComments?.() ?? [],
       inspectElement: (elementId: string) => {
         if (!elementId) {
           this.logger.warn('inspectElement called without an elementId');
@@ -91,17 +98,22 @@ export class DebugTools {
           `[data-review-id="${elementId}"]`
         ) as HTMLElement | null;
         const html = element?.innerHTML ?? null;
+        const comments = this.safeInvoke(() =>
+          this.comments?.getCommentsForElement?.(elementId)
+        );
 
         this.logger.info('Inspect element', {
           elementId,
           markdown: markdownContent,
           html,
+          comments,
         });
 
         return {
           elementId,
           markdown: markdownContent ?? undefined,
           html,
+          comments: comments ?? undefined,
         };
       },
       printElement: (elementId: string) => {
@@ -112,6 +124,10 @@ export class DebugTools {
         console.info(
           'Rendered HTML:\n',
           inspection.html ?? '(element missing)'
+        );
+        console.info(
+          'Comments:',
+          inspection.comments?.length ? inspection.comments : '(no comments)'
         );
         console.groupEnd();
       },
