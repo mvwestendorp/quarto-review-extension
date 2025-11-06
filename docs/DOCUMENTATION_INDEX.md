@@ -63,13 +63,11 @@ Root-level design and implementation documentation:
 
 ### **Git Integration**
 - **[git-review-workflow.md](git-review-workflow.md)** - Git review workflow documentation
-- **[GITHUB_BACKEND_IMPLEMENTATION_PLAN.md](GITHUB_BACKEND_IMPLEMENTATION_PLAN.md)** - GitHub backend implementation
 - **[GITHUB_PAGES_SETUP.md](GITHUB_PAGES_SETUP.md)** - GitHub Pages configuration guide
 
 ### **Translation Module**
 - **[TRANSLATION_MODULE_IMPLEMENTATION_PLAN.md](TRANSLATION_MODULE_IMPLEMENTATION_PLAN.md)** - Translation system design
 - **[TRANSLATION_INTEGRATION.md](TRANSLATION_INTEGRATION.md)** - Integration details
-- **[TRANSLATION_PROGRESS.md](TRANSLATION_PROGRESS.md)** - Implementation progress
 - **[TRANSLATION_INTERACTIVE_DEMO.md](TRANSLATION_INTERACTIVE_DEMO.md)** - Demo documentation
 - **[LOCAL_TRANSLATION_OPTIONS.md](LOCAL_TRANSLATION_OPTIONS.md)** - Local translation providers
 
@@ -88,12 +86,8 @@ Detailed phase-by-phase translation module refactoring documentation:
 
 ### **Testing & Quality**
 - **[TEST_COVERAGE_PLAN.md](TEST_COVERAGE_PLAN.md)** - Coverage improvement plan
-- **[TEST_COVERAGE_PROGRESS.md](TEST_COVERAGE_PROGRESS.md)** - Coverage milestones
 - **[review-fixture-workflow.md](review-fixture-workflow.md)** - Test fixture workflow
 
-### **Feature Implementation**
-- **[CRITICMARKUP_FIXES_IMPLEMENTATION_PLAN.md](CRITICMARKUP_FIXES_IMPLEMENTATION_PLAN.md)** - CriticMarkup fixes
-- **[INTEGRATION_STATUS.md](INTEGRATION_STATUS.md)** - Integration status overview
 
 ---
 

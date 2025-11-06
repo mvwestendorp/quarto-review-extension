@@ -200,6 +200,10 @@ jobs:
           cp README.md public/
           cp CHANGELOG.md public/
           cp SECURITY.md public/
+          cp docs/ARCHITECTURE.md public/
+          cp docs/REFACTORING_ROADMAP.md public/
+          cp docs/BUNDLE_OPTIMIZATION.md public/
+          cp docs/DOCUMENTATION_INDEX.md public/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

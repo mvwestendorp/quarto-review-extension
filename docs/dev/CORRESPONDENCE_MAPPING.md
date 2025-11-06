@@ -513,7 +513,7 @@ review:
 
 ## References
 
-- [Lua Filter Documentation](_extensions/review/review.lua)
-- [Changes Module](src/modules/changes/index.ts)
+- [Lua Filter Documentation](../../_extensions/review/review.lua)
+- [Changes Module](../../src/modules/changes/index.ts)
 - [Architecture Overview](ARCHITECTURE.md)
 - [Quarto Extensions Guide](https://quarto.org/docs/extensions/)

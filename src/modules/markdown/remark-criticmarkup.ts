@@ -199,7 +199,7 @@ export const remarkCriticMarkup: Plugin<[CriticMarkupOptions?], Root> = (
   const options = { ...defaultOptions, ...userOptions };
 
   return (tree: Root) => {
-    visit(tree, 'text', (node: Text, index, parent) => {
+    visit(tree, 'text', (node: Text, index: number | undefined, parent: Parent | undefined) => {
       if (!parent || index === null || index === undefined) return;
 
       const text = node.value;
