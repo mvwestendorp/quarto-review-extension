@@ -1,0 +1,380 @@
+name: PR Preview Build
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, develop]
+
+jobs:
+  preview-build:
+    name: Build PR Preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate PR version
+        id: pr_version
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          PR_VERSION="${BASE_VERSION}-pr.${PR_NUMBER}.${GITHUB_RUN_NUMBER}"
+          echo "VERSION=${PR_VERSION}" >> $GITHUB_OUTPUT
+          echo "PR_NUMBER=${PR_NUMBER}" >> $GITHUB_OUTPUT
+          echo "Generated PR version: ${PR_VERSION}"
+
+      - name: Update version for PR
+        run: |
+          node -e "const pkg = require('./package.json'); pkg.version = '${{ steps.pr_version.outputs.VERSION }}'; require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');"
+          echo "Updated package.json version to: ${{ steps.pr_version.outputs.VERSION }}"
+
+      - name: Build extension
+        run: npm run build
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.head_ref }}
+
+      - name: Run tests
+        run: npm test
+        continue-on-error: false
+
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Type check
+        run: npm run type-check
+        continue-on-error: true
+
+      - name: Create preview bundle
+        run: |
+          mkdir -p preview
+          cp -r _extensions preview/
+          cp README.md preview/
+          cp package.json preview/
+          cp CHANGELOG.md preview/ || true
+
+          # Create installation instructions
+          cat > preview/INSTALL.md << 'EOL'
+          # PR Preview Installation
+
+          This is a preview build for testing PR #${{ steps.pr_version.outputs.PR_NUMBER }}.
+
+          ## Quick Install
+
+          ```bash
+          # Extract the archive
+          tar -xzf quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.tar.gz
+
+          # Install the extension
+          quarto install extension ./preview/_extensions/review --no-prompt
+          ```
+
+          ## Usage
+
+          Add to your `_quarto.yml`:
+
+          ```yaml
+          filters:
+            - review
+          ```
+
+          Then render your document:
+
+          ```bash
+          quarto render your-document.qmd
+          ```
+
+          ## Version Info
+
+          - **Version:** ${{ steps.pr_version.outputs.VERSION }}
+          - **PR:** #${{ steps.pr_version.outputs.PR_NUMBER }}
+          - **Commit:** ${{ github.event.pull_request.head.sha }}
+          - **Branch:** ${{ github.head_ref }}
+          - **Build:** ${{ github.run_number }}
+
+          ## Feedback
+
+          Please report any issues in the PR comments.
+          EOL
+
+          cd preview
+          tar -czf ../quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.tar.gz .
+          cd ..
+          zip -r quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.zip preview/_extensions
+
+      - name: Upload preview artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-preview-${{ steps.pr_version.outputs.PR_NUMBER }}
+          path: |
+            quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.tar.gz
+            quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.zip
+            preview/INSTALL.md
+          retention-days: 30
+
+      - name: Comment on PR with preview info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.pr_version.outputs.PR_NUMBER }};
+            const version = '${{ steps.pr_version.outputs.VERSION }}';
+            const runId = context.runId;
+            const runNumber = context.runNumber;
+
+            // Check if we already commented
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('🎉 Preview Build Ready')
+            );
+
+            const body = `## 🎉 Preview Build Ready!
+
+            **Version:** \`${version}\`
+            **Build:** [#${runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+            **Status:** ✅ Tests Passed
+
+            ### 📦 Download Preview
+
+            [⬇️ Download from Artifacts](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId})
+
+            <details>
+            <summary>🧪 Installation Instructions</summary>
+
+            #### Method 1: Quick Install (tar.gz)
+            \`\`\`bash
+            # Download and extract
+            tar -xzf quarto-review-pr${prNumber}.tar.gz
+
+            # Install the extension
+            quarto install extension ./preview/_extensions/review --no-prompt
+            \`\`\`
+
+            #### Method 2: Manual Installation
+            1. Download the artifact from the workflow run above
+            2. Extract the archive
+            3. Copy \`_extensions/review\` to your Quarto project
+            4. Add to your \`_quarto.yml\`:
+               \`\`\`yaml
+               filters:
+                 - review
+               \`\`\`
+
+            #### Test Your Changes
+            \`\`\`bash
+            quarto render your-document.qmd
+            \`\`\`
+
+            </details>
+
+            ### ℹ️ Build Information
+
+            - **Commit:** \`${context.payload.pull_request.head.sha.substring(0, 7)}\`
+            - **Branch:** \`${context.payload.pull_request.head.ref}\`
+            - **Author:** @${context.payload.pull_request.user.login}
+            - **Expires:** 30 days from now
+
+            ### 🔍 What's Changed
+
+            ${context.payload.pull_request.title}
+
+            ---
+            *Preview builds are automatically generated for testing. Download the artifacts above to test this PR before merging.*`;
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+            }
+
+      - name: Upload build info as artifact
+        run: |
+          cat > build-info.json << EOL
+          {
+            "version": "${{ steps.pr_version.outputs.VERSION }}",
+            "pr": ${{ steps.pr_version.outputs.PR_NUMBER }},
+            "commit": "${{ github.event.pull_request.head.sha }}",
+            "branch": "${{ github.head_ref }}",
+            "buildNumber": ${{ github.run_number }},
+            "buildDate": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "buildUrl": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          }
+          EOL
+          cat build-info.json
+
+      - name: Save build info
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-info-pr${{ steps.pr_version.outputs.PR_NUMBER }}
+          path: build-info.json
+          retention-days: 30
+
+      - name: Create GitHub Pre-release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: pr-${{ steps.pr_version.outputs.PR_NUMBER }}-build-${{ github.run_number }}
+          name: PR #${{ steps.pr_version.outputs.PR_NUMBER }} Preview (${{ steps.pr_version.outputs.VERSION }})
+          body: |
+            ## 🧪 Preview Build for PR #${{ steps.pr_version.outputs.PR_NUMBER }}
+
+            **This is a pre-release build for testing purposes.**
+
+            ### 📦 Installation
+
+            ```bash
+            # Download and extract
+            curl -LO ${{ github.server_url }}/${{ github.repository }}/releases/download/pr-${{ steps.pr_version.outputs.PR_NUMBER }}-build-${{ github.run_number }}/quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.tar.gz
+            tar -xzf quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.tar.gz
+
+            # Install the extension
+            quarto install extension ./preview/_extensions/review --no-prompt
+            ```
+
+            ### ℹ️ Build Information
+
+            - **Version:** `${{ steps.pr_version.outputs.VERSION }}`
+            - **PR:** [#${{ steps.pr_version.outputs.PR_NUMBER }}](${{ github.event.pull_request.html_url }})
+            - **Commit:** `${{ github.event.pull_request.head.sha }}`
+            - **Branch:** `${{ github.head_ref }}`
+            - **Author:** @${{ github.event.pull_request.user.login }}
+            - **Build:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ### 📝 PR Description
+
+            ${{ github.event.pull_request.title }}
+
+            ---
+
+            **⚠️ Warning:** This is a pre-release for testing. Do not use in production.
+
+            This pre-release will be automatically deleted when the PR is merged or closed.
+          files: |
+            quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.tar.gz
+            quarto-review-pr${{ steps.pr_version.outputs.PR_NUMBER }}.zip
+            build-info.json
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update PR comment with release link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = ${{ steps.pr_version.outputs.PR_NUMBER }};
+            const version = '${{ steps.pr_version.outputs.VERSION }}';
+            const releaseTag = 'pr-${prNumber}-build-${{ github.run_number }}';
+            const releaseUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/releases/tag/${releaseTag}`;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('🎉 Preview Build Ready')
+            );
+
+            const body = `## 🎉 Preview Build Ready!
+
+            **Version:** \`${version}\`
+            **Pre-release:** [Download Here](${releaseUrl})
+            **Status:** ✅ Tests Passed
+
+            ### 📦 Quick Install
+
+            \`\`\`bash
+            # One-line install from GitHub release
+            curl -LO ${releaseUrl.replace('/tag/', '/download/')}/quarto-review-pr${prNumber}.tar.gz
+            tar -xzf quarto-review-pr${prNumber}.tar.gz
+            quarto install extension ./preview/_extensions/review --no-prompt
+            \`\`\`
+
+            ### 🚀 Pre-release
+
+            This build is available as a [GitHub Pre-release](${releaseUrl}) for easy distribution and testing.
+
+            - **Direct Download:** [tar.gz](${releaseUrl.replace('/tag/', '/download/')}/quarto-review-pr${prNumber}.tar.gz) | [zip](${releaseUrl.replace('/tag/', '/download/')}/quarto-review-pr${prNumber}.zip)
+            - **Tag:** \`${releaseTag}\`
+
+            <details>
+            <summary>📋 Alternative Installation Methods</summary>
+
+            #### Method 1: GitHub Release (Recommended)
+            Download directly from the [pre-release page](${releaseUrl}).
+
+            #### Method 2: Workflow Artifacts
+            Download from [workflow run artifacts](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).
+
+            #### Method 3: Manual Installation
+            1. Download the archive from either location above
+            2. Extract: \`tar -xzf quarto-review-pr${prNumber}.tar.gz\`
+            3. Install: \`quarto install extension ./preview/_extensions/review --no-prompt\`
+
+            </details>
+
+            ### ℹ️ Build Information
+
+            - **Commit:** \`${context.payload.pull_request.head.sha.substring(0, 7)}\`
+            - **Branch:** \`${context.payload.pull_request.head.ref}\`
+            - **Author:** @${context.payload.pull_request.user.login}
+            - **Build:** [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+
+            ### 🔍 What's Changed
+
+            ${context.payload.pull_request.title}
+
+            ---
+            *This preview build is available as a GitHub pre-release and will be removed when the PR is merged or closed.*`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: body
+              });
+            }
