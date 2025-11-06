@@ -8,6 +8,7 @@
 
 import type { Editor } from '@milkdown/kit/core';
 import { commandsCtx, editorViewCtx } from '@milkdown/kit/core';
+import type { Node as ProseMirrorNode, Mark } from '@milkdown/prose/model';
 import {
   toggleStrongCommand,
   toggleEmphasisCommand,
@@ -176,10 +177,10 @@ export class CommandRegistry {
 
     let hasMarkInRange = false;
 
-    state.doc.nodesBetween(from, to, (node) => {
+    state.doc.nodesBetween(from, to, (node: ProseMirrorNode) => {
       if (node.isText) {
         const marks = node.marks || [];
-        const hasMark = marks.some((mark) => mark.type.name === typeName);
+        const hasMark = marks.some((mark: Mark) => mark.type.name === typeName);
         if (hasMark) {
           hasMarkInRange = true;
           return false; // Stop early

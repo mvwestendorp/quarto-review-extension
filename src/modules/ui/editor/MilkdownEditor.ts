@@ -8,7 +8,7 @@
  * Extracted from UIModule index.ts to reduce monolithic complexity.
  */
 
-import { Editor, rootCtx, defaultValueCtx } from '@milkdown/kit/core';
+import { Editor, rootCtx, defaultValueCtx, type Ctx } from '@milkdown/kit/core';
 import { nord } from '@milkdown/theme-nord';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';
@@ -117,7 +117,7 @@ export class MilkdownEditor extends ModuleEventEmitter {
       this.currentContent = initialContent;
 
       const editorBuilder = Editor.make()
-        .config((ctx) => {
+        .config((ctx: Ctx) => {
           ctx.set(rootCtx, mount);
           ctx.set(defaultValueCtx, initialContent);
           // Configure history plugin with a reasonable depth
@@ -129,7 +129,7 @@ export class MilkdownEditor extends ModuleEventEmitter {
           const listenerManager = ctx.get(listenerCtx);
           // Listen for markdown changes
           listenerManager
-            .markdownUpdated((_ctx, markdown) => {
+            .markdownUpdated((_ctx: Ctx, markdown: string) => {
               const normalized = normalizeListMarkers(markdown);
               this.currentContent = normalized;
               if (this.contentUpdateCallback) {

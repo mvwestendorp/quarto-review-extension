@@ -8,6 +8,7 @@
  */
 
 import * as Diff from 'diff';
+import type { Change } from 'diff';
 import type { TextChange } from '@/types';
 
 /**
@@ -47,7 +48,7 @@ export function generateChanges(
         const wordDiffs = Diff.diffWordsWithSpace(value, nextValue);
         let localPos = position;
 
-        wordDiffs.forEach((diff) => {
+        wordDiffs.forEach((diff: Change) => {
           if (diff.added) {
             changes.push({
               type: 'addition',
@@ -301,7 +302,7 @@ function formatLineDiff(oldLine: string, newLine: string): string {
   const diffs = Diff.diffWordsWithSpace(oldBody, newBody);
   let lineResult = oldPrefix;
 
-  diffs.forEach((diff) => {
+  diffs.forEach((diff: Change) => {
     if (diff.added) {
       // If addition starts with space, put the space outside the markup
       if (diff.value.startsWith(' ') && diff.value.length > 1) {
@@ -336,10 +337,10 @@ function formatListLineChange(oldLine: string, newLine: string): string {
   const newline = newNewline || oldNewline;
 
   const diffs = Diff.diffWordsWithSpace(oldBody, newBody);
-  const hasAdditions = diffs.some((diff) => diff.added);
-  const hasDeletions = diffs.some((diff) => diff.removed);
+  const hasAdditions = diffs.some((diff: Change) => diff.added);
+  const hasDeletions = diffs.some((diff: Change) => diff.removed);
   const hasUnchanged = diffs.some(
-    (diff) => !diff.added && !diff.removed && diff.value.trim().length > 0
+    (diff: Change) => !diff.added && !diff.removed && diff.value.trim().length > 0
   );
 
   if (hasAdditions && hasDeletions && !hasUnchanged) {
@@ -348,7 +349,7 @@ function formatListLineChange(oldLine: string, newLine: string): string {
 
   let trimmedResult = '';
 
-  diffs.forEach((diff) => {
+  diffs.forEach((diff: Change) => {
     if (diff.added) {
       // If addition starts with space, put the space outside the markup
       if (diff.value.startsWith(' ') && diff.value.length > 1) {
@@ -464,7 +465,7 @@ function formatTableCellChange(oldCell: string, newCell: string): string {
   const diffs = Diff.diffWordsWithSpace(oldTrimmed, newTrimmed);
   let result = '';
 
-  diffs.forEach((diff) => {
+  diffs.forEach((diff: Change) => {
     const value = diff.value ?? '';
     if (diff.added) {
       result += wrapWithMarkup(value, 'addition');
