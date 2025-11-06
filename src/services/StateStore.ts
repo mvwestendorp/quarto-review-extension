@@ -191,7 +191,19 @@ export class StateStore {
    */
   setTranslationState(updates: Partial<TranslationState>): void {
     const prevState = { ...this.state.translation };
-    this.state.translation = { ...this.state.translation, ...updates };
+    // Handle Set and Map updates specially to avoid reference issues
+    const loadingSentences =
+      updates.loadingSentences ?? this.state.translation.loadingSentences;
+    const sentenceErrors =
+      updates.sentenceErrors ?? this.state.translation.sentenceErrors;
+
+    this.state.translation = {
+      ...this.state.translation,
+      ...updates,
+      loadingSentences,
+      sentenceErrors,
+    };
+
     this.log('Translation state updated', {
       prev: prevState,
       next: this.state.translation,

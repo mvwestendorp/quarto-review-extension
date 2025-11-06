@@ -52,13 +52,36 @@ export interface ContextMenuState {
  * Translation state - all properties related to translation mode
  */
 export interface TranslationState {
+  /** Whether translation mode is active */
   isActive: boolean;
+  /** Currently selected source sentence ID */
   selectedSourceSentenceId: string | null;
+  /** Currently selected target sentence ID */
   selectedTargetSentenceId: string | null;
-  isBusy: boolean;
-  progressPhase: 'idle' | 'running' | 'success' | 'error';
-  progressMessage: string;
-  progressPercent?: number;
+  /** Translation mode: manual entry or automatic translation */
+  mode: 'manual' | 'automatic';
+  /** Whether a translation operation is in progress */
+  busy: boolean;
+  /** Source language code */
+  sourceLanguage: string;
+  /** Target language code */
+  targetLanguage: string;
+  /** Currently active translation provider */
+  activeProvider: string;
+  /** Show correspondence lines between sentences */
+  showCorrespondenceLines: boolean;
+  /** Highlight corresponding sentences on hover */
+  highlightOnHover: boolean;
+  /** IDs of sentences currently being translated */
+  loadingSentences: Set<string>;
+  /** Error messages for sentences that failed translation */
+  sentenceErrors: Map<string, string>;
+  /** Current translation progress status */
+  progressStatus: {
+    phase: 'idle' | 'running' | 'success' | 'error';
+    message: string;
+    percent?: number;
+  } | null;
 }
 
 /**
@@ -115,9 +138,15 @@ export function createInitialTranslationState(): TranslationState {
     isActive: false,
     selectedSourceSentenceId: null,
     selectedTargetSentenceId: null,
-    isBusy: false,
-    progressPhase: 'idle',
-    progressMessage: '',
-    progressPercent: undefined,
+    mode: 'automatic',
+    busy: false,
+    sourceLanguage: 'en',
+    targetLanguage: 'nl',
+    activeProvider: 'manual',
+    showCorrespondenceLines: true,
+    highlightOnHover: true,
+    loadingSentences: new Set(),
+    sentenceErrors: new Map(),
+    progressStatus: null,
   };
 }
