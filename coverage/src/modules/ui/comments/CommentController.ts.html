@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">53.51% </span>
+                <span class="strong">51.35% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>99/185</span>
+                <span class='fraction'>95/185</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">40.19% </span>
+                <span class="strong">39.21% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>41/102</span>
+                <span class='fraction'>40/102</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">52.63% </span>
+                <span class="strong">50% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>20/38</span>
+                <span class='fraction'>19/38</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">53.8% </span>
+                <span class="strong">51.63% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>99/184</span>
+                <span class='fraction'>95/184</span>
             </div>
         
             
@@ -828,16 +828,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">59x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">59x</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">59x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -845,6 +836,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -858,7 +858,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">59x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1329,14 +1329,14 @@ export class CommentController {
 <span class="cstat-no" title="statement not covered" >    return counts;</span>
   }
 &nbsp;
-  public refreshUI(options: { showSidebar?: boolean }): void {
-    const sections = this.getSectionComments();
+  public <span class="fstat-no" title="function not covered" >refreshUI(o</span>ptions: { showSidebar?: boolean }): void {
+    const sections = <span class="cstat-no" title="statement not covered" >this.getSectionComments();</span>
 &nbsp;
-    <span class="missing-if-branch" title="if path not taken" >I</span>if (options.showSidebar) {
+<span class="cstat-no" title="statement not covered" >    if (options.showSidebar) {</span>
 <span class="cstat-no" title="statement not covered" >      this.sidebar?.show();</span>
     }
 &nbsp;
-    this.sidebar?.updateSections(sections, {
+<span class="cstat-no" title="statement not covered" >    this.sidebar?.updateSections(sections, {</span>
       onNavigate: <span class="fstat-no" title="function not covered" >(e</span>lementId, commentKey) =&gt; {
 <span class="cstat-no" title="statement not covered" >        this.focusCommentAnchor(elementId, commentKey);</span>
       },
@@ -1360,7 +1360,7 @@ export class CommentController {
       },
     });
 &nbsp;
-    this.badges?.syncIndicators(sections, {
+<span class="cstat-no" title="statement not covered" >    this.badges?.syncIndicators(sections, {</span>
       onShowComments: <span class="fstat-no" title="function not covered" >(e</span>lementId, commentKey) =&gt; {
 <span class="cstat-no" title="statement not covered" >        this.sidebar?.show();</span>
 <span class="cstat-no" title="statement not covered" >        if (commentKey) {</span>
@@ -1576,7 +1576,7 @@ export interface SectionCommentSnapshot {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-06T12:03:34.566Z
+                at 2025-11-06T13:14:08.023Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
