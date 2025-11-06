@@ -22,7 +22,10 @@ const logger = createModuleLogger('ProviderRegistry');
  * Event emitter for provider events
  */
 class SimpleEventEmitter implements ProviderEventEmitter {
-  private listeners = new Map<ProviderEvent, Set<(data: ProviderEventData) => void>>();
+  private listeners = new Map<
+    ProviderEvent,
+    Set<(data: ProviderEventData) => void>
+  >();
 
   emit(event: ProviderEvent, data: ProviderEventData): void {
     const eventListeners = this.listeners.get(event);
@@ -31,7 +34,10 @@ class SimpleEventEmitter implements ProviderEventEmitter {
         try {
           listener(data);
         } catch (error) {
-          console.error(`Error in provider event listener for ${event}:`, error);
+          console.error(
+            `Error in provider event listener for ${event}:`,
+            error
+          );
         }
       });
     }
@@ -166,7 +172,9 @@ export class ProviderRegistry {
           this.eventEmitter.emit('provider:error', {
             provider: info.name,
             timestamp: Date.now(),
-            data: { error: error instanceof Error ? error.message : String(error) },
+            data: {
+              error: error instanceof Error ? error.message : String(error),
+            },
           });
         }
 
@@ -315,7 +323,10 @@ export class ProviderRegistry {
   /**
    * Subscribe to provider events
    */
-  on(event: ProviderEvent, listener: (data: ProviderEventData) => void): () => void {
+  on(
+    event: ProviderEvent,
+    listener: (data: ProviderEventData) => void
+  ): () => void {
     this.eventEmitter.on(event, listener);
 
     // Return unsubscribe function

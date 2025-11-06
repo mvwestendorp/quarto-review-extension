@@ -170,12 +170,7 @@ export class ProviderAdapter implements TranslationProviderV2 {
     if (options?.useCache !== false && this.cacheService) {
       const cacheKey =
         options?.cacheKey ??
-        TranslationCacheService.generateKey(
-          text,
-          from,
-          to,
-          this.config.name
-        );
+        TranslationCacheService.generateKey(text, from, to, this.config.name);
 
       const cached = await this.cacheService.get(cacheKey);
       if (cached) {
@@ -216,19 +211,10 @@ export class ProviderAdapter implements TranslationProviderV2 {
       }
 
       // Cache result if cache service available
-      if (
-        options?.useCache !== false &&
-        this.cacheService &&
-        translatedText
-      ) {
+      if (options?.useCache !== false && this.cacheService && translatedText) {
         const cacheKey =
           options?.cacheKey ??
-          TranslationCacheService.generateKey(
-            text,
-            from,
-            to,
-            this.config.name
-          );
+          TranslationCacheService.generateKey(text, from, to, this.config.name);
 
         await this.cacheService.set({
           key: cacheKey,

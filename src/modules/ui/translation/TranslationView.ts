@@ -19,6 +19,11 @@ export interface TranslationViewConfig {
 }
 
 export interface TranslationViewCallbacks {
+  // Segment-level editing (primary editing mode)
+  onSourceSegmentEdit?: (elementId: string, newContent: string) => void;
+  onTargetSegmentEdit?: (elementId: string, newContent: string) => void;
+
+  // Sentence-level editing (deprecated, kept for backward compatibility)
   onSourceSentenceEdit?: (sentenceId: string, newContent: string) => void;
   onTargetSentenceEdit?: (sentenceId: string, newContent: string) => void;
 }
@@ -114,27 +119,31 @@ export class TranslationView {
    */
   private handleStateStoreUpdate(state: Readonly<TranslationState>): void {
     logger.debug('StateStore translation state updated in view', {
-      isBusy: state.isBusy,
-      progressPhase: state.progressPhase,
+      busy: state.busy,
+      progressPhase: state.progressStatus?.phase,
       hasSelectedSource: !!state.selectedSourceSentenceId,
       hasSelectedTarget: !!state.selectedTargetSentenceId,
     });
 
     // Update progress status if it changed
     if (
-      state.progressPhase !== this.progressStatus?.phase ||
-      state.progressMessage !== this.progressStatus?.message ||
-      state.progressPercent !== this.progressStatus?.percent
+      state.progressStatus &&
+      (state.progressStatus.phase !== this.progressStatus?.phase ||
+        state.progressStatus.message !== this.progressStatus?.message ||
+        state.progressStatus.percent !== this.progressStatus?.percent)
     ) {
       this.setDocumentProgress({
-        phase: state.progressPhase,
-        message: state.progressMessage,
-        percent: state.progressPercent,
+        phase: state.progressStatus.phase,
+        message: state.progressStatus.message,
+        percent: state.progressStatus.percent,
       });
     }
 
     // Update selected sentence if it changed
-    if (state.selectedSourceSentenceId && state.selectedSourceSentenceId !== this.selectedSentence?.id) {
+    if (
+      state.selectedSourceSentenceId &&
+      state.selectedSourceSentenceId !== this.selectedSentence?.id
+    ) {
       this.selectedSentence = {
         id: state.selectedSourceSentenceId,
         side: 'source',
@@ -143,7 +152,10 @@ export class TranslationView {
       if (this.element) {
         this.restoreSelection();
       }
-    } else if (state.selectedTargetSentenceId && state.selectedTargetSentenceId !== this.selectedSentence?.id) {
+    } else if (
+      state.selectedTargetSentenceId &&
+      state.selectedTargetSentenceId !== this.selectedSentence?.id
+    ) {
       this.selectedSentence = {
         id: state.selectedTargetSentenceId,
         side: 'target',
@@ -403,12 +415,36 @@ export class TranslationView {
     // Render each section with its sentences
     Array.from(sectionMap.entries()).forEach(
       ([elementId, sectionSentences]) => {
-        // Create section container
+        // Create section container (segment-level container)
         const sectionElement = document.createElement('div');
         sectionElement.className = 'review-translation-section';
         sectionElement.dataset.elementId = elementId;
+        sectionElement.dataset.side = side;
 
-        // Render sentences within the section
+        // Add section header with edit button
+        const sectionHeader = document.createElement('div');
+        sectionHeader.className = 'review-translation-section-header';
+
+        const editButton = document.createElement('button');
+        editButton.className = 'review-translation-edit-segment-btn';
+        editButton.type = 'button';
+        editButton.title = `Edit ${side} segment`;
+        editButton.setAttribute('aria-label', `Edit ${side} segment`);
+        editButton.innerHTML = `<span class="edit-icon">✏️</span> Edit Segment`;
+
+        editButton.addEventListener('click', () => {
+          void this.enableSegmentEdit(
+            sectionElement,
+            elementId,
+            sectionSentences,
+            side
+          );
+        });
+
+        sectionHeader.appendChild(editButton);
+        sectionElement.appendChild(sectionHeader);
+
+        // Render sentences within the section (with visual status indicators)
         sectionSentences.forEach((sentence) => {
           const sentenceElement = this.createSentenceElement(sentence, side);
           sectionElement.appendChild(sentenceElement);
@@ -585,17 +621,8 @@ export class TranslationView {
       });
     }
 
-    // Double-click to edit
-    element.addEventListener('dblclick', async () => {
-      // Find the sentence to pass to enable edit
-      const sentence =
-        side === 'source'
-          ? this.document?.sourceSentences.find((s) => s.id === sentenceId)
-          : this.document?.targetSentences.find((s) => s.id === sentenceId);
-      if (sentence) {
-        await this.enableSentenceEdit(element, sentence, side);
-      }
-    });
+    // NOTE: Double-click editing removed - editing now happens at segment level
+    // via the "Edit Segment" button on the section container
   }
 
   /**
@@ -1000,8 +1027,180 @@ export class TranslationView {
   }
 
   /**
-   * Enable inline editing for a sentence
+   * Enable inline editing for a segment (all sentences in an element)
+   * This is the primary editing mode - edits the full segment with context
    */
+  private async enableSegmentEdit(
+    sectionElement: HTMLElement,
+    elementId: string,
+    sentences: Sentence[],
+    side: 'source' | 'target'
+  ): Promise<void> {
+    if (!this.document || !this.editorBridge) return;
+
+    // Ensure we have at least one sentence
+    if (sentences.length === 0) {
+      logger.error('Cannot enable segment edit with no sentences', {
+        elementId,
+        side,
+      });
+      return;
+    }
+
+    // Merge all sentences into segment content
+    // Sort by order to ensure correct sequence
+    const sortedSentences = [...sentences].sort((a, b) => {
+      if (a.order !== b.order) return a.order - b.order;
+      return a.id.localeCompare(b.id);
+    });
+
+    const segmentContent = sortedSentences.map((s) => s.content).join('\n\n'); // Use paragraph breaks between sentences
+
+    logger.debug('Opening segment editor', {
+      elementId,
+      side,
+      sentenceCount: sentences.length,
+      contentLength: segmentContent.length,
+    });
+
+    try {
+      // Create editor container
+      const editorContainer = document.createElement('div');
+      editorContainer.className =
+        'review-translation-segment-editor review-inline-editor-container';
+      const editorBody = document.createElement('div');
+      editorBody.className = 'review-editor-body review-inline-editor-body';
+      editorContainer.appendChild(editorBody);
+
+      // Create action buttons
+      const actions = document.createElement('div');
+      actions.className =
+        'review-inline-editor-actions review-translation-editor-actions';
+      actions.innerHTML = `
+        <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
+        <button class="review-btn review-btn-primary review-btn-sm" data-action="save">Save</button>
+      `;
+
+      // Hide sentences and show editor in section
+      const sentenceElements = sectionElement.querySelectorAll(
+        '.review-translation-sentence'
+      );
+      sentenceElements.forEach((el) => {
+        (el as HTMLElement).style.display = 'none';
+      });
+
+      // Add editor to section
+      sectionElement.appendChild(editorContainer);
+      sectionElement.appendChild(actions);
+
+      // Initialize Milkdown editor with full segment content
+      await this.editorBridge.initializeSegmentEditor(
+        editorContainer,
+        elementId,
+        segmentContent,
+        side
+      );
+
+      logger.debug('Milkdown editor initialized for segment', {
+        elementId,
+        side,
+      });
+
+      const save = (): boolean => {
+        // Get editor content using existing EditorLifecycle method
+        const module = this.editorBridge?.getModule();
+        if (!module) {
+          logger.error('Editor module not available for save');
+          return false;
+        }
+
+        const newContent = module.getContent() || '';
+
+        // Validate using existing saveSegmentEdit method
+        const isValid = this.editorBridge?.saveSegmentEdit(
+          elementId,
+          newContent,
+          side
+        );
+
+        if (isValid) {
+          // Call the segment edit callback - controller handles ChangesModule
+          if (side === 'source' && this.callbacks.onSourceSegmentEdit) {
+            this.callbacks.onSourceSegmentEdit(elementId, newContent);
+          } else if (side === 'target' && this.callbacks.onTargetSegmentEdit) {
+            this.callbacks.onTargetSegmentEdit(elementId, newContent);
+          }
+
+          // Clean up editor using existing destroy method
+          this.editorBridge?.destroy();
+          editorContainer.remove();
+          actions.remove();
+
+          // Show sentences again (they will be updated by the document reload)
+          sentenceElements.forEach((el) => {
+            (el as HTMLElement).style.display = '';
+          });
+
+          logger.debug('Segment edit saved', { elementId, side });
+          return true;
+        }
+        return false;
+      };
+
+      const cancel = (): void => {
+        this.editorBridge?.cancelEdit();
+        editorContainer.remove();
+        actions.remove();
+
+        // Show sentences again
+        sentenceElements.forEach((el) => {
+          (el as HTMLElement).style.display = '';
+        });
+
+        logger.debug('Segment edit cancelled', { elementId, side });
+      };
+
+      // Bind action buttons
+      const saveBtn = actions.querySelector('[data-action="save"]');
+      const cancelBtn = actions.querySelector('[data-action="cancel"]');
+
+      if (saveBtn) {
+        saveBtn.addEventListener('click', () => save());
+      }
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => cancel());
+      }
+
+      // Store editor context for keyboard shortcuts
+      this.activeEditorContext = {
+        sentence: sentences[0]!, // For compatibility - safe because we check length above
+        side,
+        sentenceElement: sectionElement,
+        contentEl: sectionElement,
+        save,
+        cancel,
+      };
+    } catch (error) {
+      logger.error('Failed to initialize segment editor', {
+        elementId,
+        side,
+        error,
+      });
+      // Show error message in the section
+      const errorEl = document.createElement('div');
+      errorEl.className = 'review-translation-editor-error';
+      errorEl.setAttribute('role', 'alert');
+      errorEl.textContent =
+        error instanceof Error ? error.message : 'Failed to initialize editor';
+      sectionElement.appendChild(errorEl);
+    }
+  }
+
+  /**
+   * Enable inline editing for a sentence
+   * @deprecated Use enableSegmentEdit instead - kept for backward compatibility
+   */
+  // @ts-expect-error - Deprecated method kept for backward compatibility
   private async enableSentenceEdit(
     element: HTMLElement,
     sentence: Sentence,

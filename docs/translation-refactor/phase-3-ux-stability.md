@@ -1,6 +1,6 @@
 ## Phase 3 · UX Contracts & Editor Stability
 
-**Status:** ☐ Not Started  
+**Status:** 🔄 In Progress (8/10 tasks complete)
 **Goal:** Deliver a seamless translation editing experience with predictable focus, accurate status indicators, and responsive rendering, delivered via a pluggable UI module layered on the core review surface.
 
 ### 1. Problem Statement
@@ -22,17 +22,17 @@
 
 | ID | Task | Details / Acceptance Criteria |
 | --- | --- | --- |
-| P3-T0 | **UI plugin contract** | Formalise `ReviewUIPlugin` interface (mount/unmount, events) and migrate translation view/sidebars to register through it. |
+| P3-T0 | **UI plugin contract** | ✅ `ReviewUIPlugin` interface formalized (`src/modules/ui/plugins/types.ts`); `TranslationPlugin` implements it with mount/unmount/dispose lifecycle (`src/modules/ui/plugins/TranslationPlugin.ts`). |
 | P3-T1 | Focus & selection management | ✅ Implemented queued focus + selection restore; preserve cursor position after save and selection when switching sentences. |
 | P3-T2 | Inline status chips | ✅ Accessible chips replace legacy dots with labels, tooltips, and ARIA status descriptions (Original, Auto, Manual, Out-of-sync, Synced). |
 | P3-T3 | Inline progress feedback | ✅ Inline progress bar and per-sentence spinner wired to controller events, with aria-busy semantics and indeterminate state handling. |
 | P3-T4 | Keyboard shortcuts | ✅ `Ctrl/Cmd+S` saves the active sentence; undo/redo shortcuts route to translation history when the inline editor is closed. |
 | P3-T5 | Error states | ✅ Inline banner + sentence badges with retry affordances when translation fails. |
 | P3-T6 | Accessibility audit | 🔄 Heading/region landmarks, roving tabindex, keyboard edit trigger implemented; contrast review pending. |
-| P3-T7 | Performance polish | Virtualise long sentence lists; retain lazy-rendering of off-screen sentences. |
-| P3-T8 | Plugin lifecycle QA | Ensure mounting/unmounting the translation plugin leaves core UI state intact (undo stack, comments).
-| P3-T9 | Documentation & demos | Update user guide, record short screencast of translation workflow.
-| P3-T10 | UI parity & persistence | Align translation editor/layout with review mode and resolve manual save regression.
+| P3-T7 | Performance polish | ☐ Virtualise long sentence lists; retain lazy-rendering of off-screen sentences. |
+| P3-T8 | Plugin lifecycle QA | ✅ Plugin lifecycle tests ensure mounting/unmounting leaves core UI state intact (`tests/unit/translation-plugin.test.ts`).
+| P3-T9 | Documentation & demos | ☐ Update user guide, record short screencast of translation workflow.
+| P3-T10 | UI parity & persistence | ✅ Translation editor/layout aligned with review mode; manual save regression resolved (see `docs/translation-refactor/p3-t10-ui-parity.md`).
 
 ### 4. Design Considerations
 

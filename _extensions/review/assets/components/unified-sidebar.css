@@ -1,0 +1,193 @@
+/**
+ * Component: Unified Sidebar
+ *
+ * Single expandable sidebar consolidating review tools, comments, and translation tools
+ */
+
+/* Unified Sidebar - positioned on the right side */
+.review-unified-sidebar {
+  position: fixed !important;
+  top: 80px;
+  right: clamp(16px, 2vw, 24px);
+  width: 320px;
+  max-height: calc(100vh - 100px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.1);
+  border-radius: 16px;
+  box-shadow: var(--review-shadow-xl);
+  display: flex;
+  flex-direction: column;
+  z-index: calc(var(--review-z-toolbar) + 1);
+  overflow: hidden;
+  transition:
+    width 0.3s ease,
+    transform 0.3s ease,
+    opacity 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.review-unified-sidebar.review-sidebar-collapsed {
+  width: 48px;
+  box-shadow: var(--review-shadow-md);
+}
+
+body.review-sidebar-collapsed-mode {
+  padding-inline-end: clamp(0px, 6vw, 68px);
+}
+
+/* Comments section within unified sidebar */
+.review-unified-sidebar .review-comments-section {
+  border-bottom: 1px solid var(--review-color-surface-alt);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.review-unified-sidebar .review-sidebar-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.review-unified-sidebar .review-sidebar-section-header h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--review-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.review-unified-sidebar .review-comments-content {
+  max-height: 400px;
+  overflow-y: auto;
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(248, 250, 252, 0.5);
+}
+
+.review-unified-sidebar .review-comments-empty {
+  text-align: center;
+  padding: 24px 12px;
+  color: var(--review-color-neutral-mid);
+  background: rgba(248, 250, 252, 0.85);
+  border: 1px dashed rgba(148, 163, 184, 0.45);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.review-unified-sidebar .review-comments-section {
+  margin-bottom: 16px;
+}
+
+.review-unified-sidebar .review-comment-item {
+  padding: 10px;
+  margin-bottom: 10px;
+  background: white;
+  border: 1px solid var(--review-color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.review-unified-sidebar .review-comment-item:hover {
+  background: var(--review-color-surface-alt);
+  border-color: var(--review-color-primary);
+  box-shadow: var(--review-shadow-sm);
+  transform: translateX(-2px);
+}
+
+.review-unified-sidebar .review-comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.review-unified-sidebar .review-comment-author {
+  font-weight: 600;
+  color: var(--review-color-neutral-strong);
+}
+
+.review-unified-sidebar .review-comment-date {
+  color: var(--review-color-neutral-mid);
+  font-size: 11px;
+}
+
+.review-unified-sidebar .review-comment-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--review-color-text);
+  margin-bottom: 8px;
+  word-wrap: break-word;
+}
+
+.review-unified-sidebar .review-comment-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--review-color-border);
+}
+
+.review-unified-sidebar .review-comment-actions .review-btn {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+/* Scrollbar styling for comments content */
+.review-unified-sidebar .review-comments-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.review-unified-sidebar .review-comments-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.review-unified-sidebar .review-comments-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+.review-unified-sidebar .review-comments-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .review-unified-sidebar {
+    width: 280px;
+    top: 80px;
+    right: 12px;
+  }
+
+  .review-unified-sidebar.review-sidebar-collapsed {
+    width: 40px;
+  }
+
+  body.review-sidebar-collapsed-mode {
+    padding-inline-end: clamp(0px, 8vw, 60px);
+  }
+}
+
+@media (max-width: 640px) {
+  .review-unified-sidebar {
+    width: 100%;
+    max-width: 320px;
+    left: 50%;
+    transform: translateX(-50%);
+    right: auto;
+  }
+
+  .review-unified-sidebar.review-sidebar-collapsed {
+    width: 40px;
+    left: auto;
+    right: 12px;
+    transform: none;
+  }
+}

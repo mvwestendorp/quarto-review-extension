@@ -60,6 +60,8 @@ jobs:
         run: npm run build
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BRANCH: ${{ github.head_ref }}
 
   test:
     name: Test

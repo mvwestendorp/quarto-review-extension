@@ -248,7 +248,7 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
     { character: '}', inConstruct: 'phrasing' },
   ],
   handlers: {
-    criticMarkup: ((node, _parent, state, info) => {
+    criticMarkup: ((node: Node, _parent: Parent | undefined, state: any, info: any) => {
       const { markup } = node as CriticMarkupNode;
       const [open, close] = CRITIC_DELIMITERS[markup] ?? ['', ''];
 
@@ -278,7 +278,7 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
  * Remark plugin to transform CriticMarkup syntax into Milkdown-compatible tokens
  * Uses manual tree walking instead of unist-util-visit to avoid circular references
  */
-export const remarkCriticMarkupMilkdown: Plugin<[], Root> = function () {
+export const remarkCriticMarkupMilkdown: Plugin<[], Root> = function (this: any) {
   // Register custom toMarkdown handler so CriticMarkup serializes correctly
   const data = this.data();
   const toMarkdown =

@@ -4,7 +4,7 @@
  */
 
 import { toString } from 'mdast-util-to-string';
-import type { Root } from 'mdast';
+import type { Root, RootContent } from 'mdast';
 import { MarkdownRenderer, type RendererOptions } from './MarkdownRenderer';
 import { sanitizeHtml } from './sanitize';
 import { unified } from 'unified';
@@ -151,8 +151,8 @@ export class MarkdownModule {
   public toPlainText(markdown: string): string {
     const ast = this.parseToAST(markdown);
     return ast.children
-      .map((child) => toString(child).trim())
-      .filter((segment) => segment.length > 0)
+      .map((child: RootContent) => toString(child).trim())
+      .filter((segment: string) => segment.length > 0)
       .join('\n');
   }
 
