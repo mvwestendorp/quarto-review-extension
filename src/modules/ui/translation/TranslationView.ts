@@ -134,7 +134,10 @@ export class TranslationView {
     }
 
     // Update selected sentence if it changed
-    if (state.selectedSourceSentenceId && state.selectedSourceSentenceId !== this.selectedSentence?.id) {
+    if (
+      state.selectedSourceSentenceId &&
+      state.selectedSourceSentenceId !== this.selectedSentence?.id
+    ) {
       this.selectedSentence = {
         id: state.selectedSourceSentenceId,
         side: 'source',
@@ -143,7 +146,10 @@ export class TranslationView {
       if (this.element) {
         this.restoreSelection();
       }
-    } else if (state.selectedTargetSentenceId && state.selectedTargetSentenceId !== this.selectedSentence?.id) {
+    } else if (
+      state.selectedTargetSentenceId &&
+      state.selectedTargetSentenceId !== this.selectedSentence?.id
+    ) {
       this.selectedSentence = {
         id: state.selectedTargetSentenceId,
         side: 'target',
