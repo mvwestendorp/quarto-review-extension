@@ -17,12 +17,14 @@ import type {
   UIState,
   CommentState,
   ContextMenuState,
+  TranslationState,
 } from '@modules/ui/shared';
 import {
   createInitialEditorState,
   createInitialUIState,
   createInitialCommentState,
   createInitialContextMenuState,
+  createInitialTranslationState,
 } from '@modules/ui/shared';
 
 /**
@@ -33,6 +35,7 @@ export type StateChangeEvent =
   | 'ui:changed'
   | 'comment:changed'
   | 'contextMenu:changed'
+  | 'translation:changed'
   | 'state:changed'; // Emitted on any state change
 
 /**
@@ -48,6 +51,7 @@ export interface AppState {
   ui: UIState;
   comment: CommentState;
   contextMenu: ContextMenuState;
+  translation: TranslationState;
 }
 
 /**
@@ -75,6 +79,7 @@ export class StateStore {
       ui: createInitialUIState(),
       comment: createInitialCommentState(),
       contextMenu: createInitialContextMenuState(),
+      translation: createInitialTranslationState(),
     };
 
     this.log('State store initialized', this.state);
@@ -109,6 +114,13 @@ export class StateStore {
   }
 
   /**
+   * Get current translation state (read-only)
+   */
+  getTranslationState(): Readonly<TranslationState> {
+    return this.state.translation;
+  }
+
+  /**
    * Get entire application state (read-only)
    */
   getState(): Readonly<AppState> {
@@ -117,6 +129,7 @@ export class StateStore {
       ui: this.state.ui,
       comment: this.state.comment,
       contextMenu: this.state.contextMenu,
+      translation: this.state.translation,
     };
   }
 
@@ -174,6 +187,20 @@ export class StateStore {
   }
 
   /**
+   * Update translation state
+   */
+  setTranslationState(updates: Partial<TranslationState>): void {
+    const prevState = { ...this.state.translation };
+    this.state.translation = { ...this.state.translation, ...updates };
+    this.log('Translation state updated', {
+      prev: prevState,
+      next: this.state.translation,
+    });
+    this.emit('translation:changed', this.state.translation);
+    this.emit('state:changed', this.getState());
+  }
+
+  /**
    * Reset editor state to initial values
    */
   resetEditorState(): void {
@@ -202,6 +229,13 @@ export class StateStore {
   }
 
   /**
+   * Reset translation state to initial values
+   */
+  resetTranslationState(): void {
+    this.setTranslationState(createInitialTranslationState());
+  }
+
+  /**
    * Reset all state to initial values
    */
   resetAll(): void {
@@ -210,12 +244,14 @@ export class StateStore {
       ui: createInitialUIState(),
       comment: createInitialCommentState(),
       contextMenu: createInitialContextMenuState(),
+      translation: createInitialTranslationState(),
     };
     this.log('All state reset', this.state);
     this.emit('editor:changed', this.state.editor);
     this.emit('ui:changed', this.state.ui);
     this.emit('comment:changed', this.state.comment);
     this.emit('contextMenu:changed', this.state.contextMenu);
+    this.emit('translation:changed', this.state.translation);
     this.emit('state:changed', this.getState());
   }
 

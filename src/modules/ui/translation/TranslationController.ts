@@ -17,6 +17,8 @@ import type {
   Language,
   TranslationSegment,
 } from '@modules/translation/types';
+import type { StateStore } from '@/services/StateStore';
+import type { TranslationState } from '@modules/ui/shared';
 
 const logger = createModuleLogger('TranslationController');
 
@@ -30,6 +32,7 @@ export interface TranslationControllerConfig {
   onProgressUpdate?: (status: TranslationProgressStatus) => void;
   onBusyChange?: (busy: boolean) => void;
   translationModuleInstance?: TranslationModule;
+  stateStore?: StateStore;
 }
 
 export interface TranslationProgressStatus {
@@ -50,15 +53,29 @@ export class TranslationController {
   private suppressChangeSync = false;
   private translationEventDisposers: Array<() => void> = [];
   private ownsTranslationModule = false;
-
-  // State
-  private selectedSourceSentenceId: string | null = null;
-  private selectedTargetSentenceId: string | null = null;
+  private stateStore: StateStore | null = null;
+  private stateStoreUnsubscribe: (() => void) | null = null;
 
   constructor(config: TranslationControllerConfig) {
     this.config = config;
     this.container = config.container;
     this.settings = new TranslationSettings();
+
+    // Initialize StateStore if provided
+    if (config.stateStore) {
+      this.stateStore = config.stateStore;
+      // Subscribe to translation state changes
+      this.stateStoreUnsubscribe = this.stateStore.on<TranslationState>(
+        'translation:changed',
+        (state: Readonly<TranslationState>) => {
+          this.handleStateStoreUpdate(state);
+        }
+      );
+      // Set initial state
+      this.stateStore.setTranslationState({
+        isActive: false,
+      });
+    }
 
     // Load user settings and apply them to the config
     this.applyUserSettings(config.translationModuleConfig);
@@ -85,7 +102,37 @@ export class TranslationController {
       sourceLanguage: config.translationModuleConfig.config.sourceLanguage,
       targetLanguage: config.translationModuleConfig.config.targetLanguage,
       userSettings: this.settings.getAll(),
+      hasStateStore: Boolean(this.stateStore),
     });
+  }
+
+  /**
+   * Handle StateStore translation state updates
+   */
+  private handleStateStoreUpdate(state: Readonly<TranslationState>): void {
+    logger.debug('StateStore translation state updated', state);
+    // Handle state changes from StateStore if needed
+    // For now, this is primarily used for external state updates
+  }
+
+  /**
+   * Get selected source sentence ID from StateStore or local state
+   */
+  private getSelectedSourceSentenceId(): string | null {
+    if (this.stateStore) {
+      return this.stateStore.getTranslationState().selectedSourceSentenceId;
+    }
+    return null;
+  }
+
+  /**
+   * Get selected target sentence ID from StateStore or local state
+   */
+  private getSelectedTargetSentenceId(): string | null {
+    if (this.stateStore) {
+      return this.stateStore.getTranslationState().selectedTargetSentenceId;
+    }
+    return null;
   }
 
   /**
@@ -364,7 +411,8 @@ export class TranslationController {
           this.handleTargetSentenceEdit(sentenceId, content),
       },
       markdown,
-      this.editorBridge
+      this.editorBridge,
+      this.stateStore || undefined
     );
 
     const viewElement = this.view.create();
@@ -488,16 +536,17 @@ export class TranslationController {
    * Translate selected sentence (public method for sidebar integration)
    */
   public async translateSentence(): Promise<void> {
-    if (!this.selectedSourceSentenceId) {
+    const selectedSourceSentenceId = this.getSelectedSourceSentenceId();
+    if (!selectedSourceSentenceId) {
       this.showNotification('Please select a sentence first', 'warning');
       return;
     }
 
     logger.info('Translating selected sentence', {
-      sentenceId: this.selectedSourceSentenceId,
+      sentenceId: selectedSourceSentenceId,
     });
 
-    const sourceSentenceId = this.selectedSourceSentenceId;
+    const sourceSentenceId = selectedSourceSentenceId;
     this.markSentencesLoading([sourceSentenceId], true);
     this.clearSentenceErrors([sourceSentenceId]);
 
@@ -623,12 +672,15 @@ export class TranslationController {
    */
   private handleTranslationUpdate(): void {
     logger.debug('Translation module updated');
-    if (this.selectedTargetSentenceId) {
-      this.view?.queueFocusOnSentence(this.selectedTargetSentenceId, 'target', {
+    const selectedTargetSentenceId = this.getSelectedTargetSentenceId();
+    const selectedSourceSentenceId = this.getSelectedSourceSentenceId();
+
+    if (selectedTargetSentenceId) {
+      this.view?.queueFocusOnSentence(selectedTargetSentenceId, 'target', {
         scrollIntoView: false,
       });
-    } else if (this.selectedSourceSentenceId) {
-      this.view?.queueFocusOnSentence(this.selectedSourceSentenceId, 'source', {
+    } else if (selectedSourceSentenceId) {
+      this.view?.queueFocusOnSentence(selectedSourceSentenceId, 'source', {
         scrollIntoView: false,
       });
     }
@@ -762,11 +814,23 @@ export class TranslationController {
     });
     this.translationEventDisposers = [];
 
+    // Unsubscribe from StateStore
+    if (this.stateStoreUnsubscribe) {
+      this.stateStoreUnsubscribe();
+      this.stateStoreUnsubscribe = null;
+    }
+
+    // Reset translation state in StateStore
+    if (this.stateStore) {
+      this.stateStore.resetTranslationState();
+    }
+
     if (this.ownsTranslationModule) {
       this.translationModule.destroy();
     }
 
     this.view = null;
+    this.stateStore = null;
   }
 
   private markSentencesLoading(sourceIds: string[], loading: boolean): void {
@@ -817,10 +881,26 @@ export class TranslationController {
   private notifyProgress(status: TranslationProgressStatus): void {
     this.view?.setDocumentProgress(status);
     this.config.onProgressUpdate?.(status);
+
+    // Update StateStore with progress status
+    if (this.stateStore) {
+      this.stateStore.setTranslationState({
+        progressPhase: status.phase,
+        progressMessage: status.message,
+        progressPercent: status.percent,
+      });
+    }
   }
 
   private setTranslationBusy(busy: boolean): void {
     this.config.onBusyChange?.(busy);
+
+    // Update StateStore with busy state
+    if (this.stateStore) {
+      this.stateStore.setTranslationState({
+        isBusy: busy,
+      });
+    }
   }
 
   private refreshViewFromState(): void {

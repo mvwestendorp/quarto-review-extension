@@ -558,6 +558,105 @@ body.translation-mode .review-toolbar {
   line-height: 1.5;
 }
 
+/* ===========================
+   Inline Milkdown Editor
+   =========================== */
+
+.review-translation-milkdown-editor {
+  border: 2px solid rgba(var(--review-color-primary-rgb), 0.3);
+  border-radius: var(--review-radius-sm, 6px);
+  background: white;
+  box-shadow: var(--review-shadow-md);
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.review-translation-milkdown-editor .milkdown-editor {
+  min-height: 80px;
+  font-size: inherit;
+  line-height: inherit;
+  outline: none;
+}
+
+.review-translation-milkdown-editor .milkdown-editor:focus {
+  outline: none;
+}
+
+.review-translation-milkdown-editor .ProseMirror {
+  padding: 4px 0;
+  min-height: 60px;
+}
+
+.review-translation-milkdown-editor .ProseMirror:focus {
+  outline: none;
+}
+
+.review-translation-milkdown-editor .ProseMirror p {
+  margin: 0;
+}
+
+.review-inline-editor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-inline-editor-body {
+  flex: 1;
+}
+
+.review-translation-editor-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.review-translation-editor-actions .review-btn {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--review-radius-pill, 999px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.review-translation-editor-actions .review-btn-primary {
+  background: var(--review-color-primary, #1d4ed8);
+  color: white;
+}
+
+.review-translation-editor-actions .review-btn-primary:hover {
+  background: rgba(var(--review-color-primary-rgb), 0.9);
+  box-shadow: var(--review-shadow-sm);
+}
+
+.review-translation-editor-actions .review-btn-secondary {
+  background: rgba(0, 0, 0, 0.08);
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.review-translation-editor-actions .review-btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.review-translation-editor-actions .review-btn-sm {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+/* Sentence in edit mode */
+.review-translation-sentence-editing {
+  border-color: rgba(var(--review-color-primary-rgb), 0.5);
+  background: rgba(var(--review-color-primary-rgb), 0.03);
+  box-shadow: 0 4px 16px rgba(var(--review-color-primary-rgb), 0.12);
+}
+
+.review-translation-sentence-editing .review-translation-sentence-content {
+  padding: 0;
+}
+
 /* Sidebar Progress */
 .review-translation-progress-container {
   margin-bottom: 16px;

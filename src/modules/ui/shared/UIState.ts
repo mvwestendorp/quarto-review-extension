@@ -49,6 +49,19 @@ export interface ContextMenuState {
 }
 
 /**
+ * Translation state - all properties related to translation mode
+ */
+export interface TranslationState {
+  isActive: boolean;
+  selectedSourceSentenceId: string | null;
+  selectedTargetSentenceId: string | null;
+  isBusy: boolean;
+  progressPhase: 'idle' | 'running' | 'success' | 'error';
+  progressMessage: string;
+  progressPercent?: number;
+}
+
+/**
  * Create initial editor state
  */
 export function createInitialEditorState(): EditorState {
@@ -91,5 +104,20 @@ export function createInitialContextMenuState(): ContextMenuState {
   return {
     activeContextMenu: null,
     contextMenuScrollHandler: null,
+  };
+}
+
+/**
+ * Create initial translation state
+ */
+export function createInitialTranslationState(): TranslationState {
+  return {
+    isActive: false,
+    selectedSourceSentenceId: null,
+    selectedTargetSentenceId: null,
+    isBusy: false,
+    progressPhase: 'idle',
+    progressMessage: '',
+    progressPercent: undefined,
   };
 }
