@@ -10,23 +10,34 @@ export interface BuildInfo {
   buildNumber: string;
   buildDate: string;
   commit?: string;
+  branch?: string;
+  pr?: number;
+  buildType?: 'release' | 'pr' | 'main' | 'dev';
+  buildUrl?: string;
 }
 
 // Build info injected during build process
 export const BUILD_INFO: BuildInfo = {
   version: '0.1.0',
   buildNumber: 'dev',
-  buildDate: '2025-11-06T08:21:19.097Z',
-  commit: '118374c4ef4cd776c35b8dc7e8ac2d0886edb330',
+  buildDate: '2025-11-06T11:40:16.882Z',
+  commit: 'd8a448ff0b1876849c02fea95e0f6983cd167afc',
+  branch: 'claude/fix-main-branch-errors-011CUrZeUWcQLoXHH8pUd1Jt',
+  pr: undefined,
+  buildType: 'dev',
+  buildUrl: undefined,
 };
 
 /**
  * Get formatted build string for display
  */
 export function getBuildString(): string {
-  const { version, buildNumber } = BUILD_INFO;
+  const { version, buildNumber, pr } = BUILD_INFO;
   if (buildNumber === 'dev') {
     return `${version}-dev`;
+  }
+  if (pr) {
+    return `${version}-pr.${pr}.${buildNumber}`;
   }
   return `${version}+${buildNumber}`;
 }
@@ -35,14 +46,33 @@ export function getBuildString(): string {
  * Get full build information string
  */
 export function getFullBuildInfo(): string {
-  const { version, buildNumber, buildDate, commit } = BUILD_INFO;
+  const {
+    version,
+    buildNumber,
+    buildDate,
+    commit,
+    branch,
+    pr,
+    buildType,
+    buildUrl,
+  } = BUILD_INFO;
   const parts = [
     `Version: ${version}`,
     `Build: ${buildNumber}`,
+    `Type: ${buildType}`,
     `Date: ${new Date(buildDate).toLocaleString()}`,
   ];
+  if (branch) {
+    parts.push(`Branch: ${branch}`);
+  }
+  if (pr) {
+    parts.push(`PR: #${pr}`);
+  }
   if (commit) {
     parts.push(`Commit: ${commit.substring(0, 8)}`);
+  }
+  if (buildUrl) {
+    parts.push(`Build URL: ${buildUrl}`);
   }
   return parts.join('\n');
 }
