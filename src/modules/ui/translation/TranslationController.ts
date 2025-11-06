@@ -891,9 +891,11 @@ export class TranslationController {
     // Update StateStore with progress status
     if (this.stateStore) {
       this.stateStore.setTranslationState({
-        progressPhase: status.phase,
-        progressMessage: status.message,
-        progressPercent: status.percent,
+        progressStatus: {
+          phase: status.phase,
+          message: status.message,
+          percent: status.percent,
+        },
       });
     }
   }
@@ -904,7 +906,7 @@ export class TranslationController {
     // Update StateStore with busy state
     if (this.stateStore) {
       this.stateStore.setTranslationState({
-        isBusy: busy,
+        busy: busy,
       });
     }
   }

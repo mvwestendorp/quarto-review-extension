@@ -119,22 +119,23 @@ export class TranslationView {
    */
   private handleStateStoreUpdate(state: Readonly<TranslationState>): void {
     logger.debug('StateStore translation state updated in view', {
-      isBusy: state.isBusy,
-      progressPhase: state.progressPhase,
+      busy: state.busy,
+      progressPhase: state.progressStatus?.phase,
       hasSelectedSource: !!state.selectedSourceSentenceId,
       hasSelectedTarget: !!state.selectedTargetSentenceId,
     });
 
     // Update progress status if it changed
     if (
-      state.progressPhase !== this.progressStatus?.phase ||
-      state.progressMessage !== this.progressStatus?.message ||
-      state.progressPercent !== this.progressStatus?.percent
+      state.progressStatus &&
+      (state.progressStatus.phase !== this.progressStatus?.phase ||
+        state.progressStatus.message !== this.progressStatus?.message ||
+        state.progressStatus.percent !== this.progressStatus?.percent)
     ) {
       this.setDocumentProgress({
-        phase: state.progressPhase,
-        message: state.progressMessage,
-        percent: state.progressPercent,
+        phase: state.progressStatus.phase,
+        message: state.progressStatus.message,
+        percent: state.progressStatus.percent,
       });
     }
 
