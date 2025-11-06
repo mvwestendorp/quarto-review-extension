@@ -12,11 +12,10 @@ import type { Position, Point } from 'unist';
 import type { DiffHighlightRange } from './editor/MilkdownEditor';
 import { EditorLifecycle } from './editor/EditorLifecycle';
 import { EditorToolbar } from './editor/EditorToolbar';
-import { CommentsSidebar } from './comments/CommentsSidebar';
 import { CommentComposer } from './comments/CommentComposer';
 import { CommentBadges } from './comments/CommentBadges';
 import { CommentController } from './comments/CommentController';
-import { MainSidebar } from './sidebars/MainSidebar';
+import { UnifiedSidebar } from './sidebars/UnifiedSidebar';
 import { ContextMenuCoordinator } from './sidebars/ContextMenuCoordinator';
 import {
   normalizeListMarkers,
@@ -108,8 +107,7 @@ export class UIModule {
   // Module instances (for Phase 3 integration - will be used when code replacement completes)
   private editorLifecycle: EditorLifecycle;
   private editorToolbarModule: EditorToolbar | null = null;
-  private mainSidebarModule: MainSidebar;
-  private commentsSidebarModule: CommentsSidebar | null = null;
+  private unifiedSidebar: UnifiedSidebar;
   private commentComposerModule: CommentComposer | null = null;
   private commentBadgesModule: CommentBadges | null = null;
   private contextMenuCoordinator: ContextMenuCoordinator | null = null;
@@ -156,8 +154,7 @@ export class UIModule {
     // NOTE: EditorLifecycle initializes Milkdown on-demand to prevent plugin state corruption
     this.editorLifecycle = new EditorLifecycle();
     this.editorToolbarModule = new EditorToolbar();
-    this.mainSidebarModule = new MainSidebar();
-    this.commentsSidebarModule = new CommentsSidebar();
+    this.unifiedSidebar = new UnifiedSidebar();
     this.commentComposerModule = new CommentComposer();
     this.commentBadgesModule = new CommentBadges();
     this.commentController = new CommentController({
@@ -167,7 +164,7 @@ export class UIModule {
         markdown: this.config.markdown,
       },
       commentState: this.stateStore.getCommentState() as CommentState,
-      sidebar: this.commentsSidebarModule,
+      sidebar: null, // UnifiedSidebar handles comments internally
       composer: this.commentComposerModule,
       badges: this.commentBadgesModule,
       callbacks: {
@@ -286,7 +283,7 @@ export class UIModule {
       this.stateStore
     );
 
-    this.mainSidebarModule.onUndo(() => {
+    this.unifiedSidebar.onUndo(() => {
       if (this.config.changes.undo()) {
         this.refresh();
       }
@@ -295,20 +292,20 @@ export class UIModule {
       changes: this.config.changes,
       comments: this.config.comments,
     });
-    this.mainSidebarModule.onRedo(() => {
+    this.unifiedSidebar.onRedo(() => {
       if (this.config.changes.redo()) {
         this.refresh();
       }
     });
     const enableExport = Boolean(this.exporter);
-    this.mainSidebarModule.onExportClean(
+    this.unifiedSidebar.onExportClean(
       enableExport
         ? () => {
             void this.handleExportQmd('clean');
           }
         : undefined
     );
-    this.mainSidebarModule.onExportCritic(
+    this.unifiedSidebar.onExportCritic(
       enableExport
         ? () => {
             void this.handleExportQmd('critic');
@@ -316,21 +313,21 @@ export class UIModule {
         : undefined
     );
     const enableReviewSubmit = Boolean(this.reviewService);
-    this.mainSidebarModule.onSubmitReview(
+    this.unifiedSidebar.onSubmitReview(
       enableReviewSubmit
         ? () => {
             void this.handleSubmitReview();
           }
         : undefined
     );
-    this.mainSidebarModule.setSubmitReviewEnabled(enableReviewSubmit);
-    this.mainSidebarModule.onTrackedChangesToggle((enabled) => {
+    this.unifiedSidebar.setSubmitReviewEnabled(enableReviewSubmit);
+    this.unifiedSidebar.onTrackedChangesToggle((enabled) => {
       this.toggleTrackedChanges(enabled);
     });
-    this.mainSidebarModule.onToggleSidebar(() => {
+    this.unifiedSidebar.onToggleSidebar(() => {
       this.toggleSidebarCollapsed();
     });
-    this.mainSidebarModule.onClearDrafts(() => {
+    this.unifiedSidebar.onClearDrafts(() => {
       void this.persistenceManager.confirmAndClearLocalDrafts();
     });
 
@@ -376,7 +373,7 @@ export class UIModule {
       // When showTrackedChanges changes, update the sidebar UI
       // Note: refresh() is already called when toggleTrackedChanges is invoked,
       // so we only need to ensure the sidebar reflects the current state
-      this.mainSidebarModule.setTrackedChangesVisible(
+      this.unifiedSidebar.setTrackedChangesVisible(
         editorState.showTrackedChanges
       );
     });
@@ -400,18 +397,7 @@ export class UIModule {
             uiState.isSidebarCollapsed
           );
         }
-        this.mainSidebarModule.setCollapsed(uiState.isSidebarCollapsed);
-      }
-
-      // Also update comments sidebar collapsed state
-      const commentsSidebar = document.querySelector(
-        '.review-comments-sidebar'
-      );
-      if (commentsSidebar) {
-        commentsSidebar.classList.toggle(
-          'review-sidebar-collapsed',
-          uiState.isSidebarCollapsed
-        );
+        this.unifiedSidebar.setCollapsed(uiState.isSidebarCollapsed);
       }
     });
 
@@ -449,13 +435,7 @@ export class UIModule {
       );
     }
 
-    // Also collapse/expand the comments sidebar
-    const commentsSidebar = document.querySelector('.review-comments-sidebar');
-    if (commentsSidebar) {
-      commentsSidebar.classList.toggle('review-sidebar-collapsed', collapsed);
-    }
-
-    this.mainSidebarModule.setCollapsed(collapsed);
+    this.unifiedSidebar.setCollapsed(collapsed);
   }
 
   private mountUIPlugin(
@@ -495,10 +475,10 @@ export class UIModule {
           this.showNotification(message, mappedType);
         },
         onProgress: (status) => {
-          this.mainSidebarModule.setTranslationProgress(status);
+          this.unifiedSidebar.setTranslationProgress(status);
         },
         onBusyChange: (busy) => {
-          this.mainSidebarModule.setTranslationBusy(busy);
+          this.unifiedSidebar.setTranslationBusy(busy);
         },
       });
     }
@@ -557,43 +537,43 @@ export class UIModule {
       return;
     }
 
-    this.mainSidebarModule.onTranslateDocument(() => {
+    this.unifiedSidebar.onTranslateDocument(() => {
       void this.translationController?.translateDocument();
     });
-    this.mainSidebarModule.onTranslateSentence(() => {
+    this.unifiedSidebar.onTranslateSentence(() => {
       void this.translationController?.translateSentence();
     });
-    this.mainSidebarModule.onProviderChange((provider) => {
+    this.unifiedSidebar.onProviderChange((provider) => {
       this.translationController?.setProvider(provider);
     });
-    this.mainSidebarModule.onSourceLanguageChange((lang) => {
+    this.unifiedSidebar.onSourceLanguageChange((lang) => {
       void this.translationController?.setSourceLanguage(lang);
     });
-    this.mainSidebarModule.onTargetLanguageChange((lang) => {
+    this.unifiedSidebar.onTargetLanguageChange((lang) => {
       void this.translationController?.setTargetLanguage(lang);
     });
-    this.mainSidebarModule.onSwapLanguages(() => {
+    this.unifiedSidebar.onSwapLanguages(() => {
       this.translationController?.swapLanguages();
     });
-    this.mainSidebarModule.onAutoTranslateChange((enabled) => {
+    this.unifiedSidebar.onAutoTranslateChange((enabled) => {
       this.translationController?.setAutoTranslate(enabled);
     });
-    this.mainSidebarModule.onTranslationExportUnified(() => {
+    this.unifiedSidebar.onTranslationExportUnified(() => {
       void this.translationController?.exportUnified();
     });
-    this.mainSidebarModule.onTranslationExportSeparated(() => {
+    this.unifiedSidebar.onTranslationExportSeparated(() => {
       void this.translationController?.exportSeparated();
     });
-    this.mainSidebarModule.onClearLocalModelCache(() => {
+    this.unifiedSidebar.onClearLocalModelCache(() => {
       void this.translationController?.clearLocalModelCache();
     });
 
-    this.mainSidebarModule.onTranslationUndo(() => {
+    this.unifiedSidebar.onTranslationUndo(() => {
       if (this.translationController?.undo()) {
         this.updateTranslationUndoRedoState();
       }
     });
-    this.mainSidebarModule.onTranslationRedo(() => {
+    this.unifiedSidebar.onTranslationRedo(() => {
       if (this.translationController?.redo()) {
         this.updateTranslationUndoRedoState();
       }
@@ -601,18 +581,18 @@ export class UIModule {
   }
 
   private resetTranslationSidebarCallbacks(): void {
-    this.mainSidebarModule.onTranslateDocument(undefined);
-    this.mainSidebarModule.onTranslateSentence(undefined);
-    this.mainSidebarModule.onProviderChange(undefined);
-    this.mainSidebarModule.onSourceLanguageChange(undefined);
-    this.mainSidebarModule.onTargetLanguageChange(undefined);
-    this.mainSidebarModule.onSwapLanguages(undefined);
-    this.mainSidebarModule.onAutoTranslateChange(undefined);
-    this.mainSidebarModule.onTranslationExportUnified(undefined);
-    this.mainSidebarModule.onTranslationExportSeparated(undefined);
-    this.mainSidebarModule.onClearLocalModelCache(undefined);
-    this.mainSidebarModule.onTranslationUndo(undefined);
-    this.mainSidebarModule.onTranslationRedo(undefined);
+    this.unifiedSidebar.onTranslateDocument(undefined);
+    this.unifiedSidebar.onTranslateSentence(undefined);
+    this.unifiedSidebar.onProviderChange(undefined);
+    this.unifiedSidebar.onSourceLanguageChange(undefined);
+    this.unifiedSidebar.onTargetLanguageChange(undefined);
+    this.unifiedSidebar.onSwapLanguages(undefined);
+    this.unifiedSidebar.onAutoTranslateChange(undefined);
+    this.unifiedSidebar.onTranslationExportUnified(undefined);
+    this.unifiedSidebar.onTranslationExportSeparated(undefined);
+    this.unifiedSidebar.onClearLocalModelCache(undefined);
+    this.unifiedSidebar.onTranslationUndo(undefined);
+    this.unifiedSidebar.onTranslationRedo(undefined);
   }
 
   /**
@@ -678,23 +658,21 @@ export class UIModule {
         );
         translationView?.remove();
 
-        // Show original content and comments (sidebar stays visible)
+        // Show original content (sidebar stays visible with comments section restored)
         this.showOriginalDocument(true);
-        this.showCommentsSidebar(true);
         document.body.classList.remove('translation-mode');
 
         // Switch sidebar back to review mode
-        this.mainSidebarModule.setTranslationMode(false);
-        this.mainSidebarModule.setTranslationActive(false);
+        this.unifiedSidebar.setTranslationMode(false);
+        this.unifiedSidebar.setTranslationActive(false);
 
         // Refresh review mode to show merged changes
         this.refresh();
 
         this.showNotification('Translation UI closed', 'info');
       } else {
-        // Open translation UI - hide original document and comments (keep main sidebar visible)
+        // Open translation UI - hide original document (comments section handled by unified sidebar)
         this.showOriginalDocument(false);
-        this.showCommentsSidebar(false);
         document.body.classList.add('translation-mode');
 
         // Create translation view container (directly in document, no separate wrapper needed)
@@ -728,19 +706,19 @@ export class UIModule {
         this.translationController.focusView();
 
         // Set up translation mode in sidebar (show translation tools, hide review tools)
-        this.mainSidebarModule.setTranslationMode(true);
-        this.mainSidebarModule.setTranslationBusy(false);
+        this.unifiedSidebar.setTranslationMode(true);
+        this.unifiedSidebar.setTranslationBusy(false);
         this.registerTranslationSidebarCallbacks();
 
         // Update sidebar with translation providers and languages
         const providers = this.translationController.getAvailableProviders();
-        this.mainSidebarModule.updateTranslationProviders(providers);
+        this.unifiedSidebar.updateTranslationProviders(providers);
 
         const languages = this.translationController.getAvailableLanguages();
-        this.mainSidebarModule.updateTranslationLanguages(languages, languages);
+        this.unifiedSidebar.updateTranslationLanguages(languages, languages);
 
         this.updateTranslationUndoRedoState();
-        this.mainSidebarModule.setTranslationActive(true);
+        this.unifiedSidebar.setTranslationActive(true);
 
         this.showNotification('Translation UI opened', 'success');
       }
@@ -761,16 +739,6 @@ export class UIModule {
   }
 
   /**
-   * Show or hide comments sidebar
-   */
-  private showCommentsSidebar(show: boolean): void {
-    const sidebar = document.querySelector('.review-comments-sidebar');
-    if (sidebar) {
-      (sidebar as HTMLElement).style.display = show ? '' : 'none';
-    }
-  }
-
-  /**
    * Toggle visibility of tracked changes
    */
   public toggleTrackedChanges(force?: boolean): void {
@@ -780,12 +748,12 @@ export class UIModule {
       typeof force === 'boolean' ? force : !currentShowTrackedChanges;
 
     if (currentShowTrackedChanges === nextState) {
-      this.mainSidebarModule.setTrackedChangesVisible(nextState);
+      this.unifiedSidebar.setTrackedChangesVisible(nextState);
       return;
     }
 
     this.stateStore.setEditorState({ showTrackedChanges: nextState });
-    this.mainSidebarModule.setTrackedChangesVisible(nextState);
+    this.unifiedSidebar.setTrackedChangesVisible(nextState);
     this.refresh();
   }
 
@@ -1101,7 +1069,7 @@ export class UIModule {
 
     const loading = this.showLoading('Submitting review to Git…');
     this.isSubmittingReview = true;
-    this.mainSidebarModule.setSubmitReviewPending(true);
+    this.unifiedSidebar.setSubmitReviewPending(true);
 
     try {
       const context = await this.reviewService.submitReview({
@@ -1132,8 +1100,8 @@ export class UIModule {
     } finally {
       this.hideLoading(loading);
       this.isSubmittingReview = false;
-      this.mainSidebarModule.setSubmitReviewPending(false);
-      this.mainSidebarModule.setSubmitReviewEnabled(
+      this.unifiedSidebar.setSubmitReviewPending(false);
+      this.unifiedSidebar.setSubmitReviewEnabled(
         Boolean(this.reviewService)
       );
     }
@@ -1890,8 +1858,8 @@ export class UIModule {
   private syncToolbarState(): void {
     const canUndo = this.config.changes.canUndo();
     const canRedo = this.config.changes.canRedo();
-    this.mainSidebarModule.updateUndoRedoState(canUndo, canRedo);
-    this.mainSidebarModule.setTrackedChangesVisible(
+    this.unifiedSidebar.updateUndoRedoState(canUndo, canRedo);
+    this.unifiedSidebar.setTrackedChangesVisible(
       this.stateStore.getEditorState().showTrackedChanges
     );
   }
@@ -1905,7 +1873,7 @@ export class UIModule {
     }
     const canUndo = this.translationController.canUndo();
     const canRedo = this.translationController.canRedo();
-    this.mainSidebarModule.updateTranslationUndoRedoState(canUndo, canRedo);
+    this.unifiedSidebar.updateTranslationUndoRedoState(canUndo, canRedo);
   }
 
   private cacheInitialHeadingReferences(): void {
@@ -2277,7 +2245,7 @@ export class UIModule {
     if (hasUnsaved) {
       this.getOrCreateToolbar();
     }
-    this.mainSidebarModule.setHasUnsavedChanges(hasUnsaved);
+    this.unifiedSidebar.setHasUnsavedChanges(hasUnsaved);
   }
 
   private getOrCreateToolbar(): HTMLElement {
@@ -2287,7 +2255,7 @@ export class UIModule {
     if (!toolbar) {
       toolbar = this.createPersistentSidebar();
       document.body.appendChild(toolbar);
-      this.mainSidebarModule.setTrackedChangesVisible(
+      this.unifiedSidebar.setTrackedChangesVisible(
         this.stateStore.getEditorState().showTrackedChanges
       );
       this.syncToolbarState();
@@ -2298,14 +2266,14 @@ export class UIModule {
 
       // Set up translation toggle after sidebar is created
       const enableTranslation = Boolean(this.translationModule);
-      this.mainSidebarModule.onToggleTranslation(
+      this.unifiedSidebar.onToggleTranslation(
         enableTranslation
           ? () => {
               void this.toggleTranslation();
             }
           : undefined
       );
-      this.mainSidebarModule.setTranslationEnabled(enableTranslation);
+      this.unifiedSidebar.setTranslationEnabled(enableTranslation);
     }
     return toolbar;
   }
@@ -2314,7 +2282,7 @@ export class UIModule {
    * Create persistent sidebar with all controls
    */
   private createPersistentSidebar(): HTMLElement {
-    const sidebar = this.mainSidebarModule.create();
+    const sidebar = this.unifiedSidebar.create();
 
     if (!this.changeSummaryDashboard) {
       this.changeSummaryDashboard = new ChangeSummaryDashboard(this.config);
@@ -2329,7 +2297,6 @@ export class UIModule {
     commentId?: string;
   }): Promise<void> {
     this.contextMenuCoordinator?.close();
-    this.commentsSidebarModule?.show();
 
     const commentKey = context.commentId
       ? `${context.elementId}:${context.commentId}`
@@ -2486,12 +2453,11 @@ export class UIModule {
 
     // Clean up module instances and their event listeners
     this.editorToolbarModule?.destroy();
-    this.commentsSidebarModule?.destroy();
     this.commentComposerModule?.destroy();
     this.commentBadgesModule?.destroy();
     this.contextMenuCoordinator?.destroy();
     this.changeSummaryDashboard?.destroy();
-    this.mainSidebarModule.destroy();
+    this.unifiedSidebar.destroy();
 
     // Clean up services
     this.notificationService.destroy();
