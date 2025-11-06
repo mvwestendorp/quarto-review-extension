@@ -10,7 +10,7 @@ jobs:
     name: Build PR Preview
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write  # Required to create GitHub releases
       pull-requests: write
 
     steps:
