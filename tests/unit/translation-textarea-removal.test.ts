@@ -75,7 +75,9 @@ const createEditorBridge = (
 ): TranslationEditorBridge => {
   const base = {
     initializeSentenceEditor: vi.fn().mockResolvedValue(undefined),
+    initializeSegmentEditor: vi.fn().mockResolvedValue(undefined),
     saveSentenceEdit: vi.fn().mockReturnValue(true),
+    saveSegmentEdit: vi.fn().mockReturnValue(true),
     cancelEdit: vi.fn(),
     destroy: vi.fn(),
     getModule: vi.fn().mockReturnValue({
@@ -92,8 +94,8 @@ describe('TranslationView editor integration', () => {
   });
 
   it('uses the translation editor bridge without falling back to a textarea', async () => {
-    const initializeSentenceEditor = vi.fn().mockResolvedValue(undefined);
-    const editorBridge = createEditorBridge({ initializeSentenceEditor });
+    const initializeSegmentEditor = vi.fn().mockResolvedValue(undefined);
+    const editorBridge = createEditorBridge({ initializeSegmentEditor });
     const markdown = createMarkdownModule();
 
     const view = new TranslationView(
@@ -108,27 +110,28 @@ describe('TranslationView editor integration', () => {
 
     view.loadDocument(createTranslationDocument());
 
-    const targetSentence = container.querySelector(
-      '[data-side="target"]'
+    // Find and click the "Edit Segment" button
+    const editButton = container.querySelector(
+      '.review-translation-edit-segment-btn'
     ) as HTMLElement;
-    expect(targetSentence).toBeTruthy();
+    expect(editButton).toBeTruthy();
 
-    targetSentence.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    editButton.click();
 
     // Allow async editor initialization to complete
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(initializeSentenceEditor).toHaveBeenCalledTimes(1);
+    expect(initializeSegmentEditor).toHaveBeenCalledTimes(1);
     expect(container.querySelector('textarea')).toBeNull();
     expect(
-      container.querySelector('.review-translation-milkdown-editor')
+      container.querySelector('.review-translation-segment-editor')
     ).not.toBeNull();
   });
 
   it('displays an inline error when the editor fails to initialize', async () => {
     const failingEditorBridge = createEditorBridge({
-      initializeSentenceEditor: vi
+      initializeSegmentEditor: vi
         .fn()
         .mockRejectedValue(new Error('Mock failure')),
     });
@@ -146,12 +149,13 @@ describe('TranslationView editor integration', () => {
 
     view.loadDocument(createTranslationDocument());
 
-    const targetSentence = container.querySelector(
-      '[data-side="target"]'
+    // Find and click the "Edit Segment" button
+    const editButton = container.querySelector(
+      '.review-translation-edit-segment-btn'
     ) as HTMLElement;
-    expect(targetSentence).toBeTruthy();
+    expect(editButton).toBeTruthy();
 
-    targetSentence.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+    editButton.click();
 
     await Promise.resolve();
     await Promise.resolve();

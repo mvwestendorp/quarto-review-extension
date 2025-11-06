@@ -76,6 +76,8 @@ describe('TranslationView inline editing', () => {
   const callbacks = {
     onTargetSentenceEdit: vi.fn(),
     onSourceSentenceEdit: vi.fn(),
+    onTargetSegmentEdit: vi.fn(),
+    onSourceSegmentEdit: vi.fn(),
   };
 
   const editorModule = {
@@ -84,8 +86,10 @@ describe('TranslationView inline editing', () => {
 
 const editorBridgeMock = {
   initializeSentenceEditor: vi.fn().mockResolvedValue(undefined),
+  initializeSegmentEditor: vi.fn().mockResolvedValue(undefined),
   getModule: vi.fn().mockReturnValue(editorModule),
   saveSentenceEdit: vi.fn().mockReturnValue(true),
+  saveSegmentEdit: vi.fn().mockReturnValue(true),
   cancelEdit: vi.fn(),
   destroy: vi.fn(),
   getCurrentSentenceId: vi.fn().mockReturnValue('t1'),
@@ -96,9 +100,13 @@ const editorBridgeMock = {
     document.body.innerHTML = '';
     callbacks.onTargetSentenceEdit.mockClear();
     callbacks.onSourceSentenceEdit.mockClear();
+    callbacks.onTargetSegmentEdit.mockClear();
+    callbacks.onSourceSegmentEdit.mockClear();
     (editorModule.getContent as vi.Mock).mockReturnValue('Manual translation.');
     editorBridgeMock.initializeSentenceEditor.mockClear();
+    editorBridgeMock.initializeSegmentEditor.mockClear();
     editorBridgeMock.saveSentenceEdit.mockClear();
+    editorBridgeMock.saveSegmentEdit.mockClear();
     editorBridgeMock.destroy.mockClear();
 
     host = document.createElement('div');
@@ -123,24 +131,34 @@ const editorBridgeMock = {
   });
 
   it('opens Milkdown editor with review inline classes and saves target edits', async () => {
-    const targetSentence = host.querySelector(
-      '[data-sentence-id="t1"][data-side="target"]'
+    // Find the edit button for the target segment (should be in the target column)
+    const targetSection = host.querySelector(
+      '[data-element-id="el1"][data-side="target"]'
+    ) as HTMLElement | null;
+    expect(targetSection).toBeTruthy();
+
+    const editButton = targetSection?.querySelector(
+      '.review-translation-edit-segment-btn'
     ) as HTMLElement | null;
 
-    expect(targetSentence).toBeTruthy();
+    expect(editButton).toBeTruthy();
 
-    targetSentence?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    editButton?.click();
 
-    const editorContainer = targetSentence?.querySelector(
-      '.review-translation-milkdown-editor'
+    // Wait for async editor initialization
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const editorContainer = host.querySelector(
+      '.review-translation-segment-editor'
     ) as HTMLElement | null;
     expect(editorContainer).toBeTruthy();
     expect(
       editorContainer?.classList.contains('review-inline-editor-container')
     ).toBe(true);
 
-    const actions = targetSentence?.querySelector(
+    const actions = host.querySelector(
       '.review-inline-editor-actions'
     ) as HTMLElement | null;
     expect(actions).toBeTruthy();
@@ -148,20 +166,14 @@ const editorBridgeMock = {
     const saved = view.saveActiveEditor();
     expect(saved).toBe(true);
 
-    expect(editorBridgeMock.saveSentenceEdit).toHaveBeenCalledTimes(1);
-    expect(callbacks.onTargetSentenceEdit).toHaveBeenCalledWith(
-      't1',
+    expect(editorBridgeMock.saveSegmentEdit).toHaveBeenCalledTimes(1);
+    expect(callbacks.onTargetSegmentEdit).toHaveBeenCalledWith(
+      'el1',
       'Manual translation.'
     );
-    expect(documentData.targetSentences[0].content).toBe('Manual translation.');
-
-    const renderedContent = targetSentence?.querySelector(
-      '.review-translation-sentence-content'
-    ) as HTMLElement | null;
-    expect(renderedContent?.textContent?.trim()).toBe('Manual translation.');
 
     expect(
-      targetSentence?.querySelector('.review-translation-milkdown-editor')
+      host.querySelector('.review-translation-segment-editor')
     ).toBeNull();
     expect(editorBridgeMock.destroy).toHaveBeenCalledTimes(1);
   });

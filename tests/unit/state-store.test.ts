@@ -59,10 +59,8 @@ describe('StateStore', () => {
       expect(translationState.isActive).toBe(false);
       expect(translationState.selectedSourceSentenceId).toBeNull();
       expect(translationState.selectedTargetSentenceId).toBeNull();
-      expect(translationState.isBusy).toBe(false);
-      expect(translationState.progressPhase).toBe('idle');
-      expect(translationState.progressMessage).toBe('');
-      expect(translationState.progressPercent).toBeUndefined();
+      expect(translationState.busy).toBe(false);
+      expect(translationState.progressStatus).toBeNull();
     });
 
     it('should support debug mode', () => {
@@ -174,42 +172,46 @@ describe('StateStore', () => {
 
     it('should update translation progress state', () => {
       store.setTranslationState({
-        isBusy: true,
-        progressPhase: 'running',
-        progressMessage: 'Translating...',
-        progressPercent: 45,
+        busy: true,
+        progressStatus: {
+          phase: 'running',
+          message: 'Translating...',
+          percent: 45,
+        },
       });
       const state = store.getTranslationState();
-      expect(state.isBusy).toBe(true);
-      expect(state.progressPhase).toBe('running');
-      expect(state.progressMessage).toBe('Translating...');
-      expect(state.progressPercent).toBe(45);
+      expect(state.busy).toBe(true);
+      expect(state.progressStatus?.phase).toBe('running');
+      expect(state.progressStatus?.message).toBe('Translating...');
+      expect(state.progressStatus?.percent).toBe(45);
     });
 
     it('should merge translation updates with existing state', () => {
       store.setTranslationState({ isActive: true });
-      store.setTranslationState({ isBusy: true });
+      store.setTranslationState({ busy: true });
       const state = store.getTranslationState();
       expect(state.isActive).toBe(true);
-      expect(state.isBusy).toBe(true);
+      expect(state.busy).toBe(true);
     });
 
     it('should allow updating multiple translation properties at once', () => {
       store.setTranslationState({
         isActive: true,
         selectedSourceSentenceId: 'source-1',
-        isBusy: true,
-        progressPhase: 'running',
-        progressMessage: 'Translating document...',
-        progressPercent: 25,
+        busy: true,
+        progressStatus: {
+          phase: 'running',
+          message: 'Translating document...',
+          percent: 25,
+        },
       });
       const state = store.getTranslationState();
       expect(state.isActive).toBe(true);
       expect(state.selectedSourceSentenceId).toBe('source-1');
-      expect(state.isBusy).toBe(true);
-      expect(state.progressPhase).toBe('running');
-      expect(state.progressMessage).toBe('Translating document...');
-      expect(state.progressPercent).toBe(25);
+      expect(state.busy).toBe(true);
+      expect(state.progressStatus?.phase).toBe('running');
+      expect(state.progressStatus?.message).toBe('Translating document...');
+      expect(state.progressStatus?.percent).toBe(25);
     });
   });
 
@@ -287,17 +289,21 @@ describe('StateStore', () => {
       const listener = vi.fn();
       store.on('translation:changed', listener);
       store.setTranslationState({
-        isBusy: true,
-        progressPhase: 'running',
-        progressMessage: 'Translating...',
-        progressPercent: 50,
+        busy: true,
+        progressStatus: {
+          phase: 'running',
+          message: 'Translating...',
+          percent: 50,
+        },
       });
       expect(listener).toHaveBeenCalledWith(
         expect.objectContaining({
-          isBusy: true,
-          progressPhase: 'running',
-          progressMessage: 'Translating...',
-          progressPercent: 50,
+          busy: true,
+          progressStatus: expect.objectContaining({
+            phase: 'running',
+            message: 'Translating...',
+            percent: 50,
+          }),
         })
       );
     });
@@ -438,20 +444,20 @@ describe('StateStore', () => {
         isActive: true,
         selectedSourceSentenceId: 'source-1',
         selectedTargetSentenceId: 'target-1',
-        isBusy: true,
-        progressPhase: 'running',
-        progressMessage: 'Translating...',
-        progressPercent: 50,
+        busy: true,
+        progressStatus: {
+          phase: 'running',
+          message: 'Translating...',
+          percent: 50,
+        },
       });
       store.resetTranslationState();
       const state = store.getTranslationState();
       expect(state.isActive).toBe(false);
       expect(state.selectedSourceSentenceId).toBeNull();
       expect(state.selectedTargetSentenceId).toBeNull();
-      expect(state.isBusy).toBe(false);
-      expect(state.progressPhase).toBe('idle');
-      expect(state.progressMessage).toBe('');
-      expect(state.progressPercent).toBeUndefined();
+      expect(state.busy).toBe(false);
+      expect(state.progressStatus).toBeNull();
     });
 
     it('should reset all state', () => {
@@ -462,8 +468,11 @@ describe('StateStore', () => {
       store.setContextMenuState({ activeContextMenu: mockElement });
       store.setTranslationState({
         isActive: true,
-        isBusy: true,
-        progressPhase: 'running',
+        busy: true,
+        progressStatus: {
+          phase: 'running',
+          message: '',
+        },
       });
 
       store.resetAll();
@@ -474,8 +483,8 @@ describe('StateStore', () => {
       expect(state.comment.activeCommentComposer).toBeNull();
       expect(state.contextMenu.activeContextMenu).toBeNull();
       expect(state.translation.isActive).toBe(false);
-      expect(state.translation.isBusy).toBe(false);
-      expect(state.translation.progressPhase).toBe('idle');
+      expect(state.translation.busy).toBe(false);
+      expect(state.translation.progressStatus).toBeNull();
     });
 
     it('should emit events when resetting', () => {
@@ -574,31 +583,37 @@ describe('StateStore', () => {
 
       store.on<TranslationState>('translation:changed', (state) => {
         progressUpdates.push({
-          phase: state.progressPhase,
-          message: state.progressMessage,
-          percent: state.progressPercent,
+          phase: state.progressStatus?.phase,
+          message: state.progressStatus?.message,
+          percent: state.progressStatus?.percent,
         });
       });
 
       // Simulate translation workflow
       store.setTranslationState({
         isActive: true,
-        isBusy: true,
-        progressPhase: 'running',
-        progressMessage: 'Initializing...',
+        busy: true,
+        progressStatus: {
+          phase: 'running',
+          message: 'Initializing...',
+        },
       });
 
       store.setTranslationState({
-        progressPhase: 'running',
-        progressMessage: 'Translating sentences...',
-        progressPercent: 50,
+        progressStatus: {
+          phase: 'running',
+          message: 'Translating sentences...',
+          percent: 50,
+        },
       });
 
       store.setTranslationState({
-        progressPhase: 'success',
-        progressMessage: 'Translation complete',
-        progressPercent: 100,
-        isBusy: false,
+        progressStatus: {
+          phase: 'success',
+          message: 'Translation complete',
+          percent: 100,
+        },
+        busy: false,
       });
 
       expect(progressUpdates).toHaveLength(3);
