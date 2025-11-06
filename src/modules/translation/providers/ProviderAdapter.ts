@@ -280,6 +280,8 @@ export class ProviderAdapter implements TranslationProviderV2 {
     if (options?.useCache !== false && this.cacheService) {
       for (let i = 0; i < texts.length; i++) {
         const text = texts[i];
+        if (!text) continue;
+
         const cacheKey = TranslationCacheService.generateKey(
           text,
           from,
@@ -325,6 +327,8 @@ export class ProviderAdapter implements TranslationProviderV2 {
           const translatedText = translations[i];
           const originalIndex = uncachedIndices[i];
           const originalText = uncachedTexts[i];
+          if (!translatedText || originalIndex === undefined || !originalText)
+            continue;
 
           let confidence: number | undefined;
           if (this.legacyProvider.getConfidence) {

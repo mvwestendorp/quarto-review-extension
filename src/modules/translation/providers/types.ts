@@ -154,6 +154,7 @@ export interface TranslationCacheService {
   clear(provider?: string): Promise<void>;
   getStats(): CacheStats;
   invalidate(pattern?: string): Promise<number>;
+  dispose(): void;
 }
 
 /**

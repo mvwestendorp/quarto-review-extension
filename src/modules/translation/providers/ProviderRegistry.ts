@@ -210,7 +210,8 @@ export class ProviderRegistry {
     // Update default if needed
     if (this.defaultProviderName === name) {
       const remaining = Array.from(this.providers.keys());
-      this.defaultProviderName = remaining.length > 0 ? remaining[0] : null;
+      this.defaultProviderName =
+        remaining.length > 0 ? (remaining[0] ?? null) : null;
       logger.info('Default provider changed', {
         newDefault: this.defaultProviderName,
       });

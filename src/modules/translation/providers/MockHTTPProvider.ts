@@ -292,6 +292,8 @@ export class MockHTTPProvider implements TranslationProviderV2 {
     if (options?.useCache !== false && this.cacheService) {
       for (let i = 0; i < texts.length; i++) {
         const text = texts[i];
+        if (!text) continue;
+
         const cacheKey = TranslationCacheService.generateKey(
           text,
           from,
@@ -329,6 +331,7 @@ export class MockHTTPProvider implements TranslationProviderV2 {
       for (let i = 0; i < uncachedTexts.length; i++) {
         const text = uncachedTexts[i];
         const originalIndex = uncachedIndices[i];
+        if (!text || originalIndex === undefined) continue;
 
         // Emit progress
         this.emitEvent('translation:progress', {
@@ -365,7 +368,7 @@ export class MockHTTPProvider implements TranslationProviderV2 {
   /**
    * Estimate translation cost
    */
-  estimateCost(textLength: number, from: Language, to: Language): number {
+  estimateCost(textLength: number, _from: Language, _to: Language): number {
     const costPerChar = this.getInfo().capabilities.estimatedCostPerChar ?? 0;
     return textLength * costPerChar;
   }
