@@ -74,7 +74,7 @@ export class CommentController {
     }
 
     const body = sidebarElement.querySelector(
-      '.review-comments-sidebar-content'
+      '.review-comments-content'
     ) as HTMLElement | null;
     if (!body) {
       return;
