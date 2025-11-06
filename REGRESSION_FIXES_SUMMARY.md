@@ -89,18 +89,36 @@ fix: improve localStorage draft restoration to handle empty initial state
 
 **Investigation**:
 Translation UI is managed by:
-- `src/modules/translation/` - TranslationModule
-- `src/modules/ui/translation/TranslationController.ts` - Handles UI interactions
-- UnifiedSidebar translation tools section
+- `src/modules/ui/translation/TranslationView.ts` - Creates save/cancel buttons
+- `src/modules/ui/translation/TranslationEditorBridge.ts` - Handles editor integration
+- `src/modules/ui/translation/TranslationController.ts` (line 339-341) - Handles Ctrl+S shortcut
+- Sentence edit handlers (lines 1039-1117) for updating translations
 
-**Potential Issues**:
-- Save button event listeners may not be properly bound in translation view
-- TranslationController methods may not be hooked up correctly
-- Translation view DOM may not have proper data attributes for button identification
-- State management between translation mode and review mode may be causing issues
+**Root Cause Analysis**:
+The TranslationView creates save buttons with event listeners (line 1164-1166):
+```typescript
+const saveBtn = actions.querySelector('[data-action="save"]');
+if (saveBtn) {
+  saveBtn.addEventListener('click', () => save());
+}
+```
+
+The `save()` function is defined locally within the sentence editor setup. The issue is likely:
+1. The `save()` function may be calling EditorBridge methods that don't exist or fail silently
+2. The editor state may not be properly tracked when entering/exiting translation mode
+3. Event listeners may be properly bound but the underlying save operation fails
+
+**Files Involved**:
+- `src/modules/ui/translation/TranslationView.ts` - Save button rendering
+- `src/modules/ui/translation/TranslationEditorBridge.ts` - Editor state management
+- `src/modules/ui/translation/TranslationController.ts` - Sentence edit handlers
 
 **Recommendation**:
-Requires investigation of TranslationController and TranslationPlugin initialization to identify event binding issues.
+Requires debugging the TranslationEditorBridge.saveSentenceEdit() method to verify it properly:
+1. Collects edited content from the editor
+2. Validates the content
+3. Calls the appropriate TranslationController method
+4. Shows user feedback on success/failure
 
 ### 5. ⚠️ Local Translations Option Not Appearing
 
@@ -131,7 +149,20 @@ Added comprehensive test file: `tests/unit/ui-regressions.test.ts` with:
 - localStorage restoration tests
 - Translation mode placeholder tests
 
-All tests pass: **1525 passed | 4 todo**
+All tests pass: **1526 passed | 4 todo**
+
+## Regression Status Summary
+
+| # | Issue | Status | Severity |
+|---|-------|--------|----------|
+| 1 | Export buttons stay disabled | ✅ FIXED | High |
+| 2 | Comment composer save button hidden | ✅ FIXED | High |
+| 3 | localStorage doesn't restore draft | ✅ FIXED | High |
+| 4 | Translation save buttons unresponsive | ⚠️ ANALYZED | Medium |
+| 5 | Local translations provider missing | ⚠️ IDENTIFIED | Medium |
+
+**Regressions Fixed**: 3 out of 5
+**Regressions Analyzed**: 2 remaining require detailed implementation
 
 ---
 
