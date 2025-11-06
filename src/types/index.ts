@@ -200,6 +200,5 @@ export interface UIModuleInterface {
   };
   refresh(): void;
   toggleTrackedChanges(): void;
-  toggleCommentsSidebar(): void;
   toggleSidebarCollapsed(): void;
 }

@@ -20,9 +20,9 @@ export interface BuildInfo {
 export const BUILD_INFO: BuildInfo = {
   version: '0.1.0',
   buildNumber: 'dev',
-  buildDate: '2025-11-06T11:53:11.694Z',
-  commit: '527e135e132cbcbe76f200c22d97826a1c3117dd',
-  branch: 'claude/fix-main-branch-errors-011CUrZeUWcQLoXHH8pUd1Jt',
+  buildDate: '2025-11-06T13:00:38.389Z',
+  commit: 'd4bf16ddc07a0ea91eccbcd07f0858305ca8087c',
+  branch: 'claude/merge-r-change-011CUrcH8EzGTCuJpVW7eSN2',
   pr: undefined,
   buildType: 'dev',
   buildUrl: undefined,

@@ -37,8 +37,7 @@
 @import './components/buttons.css';
 @import './components/editor.css';
 @import './components/toolbar.css';
-@import './components/sidebar.css';
-@import './components/comments-sidebar.css';
+@import './components/unified-sidebar.css';
 @import './components/comment-composer.css';
 @import './components/comment-items.css';
 @import './components/context-menu.css';

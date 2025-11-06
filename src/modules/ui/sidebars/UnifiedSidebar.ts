@@ -81,6 +81,9 @@ export class UnifiedSidebar {
   // Storage section
   private storageSection: HTMLElement | null = null;
 
+  // Unsaved changes indicator
+  private unsavedIndicator: HTMLElement | null = null;
+
   // Callbacks
   private onUndoCallback: (() => void) | null = null;
   private onRedoCallback: (() => void) | null = null;
@@ -1186,6 +1189,24 @@ export class UnifiedSidebar {
       this.submitReviewBtn.textContent = this.submitReviewLabel;
     }
     this.updateSubmitReviewButtonState();
+  }
+
+  setHasUnsavedChanges(hasUnsaved: boolean): void {
+    if (!this.element) {
+      return;
+    }
+    if (hasUnsaved) {
+      if (!this.unsavedIndicator) {
+        const indicator = document.createElement('div');
+        indicator.className = 'review-unsaved-indicator';
+        indicator.setAttribute('title', 'Unsaved changes');
+        this.element.appendChild(indicator);
+        this.unsavedIndicator = indicator;
+      }
+    } else {
+      this.unsavedIndicator?.remove();
+      this.unsavedIndicator = null;
+    }
   }
 
   private updateSubmitReviewButtonState(): void {

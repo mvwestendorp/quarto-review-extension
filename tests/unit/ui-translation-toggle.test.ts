@@ -6,8 +6,8 @@ import { TranslationModule } from '@modules/translation';
 import type { CommentsModule } from '@modules/comments';
 
 const {
-  MainSidebarMock,
-  getMainSidebarInstance,
+  UnifiedSidebarMock,
+  getUnifiedSidebarInstance,
   CommentControllerMock,
   CommentsSidebarMock,
   CommentComposerMock,
@@ -22,7 +22,7 @@ const {
 } = vi.hoisted(() => {
   const sidebarInstances: any[] = [];
 
-  const MainSidebarMock = vi.fn(function MockMainSidebar() {
+  const UnifiedSidebarMock = vi.fn(function MockUnifiedSidebar() {
     const instance: any = {
       create: vi.fn().mockImplementation(() => {
         const element = document.createElement('div');
@@ -68,16 +68,20 @@ const {
       onClearLocalModelCache: vi.fn(),
       onTranslationUndo: vi.fn(),
       onTranslationRedo: vi.fn(),
+      updateComments: vi.fn(),
     };
     sidebarInstances.push(instance);
     return instance;
   });
 
-  const getMainSidebarInstance = () =>
+  const getUnifiedSidebarInstance = () =>
     sidebarInstances[sidebarInstances.length - 1];
 
   const CommentControllerMock = vi.fn(function MockCommentController() {
     return {
+      getSectionComments: vi.fn().mockReturnValue([]),
+      focusCommentAnchor: vi.fn(),
+      removeComment: vi.fn(),
       clearHighlight: vi.fn(),
       clearSectionCommentMarkup: vi.fn(),
       clearSectionCommentMarkupFor: vi.fn(),
@@ -228,8 +232,8 @@ const {
   }
 
   return {
-    MainSidebarMock,
-    getMainSidebarInstance,
+    UnifiedSidebarMock,
+    getUnifiedSidebarInstance,
     CommentControllerMock,
     CommentsSidebarMock,
     CommentComposerMock,
@@ -244,8 +248,8 @@ const {
   };
 });
 
-vi.mock('@modules/ui/sidebars/MainSidebar', () => ({
-  MainSidebar: MainSidebarMock,
+vi.mock('@modules/ui/sidebars/UnifiedSidebar', () => ({
+  UnifiedSidebar: UnifiedSidebarMock,
 }));
 
 vi.mock('@modules/ui/comments/CommentController', () => ({
@@ -379,7 +383,7 @@ describe('UIModule translation toggle side-effects', () => {
 
     expect(changes.getOperations()).toHaveLength(initialOperations);
 
-    const sidebarInstance = getMainSidebarInstance();
+    const sidebarInstance = getUnifiedSidebarInstance();
     expect(sidebarInstance?.setTranslationMode).toHaveBeenCalledWith(true);
 
     await (ui as any).toggleTranslation();
