@@ -8,7 +8,8 @@
  * Extracted from UIModule index.ts to reduce monolithic complexity.
  */
 
-import { Editor, rootCtx, defaultValueCtx, type Ctx } from '@milkdown/kit/core';
+import { Editor, rootCtx, defaultValueCtx } from '@milkdown/kit/core';
+import type { Ctx } from '@milkdown/ctx';
 import { nord } from '@milkdown/theme-nord';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { gfm } from '@milkdown/kit/preset/gfm';

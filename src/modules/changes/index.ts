@@ -24,6 +24,9 @@ import {
   type ChangesExtension,
   type ExtensionChange,
 } from './extensions';
+import { createModuleLogger } from '@utils/debug';
+
+const logger = createModuleLogger('ChangesModule');
 
 export class ChangesModule {
   private originalElements: Element[] = [];
