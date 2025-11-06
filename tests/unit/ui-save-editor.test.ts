@@ -7,9 +7,13 @@ const {
   getCommentControllerStub,
   resetCommentControllerStub,
   CommentControllerMock,
-  MainSidebarMock,
+  UnifiedSidebarMock,
 } = vi.hoisted(() => {
   const createCommentControllerStub = () => ({
+    getSectionComments: vi.fn().mockReturnValue([]),
+    focusCommentAnchor: vi.fn(),
+    removeComment: vi.fn(),
+    highlightSection: vi.fn(),
     consumeSectionCommentMarkup: vi.fn(),
     cacheSectionCommentMarkup: vi.fn(),
     clearSectionCommentMarkup: vi.fn(),
@@ -23,6 +27,7 @@ const {
     clearHighlight: vi.fn(),
     refreshUI: vi.fn(),
     sanitizeInlineCommentArtifacts: vi.fn(),
+    openComposer: vi.fn(),
   });
 
   let currentStub: ReturnType<typeof createCommentControllerStub> | null = null;
@@ -40,7 +45,7 @@ const {
     });
   };
 
-  const MainSidebarMock = vi.fn(function MockMainSidebar() {
+  const UnifiedSidebarMock = vi.fn(function MockUnifiedSidebar() {
     return {
       create: vi.fn().mockImplementation(() => {
         const element = document.createElement('div');
@@ -65,6 +70,7 @@ const {
       onToggleTranslation: vi.fn(),
       setTranslationEnabled: vi.fn(),
       setTranslationActive: vi.fn(),
+      updateComments: vi.fn(),
       destroy: vi.fn(),
     };
   });
@@ -73,7 +79,7 @@ const {
     getCommentControllerStub: () => currentStub,
     resetCommentControllerStub,
     CommentControllerMock,
-    MainSidebarMock,
+    UnifiedSidebarMock,
   };
 });
 
@@ -81,8 +87,8 @@ vi.mock('@modules/ui/comments/CommentController', () => ({
   CommentController: CommentControllerMock,
 }));
 
-vi.mock('@modules/ui/sidebars/MainSidebar', () => ({
-  MainSidebar: MainSidebarMock,
+vi.mock('@modules/ui/sidebars/UnifiedSidebar', () => ({
+  UnifiedSidebar: UnifiedSidebarMock,
 }));
 
 vi.mock('@modules/ui/comments/CommentsSidebar', () => ({
@@ -265,7 +271,7 @@ describe('UIModule.saveEditor comment handling', () => {
     resetCommentControllerStub();
     CommentControllerMock.mockClear();
     document.body.innerHTML = '';
-    MainSidebarMock.mockClear();
+    UnifiedSidebarMock.mockClear();
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
       cb(0);
       return 0;

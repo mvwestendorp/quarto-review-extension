@@ -3,14 +3,14 @@ import type { UIConfig } from '@modules/ui';
 import { UIModule } from '@modules/ui';
 
 const {
-  getMainSidebarInstances,
-  getMainSidebarConstructor,
-  resetMainSidebarMocks,
+  getUnifiedSidebarInstances,
+  getUnifiedSidebarConstructor,
+  resetUnifiedSidebarMocks,
   getHistoryStorageInstances,
   resetHistoryStorageMocks,
   getHistoryStorageConstructor,
 } = vi.hoisted(() => {
-  type MockMainSidebar = {
+  type MockUnifiedSidebar = {
     create: ReturnType<typeof vi.fn>;
     onUndo: ReturnType<typeof vi.fn>;
     onRedo: ReturnType<typeof vi.fn>;
@@ -29,17 +29,36 @@ const {
     onToggleTranslation: ReturnType<typeof vi.fn>;
     setTranslationEnabled: ReturnType<typeof vi.fn>;
     setTranslationActive: ReturnType<typeof vi.fn>;
+    setTranslationMode: ReturnType<typeof vi.fn>;
+    setTranslationBusy: ReturnType<typeof vi.fn>;
+    setTranslationProgress: ReturnType<typeof vi.fn>;
+    updateTranslationUndoRedoState: ReturnType<typeof vi.fn>;
+    updateTranslationProviders: ReturnType<typeof vi.fn>;
+    updateTranslationLanguages: ReturnType<typeof vi.fn>;
+    updateComments: ReturnType<typeof vi.fn>;
+    onTranslateDocument: ReturnType<typeof vi.fn>;
+    onTranslateSentence: ReturnType<typeof vi.fn>;
+    onProviderChange: ReturnType<typeof vi.fn>;
+    onSourceLanguageChange: ReturnType<typeof vi.fn>;
+    onTargetLanguageChange: ReturnType<typeof vi.fn>;
+    onSwapLanguages: ReturnType<typeof vi.fn>;
+    onAutoTranslateChange: ReturnType<typeof vi.fn>;
+    onTranslationExportUnified: ReturnType<typeof vi.fn>;
+    onTranslationExportSeparated: ReturnType<typeof vi.fn>;
+    onClearLocalModelCache: ReturnType<typeof vi.fn>;
+    onTranslationUndo: ReturnType<typeof vi.fn>;
+    onTranslationRedo: ReturnType<typeof vi.fn>;
     destroy: ReturnType<typeof vi.fn>;
   };
 
-  const instances: MockMainSidebar[] = [];
+  const instances: MockUnifiedSidebar[] = [];
   const historyInstances: any[] = [];
 
-  const constructor = vi.fn(function MockMainSidebar(this: unknown) {
-    const instance: MockMainSidebar = {
+  const constructor = vi.fn(function MockUnifiedSidebar(this: unknown) {
+    const instance: MockUnifiedSidebar = {
       create: vi.fn().mockImplementation(() => {
         const element = document.createElement('div');
-        element.className = 'review-toolbar review-persistent-sidebar';
+        element.className = 'review-toolbar review-persistent-sidebar review-unified-sidebar';
         return element;
       }),
       onUndo: vi.fn(),
@@ -59,6 +78,25 @@ const {
       onToggleTranslation: vi.fn(),
       setTranslationEnabled: vi.fn(),
       setTranslationActive: vi.fn(),
+      setTranslationMode: vi.fn(),
+      setTranslationBusy: vi.fn(),
+      setTranslationProgress: vi.fn(),
+      updateTranslationUndoRedoState: vi.fn(),
+      updateTranslationProviders: vi.fn(),
+      updateTranslationLanguages: vi.fn(),
+      updateComments: vi.fn(),
+      onTranslateDocument: vi.fn(),
+      onTranslateSentence: vi.fn(),
+      onProviderChange: vi.fn(),
+      onSourceLanguageChange: vi.fn(),
+      onTargetLanguageChange: vi.fn(),
+      onSwapLanguages: vi.fn(),
+      onAutoTranslateChange: vi.fn(),
+      onTranslationExportUnified: vi.fn(),
+      onTranslationExportSeparated: vi.fn(),
+      onClearLocalModelCache: vi.fn(),
+      onTranslationUndo: vi.fn(),
+      onTranslationRedo: vi.fn(),
       destroy: vi.fn(),
     };
     instances.push(instance);
@@ -82,9 +120,9 @@ const {
   });
 
   return {
-    getMainSidebarInstances: () => instances,
-    getMainSidebarConstructor: () => constructor,
-    resetMainSidebarMocks: () => {
+    getUnifiedSidebarInstances: () => instances,
+    getUnifiedSidebarConstructor: () => constructor,
+    resetUnifiedSidebarMocks: () => {
       instances.length = 0;
       constructor.mockClear();
     },
@@ -165,7 +203,11 @@ vi.mock('@modules/ui/comments/CommentController', () => ({
   CommentController: vi.fn(function MockCommentController(this: unknown) {
     return {
       refreshUI: vi.fn(),
+      getSectionComments: vi.fn().mockReturnValue([]),
+      focusCommentAnchor: vi.fn(),
+      removeComment: vi.fn(),
       highlightSection: vi.fn(),
+      clearHighlight: vi.fn(),
       clearSectionCommentMarkup: vi.fn(),
       clearSectionCommentMarkupFor: vi.fn(),
       cacheSectionCommentMarkup: vi.fn(),
@@ -173,13 +215,12 @@ vi.mock('@modules/ui/comments/CommentController', () => ({
       appendSectionComments: vi.fn(),
       extractSectionComments: vi.fn().mockReturnValue({ content: '', markup: [] }),
       openComposer: vi.fn(),
-      clearHighlight: vi.fn(),
     };
   }),
 }));
 
-vi.mock('@modules/ui/sidebars/MainSidebar', () => ({
-  MainSidebar: getMainSidebarConstructor(),
+vi.mock('@modules/ui/sidebars/UnifiedSidebar', () => ({
+  UnifiedSidebar: getUnifiedSidebarConstructor(),
 }));
 
 vi.mock('@modules/ui/sidebars/ContextMenu', () => ({
@@ -266,7 +307,7 @@ describe('UIModule sidebar state handling', () => {
   let reloadSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    resetMainSidebarMocks();
+    resetUnifiedSidebarMocks();
     resetHistoryStorageMocks();
     document.body.innerHTML = '';
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -289,8 +330,8 @@ describe('UIModule sidebar state handling', () => {
 
   it('toggleSidebarCollapsed updates DOM and notifies MainSidebar', () => {
     const ui = new UIModule(createStubConfig());
-    const mainSidebar = getMainSidebarInstances()[0];
-    expect(mainSidebar).toBeDefined();
+    const unifiedSidebar = getUnifiedSidebarInstances()[0];
+    expect(unifiedSidebar).toBeDefined();
 
     ui.toggleSidebarCollapsed();
 
@@ -302,7 +343,7 @@ describe('UIModule sidebar state handling', () => {
     expect(
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(true);
-    expect(mainSidebar?.setCollapsed).toHaveBeenLastCalledWith(true);
+    expect(unifiedSidebar?.setCollapsed).toHaveBeenLastCalledWith(true);
     expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(true);
 
     ui.toggleSidebarCollapsed(false);
@@ -311,7 +352,7 @@ describe('UIModule sidebar state handling', () => {
     expect(
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(false);
-    expect(mainSidebar?.setCollapsed).toHaveBeenLastCalledWith(false);
+    expect(unifiedSidebar?.setCollapsed).toHaveBeenLastCalledWith(false);
     expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(false);
   });
 
@@ -319,10 +360,10 @@ describe('UIModule sidebar state handling', () => {
     vi.useFakeTimers();
     const config = createStubConfig();
     const ui = new UIModule(config);
-    const mainSidebar = getMainSidebarInstances()[0];
-    expect(mainSidebar).toBeDefined();
+    const unifiedSidebar = getUnifiedSidebarInstances()[0];
+    expect(unifiedSidebar).toBeDefined();
 
-    const clearCallback = mainSidebar?.onClearDrafts.mock.calls[0]?.[0];
+    const clearCallback = unifiedSidebar?.onClearDrafts.mock.calls[0]?.[0];
     expect(clearCallback).toBeInstanceOf(Function);
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -345,10 +386,10 @@ describe('UIModule sidebar state handling', () => {
   it('does not clear local drafts when confirmation is declined', async () => {
     const config = createStubConfig();
     const ui = new UIModule(config);
-    const mainSidebar = getMainSidebarInstances()[0];
-    expect(mainSidebar).toBeDefined();
+    const unifiedSidebar = getUnifiedSidebarInstances()[0];
+    expect(unifiedSidebar).toBeDefined();
 
-    const clearCallback = mainSidebar?.onClearDrafts.mock.calls[0]?.[0];
+    const clearCallback = unifiedSidebar?.onClearDrafts.mock.calls[0]?.[0];
     expect(clearCallback).toBeInstanceOf(Function);
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
@@ -373,12 +414,12 @@ describe('UIModule sidebar state handling', () => {
 
     const config = createStubConfig({ exporter: exporter as any });
     const ui = new UIModule(config);
-    const mainSidebar = getMainSidebarInstances()[0];
+    const unifiedSidebar = getUnifiedSidebarInstances()[0];
 
-    expect(mainSidebar?.onExportClean).toHaveBeenCalledWith(expect.any(Function));
-    expect(mainSidebar?.onExportCritic).toHaveBeenCalledWith(expect.any(Function));
+    expect(unifiedSidebar?.onExportClean).toHaveBeenCalledWith(expect.any(Function));
+    expect(unifiedSidebar?.onExportCritic).toHaveBeenCalledWith(expect.any(Function));
 
-    const handler = mainSidebar?.onExportClean.mock.calls[0]?.[0];
+    const handler = unifiedSidebar?.onExportClean.mock.calls[0]?.[0];
     expect(handler).toBeInstanceOf(Function);
 
     // Directly exercise export logic for coverage

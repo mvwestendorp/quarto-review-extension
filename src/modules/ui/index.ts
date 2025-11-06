@@ -1101,9 +1101,7 @@ export class UIModule {
       this.hideLoading(loading);
       this.isSubmittingReview = false;
       this.unifiedSidebar.setSubmitReviewPending(false);
-      this.unifiedSidebar.setSubmitReviewEnabled(
-        Boolean(this.reviewService)
-      );
+      this.unifiedSidebar.setSubmitReviewEnabled(Boolean(this.reviewService));
     }
   }
 
@@ -2316,7 +2314,7 @@ export class UIModule {
     );
   }
 
-  private refreshCommentUI(options: { showSidebar?: boolean } = {}): void {
+  private refreshCommentUI(_options: { showSidebar?: boolean } = {}): void {
     // Get sections from CommentController
     const sections = this.commentController.getSectionComments();
 
@@ -2352,6 +2350,20 @@ export class UIModule {
         if (commentKey) {
           this.commentController.focusCommentAnchor(elementId, commentKey);
         }
+      },
+      onOpenComposer: (elementId, comment) => {
+        void this.commentController.openComposer({
+          elementId,
+          existingComment: comment?.content,
+          commentId: comment?.id,
+          commentKey: comment ? `${elementId}:${comment.id}` : undefined,
+        });
+      },
+      onHover: (elementId) => {
+        this.commentController.highlightSection(elementId, 'hover', undefined);
+      },
+      onLeave: () => {
+        this.commentController.clearHighlight('hover');
       },
     });
   }

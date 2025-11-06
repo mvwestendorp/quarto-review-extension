@@ -21,7 +21,6 @@ describe('KeyboardShortcutManager', () => {
       },
       refresh: vi.fn(),
       toggleTrackedChanges: vi.fn(),
-      toggleCommentsSidebar: vi.fn(),
       toggleSidebarCollapsed: vi.fn(),
     };
 
@@ -600,13 +599,6 @@ describe('KeyboardShortcutManager', () => {
 
       expect(toggleCmd).toBeDefined();
       expect(toggleCmd?.category).toBe('view');
-    });
-
-    it('toggle comments command exists', () => {
-      const commands = getDefaultCommands(mockUIModule);
-      const toggleCmd = commands.find(c => c.id === 'toggle-comments');
-
-      expect(toggleCmd).toBeDefined();
     });
 
     it('navigation commands exist', () => {

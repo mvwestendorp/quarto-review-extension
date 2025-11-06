@@ -47,10 +47,6 @@
 @import './components/notifications.css';
 @import './components/translation.css';
 
-/* Legacy sidebar styles (deprecated - kept for backward compatibility) */
-/* @import './components/sidebar.css'; */
-/* @import './components/comments-sidebar.css'; */
-
 /* ──────────────────────────────────────────────────────────────────
    4. CRITICMARKUP
    ────────────────────────────────────────────────────────────────── */
