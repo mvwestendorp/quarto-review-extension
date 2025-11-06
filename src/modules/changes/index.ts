@@ -46,11 +46,55 @@ export class ChangesModule {
   }
 
   /**
+   * Verify all data-review-id values are unique
+   * Throws an error if duplicates are found
+   */
+  private verifyUniqueIds(elements: NodeListOf<globalThis.Element>): void {
+    const idMap = new Map<string, number>();
+    const duplicates: string[] = [];
+
+    elements.forEach((elem) => {
+      const id = elem.getAttribute('data-review-id');
+      if (id) {
+        const count = (idMap.get(id) || 0) + 1;
+        idMap.set(id, count);
+        if (count > 1 && !duplicates.includes(id)) {
+          duplicates.push(id);
+        }
+      }
+    });
+
+    if (duplicates.length > 0) {
+      const errorMessage = `
+Found duplicate data-review-id values in document:
+${duplicates.map((id) => `  - "${id}" (appears ${idMap.get(id)} times)`).join('\n')}
+
+This indicates a problem with the Quarto review extension filter.
+Each element must have a unique ID across the entire document.
+
+Possible causes:
+- The review extension filter is resetting element counters incorrectly
+- Multiple elements were assigned the same ID during document processing
+
+Please report this issue with your Quarto document structure.
+      `.trim();
+
+      logger.error('Duplicate data-review-id values detected', { duplicates });
+      throw new Error(errorMessage);
+    }
+
+    logger.debug(`Verified ${idMap.size} unique data-review-id values`);
+  }
+
+  /**
    * Initialize from DOM - parse HTML to extract original elements
    */
   public initializeFromDOM(): void {
     // Select all elements with data-review-id (includes .review-editable divs and header sections)
     const editableElements = document.querySelectorAll('[data-review-id]');
+
+    // Verify all IDs are unique before proceeding
+    this.verifyUniqueIds(editableElements);
 
     this.originalElements = Array.from(editableElements).map((elem) => {
       const id = elem.getAttribute('data-review-id') || '';

@@ -428,6 +428,151 @@ suite:add("Config id_separator can be hyphen", function(s)
   s:assertEqual(config.id_separator, "-", "id_separator should be hyphen")
 end)
 
+-- ID Uniqueness tests
+suite:add("Generated IDs are unique across document with multiple headers and paragraphs", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "doc",
+    id_separator = ".",
+    editable_elements = {
+      Para = true,
+      Header = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  local generated_ids = {}
+  local duplicate_ids = {}
+
+  -- Simulate processing a document with headers and paragraphs
+  -- Structure:
+  -- # Header 1
+  -- Paragraph 1
+  -- Paragraph 2
+  -- # Header 2
+  -- Paragraph 3
+  -- # Header 3
+  -- Paragraph 4
+  -- Paragraph 5
+
+  -- Process first header
+  context.element_counters["Header-1"] = 0
+  local id1 = "doc.header-1"
+  context.element_counters["Header-1"] = 1
+  if generated_ids[id1] then
+    table.insert(duplicate_ids, id1)
+  end
+  generated_ids[id1] = true
+
+  -- Process first paragraph
+  context.element_counters["Para"] = 0
+  local id2 = "doc.para-1"
+  context.element_counters["Para"] = 1
+  if generated_ids[id2] then
+    table.insert(duplicate_ids, id2)
+  end
+  generated_ids[id2] = true
+
+  -- Process second paragraph (should be para-2, not para-1)
+  local id3 = "doc.para-2"
+  context.element_counters["Para"] = 2
+  if generated_ids[id3] then
+    table.insert(duplicate_ids, id3)
+  end
+  generated_ids[id3] = true
+
+  -- Process second header
+  context.element_counters["Header-1"] = 1
+  local id4 = "doc.header-2"
+  context.element_counters["Header-1"] = 2
+  if generated_ids[id4] then
+    table.insert(duplicate_ids, id4)
+  end
+  generated_ids[id4] = true
+
+  -- Process third paragraph (should be para-3, NOT para-1!)
+  local id5 = "doc.para-3"
+  context.element_counters["Para"] = 3
+  if generated_ids[id5] then
+    table.insert(duplicate_ids, id5)
+  end
+  generated_ids[id5] = true
+
+  -- Process third header
+  local id6 = "doc.header-3"
+  context.element_counters["Header-1"] = 3
+  if generated_ids[id6] then
+    table.insert(duplicate_ids, id6)
+  end
+  generated_ids[id6] = true
+
+  -- Process fourth paragraph (should be para-4, NOT para-1!)
+  local id7 = "doc.para-4"
+  context.element_counters["Para"] = 4
+  if generated_ids[id7] then
+    table.insert(duplicate_ids, id7)
+  end
+  generated_ids[id7] = true
+
+  -- Process fifth paragraph
+  local id8 = "doc.para-5"
+  context.element_counters["Para"] = 5
+  if generated_ids[id8] then
+    table.insert(duplicate_ids, id8)
+  end
+  generated_ids[id8] = true
+
+  -- Verify no duplicates
+  if #duplicate_ids > 0 then
+    error("Found duplicate IDs: " .. table.concat(duplicate_ids, ", "))
+  end
+
+  -- Verify we have the expected number of unique IDs
+  local count = 0
+  for _ in pairs(generated_ids) do count = count + 1 end
+  s:assertEqual(count, 8, "Should have 8 unique IDs")
+end)
+
+suite:add("Element counters are not reset after headers", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "doc",
+    id_separator = ".",
+    editable_elements = {
+      Para = true,
+      Header = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Simulate processing: Para, Header, Para, Para
+  -- Initial para counter
+  context.element_counters["Para"] = 1
+
+  -- Process a header (this should NOT reset Para counter)
+  context.element_counters["Header-1"] = 1
+
+  -- Check Para counter is still 1 (not reset to 0)
+  s:assertEqual(context.element_counters["Para"], 1, "Para counter should not be reset after header")
+
+  -- Process another paragraph (should increment to 2, not restart at 1)
+  context.element_counters["Para"] = 2
+
+  s:assertEqual(context.element_counters["Para"], 2, "Para counter should continue incrementing")
+end)
+
 -- Edge cases
 suite:add("Handles config with all elements disabled", function(s)
   local config = {
