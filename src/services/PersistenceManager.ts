@@ -104,18 +104,33 @@ export class PersistenceManager {
         return;
       }
       const currentState = this.config.changes.getCurrentState();
-      if (currentState.length === 0) {
+
+      // CRITICAL FIX: If currentState is empty but draft has elements, this might be valid
+      // during early initialization. Only skip if BOTH are empty.
+      if (
+        currentState.length === 0 &&
+        (!draftPayload.elements || draftPayload.elements.length === 0)
+      ) {
         return;
       }
 
-      const currentMap = new Map(
-        currentState.map((elem) => [elem.id, elem.content])
-      );
+      // Check if there are content differences between current state and draft
+      let hasDifference = false;
+      if (currentState.length > 0) {
+        const currentMap = new Map(
+          currentState.map((elem) => [elem.id, elem.content])
+        );
 
-      const hasDifference = draftPayload.elements.some((entry) => {
-        const currentContent = currentMap.get(entry.id);
-        return currentContent !== entry.content;
-      });
+        hasDifference = draftPayload.elements.some((entry) => {
+          const currentContent = currentMap.get(entry.id);
+          return currentContent !== entry.content;
+        });
+      } else {
+        // If current state is empty but draft has elements, that's a difference
+        hasDifference = !!(
+          draftPayload.elements && draftPayload.elements.length > 0
+        );
+      }
 
       // Import comments first (even if no text changes)
       const hasComments =

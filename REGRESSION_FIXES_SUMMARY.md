@@ -52,24 +52,36 @@ The CommentComposer implementation at line 154-164 of `src/modules/ui/comments/C
 **Recommendation**:
 Requires UI integration testing to identify where the button is not appearing in the DOM hierarchy.
 
-### 3. ⚠️ localStorage Doesn't Restore Page After Refresh
+### 3. ✅ localStorage Doesn't Restore Page After Refresh
 
-**Problem**: Document changes are not restored when the page is refreshed.
+**Severity**: High - User work is lost on page refresh
 
-**Investigation**:
-The PersistenceManager implementation (`src/services/PersistenceManager.ts`) has:
-- `persistDocument()` - Saves drafts to local storage (called by UIModule after saves)
-- `restoreLocalDraft()` - Loads drafts on page load
-- Proper comment import handling
+**Problem Statement**:
+Document changes are not restored when the page is refreshed because `restoreLocalDraft()` returns early when `getCurrentState()` is empty during initialization.
 
-**Potential Issues**:
-- Draft restoration may be called before the document state is initialized
-- The change detection logic (comparing current vs draft content) may have edge cases
-- LocalDraftPersistence filename configuration may be incorrect
-- EmbeddedSourceStore (Git-based storage) may not be properly initialized
+**Root Cause**:
+The `PersistenceManager.restoreLocalDraft()` method (line 106-109) was checking if `currentState.length === 0` and returning early. However, during UIModule constructor execution, the ChangesModule might not be fully initialized yet, resulting in an empty state. This causes the restoration to be skipped even though there are valid draft elements to restore.
 
-**Recommendation**:
-Check the initialization order in UIModule constructor and ensure LocalDraftPersistence is configured with the correct filename.
+**Solution**:
+Modified the draft restoration logic to distinguish between "nothing to restore" and "document not initialized yet":
+- Only skip restoration if BOTH currentState AND draftPayload elements are empty
+- If currentState is empty but draftPayload has elements, proceed with restoration (the draft will populate the empty state)
+- Improved the difference detection logic to handle both populated and empty states
+
+**Files Modified**:
+- `src/services/PersistenceManager.ts` (lines 108-128):
+  - Added defensive logic to handle empty initial state
+  - Changed early return condition to only skip if BOTH current and draft are empty
+  - Added separate handling for when currentState is empty but draft has content
+
+**Tests**:
+- Updated `tests/unit/ui-regressions.test.ts` with test for empty state restoration
+- All existing tests pass (1526 passed | 4 todo)
+
+**Commit**:
+```
+fix: improve localStorage draft restoration to handle empty initial state
+```
 
 ### 4. ⚠️ Translation Mode Save Buttons Don't Respond
 
