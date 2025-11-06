@@ -1285,6 +1285,11 @@ export class UIModule {
     this.updateUnsavedIndicator();
     this.refreshCommentUI();
     this.syncToolbarState();
+
+    // Re-enable export buttons after changes (they should stay enabled if callbacks exist)
+    if (typeof this.unifiedSidebar.enableExportButtons === 'function') {
+      this.unifiedSidebar.enableExportButtons();
+    }
   }
 
   /**

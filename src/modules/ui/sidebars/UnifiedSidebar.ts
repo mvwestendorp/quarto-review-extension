@@ -1238,6 +1238,27 @@ export class UnifiedSidebar {
     }
   }
 
+  /**
+   * Re-enable export buttons when document state changes
+   * Ensures buttons remain usable even after changes are made
+   */
+  enableExportButtons(): void {
+    if (
+      this.exportCleanBtn &&
+      typeof this.onExportCleanCallback === 'function'
+    ) {
+      this.exportCleanBtn.disabled = false;
+      this.exportCleanBtn.classList.remove('review-btn-disabled');
+    }
+    if (
+      this.exportCriticBtn &&
+      typeof this.onExportCriticCallback === 'function'
+    ) {
+      this.exportCriticBtn.disabled = false;
+      this.exportCriticBtn.classList.remove('review-btn-disabled');
+    }
+  }
+
   // ============================================
   // CALLBACK REGISTRATION
   // ============================================
