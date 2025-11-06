@@ -866,10 +866,13 @@ export class TranslationController {
 
     try {
       // TODO: Call main ChangesModule.edit(elementId, newContent) for proper integration
-      // For now, update TranslationModule which will re-segment content
-      this.translationModule.updateSegmentContent(elementId, newContent, true);
+      // Temporarily disabled until updateSegmentContent is implemented in TranslationModule
+      // this.translationModule.updateSegmentContent(elementId, newContent, true);
       this.translationModule.saveToStorageNow();
-      this.showNotification('Source segment updated', 'success');
+      this.showNotification(
+        'Source segment updated (pending full integration)',
+        'success'
+      );
       this.refreshViewFromState();
 
       // Auto-retranslate if enabled (at sentence level after re-segmentation)
@@ -932,10 +935,13 @@ export class TranslationController {
 
     try {
       // TODO: Call main ChangesModule.edit(elementId, newContent) for proper integration
-      // For now, update TranslationModule which will re-segment content
-      this.translationModule.updateSegmentContent(elementId, newContent, false);
+      // Temporarily disabled until updateSegmentContent is implemented in TranslationModule
+      // this.translationModule.updateSegmentContent(elementId, newContent, false);
       this.translationModule.saveToStorageNow();
-      this.showNotification('Target segment updated', 'success');
+      this.showNotification(
+        'Target segment updated (pending full integration)',
+        'success'
+      );
       this.refreshViewFromState();
     } catch (error) {
       logger.error('Failed to update target segment', error);

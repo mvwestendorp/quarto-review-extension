@@ -25,6 +25,8 @@ import {
   isSetextUnderline,
   isWhitespaceChar,
   type CommentState,
+  type EditorState,
+  type UIState,
 } from './shared';
 import { normalizeContentForComparison } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
@@ -368,7 +370,7 @@ export class UIModule {
    */
   private setupStateListeners(): void {
     // Listen for editor state changes
-    this.stateStore.on('editor:changed', (editorState) => {
+    this.stateStore.on<EditorState>('editor:changed', (editorState) => {
       logger.debug('Editor state changed', editorState);
 
       // When showTrackedChanges changes, update the sidebar UI
@@ -380,7 +382,7 @@ export class UIModule {
     });
 
     // Listen for UI state changes
-    this.stateStore.on('ui:changed', (uiState) => {
+    this.stateStore.on<UIState>('ui:changed', (uiState) => {
       logger.debug('UI state changed', uiState);
 
       // Update sidebar collapsed state in the UI

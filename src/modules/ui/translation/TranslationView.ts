@@ -364,7 +364,12 @@ export class TranslationView {
         editButton.innerHTML = `<span class="edit-icon">✏️</span> Edit Segment`;
 
         editButton.addEventListener('click', () => {
-          void this.enableSegmentEdit(sectionElement, elementId, sectionSentences, side);
+          void this.enableSegmentEdit(
+            sectionElement,
+            elementId,
+            sectionSentences,
+            side
+          );
         });
 
         sectionHeader.appendChild(editButton);
@@ -956,6 +961,15 @@ export class TranslationView {
   ): Promise<void> {
     if (!this.document || !this.editorBridge) return;
 
+    // Ensure we have at least one sentence
+    if (sentences.length === 0) {
+      logger.error('Cannot enable segment edit with no sentences', {
+        elementId,
+        side,
+      });
+      return;
+    }
+
     // Merge all sentences into segment content
     // Sort by order to ensure correct sequence
     const sortedSentences = [...sentences].sort((a, b) => {
@@ -963,9 +977,7 @@ export class TranslationView {
       return a.id.localeCompare(b.id);
     });
 
-    const segmentContent = sortedSentences
-      .map((s) => s.content)
-      .join('\n\n'); // Use paragraph breaks between sentences
+    const segmentContent = sortedSentences.map((s) => s.content).join('\n\n'); // Use paragraph breaks between sentences
 
     logger.debug('Opening segment editor', {
       elementId,
@@ -1084,7 +1096,7 @@ export class TranslationView {
 
       // Store editor context for keyboard shortcuts
       this.activeEditorContext = {
-        sentence: sentences[0], // For compatibility
+        sentence: sentences[0]!, // For compatibility - safe because we check length above
         side,
         sentenceElement: sectionElement,
         contentEl: sectionElement,
@@ -1097,7 +1109,13 @@ export class TranslationView {
         side,
         error,
       });
-      throw error;
+      // Show error message in the section
+      const errorEl = document.createElement('div');
+      errorEl.className = 'review-translation-editor-error';
+      errorEl.setAttribute('role', 'alert');
+      errorEl.textContent =
+        error instanceof Error ? error.message : 'Failed to initialize editor';
+      sectionElement.appendChild(errorEl);
     }
   }
 
@@ -1105,6 +1123,7 @@ export class TranslationView {
    * Enable inline editing for a sentence
    * @deprecated Use enableSegmentEdit instead - kept for backward compatibility
    */
+  // @ts-expect-error - Deprecated method kept for backward compatibility
   private async enableSentenceEdit(
     element: HTMLElement,
     sentence: Sentence,
