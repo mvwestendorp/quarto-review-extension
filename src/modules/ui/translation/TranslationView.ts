@@ -33,7 +33,7 @@ type ActiveEditorContext = {
   side: 'source' | 'target';
   sentenceElement: HTMLElement;
   contentEl: HTMLElement;
-  save: () => boolean;
+  save: () => boolean | Promise<boolean>;
   cancel: () => void;
 };
 
@@ -1106,7 +1106,7 @@ export class TranslationView {
         side,
       });
 
-      const save = (): boolean => {
+      const save = async (): Promise<boolean> => {
         // Get editor content using existing EditorLifecycle method
         const module = this.editorBridge?.getModule();
         if (!module) {
@@ -1124,11 +1124,37 @@ export class TranslationView {
         );
 
         if (isValid) {
+          logger.info('Segment edit validated, calling controller callback', {
+            elementId,
+            side,
+            newContentLength: newContent.length,
+          });
+
           // Call the segment edit callback - controller handles ChangesModule
-          if (side === 'source' && this.callbacks.onSourceSegmentEdit) {
-            this.callbacks.onSourceSegmentEdit(elementId, newContent);
-          } else if (side === 'target' && this.callbacks.onTargetSegmentEdit) {
-            this.callbacks.onTargetSegmentEdit(elementId, newContent);
+          // CRITICAL: These callbacks are async, so we must await them!
+          try {
+            if (side === 'source' && this.callbacks.onSourceSegmentEdit) {
+              await this.callbacks.onSourceSegmentEdit(elementId, newContent);
+            } else if (
+              side === 'target' &&
+              this.callbacks.onTargetSegmentEdit
+            ) {
+              await this.callbacks.onTargetSegmentEdit(elementId, newContent);
+            } else {
+              logger.warn('No callback registered for segment edit', {
+                side,
+                hasSourceCallback: Boolean(this.callbacks.onSourceSegmentEdit),
+                hasTargetCallback: Boolean(this.callbacks.onTargetSegmentEdit),
+              });
+              return false;
+            }
+          } catch (error) {
+            logger.error('Error in segment edit callback', {
+              error,
+              elementId,
+              side,
+            });
+            return false;
           }
 
           // Clean up editor using existing destroy method
@@ -1143,6 +1169,12 @@ export class TranslationView {
 
           logger.debug('Segment edit saved', { elementId, side });
           return true;
+        } else {
+          logger.warn('Segment edit validation failed', {
+            elementId,
+            side,
+            newContentLength: newContent.length,
+          });
         }
         return false;
       };
@@ -1165,10 +1197,49 @@ export class TranslationView {
       const cancelBtn = actions.querySelector('[data-action="cancel"]');
 
       if (saveBtn) {
-        saveBtn.addEventListener('click', () => save());
+        saveBtn.addEventListener('click', () => {
+          try {
+            logger.info('Save button clicked for segment edit');
+            // Call async save function and handle the promise
+            void save()
+              .then((result) => {
+                if (!result) {
+                  logger.warn('Save returned false for segment edit');
+                }
+              })
+              .catch((error) => {
+                logger.error('Save promise rejected', {
+                  error,
+                  elementId,
+                  side,
+                });
+              });
+          } catch (error) {
+            logger.error('Error during save button click', {
+              error,
+              elementId,
+              side,
+            });
+          }
+        });
+      } else {
+        logger.warn('Save button not found in translation editor actions');
       }
       if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => cancel());
+        cancelBtn.addEventListener('click', () => {
+          try {
+            logger.info('Cancel button clicked for segment edit');
+            cancel();
+          } catch (error) {
+            logger.error('Error during cancel button click', {
+              error,
+              elementId,
+              side,
+            });
+          }
+        });
+      } else {
+        logger.warn('Cancel button not found in translation editor actions');
       }
 
       // Store editor context for keyboard shortcuts

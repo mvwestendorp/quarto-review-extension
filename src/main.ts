@@ -159,6 +159,9 @@ export class QuartoReview {
     });
 
     // Initialize translation module (always available if built into extension)
+    // CRITICAL FIX: Always include local provider configuration with sensible defaults
+    // This ensures the local provider appears in the provider dropdown
+    const providers = this.config.translation?.providers || {};
     const translationConfig: TranslationConfig = {
       enabled: true,
       sourceLanguage: this.config.translation?.sourceLanguage || 'en',
@@ -171,7 +174,20 @@ export class QuartoReview {
       showCorrespondenceLines:
         this.config.translation?.showCorrespondenceLines ?? true,
       highlightOnHover: this.config.translation?.highlightOnHover ?? true,
-      providers: this.config.translation?.providers || {},
+      providers: {
+        ...providers,
+        // Ensure local provider is always available with defaults if not explicitly disabled
+        local:
+          providers.local !== null
+            ? (providers.local ?? {
+                model: 'nllb-200-600m',
+                backend: 'auto',
+                mode: 'balanced',
+                downloadOnLoad: false,
+                useWebWorker: true,
+              })
+            : undefined,
+      },
     };
 
     this.translation = new TranslationModule({
