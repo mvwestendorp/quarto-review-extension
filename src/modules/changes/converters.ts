@@ -340,7 +340,8 @@ function formatListLineChange(oldLine: string, newLine: string): string {
   const hasAdditions = diffs.some((diff: Change) => diff.added);
   const hasDeletions = diffs.some((diff: Change) => diff.removed);
   const hasUnchanged = diffs.some(
-    (diff: Change) => !diff.added && !diff.removed && diff.value.trim().length > 0
+    (diff: Change) =>
+      !diff.added && !diff.removed && diff.value.trim().length > 0
   );
 
   if (hasAdditions && hasDeletions && !hasUnchanged) {

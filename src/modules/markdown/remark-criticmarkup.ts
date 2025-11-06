@@ -199,25 +199,29 @@ export const remarkCriticMarkup: Plugin<[CriticMarkupOptions?], Root> = (
   const options = { ...defaultOptions, ...userOptions };
 
   return (tree: Root) => {
-    visit(tree, 'text', (node: Text, index: number | undefined, parent: Parent | undefined) => {
-      if (!parent || index === null || index === undefined) return;
+    visit(
+      tree,
+      'text',
+      (node: Text, index: number | undefined, parent: Parent | undefined) => {
+        if (!parent || index === null || index === undefined) return;
 
-      const text = node.value;
+        const text = node.value;
 
-      // Only process if text contains CriticMarkup
-      if (!hasCriticMarkup(text)) return;
+        // Only process if text contains CriticMarkup
+        if (!hasCriticMarkup(text)) return;
 
-      // Convert CriticMarkup to HTML
-      const html = processCriticMarkup(text, options);
+        // Convert CriticMarkup to HTML
+        const html = processCriticMarkup(text, options);
 
-      // Replace text node with HTML node
-      const htmlNode: Html = {
-        type: 'html',
-        value: html,
-      };
+        // Replace text node with HTML node
+        const htmlNode: Html = {
+          type: 'html',
+          value: html,
+        };
 
-      (parent as Parent).children[index] = htmlNode;
-    });
+        (parent as Parent).children[index] = htmlNode;
+      }
+    );
 
     visit(
       tree,

@@ -229,9 +229,10 @@ function deepCleanNode(node: any): any {
   return cleaned;
 }
 
-interface CriticMarkupNode extends Parent {
+interface CriticMarkupNode {
   type: 'criticMarkup';
   markup: string;
+  children: Array<Text>;
 }
 
 const CRITIC_DELIMITERS: Record<string, [string, string]> = {
@@ -248,8 +249,14 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
     { character: '}', inConstruct: 'phrasing' },
   ],
   handlers: {
-    criticMarkup: ((node: Node, _parent: Parent | undefined, state: any, info: any) => {
-      const { markup } = node as CriticMarkupNode;
+    criticMarkup: ((
+      node: Node,
+      _parent: Parent | undefined,
+      state: any,
+      info: any
+    ) => {
+      const criticNode = node as CriticMarkupNode;
+      const { markup } = criticNode;
       const [open, close] = CRITIC_DELIMITERS[markup] ?? ['', ''];
 
       const tracker = state.createTracker(info);
@@ -259,8 +266,8 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
 
       // Extract text content directly from children instead of using containerPhrasing
       // This avoids accessing editorView context during serialization
-      if (node.children && Array.isArray(node.children)) {
-        for (const child of node.children) {
+      if (criticNode.children && Array.isArray(criticNode.children)) {
+        for (const child of criticNode.children) {
           if (child.type === 'text' && 'value' in child) {
             value += tracker.move(String(child.value));
           }
@@ -278,7 +285,9 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
  * Remark plugin to transform CriticMarkup syntax into Milkdown-compatible tokens
  * Uses manual tree walking instead of unist-util-visit to avoid circular references
  */
-export const remarkCriticMarkupMilkdown: Plugin<[], Root> = function (this: any) {
+export const remarkCriticMarkupMilkdown: Plugin<[], Root> = function (
+  this: any
+) {
   // Register custom toMarkdown handler so CriticMarkup serializes correctly
   const data = this.data();
   const toMarkdown =

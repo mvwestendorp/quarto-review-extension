@@ -2,7 +2,6 @@ import { createModuleLogger } from '@utils/debug';
 import { getBuildString, getFullBuildInfo } from '../../../version';
 import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from '../comments/CommentController';
-import { escapeHtml } from '../shared';
 
 const logger = createModuleLogger('UnifiedSidebar');
 
@@ -26,7 +25,6 @@ export interface CommentsSidebarCallbacks {
  */
 export class UnifiedSidebar {
   private element: HTMLElement | null = null;
-  private collapsed = false;
   private translationMode = false;
   private commentsExpanded = true;
 
@@ -77,7 +75,6 @@ export class UnifiedSidebar {
   private translationProgressContainer: HTMLElement | null = null;
   private translationProgressBar: HTMLElement | null = null;
   private translationProgressText: HTMLElement | null = null;
-  private translationBusy = false;
   private translateDocumentDefaultLabel = 'Translate Document';
   private translateSentenceDefaultLabel = 'Translate Selected';
 
@@ -99,10 +96,13 @@ export class UnifiedSidebar {
   private onTranslateDocumentCallback: (() => void) | null = null;
   private onTranslateSentenceCallback: (() => void) | null = null;
   private onProviderChangeCallback: ((provider: string) => void) | null = null;
-  private onSourceLanguageChangeCallback: ((lang: string) => void) | null = null;
-  private onTargetLanguageChangeCallback: ((lang: string) => void) | null = null;
+  private onSourceLanguageChangeCallback: ((lang: string) => void) | null =
+    null;
+  private onTargetLanguageChangeCallback: ((lang: string) => void) | null =
+    null;
   private onSwapLanguagesCallback: (() => void) | null = null;
-  private onAutoTranslateChangeCallback: ((enabled: boolean) => void) | null = null;
+  private onAutoTranslateChangeCallback: ((enabled: boolean) => void) | null =
+    null;
   private onTranslationExportUnifiedCallback: (() => void) | null = null;
   private onTranslationExportSeparatedCallback: (() => void) | null = null;
   private onClearLocalModelCacheCallback: (() => void) | null = null;
@@ -247,8 +247,14 @@ export class UnifiedSidebar {
 
     this.trackedChangesToggle = document.createElement('input');
     this.trackedChangesToggle.type = 'checkbox';
-    this.trackedChangesToggle.setAttribute('data-action', 'toggle-tracked-changes');
-    this.trackedChangesToggle.setAttribute('aria-label', 'Show tracked changes');
+    this.trackedChangesToggle.setAttribute(
+      'data-action',
+      'toggle-tracked-changes'
+    );
+    this.trackedChangesToggle.setAttribute(
+      'aria-label',
+      'Show tracked changes'
+    );
     this.trackedChangesToggle.className = 'review-sidebar-checkbox';
     this.trackedChangesToggle.addEventListener('change', (event) => {
       const target = event.target as HTMLInputElement;
@@ -280,10 +286,17 @@ export class UnifiedSidebar {
     section.appendChild(title);
 
     this.exportCleanBtn = document.createElement('button');
-    this.exportCleanBtn.className = 'review-btn review-btn-primary review-btn-block';
+    this.exportCleanBtn.className =
+      'review-btn review-btn-primary review-btn-block';
     this.exportCleanBtn.setAttribute('data-action', 'export-qmd-clean');
-    this.exportCleanBtn.setAttribute('title', 'Export QMD with accepted changes applied');
-    this.exportCleanBtn.setAttribute('aria-label', 'Export QMD with accepted changes applied');
+    this.exportCleanBtn.setAttribute(
+      'title',
+      'Export QMD with accepted changes applied'
+    );
+    this.exportCleanBtn.setAttribute(
+      'aria-label',
+      'Export QMD with accepted changes applied'
+    );
     this.exportCleanBtn.textContent = '🗂 Export Clean QMD';
     this.exportCleanBtn.disabled = true;
     this.exportCleanBtn.addEventListener('click', () => {
@@ -292,10 +305,17 @@ export class UnifiedSidebar {
     section.appendChild(this.exportCleanBtn);
 
     this.exportCriticBtn = document.createElement('button');
-    this.exportCriticBtn.className = 'review-btn review-btn-secondary review-btn-block';
+    this.exportCriticBtn.className =
+      'review-btn review-btn-secondary review-btn-block';
     this.exportCriticBtn.setAttribute('data-action', 'export-qmd-critic');
-    this.exportCriticBtn.setAttribute('title', 'Export QMD with CriticMarkup annotations');
-    this.exportCriticBtn.setAttribute('aria-label', 'Export QMD with CriticMarkup annotations');
+    this.exportCriticBtn.setAttribute(
+      'title',
+      'Export QMD with CriticMarkup annotations'
+    );
+    this.exportCriticBtn.setAttribute(
+      'aria-label',
+      'Export QMD with CriticMarkup annotations'
+    );
     this.exportCriticBtn.textContent = '📝 Export with CriticMarkup';
     this.exportCriticBtn.disabled = true;
     this.exportCriticBtn.addEventListener('click', () => {
@@ -304,10 +324,17 @@ export class UnifiedSidebar {
     section.appendChild(this.exportCriticBtn);
 
     this.submitReviewBtn = document.createElement('button');
-    this.submitReviewBtn.className = 'review-btn review-btn-primary review-btn-block';
+    this.submitReviewBtn.className =
+      'review-btn review-btn-primary review-btn-block';
     this.submitReviewBtn.setAttribute('data-action', 'submit-review');
-    this.submitReviewBtn.setAttribute('title', 'Submit review changes to the configured Git provider');
-    this.submitReviewBtn.setAttribute('aria-label', 'Submit review changes to the configured Git provider');
+    this.submitReviewBtn.setAttribute(
+      'title',
+      'Submit review changes to the configured Git provider'
+    );
+    this.submitReviewBtn.setAttribute(
+      'aria-label',
+      'Submit review changes to the configured Git provider'
+    );
     this.submitReviewBtn.textContent = this.submitReviewLabel;
     this.submitReviewBtn.disabled = true;
     this.submitReviewBtn.addEventListener('click', () => {
@@ -328,7 +355,8 @@ export class UnifiedSidebar {
 
     const header = document.createElement('div');
     header.className = 'review-sidebar-section-header';
-    header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; cursor: pointer;';
+    header.style.cssText =
+      'display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; cursor: pointer;';
     header.addEventListener('click', () => {
       this.toggleCommentsSection();
     });
@@ -339,9 +367,14 @@ export class UnifiedSidebar {
     header.appendChild(title);
 
     this.commentsSectionToggle = document.createElement('button');
-    this.commentsSectionToggle.className = 'review-btn review-btn-icon review-btn-sm';
-    this.commentsSectionToggle.setAttribute('aria-label', 'Toggle comments section');
-    this.commentsSectionToggle.innerHTML = '<span class="review-icon-chevron" style="transform: rotate(-90deg);">‹</span>';
+    this.commentsSectionToggle.className =
+      'review-btn review-btn-icon review-btn-sm';
+    this.commentsSectionToggle.setAttribute(
+      'aria-label',
+      'Toggle comments section'
+    );
+    this.commentsSectionToggle.innerHTML =
+      '<span class="review-icon-chevron" style="transform: rotate(-90deg);">‹</span>';
     this.commentsSectionToggle.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleCommentsSection();
@@ -371,9 +404,13 @@ export class UnifiedSidebar {
     section.appendChild(title);
 
     this.translationBtn = document.createElement('button');
-    this.translationBtn.className = 'review-btn review-btn-secondary review-btn-block';
+    this.translationBtn.className =
+      'review-btn review-btn-secondary review-btn-block';
     this.translationBtn.setAttribute('data-action', 'toggle-translation');
-    this.translationBtn.setAttribute('title', 'Open translation UI for document translation');
+    this.translationBtn.setAttribute(
+      'title',
+      'Open translation UI for document translation'
+    );
     this.translationBtn.setAttribute('aria-label', 'Toggle translation UI');
     this.translationBtn.textContent = '🌐 Open Translation';
     this.translationBtn.disabled = true;
@@ -426,10 +463,17 @@ export class UnifiedSidebar {
     translateActionsDiv.style.marginBottom = '12px';
 
     this.translateDocumentBtn = document.createElement('button');
-    this.translateDocumentBtn.className = 'review-btn review-btn-primary review-btn-block';
+    this.translateDocumentBtn.className =
+      'review-btn review-btn-primary review-btn-block';
     this.translateDocumentBtn.setAttribute('data-action', 'translate-document');
-    this.translateDocumentBtn.setAttribute('title', 'Translate entire document (Ctrl+T)');
-    this.translateDocumentBtn.setAttribute('aria-label', 'Translate entire document');
+    this.translateDocumentBtn.setAttribute(
+      'title',
+      'Translate entire document (Ctrl+T)'
+    );
+    this.translateDocumentBtn.setAttribute(
+      'aria-label',
+      'Translate entire document'
+    );
     this.translateDocumentBtn.textContent = 'Translate Document';
     this.translateDocumentBtn.disabled = true;
     this.translateDocumentBtn.addEventListener('click', () => {
@@ -438,10 +482,17 @@ export class UnifiedSidebar {
     translateActionsDiv.appendChild(this.translateDocumentBtn);
 
     this.translateSentenceBtn = document.createElement('button');
-    this.translateSentenceBtn.className = 'review-btn review-btn-secondary review-btn-block';
+    this.translateSentenceBtn.className =
+      'review-btn review-btn-secondary review-btn-block';
     this.translateSentenceBtn.setAttribute('data-action', 'translate-sentence');
-    this.translateSentenceBtn.setAttribute('title', 'Translate selected sentence (Ctrl+Shift+T)');
-    this.translateSentenceBtn.setAttribute('aria-label', 'Translate selected sentence');
+    this.translateSentenceBtn.setAttribute(
+      'title',
+      'Translate selected sentence (Ctrl+Shift+T)'
+    );
+    this.translateSentenceBtn.setAttribute(
+      'aria-label',
+      'Translate selected sentence'
+    );
     this.translateSentenceBtn.textContent = 'Translate Selected';
     this.translateSentenceBtn.disabled = true;
     this.translateSentenceBtn.addEventListener('click', () => {
@@ -449,8 +500,12 @@ export class UnifiedSidebar {
     });
     translateActionsDiv.appendChild(this.translateSentenceBtn);
 
-    this.translateDocumentDefaultLabel = this.translateDocumentBtn.textContent ?? this.translateDocumentDefaultLabel;
-    this.translateSentenceDefaultLabel = this.translateSentenceBtn.textContent ?? this.translateSentenceDefaultLabel;
+    this.translateDocumentDefaultLabel =
+      this.translateDocumentBtn.textContent ??
+      this.translateDocumentDefaultLabel;
+    this.translateSentenceDefaultLabel =
+      this.translateSentenceBtn.textContent ??
+      this.translateSentenceDefaultLabel;
 
     section.appendChild(translateActionsDiv);
 
@@ -467,8 +522,12 @@ export class UnifiedSidebar {
     `;
 
     this.translationProgressContainer = progressContainer;
-    this.translationProgressBar = progressContainer.querySelector('.review-translation-progress-bar') as HTMLElement | null;
-    this.translationProgressText = progressContainer.querySelector('.review-translation-progress-text') as HTMLElement | null;
+    this.translationProgressBar = progressContainer.querySelector(
+      '.review-translation-progress-bar'
+    ) as HTMLElement | null;
+    this.translationProgressText = progressContainer.querySelector(
+      '.review-translation-progress-text'
+    ) as HTMLElement | null;
     section.appendChild(progressContainer);
 
     // Provider selector
@@ -536,10 +595,17 @@ export class UnifiedSidebar {
     languagesDiv.appendChild(this.targetLanguageSelector);
 
     this.swapLanguagesBtn = document.createElement('button');
-    this.swapLanguagesBtn.className = 'review-btn review-btn-secondary review-btn-sm review-btn-block';
+    this.swapLanguagesBtn.className =
+      'review-btn review-btn-secondary review-btn-sm review-btn-block';
     this.swapLanguagesBtn.setAttribute('data-action', 'swap-languages');
-    this.swapLanguagesBtn.setAttribute('title', 'Swap source and target languages (Ctrl+Alt+S)');
-    this.swapLanguagesBtn.setAttribute('aria-label', 'Swap source and target languages');
+    this.swapLanguagesBtn.setAttribute(
+      'title',
+      'Swap source and target languages (Ctrl+Alt+S)'
+    );
+    this.swapLanguagesBtn.setAttribute(
+      'aria-label',
+      'Swap source and target languages'
+    );
     this.swapLanguagesBtn.textContent = 'Swap Languages';
     this.swapLanguagesBtn.style.marginTop = '6px';
     this.swapLanguagesBtn.addEventListener('click', () => {
@@ -558,8 +624,14 @@ export class UnifiedSidebar {
 
     this.autoTranslateToggle = document.createElement('input');
     this.autoTranslateToggle.type = 'checkbox';
-    this.autoTranslateToggle.setAttribute('data-action', 'toggle-auto-translate');
-    this.autoTranslateToggle.setAttribute('aria-label', 'Auto-translate on edit');
+    this.autoTranslateToggle.setAttribute(
+      'data-action',
+      'toggle-auto-translate'
+    );
+    this.autoTranslateToggle.setAttribute(
+      'aria-label',
+      'Auto-translate on edit'
+    );
     this.autoTranslateToggle.className = 'review-sidebar-checkbox';
     this.autoTranslateToggle.addEventListener('change', (e) => {
       const target = e.target as HTMLInputElement;
@@ -580,10 +652,20 @@ export class UnifiedSidebar {
     translationExportDiv.style.marginBottom = '12px';
 
     this.translationExportUnifiedBtn = document.createElement('button');
-    this.translationExportUnifiedBtn.className = 'review-btn review-btn-primary review-btn-block review-btn-sm';
-    this.translationExportUnifiedBtn.setAttribute('data-action', 'export-translation-unified');
-    this.translationExportUnifiedBtn.setAttribute('title', 'Export unified translation');
-    this.translationExportUnifiedBtn.setAttribute('aria-label', 'Export unified translation');
+    this.translationExportUnifiedBtn.className =
+      'review-btn review-btn-primary review-btn-block review-btn-sm';
+    this.translationExportUnifiedBtn.setAttribute(
+      'data-action',
+      'export-translation-unified'
+    );
+    this.translationExportUnifiedBtn.setAttribute(
+      'title',
+      'Export unified translation'
+    );
+    this.translationExportUnifiedBtn.setAttribute(
+      'aria-label',
+      'Export unified translation'
+    );
     this.translationExportUnifiedBtn.textContent = 'Export Unified';
     this.translationExportUnifiedBtn.disabled = true;
     this.translationExportUnifiedBtn.addEventListener('click', () => {
@@ -592,10 +674,20 @@ export class UnifiedSidebar {
     translationExportDiv.appendChild(this.translationExportUnifiedBtn);
 
     this.translationExportSeparatedBtn = document.createElement('button');
-    this.translationExportSeparatedBtn.className = 'review-btn review-btn-secondary review-btn-block review-btn-sm';
-    this.translationExportSeparatedBtn.setAttribute('data-action', 'export-translation-separated');
-    this.translationExportSeparatedBtn.setAttribute('title', 'Export separated translation');
-    this.translationExportSeparatedBtn.setAttribute('aria-label', 'Export separated translation');
+    this.translationExportSeparatedBtn.className =
+      'review-btn review-btn-secondary review-btn-block review-btn-sm';
+    this.translationExportSeparatedBtn.setAttribute(
+      'data-action',
+      'export-translation-separated'
+    );
+    this.translationExportSeparatedBtn.setAttribute(
+      'title',
+      'Export separated translation'
+    );
+    this.translationExportSeparatedBtn.setAttribute(
+      'aria-label',
+      'Export separated translation'
+    );
     this.translationExportSeparatedBtn.textContent = 'Export Separated';
     this.translationExportSeparatedBtn.disabled = true;
     this.translationExportSeparatedBtn.addEventListener('click', () => {
@@ -606,10 +698,20 @@ export class UnifiedSidebar {
     section.appendChild(translationExportDiv);
 
     this.clearModelCacheBtn = document.createElement('button');
-    this.clearModelCacheBtn.className = 'review-btn review-btn-secondary review-btn-block review-btn-sm';
-    this.clearModelCacheBtn.setAttribute('data-action', 'clear-local-model-cache');
-    this.clearModelCacheBtn.setAttribute('title', 'Clear cached local translation models');
-    this.clearModelCacheBtn.setAttribute('aria-label', 'Clear cached local translation models');
+    this.clearModelCacheBtn.className =
+      'review-btn review-btn-secondary review-btn-block review-btn-sm';
+    this.clearModelCacheBtn.setAttribute(
+      'data-action',
+      'clear-local-model-cache'
+    );
+    this.clearModelCacheBtn.setAttribute(
+      'title',
+      'Clear cached local translation models'
+    );
+    this.clearModelCacheBtn.setAttribute(
+      'aria-label',
+      'Clear cached local translation models'
+    );
     this.clearModelCacheBtn.textContent = 'Clear Local Model Cache';
     this.clearModelCacheBtn.disabled = true;
     this.clearModelCacheBtn.addEventListener('click', () => {
@@ -619,9 +721,13 @@ export class UnifiedSidebar {
 
     // Exit translation mode button
     this.exitTranslationBtn = document.createElement('button');
-    this.exitTranslationBtn.className = 'review-btn review-btn-danger review-btn-block';
+    this.exitTranslationBtn.className =
+      'review-btn review-btn-danger review-btn-block';
     this.exitTranslationBtn.setAttribute('data-action', 'exit-translation');
-    this.exitTranslationBtn.setAttribute('title', 'Exit translation mode and merge changes');
+    this.exitTranslationBtn.setAttribute(
+      'title',
+      'Exit translation mode and merge changes'
+    );
     this.exitTranslationBtn.setAttribute('aria-label', 'Exit translation mode');
     this.exitTranslationBtn.textContent = 'Exit Translation';
     this.exitTranslationBtn.addEventListener('click', () => {
@@ -676,7 +782,9 @@ export class UnifiedSidebar {
     }
 
     if (this.commentsSectionToggle) {
-      const chevron = this.commentsSectionToggle.querySelector('.review-icon-chevron');
+      const chevron = this.commentsSectionToggle.querySelector(
+        '.review-icon-chevron'
+      );
       if (chevron) {
         (chevron as HTMLElement).style.transform = this.commentsExpanded
           ? 'rotate(-90deg)'
@@ -684,7 +792,9 @@ export class UnifiedSidebar {
       }
     }
 
-    logger.debug('Comments section toggled', { expanded: this.commentsExpanded });
+    logger.debug('Comments section toggled', {
+      expanded: this.commentsExpanded,
+    });
   }
 
   /**
@@ -695,11 +805,16 @@ export class UnifiedSidebar {
 
     // Update sidebar title
     if (this.sidebarTitle) {
-      this.sidebarTitle.textContent = active ? 'Translation Tools' : 'Review Tools';
+      this.sidebarTitle.textContent = active
+        ? 'Translation Tools'
+        : 'Review Tools';
     }
 
     if (this.toggleBtn?.parentElement) {
-      this.toggleBtn.parentElement.setAttribute('data-sidebar-label', active ? 'Translation' : 'Review');
+      this.toggleBtn.parentElement.setAttribute(
+        'data-sidebar-label',
+        active ? 'Translation' : 'Review'
+      );
     }
 
     // Show/hide review sections
@@ -748,7 +863,6 @@ export class UnifiedSidebar {
     }
 
     if (!active) {
-      this.translationBusy = false;
       this.setTranslationProgress({ phase: 'idle', message: '' });
     }
 
@@ -791,13 +905,13 @@ export class UnifiedSidebar {
       const list = document.createElement('div');
       list.className = 'review-comments-list';
 
-      snapshot.comments.forEach((comment, index) => {
-        const item = this.renderComment(snapshot, comment, index);
+      snapshot.comments.forEach((comment) => {
+        const item = this.renderComment(snapshot, comment);
         list.appendChild(item);
       });
 
       section.appendChild(list);
-      this.commentsContent.appendChild(section);
+      this.commentsContent?.appendChild(section);
     });
 
     logger.debug('Comments refreshed', { count: this.commentSections.length });
@@ -808,20 +922,19 @@ export class UnifiedSidebar {
    */
   private renderComment(
     snapshot: SectionCommentSnapshot,
-    comment: Comment,
-    index: number
+    comment: Comment
   ): HTMLElement {
     const item = document.createElement('div');
     item.className = 'review-comment-item';
     item.dataset.elementId = snapshot.element.id;
-    item.dataset.commentKey = comment.key;
+    item.dataset.commentKey = comment.id;
 
     item.addEventListener('click', () => {
-      this.commentsCallbacks?.onNavigate(snapshot.element.id, comment.key);
+      this.commentsCallbacks?.onNavigate(snapshot.element.id, comment.id);
     });
 
     item.addEventListener('mouseenter', () => {
-      this.commentsCallbacks?.onHover(snapshot.element.id, comment.key);
+      this.commentsCallbacks?.onHover(snapshot.element.id, comment.id);
     });
 
     item.addEventListener('mouseleave', () => {
@@ -833,7 +946,7 @@ export class UnifiedSidebar {
 
     const author = document.createElement('div');
     author.className = 'review-comment-author';
-    author.textContent = comment.author || 'Anonymous';
+    author.textContent = comment.userId || 'Anonymous';
     header.appendChild(author);
 
     const date = document.createElement('div');
@@ -845,7 +958,7 @@ export class UnifiedSidebar {
 
     const text = document.createElement('div');
     text.className = 'review-comment-text';
-    text.textContent = comment.text;
+    text.textContent = comment.content;
     item.appendChild(text);
 
     const actions = document.createElement('div');
@@ -879,7 +992,6 @@ export class UnifiedSidebar {
   // ============================================
 
   setCollapsed(collapsed: boolean): void {
-    this.collapsed = collapsed;
     if (!this.element) return;
 
     if (collapsed) {
@@ -895,9 +1007,18 @@ export class UnifiedSidebar {
       if (chevron) {
         chevron.textContent = collapsed ? '›' : '‹';
       }
-      this.toggleBtn.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
-      this.toggleBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
-      this.toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+      this.toggleBtn.setAttribute(
+        'title',
+        collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+      );
+      this.toggleBtn.setAttribute(
+        'aria-label',
+        collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+      );
+      this.toggleBtn.setAttribute(
+        'aria-expanded',
+        collapsed ? 'false' : 'true'
+      );
     }
   }
 
@@ -930,19 +1051,25 @@ export class UnifiedSidebar {
   }
 
   setTranslationBusy(busy: boolean): void {
-    this.translationBusy = busy;
-
     if (this.translateDocumentBtn) {
-      this.translateDocumentBtn.textContent = busy ? 'Translating…' : this.translateDocumentDefaultLabel;
+      this.translateDocumentBtn.textContent = busy
+        ? 'Translating…'
+        : this.translateDocumentDefaultLabel;
     }
 
     if (this.translateSentenceBtn) {
-      this.translateSentenceBtn.textContent = busy ? 'Translating…' : this.translateSentenceDefaultLabel;
+      this.translateSentenceBtn.textContent = busy
+        ? 'Translating…'
+        : this.translateSentenceDefaultLabel;
     }
   }
 
   setTranslationProgress(status: TranslationSidebarProgress): void {
-    if (!this.translationProgressContainer || !this.translationProgressBar || !this.translationProgressText) {
+    if (
+      !this.translationProgressContainer ||
+      !this.translationProgressBar ||
+      !this.translationProgressText
+    ) {
       return;
     }
 
@@ -954,9 +1081,10 @@ export class UnifiedSidebar {
       return;
     }
 
-    const percent = typeof status.percent === 'number'
-      ? Math.max(0, Math.min(100, status.percent))
-      : null;
+    const percent =
+      typeof status.percent === 'number'
+        ? Math.max(0, Math.min(100, status.percent))
+        : null;
 
     this.translationProgressContainer.style.display = '';
     this.translationProgressContainer.setAttribute('data-phase', status.phase);
@@ -969,7 +1097,8 @@ export class UnifiedSidebar {
       this.translationProgressBar.style.width = '15%';
     }
 
-    this.translationProgressText.textContent = status.message || (status.phase === 'running' ? 'Translating…' : '');
+    this.translationProgressText.textContent =
+      status.message || (status.phase === 'running' ? 'Translating…' : '');
   }
 
   updateTranslationProviders(providers: string[]): void {
@@ -983,7 +1112,10 @@ export class UnifiedSidebar {
     });
   }
 
-  updateTranslationLanguages(sourceLanguages: string[], targetLanguages: string[]): void {
+  updateTranslationLanguages(
+    sourceLanguages: string[],
+    targetLanguages: string[]
+  ): void {
     if (this.sourceLanguageSelector) {
       this.sourceLanguageSelector.innerHTML = '';
       sourceLanguages.forEach((lang) => {
@@ -1030,7 +1162,10 @@ export class UnifiedSidebar {
       this.translationBtn.classList.add('review-btn-active');
     } else {
       this.translationBtn.textContent = '🌐 Open Translation';
-      this.translationBtn.setAttribute('title', 'Open translation UI for document translation');
+      this.translationBtn.setAttribute(
+        'title',
+        'Open translation UI for document translation'
+      );
       this.translationBtn.classList.remove('review-btn-active');
     }
   }
@@ -1056,7 +1191,8 @@ export class UnifiedSidebar {
   private updateSubmitReviewButtonState(): void {
     if (!this.submitReviewBtn) return;
     const hasHandler = typeof this.onSubmitReviewCallback === 'function';
-    const canClick = hasHandler && this.submitReviewEnabled && !this.submitReviewPending;
+    const canClick =
+      hasHandler && this.submitReviewEnabled && !this.submitReviewPending;
     this.submitReviewBtn.disabled = !canClick;
     this.submitReviewBtn.classList.toggle('review-btn-disabled', !canClick);
   }
@@ -1065,13 +1201,19 @@ export class UnifiedSidebar {
     const cleanEnabled = typeof this.onExportCleanCallback === 'function';
     if (this.exportCleanBtn) {
       this.exportCleanBtn.disabled = !cleanEnabled;
-      this.exportCleanBtn.classList.toggle('review-btn-disabled', !cleanEnabled);
+      this.exportCleanBtn.classList.toggle(
+        'review-btn-disabled',
+        !cleanEnabled
+      );
     }
 
     const criticEnabled = typeof this.onExportCriticCallback === 'function';
     if (this.exportCriticBtn) {
       this.exportCriticBtn.disabled = !criticEnabled;
-      this.exportCriticBtn.classList.toggle('review-btn-disabled', !criticEnabled);
+      this.exportCriticBtn.classList.toggle(
+        'review-btn-disabled',
+        !criticEnabled
+      );
     }
   }
 
