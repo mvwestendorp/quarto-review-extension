@@ -186,7 +186,59 @@
 <a name='L121'></a><a href='#L121'>121</a>
 <a name='L122'></a><a href='#L122'>122</a>
 <a name='L123'></a><a href='#L123'>123</a>
-<a name='L124'></a><a href='#L124'>124</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L124'></a><a href='#L124'>124</a>
+<a name='L125'></a><a href='#L125'>125</a>
+<a name='L126'></a><a href='#L126'>126</a>
+<a name='L127'></a><a href='#L127'>127</a>
+<a name='L128'></a><a href='#L128'>128</a>
+<a name='L129'></a><a href='#L129'>129</a>
+<a name='L130'></a><a href='#L130'>130</a>
+<a name='L131'></a><a href='#L131'>131</a>
+<a name='L132'></a><a href='#L132'>132</a>
+<a name='L133'></a><a href='#L133'>133</a>
+<a name='L134'></a><a href='#L134'>134</a>
+<a name='L135'></a><a href='#L135'>135</a>
+<a name='L136'></a><a href='#L136'>136</a>
+<a name='L137'></a><a href='#L137'>137</a>
+<a name='L138'></a><a href='#L138'>138</a>
+<a name='L139'></a><a href='#L139'>139</a>
+<a name='L140'></a><a href='#L140'>140</a>
+<a name='L141'></a><a href='#L141'>141</a>
+<a name='L142'></a><a href='#L142'>142</a>
+<a name='L143'></a><a href='#L143'>143</a>
+<a name='L144'></a><a href='#L144'>144</a>
+<a name='L145'></a><a href='#L145'>145</a>
+<a name='L146'></a><a href='#L146'>146</a>
+<a name='L147'></a><a href='#L147'>147</a>
+<a name='L148'></a><a href='#L148'>148</a>
+<a name='L149'></a><a href='#L149'>149</a>
+<a name='L150'></a><a href='#L150'>150</a>
+<a name='L151'></a><a href='#L151'>151</a>
+<a name='L152'></a><a href='#L152'>152</a>
+<a name='L153'></a><a href='#L153'>153</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -309,6 +361,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * UI State Objects
  *
@@ -363,13 +421,36 @@ export interface ContextMenuState {
  * Translation state - all properties related to translation mode
  */
 export interface TranslationState {
+  /** Whether translation mode is active */
   isActive: boolean;
+  /** Currently selected source sentence ID */
   selectedSourceSentenceId: string | null;
+  /** Currently selected target sentence ID */
   selectedTargetSentenceId: string | null;
-  isBusy: boolean;
-  progressPhase: 'idle' | 'running' | 'success' | 'error';
-  progressMessage: string;
-  progressPercent?: number;
+  /** Translation mode: manual entry or automatic translation */
+  mode: 'manual' | 'automatic';
+  /** Whether a translation operation is in progress */
+  busy: boolean;
+  /** Source language code */
+  sourceLanguage: string;
+  /** Target language code */
+  targetLanguage: string;
+  /** Currently active translation provider */
+  activeProvider: string;
+  /** Show correspondence lines between sentences */
+  showCorrespondenceLines: boolean;
+  /** Highlight corresponding sentences on hover */
+  highlightOnHover: boolean;
+  /** IDs of sentences currently being translated */
+  loadingSentences: Set&lt;string&gt;;
+  /** Error messages for sentences that failed translation */
+  sentenceErrors: Map&lt;string, string&gt;;
+  /** Current translation progress status */
+  progressStatus: {
+    phase: 'idle' | 'running' | 'success' | 'error';
+    message: string;
+    percent?: number;
+  } | null;
 }
 &nbsp;
 /**
@@ -426,10 +507,16 @@ export function createInitialTranslationState(): TranslationState {
     isActive: false,
     selectedSourceSentenceId: null,
     selectedTargetSentenceId: null,
-    isBusy: false,
-    progressPhase: 'idle',
-    progressMessage: '',
-    progressPercent: undefined,
+    mode: 'automatic',
+    busy: false,
+    sourceLanguage: 'en',
+    targetLanguage: 'nl',
+    activeProvider: 'manual',
+    showCorrespondenceLines: true,
+    highlightOnHover: true,
+    loadingSentences: new Set(),
+    sentenceErrors: new Map(),
+    progressStatus: null,
   };
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -439,7 +526,7 @@ export function createInitialTranslationState(): TranslationState {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-06T07:40:24.202Z
+                at 2025-11-06T12:03:34.566Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

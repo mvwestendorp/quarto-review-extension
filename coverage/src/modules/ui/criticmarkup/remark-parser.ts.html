@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.64% </span>
+                <span class="strong">94.69% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>106/112</span>
+                <span class='fraction'>107/113</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.05% </span>
+                <span class="strong">97.08% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>99/102</span>
+                <span class='fraction'>100/103</span>
             </div>
         
             
@@ -361,7 +361,16 @@
 <a name='L296'></a><a href='#L296'>296</a>
 <a name='L297'></a><a href='#L297'>297</a>
 <a name='L298'></a><a href='#L298'>298</a>
-<a name='L299'></a><a href='#L299'>299</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L299'></a><a href='#L299'>299</a>
+<a name='L300'></a><a href='#L300'>300</a>
+<a name='L301'></a><a href='#L301'>301</a>
+<a name='L302'></a><a href='#L302'>302</a>
+<a name='L303'></a><a href='#L303'>303</a>
+<a name='L304'></a><a href='#L304'>304</a>
+<a name='L305'></a><a href='#L305'>305</a>
+<a name='L306'></a><a href='#L306'>306</a>
+<a name='L307'></a><a href='#L307'>307</a>
+<a name='L308'></a><a href='#L308'>308</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -597,13 +606,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">16x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -612,6 +614,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -642,6 +658,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">63x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -890,9 +908,10 @@ function deepCleanNode(node: any): any {
   return cleaned;
 }
 &nbsp;
-interface CriticMarkupNode extends Parent {
+interface CriticMarkupNode {
   type: 'criticMarkup';
   markup: string;
+  children: Array&lt;Text&gt;;
 }
 &nbsp;
 const CRITIC_DELIMITERS: Record&lt;string, [string, string]&gt; = {
@@ -909,8 +928,14 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
     { character: '}', inConstruct: 'phrasing' },
   ],
   handlers: {
-    criticMarkup: ((node, _parent, state, info) =&gt; {
-      const { markup } = node as CriticMarkupNode;
+    criticMarkup: ((
+      node: Node,
+      _parent: Parent | undefined,
+      state: any,
+      info: any
+    ) =&gt; {
+      const criticNode = node as CriticMarkupNode;
+      const { markup } = criticNode;
       const [open, close] = CRITIC_DELIMITERS[markup] ?? <span class="branch-1 cbranch-no" title="branch not covered" >['', ''];</span>
 &nbsp;
       const tracker = state.createTracker(info);
@@ -920,8 +945,8 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
 &nbsp;
       // Extract text content directly from children instead of using containerPhrasing
       // This avoids accessing editorView context during serialization
-      <span class="missing-if-branch" title="else path not taken" >E</span>if (node.children &amp;&amp; Array.isArray(node.children)) {
-        for (const child of node.children) {
+      <span class="missing-if-branch" title="else path not taken" >E</span>if (criticNode.children &amp;&amp; Array.isArray(criticNode.children)) {
+        for (const child of criticNode.children) {
           <span class="missing-if-branch" title="else path not taken" >E</span>if (child.type === 'text' &amp;&amp; 'value' in child) {
             value += tracker.move(String(child.value));
           }
@@ -939,7 +964,9 @@ const criticMarkupToMarkdown: ToMarkdownExtension = {
  * Remark plugin to transform CriticMarkup syntax into Milkdown-compatible tokens
  * Uses manual tree walking instead of unist-util-visit to avoid circular references
  */
-export const remarkCriticMarkupMilkdown: Plugin&lt;[], Root&gt; = function () {
+export const remarkCriticMarkupMilkdown: Plugin&lt;[], Root&gt; = function (
+  this: any
+) {
   // Register custom toMarkdown handler so CriticMarkup serializes correctly
   const data = this.data();
   const toMarkdown =
@@ -964,7 +991,7 @@ export default remarkCriticMarkupMilkdown;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-06T07:40:24.202Z
+                at 2025-11-06T12:03:34.566Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
