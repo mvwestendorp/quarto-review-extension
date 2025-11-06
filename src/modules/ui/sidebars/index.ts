@@ -2,12 +2,17 @@
  * Sidebars Module
  *
  * Provides sidebar functionality for the UI module, including:
- * - Main sidebar with persistent toolbar controls
+ * - Unified sidebar with review tools, comments, and translation controls
  * - Context menu for quick actions
  *
  * @module sidebars
  */
 
-export { MainSidebar } from './MainSidebar';
+export { UnifiedSidebar } from './UnifiedSidebar';
+export type { CommentsSidebarCallbacks } from './UnifiedSidebar';
 export { ContextMenu } from './ContextMenu';
 export type { MenuPosition } from './ContextMenu';
+
+// Legacy exports (deprecated)
+export { MainSidebar } from './MainSidebar';
+export { CommentsSidebar } from '../comments/CommentsSidebar';

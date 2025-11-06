@@ -568,17 +568,6 @@ export function getDefaultCommands(
       enabled: () => true,
     },
     {
-      id: 'toggle-comments',
-      name: 'Toggle Comments Sidebar',
-      description: 'Show or hide the comments panel',
-      shortcut: 'Cmd+Shift+C',
-      category: 'view',
-      handler: () => {
-        uiModule.toggleCommentsSidebar();
-      },
-      enabled: () => true,
-    },
-    {
       id: 'toggle-sidebar',
       name: 'Toggle Review Toolbar',
       description: 'Show or hide the review toolbar',

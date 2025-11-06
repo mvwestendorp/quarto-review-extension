@@ -2317,8 +2317,42 @@ export class UIModule {
   }
 
   private refreshCommentUI(options: { showSidebar?: boolean } = {}): void {
-    this.commentController.refreshUI({
-      showSidebar: options.showSidebar,
+    // Get sections from CommentController
+    const sections = this.commentController.getSectionComments();
+
+    // Update UnifiedSidebar with comments
+    this.unifiedSidebar.updateComments(sections, {
+      onNavigate: (elementId, commentKey) => {
+        this.commentController.focusCommentAnchor(elementId, commentKey);
+      },
+      onRemove: (_elementId, comment) => {
+        this.commentController.removeComment(comment.id);
+        this.commentController.clearHighlight();
+      },
+      onEdit: (elementId, comment) => {
+        void this.commentController.openComposer({
+          elementId,
+          existingComment: comment.content,
+          commentId: comment.id,
+          commentKey: `${elementId}:${comment.id}`,
+        });
+      },
+      onHover: (elementId, commentKey) => {
+        this.commentController.highlightSection(elementId, 'hover', commentKey);
+      },
+      onLeave: () => {
+        this.commentController.clearHighlight('hover');
+      },
+    });
+
+    // Sync badges
+    this.commentBadgesModule?.syncIndicators(sections, {
+      onShowComments: (elementId, commentKey) => {
+        // Sidebar is always visible in unified mode, just need to scroll to comment
+        if (commentKey) {
+          this.commentController.focusCommentAnchor(elementId, commentKey);
+        }
+      },
     });
   }
 
