@@ -67,8 +67,14 @@ import {
   type EditorCallbacks,
 } from '@/services/EditorManager';
 import { StateStore } from '@/services/StateStore';
+import type { ReviewComment } from '@modules/git';
 
 const logger = createModuleLogger('UIModule');
+
+type GitReviewSession = {
+  branchName: string;
+  pullRequestNumber?: number;
+};
 
 export interface UIConfig {
   changes: ChangesModule;
@@ -291,7 +297,7 @@ export class UIModule {
         }
       },
       onEditorSaved: () => {
-        // Placeholder for future save-specific logic
+        this.handleEditorSaved();
       },
       createEditorModal: (content, type) =>
         this.createEditorModal(content, type),
@@ -352,7 +358,14 @@ export class UIModule {
       this.toggleSidebarCollapsed();
     });
     this.unifiedSidebar.onClearDrafts(() => {
-      void this.persistenceManager.confirmAndClearLocalDrafts();
+      void this.persistenceManager
+        .confirmAndClearLocalDrafts()
+        .then(() => {
+          this.clearGitSession();
+        })
+        .catch((error) => {
+          logger.warn('Failed to clear local drafts', error);
+        });
     });
 
     this.cacheInitialHeadingReferences();
@@ -950,6 +963,11 @@ export class UIModule {
     this.editorManager.closeEditor();
   }
 
+  private handleEditorSaved(): void {
+    logger.debug('Editor content saved - persisting document');
+    this.persistenceManager.persistDocument();
+  }
+
   private saveEditor(): void {
     const editorState = this.stateStore.getEditorState();
     if (!editorState.milkdownEditor || !editorState.currentElementId) return;
@@ -1060,36 +1078,67 @@ export class UIModule {
 
     const reviewer = this.getReviewerDisplayName();
     const repoConfig = this.reviewService.getRepositoryConfig();
-    const baseBranch = repoConfig?.baseBranch ?? 'main';
-    const format: ExportFormat = this.stateStore.getEditorState()
-      .showTrackedChanges
-      ? 'critic'
-      : 'clean';
+    const baseBranchHint = repoConfig?.baseBranch ?? 'main';
+    const format: ExportFormat = 'clean';
 
-    const initialValues = this.buildReviewInitialValues(reviewer, baseBranch);
+    const existingSession = await this.getActiveGitSession();
+    const branchName =
+      existingSession?.branchName ?? this.generateSuggestedBranchName(reviewer);
+    const pullRequestNumber = existingSession?.pullRequestNumber;
+
+    const requirePat = this.reviewService.requiresAuthToken();
+    const storedPatToken = this.loadStoredPatToken();
+    if (requirePat && storedPatToken) {
+      this.reviewService.updateAuthToken(storedPatToken);
+    }
+
+    const initialValues = this.buildReviewInitialValues({
+      reviewer,
+      baseBranch: baseBranchHint,
+      branchName,
+      commitMessage: `Review updates from ${reviewer}`,
+      pullRequestTitle: `Review updates from ${reviewer}`,
+      pullRequestBody: this.buildPullRequestBody(reviewer),
+      draft: false,
+      requirePat: requirePat && !storedPatToken,
+      patToken: requirePat && !storedPatToken ? '' : (storedPatToken ?? ''),
+      repositorySummary: repoConfig
+        ? `${repoConfig.owner}/${repoConfig.name}`
+        : undefined,
+      repositoryUrl: repoConfig
+        ? `https://github.com/${repoConfig.owner}/${repoConfig.name}`
+        : undefined,
+    });
     const modal = this.getReviewSubmissionModal();
     const formValues = await modal.open(initialValues);
     if (!formValues) {
       return;
     }
 
-    const resolvedReviewer = formValues.reviewer.trim() || reviewer;
-    const resolvedBranch = this.sanitizeBranchName(
-      formValues.branchName.trim() || initialValues.branchName
-    );
-    const resolvedBaseBranch = formValues.baseBranch.trim() || baseBranch;
+    let activePatToken = storedPatToken;
+    if (formValues.requirePat) {
+      const supplied = formValues.patToken?.trim();
+      if (!supplied) {
+        this.showNotification(
+          'A personal access token is required to submit this review.',
+          'error'
+        );
+        return;
+      }
+      activePatToken = supplied;
+    }
+    if (activePatToken && requirePat) {
+      this.savePatToken(activePatToken);
+      this.reviewService.updateAuthToken(activePatToken);
+    }
+
     const resolvedCommitMessage =
       formValues.commitMessage.trim() || initialValues.commitMessage;
     const resolvedTitle =
       formValues.pullRequestTitle.trim() || initialValues.pullRequestTitle;
     const resolvedBody = formValues.pullRequestBody.trim();
-    const patToken = formValues.patToken;
-
-    if (formValues.requirePat) {
-      this.reviewService.updateAuthToken(patToken);
-    } else if (patToken) {
-      this.reviewService.updateAuthToken(patToken);
-    }
+    const targetPath = this.getCurrentSourceFilename();
+    const reviewComments = this.buildReviewComments(targetPath);
 
     const loading = this.showLoading('Submitting review to Git…');
     this.isSubmittingReview = true;
@@ -1097,19 +1146,30 @@ export class UIModule {
 
     try {
       const context = await this.reviewService.submitReview({
-        reviewer: resolvedReviewer,
-        branchName: resolvedBranch,
-        baseBranch: resolvedBaseBranch,
+        reviewer,
+        branchName,
+        baseBranch: baseBranchHint,
         commitMessage: resolvedCommitMessage,
         format,
         pullRequest: {
           title: resolvedTitle,
           body: resolvedBody,
           draft: formValues.draft,
+          updateExisting: pullRequestNumber ? true : undefined,
+          number: pullRequestNumber,
         },
+        comments: reviewComments,
       });
 
       const pr = context.result.pullRequest;
+      if (pr.state === 'open') {
+        this.saveGitSession({
+          branchName: context.result.branchName,
+          pullRequestNumber: pr.number,
+        });
+      } else {
+        this.clearGitSession();
+      }
       const message = pr.url
         ? `Review submitted: ${pr.url}`
         : `Review submitted: PR #${pr.number}`;
@@ -1149,20 +1209,11 @@ export class UIModule {
   }
 
   private buildReviewInitialValues(
-    reviewer: string,
-    baseBranch: string
+    values: ReviewSubmissionInitialValues
   ): ReviewSubmissionInitialValues {
-    const requirePat = this.reviewService!.requiresAuthToken();
     return {
-      reviewer,
-      baseBranch,
-      branchName: this.generateSuggestedBranchName(reviewer),
-      commitMessage: `Review updates from ${reviewer}`,
-      pullRequestTitle: `Review updates from ${reviewer}`,
-      pullRequestBody: this.buildPullRequestBody(reviewer),
-      draft: false,
-      requirePat,
-      patToken: '',
+      ...values,
+      patToken: values.patToken ?? '',
     };
   }
 
@@ -1196,6 +1247,166 @@ export class UIModule {
       .replace(/-+/g, '-')
       .replace(/^-+|-+$/g, '');
     return cleaned || 'review-branch';
+  }
+
+  private getCurrentSourceFilename(): string {
+    const configured = this.reviewService
+      ?.getRepositoryConfig()
+      ?.sourceFile?.trim();
+    if (configured) {
+      return configured;
+    }
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname || '';
+      const segments = path.split('/').filter(Boolean);
+      const last = segments.pop();
+      if (last) {
+        return last.replace(/\.html?$/i, '.qmd');
+      }
+    }
+    return 'document.qmd';
+  }
+
+  private buildReviewComments(path: string): ReviewComment[] {
+    if (!this.config.comments) {
+      return [];
+    }
+    const comments = this.config.comments.getAllComments();
+    const results: ReviewComment[] = [];
+    comments.forEach((comment) => {
+      if (comment.resolved) {
+        return;
+      }
+      const element = this.config.changes.getElementById(comment.elementId);
+      const line = element?.sourcePosition?.line;
+      if (!line) {
+        return;
+      }
+      const body = comment.content?.trim();
+      if (!body) {
+        return;
+      }
+      results.push({
+        path,
+        line,
+        body,
+      });
+    });
+    return results;
+  }
+
+  private getPatStorageKey(): string | null {
+    if (!this.reviewService) {
+      return null;
+    }
+    const repo = this.reviewService.getRepositoryConfig();
+    if (!repo) {
+      return null;
+    }
+    return `quarto-review:git-pat:${repo.owner}/${repo.name}`;
+  }
+
+  private loadStoredPatToken(): string | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    try {
+      const key = this.getPatStorageKey();
+      return key ? window.localStorage.getItem(key) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private savePatToken(token: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const key = this.getPatStorageKey();
+    if (!key) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(key, token);
+    } catch {
+      // Ignore storage failures
+    }
+  }
+
+  private getGitSessionStorageKey(): string | null {
+    const repo = this.reviewService?.getRepositoryConfig();
+    if (!repo) {
+      return null;
+    }
+    const draftFilename =
+      typeof this.localPersistence?.getFilename === 'function'
+        ? this.localPersistence.getFilename()
+        : 'review-draft.json';
+    return `quarto-review:git-session:${repo.owner}/${repo.name}:${draftFilename}`;
+  }
+
+  private loadGitSession(): GitReviewSession | null {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    const key = this.getGitSessionStorageKey();
+    if (!key) return null;
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return null;
+      return JSON.parse(raw) as GitReviewSession;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getActiveGitSession(): Promise<GitReviewSession | null> {
+    const session = this.loadGitSession();
+    if (!session?.pullRequestNumber || !this.reviewService) {
+      return session;
+    }
+    try {
+      const pr = await this.reviewService.getPullRequest(
+        session.pullRequestNumber
+      );
+      if (!pr || pr.state !== 'open') {
+        this.clearGitSession();
+        return null;
+      }
+      return session;
+    } catch {
+      return session;
+    }
+  }
+
+  private saveGitSession(session: GitReviewSession): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const key = this.getGitSessionStorageKey();
+    if (!key) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(key, JSON.stringify(session));
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  private clearGitSession(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const key = this.getGitSessionStorageKey();
+    if (!key) {
+      return;
+    }
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // noop
+    }
   }
 
   private createEditorModal(_content: string, type: string): HTMLElement {

@@ -12,7 +12,8 @@ export type ElementType =
   | 'Div'
   | 'FigureCaption'
   | 'TableCaption'
-  | 'DocumentTitle';
+  | 'DocumentTitle'
+  | 'Title';
 
 export type OperationType = 'insert' | 'delete' | 'edit' | 'move';
 

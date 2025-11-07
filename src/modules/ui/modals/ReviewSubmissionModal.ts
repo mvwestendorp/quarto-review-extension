@@ -8,6 +8,8 @@ export interface ReviewSubmissionInitialValues {
   draft: boolean;
   requirePat: boolean;
   patToken?: string;
+  repositorySummary?: string;
+  repositoryUrl?: string;
 }
 
 export type ReviewSubmissionFormValues = ReviewSubmissionInitialValues;
@@ -64,18 +66,25 @@ export class ReviewSubmissionModal {
         <button type="button" class="review-btn review-btn-secondary" data-action="cancel">✕</button>
       </div>
       <div class="review-editor-body">
-        <label class="review-form-label">
-          <span>Reviewer</span>
-          <input name="reviewer" type="text" value="${escapeHtml(initial.reviewer)}" required />
-        </label>
-        <label class="review-form-label">
-          <span>Base branch</span>
-          <input name="baseBranch" type="text" value="${escapeHtml(initial.baseBranch)}" required />
-        </label>
-        <label class="review-form-label">
-          <span>Review branch</span>
-          <input name="branchName" type="text" value="${escapeHtml(initial.branchName)}" required />
-        </label>
+        <div class="review-form-summary">
+          ${
+            initial.repositorySummary
+              ? `<div><span>Repository</span><strong>${
+                  initial.repositoryUrl
+                    ? `<a href="${escapeHtml(initial.repositoryUrl)}" target="_blank" rel="noopener">${escapeHtml(
+                        initial.repositorySummary
+                      )}</a>`
+                    : escapeHtml(initial.repositorySummary)
+                }</strong></div>`
+              : ''
+          }
+          <div><span>Reviewer</span><strong>${escapeHtml(initial.reviewer)}</strong></div>
+          <div><span>Base branch</span><strong>${escapeHtml(initial.baseBranch)}</strong></div>
+          <div><span>Review branch</span><strong>${escapeHtml(initial.branchName)}</strong></div>
+        </div>
+        <input name="reviewer" type="hidden" value="${escapeHtml(initial.reviewer)}" />
+        <input name="baseBranch" type="hidden" value="${escapeHtml(initial.baseBranch)}" />
+        <input name="branchName" type="hidden" value="${escapeHtml(initial.branchName)}" />
         <label class="review-form-label">
           <span>Commit message</span>
           <input name="commitMessage" type="text" value="${escapeHtml(initial.commitMessage)}" required />
@@ -149,7 +158,7 @@ export class ReviewSubmissionModal {
       'draft'
     ) as HTMLInputElement | null;
 
-    let patToken: string | undefined;
+    let patToken: string | undefined = initial.patToken;
     if (initial.requirePat) {
       const patInput = form.elements.namedItem(
         'patToken'

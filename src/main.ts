@@ -265,6 +265,7 @@ export class QuartoReview {
           // Schedule persistence on next animation frame to batch rapid operations
           requestAnimationFrame(() => {
             try {
+              logger.debug('Persist operation triggered - saving to storage');
               self.ui.persistDocument();
               logger.debug('Persisted operation to localStorage');
             } catch (error) {
@@ -272,6 +273,7 @@ export class QuartoReview {
             }
           });
         });
+        logger.info('Persistence auto-save extension registered');
       },
     });
 

@@ -2,6 +2,7 @@ import { createModuleLogger } from '@utils/debug';
 import type { BaseProvider, PullRequest } from './providers';
 import type { ResolvedGitConfig } from './types';
 import type { ReviewCommentInput } from './types';
+import type { EmbeddedSourceRecord } from './fallback';
 
 const logger = createModuleLogger('GitIntegration');
 
@@ -81,6 +82,34 @@ export class GitIntegrationService {
     private readonly provider: BaseProvider,
     private readonly config: ResolvedGitConfig
   ) {}
+
+  public async ensureRepositoryState(
+    sources: EmbeddedSourceRecord[],
+    fallbackBaseBranch: string
+  ): Promise<{ baseBranch: string }> {
+    const defaultBranch = fallbackBaseBranch || 'main';
+    if (!sources || sources.length === 0) {
+      return { baseBranch: defaultBranch };
+    }
+
+    try {
+      const repository = await this.provider.getRepository();
+      const resolvedBase = repository.defaultBranch || defaultBranch;
+      await this.seedRepositoryWithSources(sources, resolvedBase, false);
+      return { baseBranch: resolvedBase };
+    } catch (error) {
+      if (!this.isRepositoryMissingError(error)) {
+        throw error;
+      }
+      const created = await this.provider.createRepository({
+        name: this.config.repository.name,
+        defaultBranch: defaultBranch,
+      });
+      const resolvedBase = created?.defaultBranch || defaultBranch;
+      await this.seedRepositoryWithSources(sources, resolvedBase, true);
+      return { baseBranch: resolvedBase };
+    }
+  }
 
   public getRepositoryConfig(): ResolvedGitConfig['repository'] {
     return this.config.repository;
@@ -295,6 +324,76 @@ export class GitIntegrationService {
       comments,
       commitSha
     );
+  }
+
+  private async seedRepositoryWithSources(
+    sources: EmbeddedSourceRecord[],
+    branch: string,
+    includeAll: boolean
+  ): Promise<void> {
+    for (const source of sources) {
+      if (!source?.filename || !this.shouldSeedSource(source.filename)) {
+        continue;
+      }
+
+      const content =
+        source.originalContent && source.originalContent.length > 0
+          ? source.originalContent
+          : source.content;
+
+      if (!includeAll) {
+        const existingFile = await this.provider
+          .getFileContent(source.filename, branch)
+          .catch(() => null);
+        if (existingFile) {
+          continue;
+        }
+      }
+
+      const message =
+        source.commitMessage ||
+        (includeAll
+          ? `Seed repository with ${source.filename}`
+          : `Add ${source.filename}`);
+
+      await this.provider.createOrUpdateFile(
+        source.filename,
+        content,
+        message,
+        branch,
+        undefined
+      );
+    }
+  }
+
+  private shouldSeedSource(filename: string): boolean {
+    return (
+      this.isQmdFile(filename) ||
+      this.isMdFile(filename) ||
+      this.isQuartoConfig(filename)
+    );
+  }
+
+  private isQmdFile(filename: string): boolean {
+    return filename.toLowerCase().endsWith('.qmd');
+  }
+
+  private isMdFile(filename: string): boolean {
+    return filename.toLowerCase().endsWith('.md');
+  }
+
+  private isQuartoConfig(filename: string): boolean {
+    const lower = filename.toLowerCase();
+    return lower === '_quarto.yml' || lower === '_quarto.yaml';
+  }
+
+  private isRepositoryMissingError(error: unknown): boolean {
+    const status = (error as Error & { status?: number })?.status;
+    if (status === 404) {
+      return true;
+    }
+    const message = (error as Error)?.message ?? '';
+    return /not found/i.test(message);
   }
 }
 

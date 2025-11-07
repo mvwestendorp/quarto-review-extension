@@ -18,6 +18,8 @@ describe('ReviewSubmissionModal', () => {
       pullRequestTitle: 'Review updates',
       pullRequestBody: 'Automated submission',
       draft: false,
+      requirePat: false,
+      patToken: '',
     };
   });
 
@@ -45,6 +47,8 @@ describe('ReviewSubmissionModal', () => {
       pullRequestTitle: 'My title',
       pullRequestBody: 'Details',
       draft: true,
+      requirePat: false,
+      patToken: '',
     });
     expect(document.querySelector('.review-review-form')).toBeNull();
   });

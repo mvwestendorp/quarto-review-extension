@@ -8,6 +8,13 @@ import type {
   ReviewCommentResult,
 } from '../types';
 
+export interface RepositoryInitOptions {
+  name: string;
+  description?: string;
+  private?: boolean;
+  defaultBranch?: string;
+}
+
 export interface ProviderConfig {
   url?: string;
   token?: string;
@@ -166,6 +173,18 @@ export abstract class BaseProvider {
   }>;
 
   /**
+   * Create the configured repository if it does not already exist.
+   * Implementations should return the default branch name for the new repository.
+   */
+  public async createRepository(
+    _options: RepositoryInitOptions
+  ): Promise<{ defaultBranch: string }> {
+    throw new Error(
+      'Repository creation is not supported for this git provider.'
+    );
+  }
+
+  /**
    * Determine whether the authenticated user has push/write access to the repository.
    */
   abstract hasWriteAccess(): Promise<boolean>;
@@ -271,6 +290,15 @@ export abstract class BaseProvider {
    * Build the authorization header. Return `undefined` if the provider relies on cookies.
    */
   protected abstract getAuthHeader(): string | undefined;
+
+  protected isNotFoundError(error: unknown): boolean {
+    const status = (error as Error & { status?: number })?.status;
+    if (status === 404) {
+      return true;
+    }
+    const message = (error as Error)?.message ?? '';
+    return /not found/i.test(message);
+  }
 }
 
 export default BaseProvider;

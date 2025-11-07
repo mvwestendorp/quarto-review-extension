@@ -7,6 +7,7 @@ import type {
 } from './integration';
 import QmdExportService, { type ExportFormat } from '@modules/export';
 import type { ResolvedGitConfig, GitProviderType } from './types';
+import type { PullRequest } from './providers';
 
 export interface SubmitReviewOptions {
   reviewer: string;
@@ -77,6 +78,16 @@ export class GitReviewService {
       );
     }
 
+    const projectSources = await this.git.listEmbeddedSources();
+    const fallbackBase =
+      options.baseBranch ??
+      this.git.getConfig()?.repository.baseBranch ??
+      'main';
+    const repositoryState = await this.git.ensureRepositoryInitialized(
+      projectSources,
+      fallbackBase
+    );
+
     const bundle = await this.exporter.createBundle({
       format: options.format,
     });
@@ -87,10 +98,7 @@ export class GitReviewService {
       reviewer: options.reviewer,
       files,
       branchName: options.branchName,
-      baseBranch:
-        options.baseBranch ??
-        this.git.getConfig()?.repository.baseBranch ??
-        'main',
+      baseBranch: repositoryState.baseBranch,
       commitMessage:
         options.commitMessage ?? `Update ${bundle.primaryFilename}`,
       pullRequest: {
@@ -155,6 +163,10 @@ export class GitReviewService {
     } catch (persistError) {
       console.warn('Failed to persist fallback review payload:', persistError);
     }
+  }
+
+  public async getPullRequest(number: number): Promise<PullRequest | null> {
+    return this.git.getPullRequest(number);
   }
 }
 

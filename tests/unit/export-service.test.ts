@@ -6,11 +6,23 @@ describe('QmdExportService', () => {
     options: {
       clean?: string;
       critic?: string;
+      title?: string;
     } = {}
   ) => ({
     toCleanMarkdown: vi.fn().mockReturnValue(options.clean ?? 'updated content'),
     toTrackedMarkdown: vi.fn().mockReturnValue(
       options.critic ?? 'tracked content'
+    ),
+    getCurrentState: vi.fn().mockReturnValue(
+      options.title
+        ? [
+            {
+              id: 'doc-title',
+              content: options.title,
+              metadata: { type: 'Title' },
+            },
+          ]
+        : []
     ),
   });
 
@@ -98,6 +110,39 @@ describe('QmdExportService', () => {
     expect(filenames).not.toContain('draft.json');
     expect(bundle.files).toHaveLength(3);
     expect(bundle.forceArchive).toBe(true);
+  });
+
+  it('reconstructs front matter and updates the title from editor state', async () => {
+    const changes = createChangesStub({
+      clean: '# Body Content',
+      title: 'Edited Title',
+    });
+    const git = createGitStub('debug-example.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'debug-example.qmd',
+        content: [
+          '---',
+          'title: "Debug Mode Example"',
+          'format: html',
+          '---',
+          '',
+          '# Original Body',
+        ].join('\n'),
+        originalContent: '',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+
+    const service = new QmdExportService(changes as any, { git: git as any });
+    const bundle = await service.createBundle();
+
+    const exported = bundle.files[0]?.content ?? '';
+    expect(exported.startsWith('---')).toBe(true);
+    expect(exported).toContain('title: "Edited Title"');
+    expect(exported).toContain('format: html');
+    expect(exported.trimEnd().endsWith('# Body Content')).toBe(true);
   });
 
   it('downloads a single file bundle directly', async () => {

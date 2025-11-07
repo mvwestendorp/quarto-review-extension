@@ -153,13 +153,15 @@ export class QmdExportService {
     format: ExportFormat,
     context: ProjectContext
   ): Promise<ExportedFile[]> {
+    const primaryContent = this.buildPrimaryDocument(
+      primaryFilename,
+      format,
+      context.sources
+    );
     const files: ExportedFile[] = [
       {
         filename: primaryFilename,
-        content:
-          format === 'critic'
-            ? this.changes.toTrackedMarkdown()
-            : this.changes.toCleanMarkdown(),
+        content: primaryContent,
         origin: 'active-document',
         primary: true,
       },
@@ -204,6 +206,123 @@ export class QmdExportService {
     });
 
     return files;
+  }
+
+  private buildPrimaryDocument(
+    primaryFilename: string,
+    format: ExportFormat,
+    sources: EmbeddedSourceRecord[]
+  ): string {
+    const body =
+      format === 'critic'
+        ? this.changes.toTrackedMarkdown()
+        : this.changes.toCleanMarkdown();
+    const sourceRecord = sources.find(
+      (record) => record.filename === primaryFilename
+    );
+    return this.mergeFrontMatter(sourceRecord?.content, body);
+  }
+
+  private mergeFrontMatter(
+    originalContent: string | undefined,
+    body: string
+  ): string {
+    const currentTitle = this.getCurrentDocumentTitle();
+    const normalizedBody = body.replace(/^\s+/, '');
+
+    if (!originalContent) {
+      if (!currentTitle) {
+        return normalizedBody;
+      }
+      const frontMatter = this.buildFrontMatterFromTitle(currentTitle);
+      return `${frontMatter}\n\n${normalizedBody}`;
+    }
+
+    const frontMatterBlock = this.extractFrontMatter(originalContent);
+    if (!frontMatterBlock) {
+      if (!currentTitle) {
+        return normalizedBody;
+      }
+      const frontMatter = this.buildFrontMatterFromTitle(currentTitle);
+      return `${frontMatter}\n\n${normalizedBody}`;
+    }
+
+    const updatedFrontMatter = currentTitle
+      ? this.updateFrontMatterTitle(frontMatterBlock, currentTitle)
+      : frontMatterBlock;
+    return `${updatedFrontMatter}\n\n${normalizedBody}`;
+  }
+
+  private extractFrontMatter(source: string): string | null {
+    const bomStripped = source.startsWith('\ufeff') ? source.slice(1) : source;
+    if (!bomStripped.trimStart().startsWith('---')) {
+      return null;
+    }
+    const frontMatterMatch = bomStripped.match(/^---\s*\r?\n[\s\S]*?\r?\n---/);
+    if (!frontMatterMatch) {
+      return null;
+    }
+    const matchText = frontMatterMatch[0];
+    const start = bomStripped.indexOf(matchText);
+    const end = start + matchText.length;
+    return bomStripped.slice(start, end);
+  }
+
+  private updateFrontMatterTitle(frontMatter: string, title: string): string {
+    const lines = frontMatter.split(/\r?\n/);
+    if (lines.length < 2) {
+      return frontMatter;
+    }
+
+    const closingIndex = lines.findIndex(
+      (line, index) => index > 0 && line.trim() === '---'
+    );
+    if (closingIndex === -1) {
+      return frontMatter;
+    }
+
+    const contentLines = lines.slice(1, closingIndex);
+    const titleLine = `title: ${this.formatYamlString(title)}`;
+    let replaced = false;
+
+    const updatedContent = contentLines.map((line) => {
+      const trimmed = line.trimStart();
+      if (!replaced && /^title\s*:/i.test(trimmed)) {
+        replaced = true;
+        const indent = line.slice(0, line.length - trimmed.length);
+        return `${indent}${titleLine}`;
+      }
+      return line;
+    });
+
+    if (!replaced) {
+      updatedContent.unshift(titleLine);
+    }
+
+    return [lines[0], ...updatedContent, ...lines.slice(closingIndex)].join(
+      '\n'
+    );
+  }
+
+  private buildFrontMatterFromTitle(title: string): string {
+    return ['---', `title: ${this.formatYamlString(title)}`, '---'].join('\n');
+  }
+
+  private getCurrentDocumentTitle(): string | null {
+    const elements = this.changes.getCurrentState?.();
+    if (!Array.isArray(elements)) {
+      return null;
+    }
+    const titleElement = elements.find((element) => {
+      const type = element.metadata?.type;
+      return type === 'DocumentTitle' || type === 'Title';
+    });
+    return titleElement?.content?.trim() || null;
+  }
+
+  private formatYamlString(value: string): string {
+    const escaped = value.replace(/"/g, '\\"');
+    return `"${escaped}"`;
   }
 
   private deduplicateFiles(files: ExportedFile[]): ExportedFile[] {

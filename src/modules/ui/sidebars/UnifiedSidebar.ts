@@ -344,6 +344,8 @@ export class UnifiedSidebar {
       this.onSubmitReviewCallback?.();
     });
     section.appendChild(this.submitReviewBtn);
+    // Apply any pre-existing state (callbacks might have been registered before create()).
+    this.updateSubmitReviewButtonState();
 
     return section;
   }

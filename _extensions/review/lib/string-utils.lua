@@ -138,6 +138,21 @@ function M.meta_to_json(value)
       result[k] = M.meta_to_json(v)
     end
     return result
+  elseif type(value) == 'table' then
+    local is_array = value[1] ~= nil
+    if is_array then
+      local result = {}
+      for _, item in ipairs(value) do
+        table.insert(result, M.meta_to_json(item))
+      end
+      return result
+    else
+      local result = {}
+      for k, item in pairs(value) do
+        result[k] = M.meta_to_json(item)
+      end
+      return result
+    end
   else
     return pandoc.utils.stringify(value)
   end

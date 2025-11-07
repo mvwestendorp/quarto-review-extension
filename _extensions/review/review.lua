@@ -528,6 +528,23 @@ function meta_to_json(value)
       result[k] = meta_to_json(v)
     end
     return result
+  elseif type(value) == 'table' then
+    -- Quarto project-level metadata (e.g. from _quarto.yml) arrives as plain Lua tables.
+    -- Preserve the nested structure rather than stringifying the whole table.
+    local is_array = value[1] ~= nil
+    if is_array then
+      local result = {}
+      for _, item in ipairs(value) do
+        table.insert(result, meta_to_json(item))
+      end
+      return result
+    else
+      local result = {}
+      for k, item in pairs(value) do
+        result[k] = meta_to_json(item)
+      end
+      return result
+    end
   else
     return pandoc.utils.stringify(value)
   end
@@ -1120,6 +1137,22 @@ function Meta(meta)
     if meta.review and meta.review.git then
       local git_config = meta_to_json(meta.review.git)
       if git_config then
+        local function flatten(value)
+          if type(value) == 'table' then
+            if #value == 1 then
+              return value[1]
+            end
+          end
+          return value
+        end
+        git_config.provider = flatten(git_config.provider)
+        git_config.owner = flatten(git_config.owner)
+        git_config.repo = flatten(git_config.repo)
+        git_config['base-branch'] = flatten(git_config['base-branch'])
+        git_config.baseBranch = flatten(git_config.baseBranch)
+        if git_config.auth then
+          git_config.auth.mode = flatten(git_config.auth.mode)
+        end
         init_config.git = git_config
       end
     end

@@ -2,7 +2,7 @@ import { createModuleLogger } from '@utils/debug';
 import type { ReviewGitConfig } from '@/types';
 import { resolveGitConfig } from './config';
 import { createProvider } from './providers';
-import type { BaseProvider } from './providers';
+import type { BaseProvider, PullRequest } from './providers';
 import GitIntegrationService, {
   type ReviewSubmissionPayload,
   type ReviewSubmissionResult,
@@ -113,6 +113,32 @@ export class GitModule {
 
   public getFallbackStore(): EmbeddedSourceStore {
     return this.fallbackStore;
+  }
+
+  public async ensureRepositoryInitialized(
+    sources: EmbeddedSourceRecord[],
+    fallbackBaseBranch: string
+  ): Promise<{ baseBranch: string }> {
+    if (!this.integration) {
+      return { baseBranch: fallbackBaseBranch };
+    }
+    return this.integration.ensureRepositoryState(sources, fallbackBaseBranch);
+  }
+
+  public async getPullRequest(number: number): Promise<PullRequest | null> {
+    if (!this.integration) {
+      return null;
+    }
+    const provider = this.integration.getProvider();
+    try {
+      return await provider.getPullRequest(number);
+    } catch (error) {
+      const status = (error as Error & { status?: number })?.status;
+      if (status === 404) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   public submitReview(

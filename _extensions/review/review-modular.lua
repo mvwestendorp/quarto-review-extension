@@ -137,6 +137,22 @@ function Meta(meta)
     if meta.review and meta.review.git then
       local git_config = string_utils.meta_to_json(meta.review.git)
       if git_config then
+        local function flatten(value)
+          if type(value) == 'table' then
+            if #value == 1 then
+              return value[1]
+            end
+          end
+          return value
+        end
+        git_config.provider = flatten(git_config.provider)
+        git_config.owner = flatten(git_config.owner)
+        git_config.repo = flatten(git_config.repo)
+        git_config['base-branch'] = flatten(git_config['base-branch'])
+        git_config.baseBranch = flatten(git_config.baseBranch)
+        if git_config.auth then
+          git_config.auth.mode = flatten(git_config.auth.mode)
+        end
         init_config.git = git_config
       end
     end

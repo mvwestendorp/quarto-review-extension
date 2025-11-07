@@ -1,4 +1,9 @@
-import { BaseProvider, type Issue, type PullRequest } from './base';
+import {
+  BaseProvider,
+  type Issue,
+  type PullRequest,
+  type RepositoryInitOptions,
+} from './base';
 import type {
   CreateBranchResult,
   FileUpsertResult,
@@ -320,6 +325,50 @@ export class GitHubProvider extends BaseProvider {
       description: response.description,
       url: response.html_url,
       defaultBranch: response.default_branch,
+    };
+  }
+
+  async createRepository(options: RepositoryInitOptions): Promise<{
+    defaultBranch: string;
+  }> {
+    const repoName = options.name || this.config.repo;
+    if (!repoName) {
+      throw new Error('Repository name is required to create a GitHub repo.');
+    }
+
+    const defaultBranch = options.defaultBranch || 'main';
+    const payload = {
+      name: repoName,
+      private: options.private ?? false,
+      description: options.description,
+      auto_init: true,
+      default_branch: defaultBranch,
+    };
+
+    let endpoint = '/user/repos';
+    try {
+      const currentUser = await this.getCurrentUser();
+      if (
+        this.config.owner &&
+        currentUser?.login &&
+        currentUser.login !== this.config.owner
+      ) {
+        endpoint = `/orgs/${this.config.owner}/repos`;
+      }
+    } catch {
+      if (this.config.owner) {
+        endpoint = `/orgs/${this.config.owner}/repos`;
+      }
+    }
+
+    const response = await this.request<GitHubRepository>(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    return {
+      defaultBranch: response.default_branch || defaultBranch,
     };
   }
 

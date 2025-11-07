@@ -99,6 +99,36 @@ describe('UI Regression Tests', () => {
     });
   });
 
+  describe('Submit Review Button State', () => {
+    let sidebar: UnifiedSidebar;
+
+    beforeEach(() => {
+      document.body.innerHTML = '';
+      sidebar = new UnifiedSidebar();
+    });
+
+    afterEach(() => {
+      sidebar.destroy();
+      document.body.innerHTML = '';
+    });
+
+    it('enables submit review button when handler registered before create()', () => {
+      sidebar.onSubmitReview(() => {
+        // Submit action
+      });
+      sidebar.setSubmitReviewEnabled(true);
+
+      sidebar.create();
+
+      const submitBtn = document.querySelector(
+        '[data-action="submit-review"]'
+      ) as HTMLButtonElement | null;
+
+      expect(submitBtn).toBeDefined();
+      expect(submitBtn?.disabled).toBe(false);
+    });
+  });
+
   describe('Add Comment Button UI', () => {
     let composer: CommentComposer;
 
