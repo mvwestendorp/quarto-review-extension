@@ -38,6 +38,7 @@
 @import './components/editor.css';
 @import './components/toolbar.css';
 @import './components/unified-sidebar.css';
+@import './components/segment-actions.css';
 @import './components/comment-composer.css';
 @import './components/comment-items.css';
 @import './components/context-menu.css';
