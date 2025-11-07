@@ -26,14 +26,14 @@
   pointer-events: auto;
 }
 
-/* Keep buttons visible when directly hovering the button container */
+/* Keep buttons visible when hovering the button container or extended area */
 .review-segment-actions:hover {
   opacity: 1;
   pointer-events: auto;
 }
 
-/* Also show buttons when hovering over the extended area (via JavaScript class) */
-[data-review-id].review-actions-hovered .review-segment-actions {
+/* Show buttons when JavaScript detects hover on the extended zone */
+[data-review-id].review-segment-hovered .review-segment-actions {
   opacity: 1;
   pointer-events: auto;
 }

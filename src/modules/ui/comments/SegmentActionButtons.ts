@@ -145,17 +145,44 @@ export class SegmentActionButtons {
     parentElement.dataset.hoverTrackingAdded = 'true';
 
     const enterHandler = () => {
-      parentElement.classList.add('review-actions-hovered');
+      parentElement.classList.add('review-segment-hovered');
     };
 
     const leaveHandler = () => {
-      parentElement.classList.remove('review-actions-hovered');
+      parentElement.classList.remove('review-segment-hovered');
     };
 
+    // Track mouse position to detect when cursor is at same vertical level
+    let isInVerticalZone = false;
+
+    const mouseMoveHandler = (e: MouseEvent) => {
+      const rect = parentElement.getBoundingClientRect();
+      const isInVerticalRange =
+        e.clientY >= rect.top && e.clientY <= rect.bottom;
+      const isInHorizontalRange =
+        e.clientX >= rect.right && e.clientX <= rect.right + 100;
+
+      if (isInVerticalRange && isInHorizontalRange) {
+        if (!isInVerticalZone) {
+          isInVerticalZone = true;
+          enterHandler();
+        }
+      } else if (isInVerticalZone) {
+        isInVerticalZone = false;
+        leaveHandler();
+      }
+    };
+
+    // Standard hover for the segment itself
     parentElement.addEventListener('mouseenter', enterHandler);
     parentElement.addEventListener('mouseleave', leaveHandler);
+
+    // Standard hover for the button container
     buttonContainer.addEventListener('mouseenter', enterHandler);
     buttonContainer.addEventListener('mouseleave', leaveHandler);
+
+    // Track mouse move for extended zone
+    document.addEventListener('mousemove', mouseMoveHandler);
   }
 
   /**
