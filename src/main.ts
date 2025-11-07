@@ -268,6 +268,22 @@ export class QuartoReview {
 
     // Store unregister function for cleanup
     (this as any).__persistenceUnregister = unregister;
+
+    // Add beforeunload handler to persist changes before page navigation
+    // This ensures changes aren't lost when user navigates to another page
+    if (typeof window !== 'undefined') {
+      const beforeUnloadHandler = () => {
+        if (this.changes.hasUnsavedOperations()) {
+          logger.info('Persisting document before page unload');
+          this.ui.persistDocument();
+        }
+      };
+
+      window.addEventListener('beforeunload', beforeUnloadHandler);
+
+      // Store handler for cleanup
+      (this as any).__beforeUnloadHandler = beforeUnloadHandler;
+    }
   }
 
   public async save(): Promise<void> {
@@ -297,6 +313,14 @@ export class QuartoReview {
     const unregister = (this as any).__persistenceUnregister;
     if (typeof unregister === 'function') {
       unregister();
+    }
+    // Cleanup beforeunload handler
+    const beforeUnloadHandler = (this as any).__beforeUnloadHandler;
+    if (
+      typeof window !== 'undefined' &&
+      typeof beforeUnloadHandler === 'function'
+    ) {
+      window.removeEventListener('beforeunload', beforeUnloadHandler);
     }
     // Destroy translation module if enabled
     if (this.translation) {
