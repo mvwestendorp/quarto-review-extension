@@ -70,7 +70,25 @@ export class LocalDraftPersistence {
         comments,
         operations,
       };
-      const serialized = JSON.stringify(payload);
+
+      // Validate that the payload is serializable BEFORE attempting to save
+      // This prevents corrupted data from being written to storage
+      let serialized: string;
+      try {
+        serialized = JSON.stringify(payload);
+      } catch (jsonError) {
+        logger.error('Cannot serialize draft payload - aborting save', {
+          error:
+            jsonError instanceof Error ? jsonError.message : String(jsonError),
+          hasOperations: !!operations,
+          operationCount: operations?.length ?? 0,
+          hasComments: !!comments,
+          commentCount: comments?.length ?? 0,
+        });
+        // Do not attempt to save if serialization fails
+        return;
+      }
+
       await this.store.saveFile(this.filename, serialized, message);
       logger.debug('Saved local draft', {
         filename: this.filename,
