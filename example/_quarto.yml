@@ -24,14 +24,6 @@ review:
   debug:
     enabled: true
     level: debug
-    modules:
-      - UIModule
-      - ChangesModule
-      - TranslationModule
-      - TranslationState
-      - TranslationController
-      - TranslationView
-      - TranslationChangesModule
   git:
     provider: github
     owner: mvwestendorp

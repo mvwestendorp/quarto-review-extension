@@ -15,8 +15,8 @@ import { UnifiedDocumentPersistence } from './UnifiedDocumentPersistence';
 const logger = createModuleLogger('PersistenceManager');
 
 export interface PersistenceManagerConfig {
-  localPersistence?: LocalDraftPersistence;
-  translationPersistence?: TranslationPersistence;
+  localPersistence: LocalDraftPersistence;
+  translationPersistence: TranslationPersistence;
   changes: ChangesModule;
   comments?: CommentsModule;
   historyStorage: EditorHistoryStorage;
@@ -34,17 +34,17 @@ export interface PersistenceCallbacks {
 /**
  * Manager for handling local draft persistence and restoration
  *
- * Phase 1 (v2.0): Now uses UnifiedDocumentPersistence facade to coordinate
- * both review edits (git-backed) and translation state (browser storage).
+ * Phase 1 v2.0: Unified persistence coordination
+ * Requires both localPersistence and translationPersistence to coordinate
+ * review edits (git-backed) and translation state (browser storage).
  *
- * When both localPersistence and translationPersistence are available,
- * the manager uses UnifiedDocumentPersistence to ensure that translation
+ * Single code path through UnifiedDocumentPersistence ensures translation
  * merges are automatically persisted alongside review edits.
  */
 export class PersistenceManager {
   private config: PersistenceManagerConfig;
   private callbacks: PersistenceCallbacks;
-  private unifiedPersistence?: UnifiedDocumentPersistence;
+  private unifiedPersistence: UnifiedDocumentPersistence;
 
   constructor(
     config: PersistenceManagerConfig,
@@ -53,32 +53,22 @@ export class PersistenceManager {
     this.config = config;
     this.callbacks = callbacks;
 
-    // Initialize unified persistence if both backends are available
-    if (config.localPersistence && config.translationPersistence) {
-      this.unifiedPersistence = new UnifiedDocumentPersistence(
-        config.localPersistence,
-        config.translationPersistence
-      );
-      logger.info('UnifiedDocumentPersistence initialized', {
-        hasLocal: !!config.localPersistence,
-        hasTranslation: !!config.translationPersistence,
-      });
-    }
+    // Always create unified persistence - both backends are required
+    this.unifiedPersistence = new UnifiedDocumentPersistence(
+      config.localPersistence,
+      config.translationPersistence
+    );
+    logger.info('UnifiedDocumentPersistence initialized');
   }
 
   /**
-   * Persist the current document state to local storage
+   * Persist the current document state via unified persistence
    *
-   * With Phase 1: Uses UnifiedDocumentPersistence to save review edits
-   * alongside any active translations. This ensures that translation merges
-   * persist correctly.
-   *
-   * Fallback: If unified persistence is not available, falls back to local-only.
+   * Saves review edits and translation state atomically to both backends:
+   * - LocalDraftPersistence (git-backed) for review changes
+   * - TranslationPersistence (browser storage) for translation state
    */
-  public persistDocument(message?: string): void {
-    if (!this.config.localPersistence) {
-      return;
-    }
+  public persistDocument(): void {
     try {
       const elements = this.config.changes.getCurrentState();
 
@@ -116,31 +106,22 @@ export class PersistenceManager {
           ? Array.from(this.config.changes.getOperations())
           : undefined;
 
-      // Use unified persistence if available (Phase 1+)
-      if (this.unifiedPersistence) {
-        void this.unifiedPersistence.saveDocument({
-          id: `doc-${Date.now()}`,
-          documentId: this.buildDocumentId(),
-          savedAt: Date.now(),
-          version: 1,
-          review: {
-            elements: payload,
-            operations: operationsSnapshot,
-            comments: commentsSnapshot,
-          },
-        });
-        logger.debug('Document persisted via unified persistence');
-      } else {
-        // Fallback to local persistence only
-        void this.config.localPersistence.saveDraft(payload, {
-          message,
-          comments: commentsSnapshot,
+      // Single unified code path - always use unified persistence
+      void this.unifiedPersistence.saveDocument({
+        id: `doc-${Date.now()}`,
+        documentId: this.buildDocumentId(),
+        savedAt: Date.now(),
+        version: 1,
+        review: {
+          elements: payload,
           operations: operationsSnapshot,
-        });
-        logger.debug('Document persisted via local persistence (fallback)');
-      }
+          comments: commentsSnapshot,
+        },
+      });
+
+      logger.debug('Document persisted via unified persistence');
     } catch (error) {
-      logger.warn('Failed to persist local draft', error);
+      logger.warn('Failed to persist document', error);
     }
   }
 

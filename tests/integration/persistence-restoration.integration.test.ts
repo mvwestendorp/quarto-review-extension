@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { LocalDraftPersistence } from '@modules/storage/LocalDraftPersistence';
+import { TranslationPersistence } from '@modules/translation/storage/TranslationPersistence';
 import { ChangesModule } from '@modules/changes';
 import { CommentsModule } from '@modules/comments';
 import { PersistenceManager } from '@/services/PersistenceManager';
@@ -103,6 +104,7 @@ describe('localStorage - Cross-Session Restoration', () => {
     persistenceManager = new PersistenceManager(
       {
         localPersistence: persistence,
+        translationPersistence: new TranslationPersistence('test-doc'),
         changes,
         comments,
         historyStorage,
@@ -157,6 +159,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes: newChanges,
           comments,
           historyStorage,
@@ -203,6 +206,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes: newChanges,
           comments,
           historyStorage,
@@ -250,6 +254,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes: newChanges,
           comments,
           historyStorage,
@@ -309,6 +314,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes,
           comments: newComments,
           historyStorage,
@@ -353,6 +359,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes,
           comments: newComments,
           historyStorage,
@@ -408,6 +415,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes,
           comments: newComments,
           historyStorage,
@@ -449,6 +457,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes,
           comments: newComments,
           historyStorage,
@@ -502,6 +511,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes: newChanges,
           comments: newComments,
           historyStorage,
@@ -549,6 +559,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes: newChanges,
           comments: newComments,
           historyStorage,
@@ -596,6 +607,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const newPersistenceManager = new PersistenceManager(
         {
           localPersistence: persistence,
+          translationPersistence: new TranslationPersistence('test-doc'),
           changes: newChanges,
           comments: newComments,
           historyStorage,

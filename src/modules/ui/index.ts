@@ -44,6 +44,7 @@ import type { ChangesModule } from '@modules/changes';
 import type { MarkdownModule } from '@modules/markdown';
 import type { CommentsModule } from '@modules/comments';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
+import { TranslationPersistence } from '@modules/translation/storage/TranslationPersistence';
 import type { Element as ReviewElement, ElementMetadata } from '@/types';
 import { UI_CONSTANTS } from './constants';
 import { TranslationController } from './translation/TranslationController';
@@ -196,10 +197,13 @@ export class UIModule {
       maxStates: UI_CONSTANTS.MAX_HISTORY_STATES,
     });
 
-    // Initialize persistence manager
+    // Initialize persistence manager with required translation persistence
+    // Use document ID for translation storage correlation
+    const translationId = this.getTranslationDocumentId() || 'default';
     this.persistenceManager = new PersistenceManager(
       {
-        localPersistence: this.localPersistence,
+        localPersistence: this.localPersistence!,
+        translationPersistence: new TranslationPersistence(translationId),
         changes: this.config.changes,
         comments: this.config.comments,
         historyStorage: this.historyStorage,
@@ -2477,7 +2481,7 @@ export class UIModule {
       });
 
       // Save to localStorage with cleaned content to prevent false differences on next load
-      this.persistenceManager.persistDocument('Migrated inline comments');
+      this.persistenceManager.persistDocument();
     }
   }
 
