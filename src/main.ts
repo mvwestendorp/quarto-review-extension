@@ -253,21 +253,24 @@ export class QuartoReview {
   }
 
   private setupAutoSave(): void {
-    this.autoSaveInterval = window.setInterval(() => {
-      if (this.changes.hasUnsavedOperations()) {
-        try {
-          // CRITICAL FIX: Call persistDocument() to save drafts to localStorage
-          // NOT this.save() which commits to Git
-          // This ensures operations are persisted locally even if Git is unavailable
-          this.ui.persistDocument();
-          logger.debug('Auto-saved draft to localStorage');
-        } catch (error) {
-          logger.warn('Failed to auto-save draft', error);
-          // Don't show notification - just log it
-          // The user can always manually save or the next interval will retry
-        }
-      }
-    }, this.config.autoSaveInterval);
+    // Register extension to persist after each operation
+    // This ensures operations are saved immediately to prevent data loss
+    const unregister = this.changes.registerExtension({
+      onAfterOperation: () => {
+        // Schedule persistence on next animation frame to batch rapid operations
+        requestAnimationFrame(() => {
+          try {
+            this.ui.persistDocument();
+            logger.debug('Persisted operation to localStorage');
+          } catch (error) {
+            logger.warn('Failed to persist operation', error);
+          }
+        });
+      },
+    });
+
+    // Store unregister function for cleanup
+    (this as any).__persistenceUnregister = unregister;
   }
 
   public async save(): Promise<void> {
@@ -292,6 +295,11 @@ export class QuartoReview {
     if (this.autoSaveInterval) {
       clearInterval(this.autoSaveInterval);
       this.autoSaveInterval = undefined;
+    }
+    // Cleanup persistence extension
+    const unregister = (this as any).__persistenceUnregister;
+    if (typeof unregister === 'function') {
+      unregister();
     }
     // Destroy translation module if enabled
     if (this.translation) {
