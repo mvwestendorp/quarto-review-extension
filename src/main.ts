@@ -24,6 +24,10 @@ import {
 } from '@modules/translation';
 import type { ReviewGitConfig } from '@/types';
 import { BUILD_INFO, getBuildString } from './version';
+import {
+  mergeWithGlobalConfig,
+  storeGlobalConfig,
+} from './services/GlobalConfigStorage';
 
 const logger = createModuleLogger('QuartoReview');
 
@@ -212,25 +216,10 @@ export class QuartoReview {
   }
 
   private deriveDraftFilename(): string {
-    const explicit = this.config.git?.sourceFile;
-    const candidate = explicit || this.getCurrentPathSlug();
-    if (!candidate) {
-      return 'review-draft.json';
-    }
-    const slug = candidate
-      .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .replace(/--+/g, '-');
-    return slug ? `review-draft-${slug}.json` : 'review-draft.json';
-  }
-
-  private getCurrentPathSlug(): string {
-    if (typeof window === 'undefined') {
-      return '';
-    }
-    const path = window.location?.pathname ?? '';
-    return path ? path.replace(/\/+$/, '') || '/' : '';
+    // For multi-page projects, use unified storage across all pages
+    // This allows exports and git submissions to include all pages' changes
+    // Element IDs contain filename prefixes, so we can filter operations by page
+    return 'review-draft-project.json';
   }
 
   private async initialize(): Promise<void> {
@@ -332,6 +321,19 @@ if (typeof window !== 'undefined') {
     if (reviewElement) {
       const config = reviewElement.getAttribute('data-review-config');
       const parsedConfig = config ? JSON.parse(config) : {};
+
+      // For multi-page projects: merge with global config from previous pages
+      // This ensures git config is available even if not injected on secondary pages
+      if (!parsedConfig.git) {
+        parsedConfig.git = mergeWithGlobalConfig(undefined);
+      } else {
+        // Store git config globally for other pages to use
+        storeGlobalConfig({
+          git: parsedConfig.git,
+          timestamp: Date.now(),
+        });
+      }
+
       new QuartoReview(parsedConfig);
     }
   });
