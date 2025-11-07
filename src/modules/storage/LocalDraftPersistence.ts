@@ -109,11 +109,20 @@ export class LocalDraftPersistence {
 
   public async loadDraft(): Promise<DraftPayload | null> {
     try {
+      logger.debug('Attempting to load draft', { filename: this.filename });
       const source = await this.store.getSource(this.filename);
       if (!source) {
         // Draft file does not exist - this is normal, return null
+        logger.debug('Draft file not found in git-backed storage', {
+          filename: this.filename,
+        });
         return null;
       }
+
+      logger.debug('Draft file found in git-backed storage', {
+        filename: this.filename,
+        contentLength: source.content?.length ?? 0,
+      });
 
       let parsed: DraftPayload;
       try {

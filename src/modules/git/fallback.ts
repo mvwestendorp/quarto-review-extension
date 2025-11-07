@@ -71,6 +71,17 @@ export class EmbeddedSourceStore {
   ): Promise<EmbeddedSourceRecord | undefined> {
     await this.readyPromise;
     const record = this.sources.get(filename);
+    if (!record) {
+      this.logger.debug('Source file not found in store', {
+        filename,
+        availableFiles: Array.from(this.sources.keys()),
+      });
+    } else {
+      this.logger.debug('Source file found in store', {
+        filename,
+        contentLength: record.content?.length ?? 0,
+      });
+    }
     return record ? { ...record } : undefined;
   }
 
