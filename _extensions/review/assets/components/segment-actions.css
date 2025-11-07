@@ -8,22 +8,32 @@
 .review-segment-actions {
   position: absolute;
   right: -60px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 8px;
   opacity: 0;
   transition: opacity 0.2s ease;
   pointer-events: none;
   z-index: 10;
-  /* Extend hitbox to make buttons easier to click */
-  padding: 20px 10px;
-  margin: -20px -10px;
 }
 
-[data-review-id]:hover .review-segment-actions,
+/* Show buttons when hovering segment */
+[data-review-id]:hover .review-segment-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Keep buttons visible when directly hovering the button container */
 .review-segment-actions:hover {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Also show buttons when hovering over the extended area (via JavaScript class) */
+[data-review-id].review-actions-hovered .review-segment-actions {
   opacity: 1;
   pointer-events: auto;
 }

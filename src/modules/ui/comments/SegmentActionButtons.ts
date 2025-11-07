@@ -125,6 +125,37 @@ export class SegmentActionButtons {
     if (getComputedStyle(parentElement).position === 'static') {
       parentElement.style.position = 'relative';
     }
+
+    // Add hover tracking to keep buttons visible when cursor is on same vertical level
+    this.addHoverTracking(parentElement, buttonContainer);
+  }
+
+  /**
+   * Add hover tracking to parent element to keep buttons visible
+   * when cursor is on the same vertical level as the segment
+   */
+  private addHoverTracking(
+    parentElement: HTMLElement,
+    buttonContainer: HTMLElement
+  ): void {
+    // Skip if already has hover tracking
+    if (parentElement.dataset.hoverTrackingAdded === 'true') {
+      return;
+    }
+    parentElement.dataset.hoverTrackingAdded = 'true';
+
+    const enterHandler = () => {
+      parentElement.classList.add('review-actions-hovered');
+    };
+
+    const leaveHandler = () => {
+      parentElement.classList.remove('review-actions-hovered');
+    };
+
+    parentElement.addEventListener('mouseenter', enterHandler);
+    parentElement.addEventListener('mouseleave', leaveHandler);
+    buttonContainer.addEventListener('mouseenter', enterHandler);
+    buttonContainer.addEventListener('mouseleave', leaveHandler);
   }
 
   /**
