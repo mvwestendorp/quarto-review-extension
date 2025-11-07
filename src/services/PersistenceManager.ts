@@ -84,7 +84,7 @@ export class PersistenceManager {
           : undefined;
       const operationsSnapshot =
         typeof this.config.changes.getOperations === 'function'
-          ? this.config.changes.getOperations()
+          ? Array.from(this.config.changes.getOperations())
           : undefined;
       void this.config.localPersistence.saveDraft(payload, {
         message,
