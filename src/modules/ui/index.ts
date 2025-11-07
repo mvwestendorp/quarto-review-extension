@@ -814,6 +814,20 @@ export class UIModule {
   public attachEventListeners(): void {
     this.bindEditableElements(document);
     this.bindGlobalShortcuts();
+    // Sync action buttons for all segments
+    this.syncSegmentActionButtons();
+  }
+
+  /**
+   * Sync segment action buttons for all editable segments
+   */
+  private syncSegmentActionButtons(): void {
+    const allSegmentIds = Array.from(
+      document.querySelectorAll('[data-review-id]')
+    ).map((el) => el.getAttribute('data-review-id') || '');
+    this.segmentActionButtons?.syncButtons(
+      allSegmentIds.filter((id) => id.length > 0)
+    );
   }
 
   private bindEditableElementEvents(elem: HTMLElement): void {
@@ -2640,9 +2654,8 @@ export class UIModule {
       },
     });
 
-    // Sync segment action buttons
-    const sectionIds = sections.map((s) => s.element.id);
-    this.segmentActionButtons?.syncButtons(sectionIds);
+    // Sync segment action buttons for all segments, not just those with comments
+    this.syncSegmentActionButtons();
   }
 
   private wrapSectionContent(
