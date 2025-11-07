@@ -2,7 +2,32 @@
  * Component: Comment Composer
  *
  * UI for composing new comments.
+ * Now appears as a modal with overlay for clearer editing context.
  */
+
+/* Modal overlay backdrop */
+.review-comment-composer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 9999;
+  display: none;
+  animation: review-modal-fade-in 0.2s ease;
+}
+
+.review-comment-composer-overlay.review-active {
+  display: block;
+}
+
+@keyframes review-modal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 .review-comment-composer {
   background:
@@ -21,6 +46,20 @@
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
+  /* Position as floating modal */
+  position: fixed;
+  right: 60px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 380px;
+  max-height: 80vh;
+  overflow-y: auto;
+  z-index: 10000;
+  display: none;
+}
+
+.review-comment-composer.review-active {
+  display: block;
 }
 
 .review-comment-composer-active {

@@ -15,6 +15,7 @@ import { EditorToolbar } from './editor/EditorToolbar';
 import { CommentComposer } from './comments/CommentComposer';
 import { CommentBadges } from './comments/CommentBadges';
 import { CommentController } from './comments/CommentController';
+import { SegmentActionButtons } from './comments/SegmentActionButtons';
 import { UnifiedSidebar } from './sidebars/UnifiedSidebar';
 import { ContextMenuCoordinator } from './sidebars/ContextMenuCoordinator';
 import {
@@ -113,6 +114,7 @@ export class UIModule {
   private unifiedSidebar: UnifiedSidebar;
   private commentComposerModule: CommentComposer | null = null;
   private commentBadgesModule: CommentBadges | null = null;
+  private segmentActionButtons: SegmentActionButtons | null = null;
   private contextMenuCoordinator: ContextMenuCoordinator | null = null;
   private commentController: CommentController;
   private historyStorage: EditorHistoryStorage;
@@ -160,6 +162,7 @@ export class UIModule {
     this.unifiedSidebar = new UnifiedSidebar();
     this.commentComposerModule = new CommentComposer();
     this.commentBadgesModule = new CommentBadges();
+    this.segmentActionButtons = new SegmentActionButtons();
     this.commentController = new CommentController({
       config: {
         changes: this.config.changes,
@@ -187,6 +190,17 @@ export class UIModule {
         this.openEditor(sectionId);
       },
       onComment: (sectionId) => {
+        const element = this.config.changes.getElementById(sectionId);
+        if (element) {
+          void this.openCommentComposer({ elementId: sectionId });
+        }
+      },
+    });
+    this.segmentActionButtons?.setCallbacks({
+      onEdit: (sectionId) => {
+        this.openEditor(sectionId);
+      },
+      onAddComment: (sectionId) => {
         const element = this.config.changes.getElementById(sectionId);
         if (element) {
           void this.openCommentComposer({ elementId: sectionId });
@@ -808,23 +822,6 @@ export class UIModule {
     }
     elem.dataset.reviewEventsBound = 'true';
 
-    elem.addEventListener('click', (e) => {
-      if (this.shouldIgnoreInteraction(e, elem)) {
-        return;
-      }
-      if (e instanceof MouseEvent && e.detail > 1) {
-        return;
-      }
-
-      e.stopPropagation();
-      e.preventDefault();
-      const id = elem.getAttribute('data-review-id');
-      if (id) {
-        const mouseEvent = e as MouseEvent;
-        this.contextMenuCoordinator?.openFromEvent(elem, mouseEvent);
-      }
-    });
-
     elem.addEventListener('dblclick', (e) => {
       if (this.shouldIgnoreInteraction(e, elem)) {
         return;
@@ -844,10 +841,6 @@ export class UIModule {
 
     elem.addEventListener('mouseleave', () => {
       elem.classList.remove('review-hover');
-    });
-
-    elem.addEventListener('contextmenu', (e) => {
-      e.preventDefault();
     });
   }
 
@@ -2646,6 +2639,10 @@ export class UIModule {
         this.commentController.clearHighlight('hover');
       },
     });
+
+    // Sync segment action buttons
+    const sectionIds = sections.map((s) => s.element.id);
+    this.segmentActionButtons?.syncButtons(sectionIds);
   }
 
   private wrapSectionContent(
@@ -2789,6 +2786,7 @@ export class UIModule {
     this.editorToolbarModule?.destroy();
     this.commentComposerModule?.destroy();
     this.commentBadgesModule?.destroy();
+    this.segmentActionButtons?.destroy();
     this.contextMenuCoordinator?.destroy();
     this.changeSummaryDashboard?.destroy();
     this.unifiedSidebar.destroy();

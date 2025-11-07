@@ -1,0 +1,147 @@
+/**
+ * Segment Action Buttons
+ *
+ * Manages edit and comment action buttons displayed on the right side of each segment.
+ * Provides intuitive access to edit and comment functionality without click menus.
+ *
+ * Extracted to reduce UIModule complexity.
+ */
+
+// import { createModuleLogger } from '@utils/debug';
+
+// const logger = createModuleLogger('SegmentActionButtons');
+
+export interface SegmentActionCallbacks {
+  onEdit: (elementId: string) => void;
+  onAddComment: (elementId: string) => void;
+}
+
+/**
+ * SegmentActionButtons manages edit and comment buttons for segments
+ */
+export class SegmentActionButtons {
+  private buttons = new Map<string, HTMLDivElement>();
+  private callbacks: SegmentActionCallbacks | null = null;
+
+  /**
+   * Set the callbacks for action buttons
+   */
+  setCallbacks(callbacks: SegmentActionCallbacks): void {
+    this.callbacks = callbacks;
+  }
+
+  /**
+   * Create action buttons container with edit and comment buttons
+   */
+  private createButtonsContainer(sectionId: string): HTMLDivElement {
+    const container = document.createElement('div');
+    container.className = 'review-segment-actions';
+    container.setAttribute('data-section-id', sectionId);
+
+    // Edit button
+    const editBtn = document.createElement('button');
+    editBtn.className = 'review-segment-action-btn review-segment-action-edit';
+    editBtn.setAttribute('title', 'Edit this section (or double-click)');
+    editBtn.setAttribute('aria-label', 'Edit section');
+    editBtn.innerHTML = '✎'; // Pencil icon
+    editBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.callbacks) {
+        this.callbacks.onEdit(sectionId);
+      }
+    });
+    container.appendChild(editBtn);
+
+    // Comment button
+    const commentBtn = document.createElement('button');
+    commentBtn.className =
+      'review-segment-action-btn review-segment-action-comment';
+    commentBtn.setAttribute('title', 'Add or edit comment');
+    commentBtn.setAttribute('aria-label', 'Add comment');
+    commentBtn.innerHTML = '💬'; // Comment bubble
+    commentBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (this.callbacks) {
+        this.callbacks.onAddComment(sectionId);
+      }
+    });
+    container.appendChild(commentBtn);
+
+    return container;
+  }
+
+  /**
+   * Sync action buttons with current segments
+   */
+  syncButtons(sectionIds: string[]): void {
+    const activeIds = new Set(sectionIds);
+
+    // Remove buttons for sections that no longer exist
+    for (const [sectionId, buttonContainer] of this.buttons) {
+      if (!activeIds.has(sectionId)) {
+        buttonContainer.remove();
+        this.buttons.delete(sectionId);
+      }
+    }
+
+    // Add or update buttons for active sections
+    sectionIds.forEach((sectionId) => {
+      const parentElement = document.querySelector(
+        `[data-review-id="${sectionId}"]`
+      ) as HTMLElement | null;
+
+      if (
+        !parentElement ||
+        parentElement.classList.contains('review-editable-editing')
+      ) {
+        return;
+      }
+
+      this.ensureActionButtons(sectionId, parentElement);
+    });
+  }
+
+  /**
+   * Ensure action buttons exist for a section
+   */
+  private ensureActionButtons(
+    sectionId: string,
+    parentElement: HTMLElement
+  ): void {
+    let buttonContainer = this.buttons.get(sectionId);
+
+    if (!buttonContainer || !buttonContainer.isConnected) {
+      buttonContainer?.remove();
+      buttonContainer = this.createButtonsContainer(sectionId);
+      this.buttons.set(sectionId, buttonContainer);
+    }
+
+    // Add to parent if not already there
+    if (!parentElement.contains(buttonContainer)) {
+      parentElement.appendChild(buttonContainer);
+    }
+
+    // Ensure parent is relatively positioned for button positioning
+    if (getComputedStyle(parentElement).position === 'static') {
+      parentElement.style.position = 'relative';
+    }
+  }
+
+  /**
+   * Clear all action buttons
+   */
+  clearAll(): void {
+    for (const buttonContainer of this.buttons.values()) {
+      buttonContainer.remove();
+    }
+    this.buttons.clear();
+  }
+
+  /**
+   * Destroy the component
+   */
+  destroy(): void {
+    this.clearAll();
+    this.callbacks = null;
+  }
+}

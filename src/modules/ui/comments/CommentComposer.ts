@@ -34,10 +34,10 @@ export interface ComposerContext {
  */
 export class CommentComposer extends ModuleEventEmitter {
   private element: HTMLElement | null = null;
+  private overlay: HTMLElement | null = null;
   private editor: CommentEditor | null = null;
   private isOpen = false;
   private currentContext: ComposerContext | null = null;
-  private insertionAnchor: HTMLElement | null = null;
   private originalItem: HTMLElement | null = null;
   private onSubmitCallback:
     | ((content: string, context: ComposerContext) => void)
@@ -114,8 +114,8 @@ export class CommentComposer extends ModuleEventEmitter {
 
   /**
    * Open the composer for a specific context
-   * Handles DOM insertion and state management
-   * Now uses Milkdown editor for rich text support
+   * Handles DOM insertion and state management as a floating modal
+   * Now uses Milkdown editor for rich text support with overlay
    */
   async open(
     context: ComposerContext,
@@ -146,6 +146,15 @@ export class CommentComposer extends ModuleEventEmitter {
       this.onSubmitCallback = onSubmit;
     }
 
+    // Create overlay if it doesn't exist
+    if (!this.overlay) {
+      this.overlay = document.createElement('div');
+      this.overlay.className = 'review-comment-composer-overlay';
+      document.body.appendChild(this.overlay);
+      // Close when clicking outside the composer
+      this.overlay.addEventListener('click', () => this.cancel());
+    }
+
     // Find insertion point if editing existing comment
     let insertionAnchor: HTMLElement | null = null;
     if (context.existingComment && context.commentId) {
@@ -162,7 +171,6 @@ export class CommentComposer extends ModuleEventEmitter {
       }
     }
 
-    this.insertionAnchor = insertionAnchor;
     if (insertionAnchor) {
       insertionAnchor.classList.add('review-comment-item-hidden');
       this.originalItem = insertionAnchor;
@@ -189,13 +197,13 @@ export class CommentComposer extends ModuleEventEmitter {
       </div>
     `;
 
-    // Insert into DOM
-    if (this.insertionAnchor) {
-      this.insertionAnchor.insertAdjacentElement('beforebegin', this.element);
-      logger.debug('Inserted composer before existing comment');
-    } else {
-      sidebarBody.prepend(this.element);
-      logger.debug('Prepended composer to sidebar body');
+    // Insert composer as floating modal (always to body, not sidebar)
+    if (
+      !this.element.parentElement ||
+      this.element.parentElement === sidebarBody
+    ) {
+      document.body.appendChild(this.element);
+      logger.debug('Appended composer to body as floating modal');
     }
 
     // Remove empty state if present
@@ -204,9 +212,6 @@ export class CommentComposer extends ModuleEventEmitter {
       emptyState.remove();
       logger.debug('Removed empty state');
     }
-
-    // Scroll to composer
-    sidebarBody.scrollTop = 0;
 
     // Initialize Milkdown editor
     const editorContainer = this.element.querySelector(
@@ -268,10 +273,15 @@ export class CommentComposer extends ModuleEventEmitter {
       logger.warn('Save button not found');
     }
 
-    // Update state
+    // Update state - add active class for modal display
     this.isOpen = true;
-    this.element.style.display = 'block';
+    this.element.classList.add('review-active');
     this.element.setAttribute('aria-hidden', 'false');
+
+    // Activate overlay
+    if (this.overlay) {
+      this.overlay.classList.add('review-active');
+    }
 
     // Emit event
     this.emit(MODULE_EVENTS.COMMENT_COMPOSER_OPENED, {
@@ -292,8 +302,13 @@ export class CommentComposer extends ModuleEventEmitter {
    */
   close(): void {
     if (this.element) {
-      this.element.style.display = 'none';
+      this.element.classList.remove('review-active');
       this.element.setAttribute('aria-hidden', 'true');
+    }
+
+    // Deactivate overlay
+    if (this.overlay) {
+      this.overlay.classList.remove('review-active');
     }
 
     // Restore original item visibility if hiding
@@ -308,7 +323,6 @@ export class CommentComposer extends ModuleEventEmitter {
       this.editor = null;
     }
 
-    this.insertionAnchor = null;
     this.isOpen = false;
     this.clearForm();
   }
@@ -428,13 +442,16 @@ export class CommentComposer extends ModuleEventEmitter {
     if (this.element) {
       this.element.remove();
     }
+    if (this.overlay) {
+      this.overlay.remove();
+    }
     if (this.editor) {
       this.editor.destroy();
     }
     this.element = null;
+    this.overlay = null;
     this.editor = null;
     this.currentContext = null;
-    this.insertionAnchor = null;
     this.originalItem = null;
     this.onSubmitCallback = null;
     this.onCancelCallback = null;
