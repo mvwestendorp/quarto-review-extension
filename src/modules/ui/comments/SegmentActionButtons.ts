@@ -159,15 +159,16 @@ export class SegmentActionButtons {
       const rect = parentElement.getBoundingClientRect();
       const isInVerticalRange =
         e.clientY >= rect.top && e.clientY <= rect.bottom;
-      const isInHorizontalRange =
-        e.clientX >= rect.right && e.clientX <= rect.right + 100;
 
-      if (isInVerticalRange && isInHorizontalRange) {
+      // Show buttons if cursor is at the same vertical level as the segment
+      // Regardless of horizontal position, as long as user is at the same height
+      if (isInVerticalRange) {
         if (!isInVerticalZone) {
           isInVerticalZone = true;
           enterHandler();
         }
       } else if (isInVerticalZone) {
+        // Only hide when cursor moves vertically away from the segment
         isInVerticalZone = false;
         leaveHandler();
       }
