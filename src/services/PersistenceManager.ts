@@ -110,6 +110,12 @@ export class PersistenceManager {
           ? Array.from(this.config.changes.getOperations())
           : undefined;
 
+      logger.debug('Preparing to persist document', {
+        elementCount: payload.length,
+        operationCount: operationsSnapshot?.length ?? 0,
+        commentCount: commentsSnapshot?.length ?? 0,
+      });
+
       // Single unified code path - always use unified persistence
       void this.unifiedPersistence.saveDocument({
         id: `doc-${Date.now()}`,
@@ -214,6 +220,13 @@ export class PersistenceManager {
       }
 
       // Restore operations if available
+      logger.debug('Checking for operations in restored payload', {
+        hasOperations: !!unifiedPayload.review?.operations,
+        operationCount: unifiedPayload.review?.operations?.length ?? 0,
+        hasFunction:
+          typeof this.config.changes.initializeWithOperations === 'function',
+      });
+
       if (
         Array.isArray(unifiedPayload.review?.operations) &&
         unifiedPayload.review.operations.length > 0 &&
@@ -225,6 +238,8 @@ export class PersistenceManager {
         this.config.changes.initializeWithOperations(
           unifiedPayload.review.operations
         );
+      } else if (unifiedPayload.review?.operations?.length === 0) {
+        logger.debug('Draft has no operations - using current state');
       }
 
       // Import comments first (even if no text changes)

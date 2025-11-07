@@ -46,6 +46,10 @@ export class ChangesModule {
     this.operations = [...operations];
     this.redoStack = [];
     this.saved = false;
+    logger.info('Operations restored from draft', {
+      count: this.operations.length,
+      types: this.operations.map((op) => op.type),
+    });
   }
 
   /**

@@ -156,6 +156,13 @@ export class LocalDraftPersistence {
         return null;
       }
 
+      logger.debug('Draft loaded successfully', {
+        filename: this.filename,
+        elementCount: parsed.elements.length,
+        operationCount: parsed.operations?.length ?? 0,
+        commentCount: parsed.comments?.length ?? 0,
+      });
+
       return parsed;
     } catch (error) {
       logger.warn('Failed to load local draft', error);
