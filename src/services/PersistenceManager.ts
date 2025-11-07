@@ -5,15 +5,18 @@
 
 import { createModuleLogger } from '@utils/debug';
 import type LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
+import type { TranslationPersistence } from '@modules/translation/storage/TranslationPersistence';
 import type { ChangesModule } from '@modules/changes';
 import type { CommentsModule } from '@modules/comments';
 import type { EditorHistoryStorage } from '@modules/ui/editor/EditorHistoryStorage';
 import type { NotificationService } from './NotificationService';
+import { UnifiedDocumentPersistence } from './UnifiedDocumentPersistence';
 
 const logger = createModuleLogger('PersistenceManager');
 
 export interface PersistenceManagerConfig {
   localPersistence?: LocalDraftPersistence;
+  translationPersistence?: TranslationPersistence;
   changes: ChangesModule;
   comments?: CommentsModule;
   historyStorage: EditorHistoryStorage;
@@ -30,10 +33,18 @@ export interface PersistenceCallbacks {
 
 /**
  * Manager for handling local draft persistence and restoration
+ *
+ * Phase 1 (v2.0): Now uses UnifiedDocumentPersistence facade to coordinate
+ * both review edits (git-backed) and translation state (browser storage).
+ *
+ * When both localPersistence and translationPersistence are available,
+ * the manager uses UnifiedDocumentPersistence to ensure that translation
+ * merges are automatically persisted alongside review edits.
  */
 export class PersistenceManager {
   private config: PersistenceManagerConfig;
   private callbacks: PersistenceCallbacks;
+  private unifiedPersistence?: UnifiedDocumentPersistence;
 
   constructor(
     config: PersistenceManagerConfig,
@@ -41,10 +52,28 @@ export class PersistenceManager {
   ) {
     this.config = config;
     this.callbacks = callbacks;
+
+    // Initialize unified persistence if both backends are available
+    if (config.localPersistence && config.translationPersistence) {
+      this.unifiedPersistence = new UnifiedDocumentPersistence(
+        config.localPersistence,
+        config.translationPersistence
+      );
+      logger.info('UnifiedDocumentPersistence initialized', {
+        hasLocal: !!config.localPersistence,
+        hasTranslation: !!config.translationPersistence,
+      });
+    }
   }
 
   /**
    * Persist the current document state to local storage
+   *
+   * With Phase 1: Uses UnifiedDocumentPersistence to save review edits
+   * alongside any active translations. This ensures that translation merges
+   * persist correctly.
+   *
+   * Fallback: If unified persistence is not available, falls back to local-only.
    */
   public persistDocument(message?: string): void {
     if (!this.config.localPersistence) {
@@ -86,11 +115,30 @@ export class PersistenceManager {
         typeof this.config.changes.getOperations === 'function'
           ? Array.from(this.config.changes.getOperations())
           : undefined;
-      void this.config.localPersistence.saveDraft(payload, {
-        message,
-        comments: commentsSnapshot,
-        operations: operationsSnapshot,
-      });
+
+      // Use unified persistence if available (Phase 1+)
+      if (this.unifiedPersistence) {
+        void this.unifiedPersistence.saveDocument({
+          id: `doc-${Date.now()}`,
+          documentId: this.buildDocumentId(),
+          savedAt: Date.now(),
+          version: 1,
+          review: {
+            elements: payload,
+            operations: operationsSnapshot,
+            comments: commentsSnapshot,
+          },
+        });
+        logger.debug('Document persisted via unified persistence');
+      } else {
+        // Fallback to local persistence only
+        void this.config.localPersistence.saveDraft(payload, {
+          message,
+          comments: commentsSnapshot,
+          operations: operationsSnapshot,
+        });
+        logger.debug('Document persisted via local persistence (fallback)');
+      }
     } catch (error) {
       logger.warn('Failed to persist local draft', error);
     }
@@ -250,6 +298,19 @@ export class PersistenceManager {
         window.location.reload();
       }, 150);
     }
+  }
+
+  /**
+   * Build a document identifier for unified persistence
+   * Used to correlate review edits and translations
+   */
+  private buildDocumentId(): string {
+    // Use the draft filename as the document identifier
+    const filename =
+      typeof this.config.localPersistence?.getFilename === 'function'
+        ? this.config.localPersistence.getFilename()
+        : 'review-draft.json';
+    return filename.replace(/\.json$/i, '');
   }
 
   /**
