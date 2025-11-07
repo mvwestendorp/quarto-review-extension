@@ -119,8 +119,28 @@ export class LocalDraftPersistence {
         }
         migratedFromLegacy = true;
       }
-      const parsed = JSON.parse(source.content) as DraftPayload;
-      if (!parsed?.elements?.length) {
+
+      let parsed: DraftPayload;
+      try {
+        parsed = JSON.parse(source.content) as DraftPayload;
+      } catch (parseError) {
+        logger.warn(
+          'Failed to parse draft content as JSON',
+          parseError instanceof Error ? parseError.message : String(parseError)
+        );
+        return null;
+      }
+
+      // Validate that parsed data has the expected DraftPayload structure
+      if (!parsed || typeof parsed !== 'object') {
+        logger.warn('Draft payload is not an object', {
+          type: typeof parsed,
+        });
+        return null;
+      }
+
+      if (!Array.isArray(parsed.elements) || parsed.elements.length === 0) {
+        logger.debug('Draft has no elements or is empty');
         return null;
       }
 
