@@ -255,16 +255,22 @@ export class QuartoReview {
   private setupAutoSave(): void {
     // Register extension to persist after each operation
     // This ensures operations are saved immediately to prevent data loss
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
     const unregister = this.changes.registerExtension({
-      onAfterOperation: () => {
-        // Schedule persistence on next animation frame to batch rapid operations
-        requestAnimationFrame(() => {
-          try {
-            this.ui.persistDocument();
-            logger.debug('Persisted operation to localStorage');
-          } catch (error) {
-            logger.warn('Failed to persist operation', error);
-          }
+      id: 'persistence-auto-save',
+      register(context) {
+        // Listen for afterOperation event to persist changes immediately
+        context.on('afterOperation', () => {
+          // Schedule persistence on next animation frame to batch rapid operations
+          requestAnimationFrame(() => {
+            try {
+              self.ui.persistDocument();
+              logger.debug('Persisted operation to localStorage');
+            } catch (error) {
+              logger.warn('Failed to persist operation', error);
+            }
+          });
         });
       },
     });
