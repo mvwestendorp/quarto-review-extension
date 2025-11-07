@@ -924,7 +924,7 @@ export class TranslationView {
     return Boolean(this.activeEditorContext);
   }
 
-  public saveActiveEditor(): boolean {
+  public async saveActiveEditor(): Promise<boolean> {
     if (!this.activeEditorContext) {
       return false;
     }

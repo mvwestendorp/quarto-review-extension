@@ -163,7 +163,7 @@ const editorBridgeMock = {
     ) as HTMLElement | null;
     expect(actions).toBeTruthy();
 
-    const saved = view.saveActiveEditor();
+    const saved = await view.saveActiveEditor();
     expect(saved).toBe(true);
 
     expect(editorBridgeMock.saveSegmentEdit).toHaveBeenCalledTimes(1);

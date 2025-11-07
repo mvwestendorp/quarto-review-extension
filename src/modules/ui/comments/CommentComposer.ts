@@ -122,6 +122,17 @@ export class CommentComposer extends ModuleEventEmitter {
     sidebarBody: HTMLElement,
     onSubmit?: (content: string, ctx: ComposerContext) => void
   ): Promise<void> {
+    logger.debug('Opening comment composer', {
+      context,
+      sidebarBodyExists: !!sidebarBody,
+    });
+
+    // Validate sidebar body exists
+    if (!sidebarBody) {
+      logger.error('Sidebar body is not available for comment composer');
+      return;
+    }
+
     // Clear previous composer if any
     this.close();
 
@@ -137,21 +148,36 @@ export class CommentComposer extends ModuleEventEmitter {
 
     // Find insertion point if editing existing comment
     let insertionAnchor: HTMLElement | null = null;
-    if (context.existingComment) {
+    if (context.existingComment && context.commentId) {
+      // Use commentId for more reliable lookup
       insertionAnchor = sidebarBody.querySelector(
-        `.review-comment-item[data-element-id="${context.elementId}"][data-comment-key="${context.elementId}:${context.existingComment}"]`
+        `.review-comment-item[data-element-id="${context.elementId}"][data-comment-id="${context.commentId}"]`
       ) as HTMLElement | null;
+
+      if (!insertionAnchor) {
+        logger.debug('Comment item not found, trying alternative selector');
+        insertionAnchor = sidebarBody.querySelector(
+          `.review-comment-item[data-element-id="${context.elementId}"]`
+        ) as HTMLElement | null;
+      }
     }
 
     this.insertionAnchor = insertionAnchor;
     if (insertionAnchor) {
       insertionAnchor.classList.add('review-comment-item-hidden');
       this.originalItem = insertionAnchor;
+      logger.debug('Hidden original comment item for editing');
     }
 
     const isEditing = Boolean(context.existingComment);
 
-    this.element!.innerHTML = `
+    // Ensure element exists and is valid
+    if (!this.element) {
+      logger.error('Failed to create composer element');
+      return;
+    }
+
+    this.element.innerHTML = `
       <div class="review-comment-composer-header">
         <span>${isEditing ? 'Edit comment' : 'Add comment'}</span>
         <button class="review-btn review-btn-secondary review-btn-sm" data-action="close">✕</button>
@@ -165,53 +191,87 @@ export class CommentComposer extends ModuleEventEmitter {
 
     // Insert into DOM
     if (this.insertionAnchor) {
-      this.insertionAnchor.insertAdjacentElement('beforebegin', this.element!);
+      this.insertionAnchor.insertAdjacentElement('beforebegin', this.element);
+      logger.debug('Inserted composer before existing comment');
     } else {
-      sidebarBody.prepend(this.element!);
+      sidebarBody.prepend(this.element);
+      logger.debug('Prepended composer to sidebar body');
     }
 
     // Remove empty state if present
     const emptyState = sidebarBody.querySelector('.review-comments-empty');
-    emptyState?.remove();
+    if (emptyState) {
+      emptyState.remove();
+      logger.debug('Removed empty state');
+    }
 
     // Scroll to composer
     sidebarBody.scrollTop = 0;
 
     // Initialize Milkdown editor
-    const editorContainer = this.element!.querySelector(
+    const editorContainer = this.element.querySelector(
       '.review-comment-composer-editor'
-    ) as HTMLElement;
+    ) as HTMLElement | null;
+
     if (editorContainer) {
       try {
+        logger.debug('Initializing Milkdown editor');
         this.editor = new CommentEditor();
         await this.editor.initialize(
           editorContainer,
           context.existingComment || ''
         );
         this.editor.focus();
+        logger.debug('Milkdown editor initialized and focused');
       } catch (error) {
         logger.error('Failed to initialize comment editor', error);
+        // Show error message to user
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'review-comment-composer-error';
+        errorDiv.style.color = 'red';
+        errorDiv.style.padding = '10px';
+        errorDiv.textContent = 'Failed to initialize editor. Please try again.';
+        editorContainer.appendChild(errorDiv);
       }
+    } else {
+      logger.error('Editor container not found in DOM');
     }
 
-    // Set up event handlers
-    this.element!.querySelector('[data-action="close"]')?.addEventListener(
-      'click',
-      () => this.cancel()
-    );
-    this.element!.querySelector('[data-action="cancel"]')?.addEventListener(
-      'click',
-      () => this.cancel()
-    );
-    this.element!.querySelector('[data-action="save"]')?.addEventListener(
-      'click',
-      () => this.submit()
-    );
+    // Set up event handlers - use proper error handling
+    const closeBtn = this.element.querySelector('[data-action="close"]');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        logger.debug('Close button clicked');
+        this.cancel();
+      });
+    } else {
+      logger.warn('Close button not found');
+    }
+
+    const cancelBtn = this.element.querySelector('[data-action="cancel"]');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        logger.debug('Cancel button clicked');
+        this.cancel();
+      });
+    } else {
+      logger.warn('Cancel button not found');
+    }
+
+    const saveBtn = this.element.querySelector('[data-action="save"]');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        logger.debug('Save button clicked');
+        this.submit();
+      });
+    } else {
+      logger.warn('Save button not found');
+    }
 
     // Update state
     this.isOpen = true;
-    this.element!.style.display = 'block';
-    this.element!.setAttribute('aria-hidden', 'false');
+    this.element.style.display = 'block';
+    this.element.setAttribute('aria-hidden', 'false');
 
     // Emit event
     this.emit(MODULE_EVENTS.COMMENT_COMPOSER_OPENED, {
@@ -221,7 +281,10 @@ export class CommentComposer extends ModuleEventEmitter {
         : undefined,
     } as any);
 
-    logger.debug('Comment composer opened', { context });
+    logger.info('Comment composer opened successfully', {
+      isEditing,
+      contextElementId: context.elementId,
+    });
   }
 
   /**
@@ -271,20 +334,31 @@ export class CommentComposer extends ModuleEventEmitter {
    * Submit the comment
    */
   private submit(): void {
+    logger.debug('Submit called for comment composer');
     const content = this.getContent();
+    logger.debug('Retrieved content from editor', {
+      contentLength: content.length,
+    });
 
     if (!content) {
-      logger.warn('Empty comment submitted');
+      logger.warn('Empty comment submitted - ignoring');
       return;
     }
 
     if (!this.currentContext) {
-      logger.error('No context for comment submission');
+      logger.error('No context for comment submission - cannot proceed');
       return;
     }
 
     // Emit event for UIModule to handle submission
     const isEdit = Boolean(this.currentContext.existingComment);
+    logger.info('Emitting COMMENT_SUBMITTED event', {
+      elementId: this.currentContext.elementId,
+      contentLength: content.length,
+      isEdit,
+      commentId: this.currentContext.commentId,
+    });
+
     this.emit(MODULE_EVENTS.COMMENT_SUBMITTED, {
       elementId: this.currentContext.elementId,
       content,
@@ -294,14 +368,12 @@ export class CommentComposer extends ModuleEventEmitter {
 
     // Also call callback if provided
     if (this.onSubmitCallback) {
+      logger.debug('Calling submit callback');
       this.onSubmitCallback(content, this.currentContext);
     }
 
     this.close();
-    logger.debug('Comment submitted', {
-      context: this.currentContext,
-      content,
-    });
+    logger.info('Comment submitted and composer closed');
   }
 
   /**

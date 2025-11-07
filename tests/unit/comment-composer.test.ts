@@ -292,6 +292,7 @@ describe('CommentComposer', () => {
       const existingCommentItem = document.createElement('div');
       existingCommentItem.className = 'review-comment-item';
       existingCommentItem.setAttribute('data-element-id', 'elem-1');
+      existingCommentItem.setAttribute('data-comment-id', 'comment-1');
       existingCommentItem.setAttribute(
         'data-comment-key',
         'elem-1:Old comment'
@@ -302,6 +303,7 @@ describe('CommentComposer', () => {
         sectionId: 'section-1',
         elementId: 'elem-1',
         existingComment: 'Old comment',
+        commentId: 'comment-1',
       };
 
       await composer.open(context, sidebarBody);

@@ -82,9 +82,14 @@ export class PersistenceManager {
         typeof this.config.comments?.getAllComments === 'function'
           ? this.config.comments.getAllComments()
           : undefined;
+      const operationsSnapshot =
+        typeof this.config.changes.getOperations === 'function'
+          ? this.config.changes.getOperations()
+          : undefined;
       void this.config.localPersistence.saveDraft(payload, {
         message,
         comments: commentsSnapshot,
+        operations: operationsSnapshot,
       });
     } catch (error) {
       logger.warn('Failed to persist local draft', error);
@@ -101,16 +106,27 @@ export class PersistenceManager {
     try {
       const draftPayload = await this.config.localPersistence.loadDraft();
       if (!draftPayload) {
+        logger.debug('No draft found in localStorage');
         return;
       }
       const currentState = this.config.changes.getCurrentState();
+
+      logger.debug('Checking for draft restoration', {
+        draftElements: draftPayload.elements?.length ?? 0,
+        currentStateElements: currentState.length,
+        hasDraftComments:
+          Array.isArray(draftPayload.comments) &&
+          draftPayload.comments.length > 0,
+      });
 
       // CRITICAL FIX: If currentState is empty but draft has elements, this might be valid
       // during early initialization. Only skip if BOTH are empty.
       if (
         currentState.length === 0 &&
-        (!draftPayload.elements || draftPayload.elements.length === 0)
+        (!draftPayload.elements || draftPayload.elements.length === 0) &&
+        (!draftPayload.comments || draftPayload.comments.length === 0)
       ) {
+        logger.debug('Skipping restoration: both current and draft are empty');
         return;
       }
 
@@ -123,13 +139,38 @@ export class PersistenceManager {
 
         hasDifference = draftPayload.elements.some((entry) => {
           const currentContent = currentMap.get(entry.id);
-          return currentContent !== entry.content;
+          const isDifferent = currentContent !== entry.content;
+          if (isDifferent) {
+            logger.debug('Content difference found', {
+              elementId: entry.id,
+              draftContent: entry.content.substring(0, 50),
+              currentContent: currentContent?.substring(0, 50),
+            });
+          }
+          return isDifferent;
         });
       } else {
         // If current state is empty but draft has elements, that's a difference
         hasDifference = !!(
           draftPayload.elements && draftPayload.elements.length > 0
         );
+        if (hasDifference) {
+          logger.debug(
+            'Content difference: current state empty but draft has elements'
+          );
+        }
+      }
+
+      // Restore operations if available
+      if (
+        Array.isArray(draftPayload.operations) &&
+        draftPayload.operations.length > 0 &&
+        typeof this.config.changes.initializeWithOperations === 'function'
+      ) {
+        logger.info('Restoring operations from draft', {
+          count: draftPayload.operations.length,
+        });
+        this.config.changes.initializeWithOperations(draftPayload.operations);
       }
 
       // Import comments first (even if no text changes)
@@ -140,6 +181,9 @@ export class PersistenceManager {
 
       if (hasComments) {
         const commentsToImport = draftPayload.comments ?? [];
+        logger.info('Importing comments from draft', {
+          count: commentsToImport.length,
+        });
         this.config.comments?.importComments(commentsToImport);
         // Notify that comments were imported from storage
         this.callbacks.onCommentsImported?.();
@@ -147,14 +191,20 @@ export class PersistenceManager {
 
       // If no text differences and no comments, return early
       if (!hasDifference && !hasComments) {
+        logger.debug('No differences or comments to restore');
         return;
       }
 
       // Notify callback to handle element restoration (only if text changed)
       if (hasDifference) {
+        logger.info('Restoring draft elements', {
+          count: draftPayload.elements.length,
+        });
         this.callbacks.onDraftRestored(draftPayload.elements);
       }
 
+      // Always refresh to ensure UI is updated
+      logger.debug('Triggering refresh after draft restoration');
       this.callbacks.refresh();
 
       const sessionKey = this.buildDraftRestoreSessionKey();
@@ -164,7 +214,8 @@ export class PersistenceManager {
         ? !sessionStorage.getItem(sessionKey)
         : true;
 
-      if (shouldNotify) {
+      if (shouldNotify && (hasDifference || hasComments)) {
+        logger.info('Showing draft restoration notification');
         this.config.notificationService.info(
           'Restored local draft from previous session.'
         );
