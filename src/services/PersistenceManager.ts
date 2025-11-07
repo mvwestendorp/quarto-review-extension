@@ -14,6 +14,10 @@ import {
   UnifiedDocumentPersistence,
   type TranslationRestorationInfo,
 } from './UnifiedDocumentPersistence';
+import {
+  filterOperationsByPage,
+  getCurrentPagePrefix,
+} from '../utils/page-utils';
 
 const logger = createModuleLogger('PersistenceManager');
 
@@ -232,12 +236,24 @@ export class PersistenceManager {
         unifiedPayload.review.operations.length > 0 &&
         typeof this.config.changes.initializeWithOperations === 'function'
       ) {
-        logger.info('Restoring operations from draft', {
-          count: unifiedPayload.review.operations.length,
-        });
-        this.config.changes.initializeWithOperations(
-          unifiedPayload.review.operations
+        // For multi-page projects: filter operations to only those for the current page
+        // Element IDs contain page prefixes (e.g., "index.para-1", "about.header-2")
+        // We only apply operations for the current page to the DOM
+        const currentPagePrefix = getCurrentPagePrefix();
+        const filteredOps = filterOperationsByPage(
+          unifiedPayload.review.operations,
+          currentPagePrefix
         );
+
+        logger.info('Restoring operations from draft', {
+          totalCount: unifiedPayload.review.operations.length,
+          filteredCount: filteredOps.length,
+          pagePrefix: currentPagePrefix,
+          multiPage:
+            unifiedPayload.review.operations.length !== filteredOps.length,
+        });
+
+        this.config.changes.initializeWithOperations(filteredOps);
       } else if (unifiedPayload.review?.operations?.length === 0) {
         logger.debug('Draft has no operations - using current state');
       }
