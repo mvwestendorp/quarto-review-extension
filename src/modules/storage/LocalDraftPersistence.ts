@@ -139,6 +139,24 @@ export class LocalDraftPersistence {
         return null;
       }
 
+      // Check for EditorHistoryStorage format (common mistake - different data type)
+      if (
+        'elementId' in parsed &&
+        'states' in parsed &&
+        !('elements' in parsed)
+      ) {
+        logger.warn(
+          'Draft storage contains EditorHistoryStorage data instead of DraftPayload',
+          {
+            elementId: (parsed as any).elementId,
+            stateCount: Array.isArray((parsed as any).states)
+              ? (parsed as any).states.length
+              : 0,
+          }
+        );
+        return null;
+      }
+
       if (!Array.isArray(parsed.elements) || parsed.elements.length === 0) {
         logger.debug('Draft has no elements or is empty');
         return null;
