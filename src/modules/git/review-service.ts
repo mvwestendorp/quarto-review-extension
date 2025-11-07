@@ -168,6 +168,15 @@ export class GitReviewService {
   public async getPullRequest(number: number): Promise<PullRequest | null> {
     return this.git.getPullRequest(number);
   }
+
+  public async getRepositoryDetails(): Promise<{
+    name: string;
+    description: string;
+    url: string;
+    defaultBranch: string;
+  } | null> {
+    return this.git.getRepositoryMetadata();
+  }
 }
 
 export default GitReviewService;

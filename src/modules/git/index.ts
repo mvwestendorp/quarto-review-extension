@@ -141,6 +141,23 @@ export class GitModule {
     }
   }
 
+  public async getRepositoryMetadata(): Promise<{
+    name: string;
+    description: string;
+    url: string;
+    defaultBranch: string;
+  } | null> {
+    if (!this.provider) {
+      return null;
+    }
+    try {
+      return await this.provider.getRepository();
+    } catch (error) {
+      logger.debug('Failed to fetch repository metadata', error);
+      return null;
+    }
+  }
+
   public submitReview(
     payload: ReviewSubmissionPayload
   ): Promise<ReviewSubmissionResult> {

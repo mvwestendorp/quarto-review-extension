@@ -10,6 +10,8 @@ export interface ReviewSubmissionInitialValues {
   patToken?: string;
   repositorySummary?: string;
   repositoryUrl?: string;
+  repositoryDescription?: string;
+  defaultBranch?: string;
 }
 
 export type ReviewSubmissionFormValues = ReviewSubmissionInitialValues;
@@ -76,6 +78,16 @@ export class ReviewSubmissionModal {
                       )}</a>`
                     : escapeHtml(initial.repositorySummary)
                 }</strong></div>`
+              : ''
+          }
+          ${
+            initial.repositoryDescription
+              ? `<div><span>Description</span><em>${escapeHtml(initial.repositoryDescription)}</em></div>`
+              : ''
+          }
+          ${
+            initial.defaultBranch
+              ? `<div><span>Default branch</span><strong>${escapeHtml(initial.defaultBranch)}</strong></div>`
               : ''
           }
           <div><span>Reviewer</span><strong>${escapeHtml(initial.reviewer)}</strong></div>

@@ -1074,7 +1074,6 @@ export class UIModule {
 
     const reviewer = this.getReviewerDisplayName();
     const repoConfig = this.reviewService.getRepositoryConfig();
-    const baseBranchHint = repoConfig?.baseBranch ?? 'main';
     const format: ExportFormat = 'clean';
 
     const existingSession = await this.getActiveGitSession();
@@ -1083,10 +1082,43 @@ export class UIModule {
     const pullRequestNumber = existingSession?.pullRequestNumber;
 
     const requirePat = this.reviewService.requiresAuthToken();
-    const storedPatToken = this.loadStoredPatToken();
+    let storedPatToken = this.loadStoredPatToken();
+    if (requirePat && !storedPatToken) {
+      const supplied = window.prompt(
+        'Enter a personal access token with repository access:'
+      );
+      if (!supplied || !supplied.trim()) {
+        this.showNotification(
+          'A personal access token is required to submit this review.',
+          'error'
+        );
+        return;
+      }
+      storedPatToken = supplied.trim();
+      this.savePatToken(storedPatToken);
+    }
     if (requirePat && storedPatToken) {
       this.reviewService.updateAuthToken(storedPatToken);
     }
+
+    let repoDetails: Awaited<
+      ReturnType<GitReviewService['getRepositoryDetails']>
+    > | null = null;
+    try {
+      repoDetails = await this.reviewService.getRepositoryDetails();
+    } catch (metaError) {
+      logger.debug('Failed to retrieve repository metadata', metaError);
+    }
+    let baseBranchHint =
+      repoDetails?.defaultBranch ?? repoConfig?.baseBranch ?? 'main';
+    const repositorySummary = repoConfig
+      ? `${repoConfig.owner}/${repoConfig.name}`
+      : repoDetails?.name;
+    const repositoryUrl =
+      repoDetails?.url ??
+      (repoConfig
+        ? `https://github.com/${repoConfig.owner}/${repoConfig.name}`
+        : undefined);
 
     const initialValues = this.buildReviewInitialValues({
       reviewer,
@@ -1098,12 +1130,10 @@ export class UIModule {
       draft: false,
       requirePat: requirePat && !storedPatToken,
       patToken: requirePat && !storedPatToken ? '' : (storedPatToken ?? ''),
-      repositorySummary: repoConfig
-        ? `${repoConfig.owner}/${repoConfig.name}`
-        : undefined,
-      repositoryUrl: repoConfig
-        ? `https://github.com/${repoConfig.owner}/${repoConfig.name}`
-        : undefined,
+      repositorySummary,
+      repositoryUrl,
+      repositoryDescription: repoDetails?.description,
+      defaultBranch: repoDetails?.defaultBranch,
     });
     const modal = this.getReviewSubmissionModal();
     const formValues = await modal.open(initialValues);
