@@ -10,7 +10,10 @@ import type { ChangesModule } from '@modules/changes';
 import type { CommentsModule } from '@modules/comments';
 import type { EditorHistoryStorage } from '@modules/ui/editor/EditorHistoryStorage';
 import type { NotificationService } from './NotificationService';
-import { UnifiedDocumentPersistence } from './UnifiedDocumentPersistence';
+import {
+  UnifiedDocumentPersistence,
+  type TranslationRestorationInfo,
+} from './UnifiedDocumentPersistence';
 
 const logger = createModuleLogger('PersistenceManager');
 
@@ -28,6 +31,7 @@ export interface PersistenceCallbacks {
     elements: Array<{ id: string; content: string; metadata?: unknown }>
   ) => void;
   onCommentsImported?: () => void;
+  onTranslationsImported?: (translations: TranslationRestorationInfo[]) => void;
   refresh: () => void;
 }
 
@@ -127,33 +131,51 @@ export class PersistenceManager {
 
   /**
    * Restore local draft from previous session
+   *
+   * Phase 2: Now uses unified persistence to restore both review edits and translations.
+   * This ensures that translation merges persisted alongside review changes are properly restored.
    */
   public async restoreLocalDraft(): Promise<void> {
     if (!this.config.localPersistence) {
       return;
     }
     try {
-      const draftPayload = await this.config.localPersistence.loadDraft();
-      if (!draftPayload) {
-        logger.debug('No draft found in localStorage');
+      // Load unified document (review + translations)
+      const documentId = this.buildDocumentId();
+      const unifiedPayload =
+        await this.unifiedPersistence.loadDocument(documentId);
+
+      // If nothing was persisted, return early
+      if (!unifiedPayload) {
+        logger.debug('No persisted document found', { documentId });
         return;
       }
+
       const currentState = this.config.changes.getCurrentState();
+      const hasReviewPayload = !!unifiedPayload.review;
+      const hasTranslations =
+        unifiedPayload.translations &&
+        Object.keys(unifiedPayload.translations).length > 0;
 
       logger.debug('Checking for draft restoration', {
-        draftElements: draftPayload.elements?.length ?? 0,
+        documentId,
+        draftElements: unifiedPayload.review?.elements?.length ?? 0,
         currentStateElements: currentState.length,
         hasDraftComments:
-          Array.isArray(draftPayload.comments) &&
-          draftPayload.comments.length > 0,
+          Array.isArray(unifiedPayload.review?.comments) &&
+          unifiedPayload.review.comments.length > 0,
+        hasTranslations,
       });
 
       // CRITICAL FIX: If currentState is empty but draft has elements, this might be valid
       // during early initialization. Only skip if BOTH are empty.
       if (
         currentState.length === 0 &&
-        (!draftPayload.elements || draftPayload.elements.length === 0) &&
-        (!draftPayload.comments || draftPayload.comments.length === 0)
+        (!unifiedPayload.review?.elements ||
+          unifiedPayload.review.elements.length === 0) &&
+        (!unifiedPayload.review?.comments ||
+          unifiedPayload.review.comments.length === 0) &&
+        !hasTranslations
       ) {
         logger.debug('Skipping restoration: both current and draft are empty');
         return;
@@ -161,55 +183,58 @@ export class PersistenceManager {
 
       // Check if there are content differences between current state and draft
       let hasDifference = false;
-      if (currentState.length > 0) {
-        const currentMap = new Map(
-          currentState.map((elem) => [elem.id, elem.content])
-        );
-
-        hasDifference = draftPayload.elements.some((entry) => {
-          const currentContent = currentMap.get(entry.id);
-          const isDifferent = currentContent !== entry.content;
-          if (isDifferent) {
-            logger.debug('Content difference found', {
-              elementId: entry.id,
-              draftContent: entry.content.substring(0, 50),
-              currentContent: currentContent?.substring(0, 50),
-            });
-          }
-          return isDifferent;
-        });
-      } else {
-        // If current state is empty but draft has elements, that's a difference
-        hasDifference = !!(
-          draftPayload.elements && draftPayload.elements.length > 0
-        );
-        if (hasDifference) {
-          logger.debug(
-            'Content difference: current state empty but draft has elements'
+      if (hasReviewPayload && unifiedPayload.review?.elements) {
+        if (currentState.length > 0) {
+          const currentMap = new Map(
+            currentState.map((elem) => [elem.id, elem.content])
           );
+
+          hasDifference = unifiedPayload.review.elements.some((entry) => {
+            const currentContent = currentMap.get(entry.id);
+            const isDifferent = currentContent !== entry.content;
+            if (isDifferent) {
+              logger.debug('Content difference found', {
+                elementId: entry.id,
+                draftContent: entry.content.substring(0, 50),
+                currentContent: currentContent?.substring(0, 50),
+              });
+            }
+            return isDifferent;
+          });
+        } else {
+          // If current state is empty but draft has elements, that's a difference
+          hasDifference =
+            unifiedPayload.review.elements.length > 0 ? true : false;
+          if (hasDifference) {
+            logger.debug(
+              'Content difference: current state empty but draft has elements'
+            );
+          }
         }
       }
 
       // Restore operations if available
       if (
-        Array.isArray(draftPayload.operations) &&
-        draftPayload.operations.length > 0 &&
+        Array.isArray(unifiedPayload.review?.operations) &&
+        unifiedPayload.review.operations.length > 0 &&
         typeof this.config.changes.initializeWithOperations === 'function'
       ) {
         logger.info('Restoring operations from draft', {
-          count: draftPayload.operations.length,
+          count: unifiedPayload.review.operations.length,
         });
-        this.config.changes.initializeWithOperations(draftPayload.operations);
+        this.config.changes.initializeWithOperations(
+          unifiedPayload.review.operations
+        );
       }
 
       // Import comments first (even if no text changes)
       const hasComments =
         typeof this.config.comments?.importComments === 'function' &&
-        Array.isArray(draftPayload.comments) &&
-        draftPayload.comments.length > 0;
+        Array.isArray(unifiedPayload.review?.comments) &&
+        unifiedPayload.review.comments.length > 0;
 
       if (hasComments) {
-        const commentsToImport = draftPayload.comments ?? [];
+        const commentsToImport = unifiedPayload.review?.comments ?? [];
         logger.info('Importing comments from draft', {
           count: commentsToImport.length,
         });
@@ -218,18 +243,39 @@ export class PersistenceManager {
         this.callbacks.onCommentsImported?.();
       }
 
-      // If no text differences and no comments, return early
-      if (!hasDifference && !hasComments) {
-        logger.debug('No differences or comments to restore');
+      // Restore translations if available
+      const translationsToRestore: TranslationRestorationInfo[] = [];
+      if (hasTranslations && unifiedPayload.translations) {
+        for (const [, translationDoc] of Object.entries(
+          unifiedPayload.translations
+        )) {
+          translationsToRestore.push({
+            sourceLanguage: translationDoc.metadata.sourceLanguage,
+            targetLanguage: translationDoc.metadata.targetLanguage,
+            document: translationDoc,
+          });
+        }
+
+        if (translationsToRestore.length > 0) {
+          logger.info('Restoring translations from storage', {
+            count: translationsToRestore.length,
+          });
+          this.callbacks.onTranslationsImported?.(translationsToRestore);
+        }
+      }
+
+      // If no text differences and no comments and no translations, return early
+      if (!hasDifference && !hasComments && !hasTranslations) {
+        logger.debug('No differences, comments, or translations to restore');
         return;
       }
 
       // Notify callback to handle element restoration (only if text changed)
-      if (hasDifference) {
+      if (hasDifference && unifiedPayload.review?.elements) {
         logger.info('Restoring draft elements', {
-          count: draftPayload.elements.length,
+          count: unifiedPayload.review.elements.length,
         });
-        this.callbacks.onDraftRestored(draftPayload.elements);
+        this.callbacks.onDraftRestored(unifiedPayload.review.elements);
       }
 
       // Always refresh to ensure UI is updated
@@ -243,7 +289,7 @@ export class PersistenceManager {
         ? !sessionStorage.getItem(sessionKey)
         : true;
 
-      if (shouldNotify && (hasDifference || hasComments)) {
+      if (shouldNotify && (hasDifference || hasComments || hasTranslations)) {
         logger.info('Showing draft restoration notification');
         this.config.notificationService.info(
           'Restored local draft from previous session.'

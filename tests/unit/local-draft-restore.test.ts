@@ -48,7 +48,10 @@ const createConfigStub = (
   options: DraftOptions = {}
 ): UIConfig => {
   const changes = createChangesStub();
+
+  // Phase 1 v2: persistence is now LocalDraftPersistence with git-backed storage
   const persistence = {
+    getFilename: vi.fn().mockReturnValue('review-draft.json'),
     saveDraft: vi.fn(),
     clearAll: vi.fn(),
     loadDraft: vi.fn().mockResolvedValue(
@@ -66,7 +69,7 @@ const createConfigStub = (
             comments: options.comments ?? [],
           }
     ),
-  };
+  } as any;
 
   const markdown = {
     render: vi.fn(),
@@ -160,7 +163,8 @@ describe('Local draft restore', () => {
   it('applies restored draft when content differs', async () => {
     const config = createConfigStub('Updated content');
     const ui = new UIModule(config);
-    await Promise.resolve();
+    // Wait for multiple event loops to allow async restoration to complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
     expect(config.changes.replaceElementWithSegments).toHaveBeenCalled();
   });
 
@@ -178,7 +182,8 @@ describe('Local draft restore', () => {
       comments: [sampleComment],
     });
     const ui = new UIModule(config);
-    await Promise.resolve();
+    // Wait for multiple event loops to allow async restoration to complete
+    await new Promise((resolve) => setTimeout(resolve, 100));
     expect(config.comments.importComments).toHaveBeenCalledWith([
       sampleComment,
     ]);

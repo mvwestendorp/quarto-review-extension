@@ -233,6 +233,26 @@ export class UIModule {
           // Mark that comments were imported to avoid duplicate migration
           this.commentsImportedFromStorage = true;
         },
+        onTranslationsImported: (translations) => {
+          // Phase 2: Handle restored translations
+          // This callback is invoked when translations are restored from persistent storage
+          // Currently we just notify - TranslationModule will handle restoration in the future
+          logger.debug('Translations imported from storage', {
+            count: translations.length,
+            pairs: translations.map(
+              (t) => `${t.sourceLanguage}-${t.targetLanguage}`
+            ),
+          });
+
+          if (this.translationModule) {
+            logger.info('Translation module available for restoration');
+            // TODO: Phase 2 continuation - Hook TranslationModule to restore UI state
+            // This would involve calling methods on translationModule to:
+            // 1. Set the source/target languages from the restored translation info
+            // 2. Restore the translation document state
+            // 3. Update the translation UI to show the restored state
+          }
+        },
         refresh: () => this.refresh(),
       }
     );
