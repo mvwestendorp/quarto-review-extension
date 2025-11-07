@@ -2505,6 +2505,14 @@ export class UIModule {
     }
   }
 
+  /**
+   * Persist current document state to localStorage
+   * Used by auto-save to ensure drafts are preserved
+   */
+  public persistDocument(): void {
+    this.persistenceManager.persistDocument();
+  }
+
   public destroy(): void {
     this.closeEditor();
 

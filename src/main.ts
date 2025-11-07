@@ -9,7 +9,6 @@ import { CommentsModule } from '@modules/comments';
 import { UIModule } from '@modules/ui';
 import { registerSupplementalEditableSegments } from '@modules/ui/segment-preprocessor';
 import { GitModule } from '@modules/git';
-import { isGitError, isRetryableError } from '@modules/git/errors';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import { UserModule } from '@modules/user';
 import {
@@ -111,8 +110,8 @@ export class QuartoReview {
 
   constructor(config: QuartoReviewConfig = {}) {
     this.config = {
-      autoSave: false,
-      autoSaveInterval: 300000, // 5 minutes
+      autoSave: true, // FIXED: Enable auto-save by default to persist drafts
+      autoSaveInterval: 30000, // 30 seconds - more frequent for draft preservation
       enableComments: true,
       ...config,
     };
@@ -256,27 +255,17 @@ export class QuartoReview {
   private setupAutoSave(): void {
     this.autoSaveInterval = window.setInterval(() => {
       if (this.changes.hasUnsavedOperations()) {
-        this.save().catch((error) => {
-          // Improved error handling for auto-save
-          if (isGitError(error)) {
-            logger.error('Auto-save failed with Git error:', error);
-
-            if (isRetryableError(error)) {
-              logger.info(
-                'Error is retryable, will retry on next auto-save interval'
-              );
-            } else {
-              logger.warn(
-                'Error is not retryable, manual intervention may be required'
-              );
-            }
-          } else {
-            logger.error('Auto-save failed with unexpected error:', error);
-          }
-
-          // Note: We don't show a notification here to avoid spamming the user
-          // The error is logged and will be retried on the next interval
-        });
+        try {
+          // CRITICAL FIX: Call persistDocument() to save drafts to localStorage
+          // NOT this.save() which commits to Git
+          // This ensures operations are persisted locally even if Git is unavailable
+          this.ui.persistDocument();
+          logger.debug('Auto-saved draft to localStorage');
+        } catch (error) {
+          logger.warn('Failed to auto-save draft', error);
+          // Don't show notification - just log it
+          // The user can always manually save or the next interval will retry
+        }
       }
     }, this.config.autoSaveInterval);
   }
