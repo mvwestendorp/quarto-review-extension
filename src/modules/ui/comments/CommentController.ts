@@ -66,19 +66,7 @@ export class CommentController {
   }
 
   public async openComposer(context: CommentComposerContext): Promise<void> {
-    if (!this.composer || !this.sidebar) return;
-
-    const sidebarElement = this.sidebar.getElement();
-    if (!sidebarElement) {
-      return;
-    }
-
-    const body = sidebarElement.querySelector(
-      '.review-comments-content'
-    ) as HTMLElement | null;
-    if (!body) {
-      return;
-    }
+    if (!this.composer) return;
 
     this.closeComposer();
 
@@ -89,6 +77,8 @@ export class CommentController {
 
     const existingCommentContent = context.existingComment;
 
+    // CommentComposer now handles its own DOM insertion as a floating modal
+    // No need to pass sidebar body - it appends to document.body
     await this.composer.open(
       {
         sectionId: context.elementId,
@@ -97,10 +87,10 @@ export class CommentController {
         elementLabel,
         commentId: context.commentId,
       },
-      body
+      document.body // Pass document.body since composer will find or create its container
     );
 
-    const composerElement = body.querySelector(
+    const composerElement = document.querySelector(
       '.review-comment-composer'
     ) as HTMLElement | null;
     if (composerElement) {
@@ -110,18 +100,21 @@ export class CommentController {
         composerElement.dataset.commentId = context.commentId;
       }
       this.commentState.activeCommentComposer = composerElement;
-      this.commentState.activeComposerInsertionAnchor =
-        composerElement.previousElementSibling as HTMLElement | null;
+      // Note: insertion anchor is no longer relevant for floating modal
+      this.commentState.activeComposerInsertionAnchor = null;
     }
 
-    // Hide original comment item while editing
-    if (context.commentKey) {
-      const originalItem = body.querySelector<HTMLElement>(
-        `.review-comment-item[data-comment-key="${context.commentKey}"]`
-      );
-      if (originalItem) {
-        originalItem.classList.add('review-comment-item-hidden');
-        this.commentState.activeComposerOriginalItem = originalItem;
+    // Hide original comment item while editing (if it exists in sidebar)
+    if (context.commentKey && this.sidebar) {
+      const sidebarElement = this.sidebar.getElement();
+      if (sidebarElement) {
+        const originalItem = sidebarElement.querySelector<HTMLElement>(
+          `.review-comment-item[data-comment-key="${context.commentKey}"]`
+        );
+        if (originalItem) {
+          originalItem.classList.add('review-comment-item-hidden');
+          this.commentState.activeComposerOriginalItem = originalItem;
+        }
       }
     }
   }
