@@ -68,13 +68,9 @@ import {
 } from '@/services/EditorManager';
 import { StateStore } from '@/services/StateStore';
 import type { ReviewComment } from '@modules/git';
+import type { GitReviewSession } from '@/types';
 
 const logger = createModuleLogger('UIModule');
-
-type GitReviewSession = {
-  branchName: string;
-  pullRequestNumber?: number;
-};
 
 export interface UIConfig {
   changes: ChangesModule;
@@ -361,7 +357,7 @@ export class UIModule {
       void this.persistenceManager
         .confirmAndClearLocalDrafts()
         .then(() => {
-          this.clearGitSession();
+          void this.clearGitSession();
         })
         .catch((error) => {
           logger.warn('Failed to clear local drafts', error);
@@ -1163,12 +1159,12 @@ export class UIModule {
 
       const pr = context.result.pullRequest;
       if (pr.state === 'open') {
-        this.saveGitSession({
+        await this.saveGitSession({
           branchName: context.result.branchName,
           pullRequestNumber: pr.number,
         });
       } else {
-        this.clearGitSession();
+        await this.clearGitSession();
       }
       const message = pr.url
         ? `Review submitted: ${pr.url}`
@@ -1345,7 +1341,13 @@ export class UIModule {
     return `quarto-review:git-session:${repo.owner}/${repo.name}:${draftFilename}`;
   }
 
-  private loadGitSession(): GitReviewSession | null {
+  private async loadGitSession(): Promise<GitReviewSession | null> {
+    if (this.localPersistence?.loadGitSession) {
+      const persisted = await this.localPersistence.loadGitSession();
+      if (persisted) {
+        return persisted;
+      }
+    }
     if (typeof window === 'undefined') {
       return null;
     }
@@ -1361,7 +1363,7 @@ export class UIModule {
   }
 
   private async getActiveGitSession(): Promise<GitReviewSession | null> {
-    const session = this.loadGitSession();
+    const session = await this.loadGitSession();
     if (!session?.pullRequestNumber || !this.reviewService) {
       return session;
     }
@@ -1370,7 +1372,7 @@ export class UIModule {
         session.pullRequestNumber
       );
       if (!pr || pr.state !== 'open') {
-        this.clearGitSession();
+        await this.clearGitSession();
         return null;
       }
       return session;
@@ -1379,7 +1381,11 @@ export class UIModule {
     }
   }
 
-  private saveGitSession(session: GitReviewSession): void {
+  private async saveGitSession(session: GitReviewSession): Promise<void> {
+    if (this.localPersistence?.saveGitSession) {
+      await this.localPersistence.saveGitSession(session);
+      return;
+    }
     if (typeof window === 'undefined') {
       return;
     }
@@ -1394,7 +1400,11 @@ export class UIModule {
     }
   }
 
-  private clearGitSession(): void {
+  private async clearGitSession(): Promise<void> {
+    if (this.localPersistence?.clearGitSession) {
+      await this.localPersistence.clearGitSession();
+      return;
+    }
     if (typeof window === 'undefined') {
       return;
     }

@@ -157,6 +157,11 @@ export interface ReviewGitConfig {
   options?: Record<string, unknown>;
 }
 
+export interface GitReviewSession {
+  branchName: string;
+  pullRequestNumber?: number;
+}
+
 /**
  * Configuration for DocumentSearch module
  */

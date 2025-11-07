@@ -1,6 +1,6 @@
 import { EmbeddedSourceStore } from '@modules/git/fallback';
 import { createModuleLogger } from '@utils/debug';
-import type { Comment, Operation } from '@/types';
+import type { Comment, Operation, GitReviewSession } from '@/types';
 
 const logger = createModuleLogger('LocalDraftPersistence');
 
@@ -27,6 +27,7 @@ interface DraftPayload {
 export class LocalDraftPersistence {
   private readonly filename: string;
   private readonly defaultMessage: string;
+  private readonly gitSessionFilename: string;
 
   constructor(
     private readonly store: EmbeddedSourceStore,
@@ -34,6 +35,7 @@ export class LocalDraftPersistence {
   ) {
     this.filename = options.filename ?? 'review-draft.json';
     this.defaultMessage = options.defaultMessage ?? 'Local draft update';
+    this.gitSessionFilename = `${this.filename}.git-session`;
   }
 
   public getFilename(): string {
@@ -199,6 +201,56 @@ export class LocalDraftPersistence {
     } catch (error) {
       logger.warn('Failed to load local draft', error);
       return null;
+    }
+  }
+
+  public async saveGitSession(session: GitReviewSession): Promise<void> {
+    try {
+      await this.store.saveFile(
+        this.gitSessionFilename,
+        JSON.stringify(session),
+        'Update git review session'
+      );
+      logger.debug('Saved git review session metadata', {
+        filename: this.gitSessionFilename,
+      });
+    } catch (error) {
+      logger.warn('Failed to save git review session metadata', error);
+    }
+  }
+
+  public async loadGitSession(): Promise<GitReviewSession | null> {
+    try {
+      const source = await this.store.getSource(this.gitSessionFilename);
+      if (!source?.content || !source.content.trim()) {
+        return null;
+      }
+      const parsed = JSON.parse(source.content) as GitReviewSession;
+      if (!parsed || typeof parsed !== 'object') {
+        return null;
+      }
+      return parsed;
+    } catch (error) {
+      logger.debug('Failed to load git review session metadata', {
+        filename: this.gitSessionFilename,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  }
+
+  public async clearGitSession(): Promise<void> {
+    try {
+      await this.store.saveFile(
+        this.gitSessionFilename,
+        '',
+        'Clear git review session'
+      );
+      logger.debug('Cleared git review session metadata', {
+        filename: this.gitSessionFilename,
+      });
+    } catch (error) {
+      logger.warn('Failed to clear git review session metadata', error);
     }
   }
 }
