@@ -188,6 +188,12 @@ export class UnifiedDocumentPersistence {
         // Check if this translation belongs to our document
         // Translation storage keys are: `quarto_review_translation_{documentId}-{langPair}`
         // So we look for docs where the ID starts with our documentId
+        if (!doc.id) {
+          logger.warn('Found translation document without id field', {
+            keys: doc ? Object.keys(doc) : 'null',
+          });
+          continue; // Skip malformed documents
+        }
         if (doc.id.startsWith(`${documentId}-`)) {
           const langPair = doc.id.substring(`${documentId}-`.length);
           translations[langPair] = doc;
@@ -246,6 +252,12 @@ export class UnifiedDocumentPersistence {
       const results: TranslationRestorationInfo[] = [];
 
       for (const doc of allDocs) {
+        if (!doc.id) {
+          logger.warn('Found translation document without id field', {
+            keys: doc ? Object.keys(doc) : 'null',
+          });
+          continue; // Skip malformed documents
+        }
         if (doc.id.startsWith(`${documentId}-`)) {
           results.push({
             sourceLanguage: doc.metadata.sourceLanguage,
