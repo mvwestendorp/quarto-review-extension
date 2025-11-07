@@ -4,6 +4,11 @@ import type { ChangesModule } from '@modules/changes';
 import type GitModule from '@modules/git';
 import type { EmbeddedSourceRecord } from '@modules/git/fallback';
 import type { Operation } from '@/types';
+import {
+  groupOperationsByPage,
+  inferQmdFilenameFromPagePrefix,
+  getPagePrefixesFromOperations,
+} from '@utils/page-utils';
 
 const logger = createModuleLogger('QmdExportService');
 
@@ -203,6 +208,25 @@ export class QmdExportService {
     format: ExportFormat,
     context: ProjectContext
   ): Promise<ExportedFile[]> {
+    const operations = this.changes.getOperations?.();
+    const hasMultiPageChanges =
+      operations && operations.length > 0
+        ? getPagePrefixesFromOperations(Array.from(operations)).length > 1
+        : false;
+
+    if (hasMultiPageChanges) {
+      return this.collectFilesMultiPage(format, context);
+    }
+
+    // Single-page export (original behavior)
+    return this.collectFilesSinglePage(primaryFilename, format, context);
+  }
+
+  private collectFilesSinglePage(
+    primaryFilename: string,
+    format: ExportFormat,
+    context: ProjectContext
+  ): ExportedFile[] {
     const primaryContent = this.buildPrimaryDocument(
       primaryFilename,
       format,
@@ -258,6 +282,98 @@ export class QmdExportService {
     return files;
   }
 
+  private collectFilesMultiPage(
+    format: ExportFormat,
+    context: ProjectContext
+  ): ExportedFile[] {
+    const operations = Array.from(this.changes.getOperations?.() || []);
+    const files: ExportedFile[] = [];
+
+    // Group operations by page
+    const operationsByPage = groupOperationsByPage(operations);
+    const pagePrefixes = Array.from(operationsByPage.keys()).sort();
+
+    logger.info('Exporting multi-page document', {
+      pageCount: pagePrefixes.length,
+      pages: pagePrefixes,
+      totalOperations: operations.length,
+    });
+
+    // Generate separate QMD file for each page with changes
+    for (const pagePrefix of pagePrefixes) {
+      const pageContent = this.buildPageDocument(
+        pagePrefix,
+        format,
+        context.sources
+      );
+      if (!pageContent) {
+        continue;
+      }
+
+      const filename = inferQmdFilenameFromPagePrefix(pagePrefix);
+      files.push({
+        filename,
+        content: pageContent,
+        origin: 'active-document',
+        primary: false,
+      });
+
+      logger.debug('Added page to multi-page export', {
+        pagePrefix,
+        filename,
+        contentLength: pageContent.length,
+      });
+    }
+
+    // Include all embedded sources (respecting render patterns)
+    context.sources.forEach((record) => {
+      if (!record?.filename) {
+        return;
+      }
+      const normalizedName = record.filename;
+
+      // Skip page files already generated
+      if (pagePrefixes.some((prefix) => normalizedName.startsWith(prefix))) {
+        return;
+      }
+
+      if (this.isQmdFile(normalizedName) || this.isMdFile(normalizedName)) {
+        // Check if this file should be rendered according to _quarto.yml
+        if (
+          context.renderPatterns &&
+          !this.shouldRenderFile(normalizedName, context.renderPatterns)
+        ) {
+          logger.debug('Skipping file excluded by render patterns', {
+            filename: normalizedName,
+          });
+          return;
+        }
+
+        files.push({
+          filename: normalizedName,
+          content: record.content,
+          origin: 'embedded',
+        });
+        return;
+      }
+
+      if (this.isQuartoConfig(normalizedName)) {
+        files.push({
+          filename: normalizedName,
+          content: record.content,
+          origin: 'project-config',
+        });
+      }
+    });
+
+    // If we have multiple files or project config, force archive
+    if (files.length > 0) {
+      files[0]!.primary = true;
+    }
+
+    return files;
+  }
+
   private buildPrimaryDocument(
     primaryFilename: string,
     format: ExportFormat,
@@ -269,6 +385,113 @@ export class QmdExportService {
       (record) => record.filename === primaryFilename
     );
     return this.mergeFrontMatter(sourceRecord?.content, body);
+  }
+
+  /**
+   * Build a document for a specific page containing only its changes
+   * Used in multi-page exports to generate separate QMD files per page
+   */
+  private buildPageDocument(
+    pagePrefix: string,
+    format: ExportFormat,
+    sources: EmbeddedSourceRecord[]
+  ): string | null {
+    // Get the body markdown for this page only
+    const body = this.getPageBodyMarkdown(pagePrefix, format);
+    if (!body.trim()) {
+      logger.debug('Skipping page with no changes', { pagePrefix });
+      return null;
+    }
+
+    // Try to find the source file for this page
+    const filename = inferQmdFilenameFromPagePrefix(pagePrefix);
+    const sourceRecord = sources.find((record) => record.filename === filename);
+
+    // Extract page-specific title if available
+    const elements = this.changes.getCurrentState?.();
+    let pageTitle: string | null = null;
+
+    if (Array.isArray(elements)) {
+      // Find the first title element belonging to this page
+      const pageTitle_ = elements.find((element) => {
+        const type = element.metadata?.type;
+        const isTitle = type === 'DocumentTitle' || type === 'Title';
+        return isTitle && element.id.startsWith(pagePrefix + '.');
+      });
+      if (pageTitle_) {
+        pageTitle = pageTitle_.content.trim();
+      }
+    }
+
+    return this.mergeFrontMatterForPage(sourceRecord?.content, body, pageTitle);
+  }
+
+  /**
+   * Get body markdown for a specific page only
+   */
+  private getPageBodyMarkdown(
+    pagePrefix: string,
+    format: ExportFormat
+  ): string {
+    const elements = this.changes.getCurrentState?.();
+    if (!Array.isArray(elements) || elements.length === 0) {
+      return '';
+    }
+
+    // Filter to only elements belonging to this page, excluding titles
+    const pageElements = elements.filter((element) => {
+      const belongsToPage = element.id.startsWith(pagePrefix + '.');
+      const type = element.metadata?.type;
+      const isTitle = type === 'DocumentTitle' || type === 'Title';
+      return belongsToPage && !isTitle;
+    });
+
+    if (pageElements.length === 0) {
+      return '';
+    }
+
+    if (format === 'critic') {
+      return pageElements
+        .map((element) =>
+          this.changes.getElementContentWithTrackedChanges(element.id)
+        )
+        .join('\n\n');
+    }
+
+    return pageElements.map((element) => element.content).join('\n\n');
+  }
+
+  /**
+   * Merge front matter for a page-specific export
+   */
+  private mergeFrontMatterForPage(
+    originalContent: string | undefined,
+    body: string,
+    pageTitle: string | null
+  ): string {
+    const normalizedBody = body.replace(/^\s+/, '');
+
+    if (!originalContent) {
+      if (!pageTitle) {
+        return normalizedBody;
+      }
+      const frontMatter = this.buildFrontMatterFromTitle(pageTitle);
+      return `${frontMatter}\n\n${normalizedBody}`;
+    }
+
+    const frontMatterBlock = this.extractFrontMatter(originalContent);
+    if (!frontMatterBlock) {
+      if (!pageTitle) {
+        return normalizedBody;
+      }
+      const frontMatter = this.buildFrontMatterFromTitle(pageTitle);
+      return `${frontMatter}\n\n${normalizedBody}`;
+    }
+
+    const updatedFrontMatter = pageTitle
+      ? this.updateFrontMatterTitle(frontMatterBlock, pageTitle)
+      : frontMatterBlock;
+    return `${updatedFrontMatter}\n\n${normalizedBody}`;
   }
 
   private mergeFrontMatter(
