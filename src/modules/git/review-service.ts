@@ -5,9 +5,13 @@ import type {
   ReviewFileChange,
   ReviewComment,
 } from './integration';
-import QmdExportService, { type ExportFormat } from '@modules/export';
+import QmdExportService, {
+  type ExportFormat,
+  type OperationSnapshot,
+} from '@modules/export';
 import type { ResolvedGitConfig, GitProviderType } from './types';
 import type { PullRequest } from './providers';
+import type { Operation, InsertData, EditData, DeleteData } from '@/types';
 
 export interface SubmitReviewOptions {
   reviewer: string;
@@ -88,11 +92,18 @@ export class GitReviewService {
       fallbackBase
     );
 
+    const format = options.format ?? 'clean';
     const bundle = await this.exporter.createBundle({
-      format: options.format,
+      format,
     });
+    const operationSnapshots =
+      await this.exporter.getOperationSnapshots(format);
 
-    const files = this.toReviewFiles(bundle.files, options.commitMessage);
+    const files = this.toReviewFiles(
+      bundle.files,
+      options.commitMessage,
+      operationSnapshots
+    );
 
     const payload: ReviewSubmissionPayload = {
       reviewer: options.reviewer,
@@ -125,13 +136,60 @@ export class GitReviewService {
 
   private toReviewFiles(
     files: Array<{ filename: string; content: string }>,
-    commitMessage?: string
+    commitMessage?: string,
+    snapshots?: OperationSnapshot[]
   ): ReviewFileChange[] {
+    if (snapshots && snapshots.length > 0) {
+      const primaryFilename = snapshots[0]?.filename;
+      const results: ReviewFileChange[] = snapshots.map((snapshot) => ({
+        path: snapshot.filename,
+        content: snapshot.content,
+        message: this.describeOperation(snapshot),
+      }));
+
+      files
+        .filter((file) => file.filename !== primaryFilename)
+        .forEach((file) => {
+          results.push({
+            path: file.filename,
+            content: file.content,
+            message: commitMessage,
+          });
+        });
+
+      return results;
+    }
+
     return files.map((file) => ({
       path: file.filename,
       content: file.content,
       message: commitMessage,
     }));
+  }
+
+  private describeOperation(snapshot: OperationSnapshot): string {
+    const operation = snapshot.operation;
+    const elementType = this.getOperationElementType(operation);
+    const details = elementType
+      ? `${operation.type} ${elementType}`
+      : operation.type;
+    return `${snapshot.filename}: ${details} (step ${snapshot.index + 1})`;
+  }
+
+  private getOperationElementType(operation: Operation): string | undefined {
+    switch (operation.type) {
+      case 'insert':
+        return (operation.data as InsertData).metadata?.type;
+      case 'edit':
+        return (
+          (operation.data as EditData).newMetadata?.type ||
+          (operation.data as EditData).oldMetadata?.type
+        );
+      case 'delete':
+        return (operation.data as DeleteData).originalMetadata?.type;
+      default:
+        return undefined;
+    }
   }
 
   private async persistFallback(

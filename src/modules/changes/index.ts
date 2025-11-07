@@ -464,9 +464,19 @@ Please report this issue with your Quarto document structure.
    * Get current state by applying operations to original elements
    */
   public getCurrentState(): Element[] {
-    let elements = [...this.originalElements];
+    return this.getStateAfterOperations();
+  }
 
-    for (const operation of this.operations) {
+  public getStateAfterOperations(operationCount?: number): Element[] {
+    let elements = [...this.originalElements];
+    const limit =
+      typeof operationCount === 'number'
+        ? Math.min(Math.max(operationCount, 0), this.operations.length)
+        : this.operations.length;
+
+    for (let i = 0; i < limit; i++) {
+      const operation = this.operations[i];
+      if (!operation) continue;
       elements = this.applyOperation(elements, operation);
     }
 
@@ -718,8 +728,12 @@ Please report this issue with your Quarto document structure.
    * Use toCleanMarkdown() for Git exports to strip CriticMarkup.
    */
   public toMarkdown(): string {
-    const elements = this.getCurrentState();
-    return elements.map((e) => e.content).join('\n\n');
+    return this.toMarkdownSnapshot();
+  }
+
+  public toMarkdownSnapshot(operationCount?: number): string {
+    const elements = this.getStateAfterOperations(operationCount);
+    return this.renderMarkdown(elements);
   }
 
   /**
@@ -748,6 +762,13 @@ Please report this issue with your Quarto document structure.
    */
   public toCleanMarkdown(): string {
     const markdown = this.toMarkdown();
+    return stripCriticMarkup(markdown, true, {
+      preserveCommentsAsHtml: true,
+    });
+  }
+
+  public toCleanMarkdownSnapshot(operationCount?: number): string {
+    const markdown = this.toMarkdownSnapshot(operationCount);
     return stripCriticMarkup(markdown, true, {
       preserveCommentsAsHtml: true,
     });
@@ -929,6 +950,10 @@ Please report this issue with your Quarto document structure.
     this.redoStack = [];
     this.saved = true;
     this.elementBaselines.clear();
+  }
+
+  private renderMarkdown(elements: Element[]): string {
+    return elements.map((e) => e.content).join('\n\n');
   }
 }
 

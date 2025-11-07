@@ -27,7 +27,7 @@ review:
   git:
     provider: github
     owner: mvwestendorp
-    repo: quarto-review-extension-github-demo
+    repo: quarto-review-extension-github-demo-new
     base-branch: main # optional; defaults to `main`
     auth:
       mode: pat

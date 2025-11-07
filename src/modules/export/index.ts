@@ -3,6 +3,7 @@ import ZipArchiveBuilder from '@utils/zip';
 import type { ChangesModule } from '@modules/changes';
 import type GitModule from '@modules/git';
 import type { EmbeddedSourceRecord } from '@modules/git/fallback';
+import type { Operation } from '@/types';
 
 const logger = createModuleLogger('QmdExportService');
 
@@ -25,6 +26,13 @@ export interface ExportResult {
   fileCount: number;
   downloadedAs: string;
   filenames: string[];
+}
+
+export interface OperationSnapshot {
+  filename: string;
+  content: string;
+  operation: Operation;
+  index: number;
 }
 
 export interface ExportServiceOptions {
@@ -83,6 +91,48 @@ export class QmdExportService {
       format,
       forceArchive,
     };
+  }
+
+  public async getOperationSnapshots(
+    format: ExportFormat
+  ): Promise<OperationSnapshot[]> {
+    if (typeof this.changes.getOperations !== 'function') {
+      return [];
+    }
+    const operations = this.changes.getOperations();
+    if (!operations?.length) {
+      return [];
+    }
+    const primaryFilename = this.resolvePrimaryFilename();
+    const projectContext = await this.resolveProjectContext();
+    const snapshots: OperationSnapshot[] = [];
+
+    for (let i = 0; i < operations.length; i++) {
+      const operation = operations[i];
+      if (!operation) continue;
+      const body =
+        format === 'critic'
+          ? (this.changes.toMarkdownSnapshot?.(i + 1) ??
+            this.changes.toCleanMarkdownSnapshot?.(i + 1))
+          : this.changes.toCleanMarkdownSnapshot?.(i + 1);
+      if (!body) {
+        continue;
+      }
+      const content = this.buildPrimaryDocument(
+        primaryFilename,
+        format,
+        projectContext.sources,
+        body
+      );
+      snapshots.push({
+        filename: primaryFilename,
+        content,
+        operation,
+        index: i,
+      });
+    }
+
+    return snapshots;
   }
 
   /**
@@ -211,9 +261,10 @@ export class QmdExportService {
   private buildPrimaryDocument(
     primaryFilename: string,
     format: ExportFormat,
-    sources: EmbeddedSourceRecord[]
+    sources: EmbeddedSourceRecord[],
+    bodyOverride?: string
   ): string {
-    const body = this.getBodyMarkdown(format);
+    const body = bodyOverride ?? this.getBodyMarkdown(format);
     const sourceRecord = sources.find(
       (record) => record.filename === primaryFilename
     );

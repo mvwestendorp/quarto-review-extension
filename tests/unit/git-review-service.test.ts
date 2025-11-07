@@ -5,6 +5,7 @@ import GitReviewService, {
 import type GitModule from '@/modules/git';
 import type QmdExportService from '@/modules/export';
 import type { ReviewSubmissionResult } from '@/modules/git';
+import type { Operation } from '@/types';
 
 const buildBundle = () => ({
   files: [
@@ -44,7 +45,10 @@ type MockGitModule = Pick<
   | 'requiresAuthToken'
   | 'setAuthToken'
 >;
-type MockExportService = Pick<QmdExportService, 'createBundle'>;
+type MockExportService = Pick<
+  QmdExportService,
+  'createBundle' | 'getOperationSnapshots'
+>;
 
 describe('GitReviewService', () => {
   let git: MockGitModule;
@@ -55,6 +59,7 @@ describe('GitReviewService', () => {
   let submitReviewMock: ReturnType<typeof vi.fn>;
   let getConfigMock: ReturnType<typeof vi.fn>;
   let createBundleMock: ReturnType<typeof vi.fn>;
+  let getOperationSnapshotsMock: ReturnType<typeof vi.fn>;
   let getFallbackStoreMock: ReturnType<typeof vi.fn>;
   let fallbackStoreSaveMock: ReturnType<typeof vi.fn>;
   let requiresAuthTokenMock: ReturnType<typeof vi.fn>;
@@ -108,8 +113,10 @@ describe('GitReviewService', () => {
     };
 
     createBundleMock = vi.fn().mockResolvedValue(bundleFixture);
+    getOperationSnapshotsMock = vi.fn().mockResolvedValue([]);
     exporter = {
       createBundle: createBundleMock,
+      getOperationSnapshots: getOperationSnapshotsMock,
     } as MockExportService;
 
     service = new GitReviewService(git as GitModule, exporter as QmdExportService);
@@ -205,8 +212,9 @@ describe('GitReviewService', () => {
     const context = await service.submitReview(options);
 
     expect(createBundleMock).toHaveBeenCalledWith({
-      format: undefined,
+      format: 'clean',
     });
+    expect(getOperationSnapshotsMock).toHaveBeenCalledWith('clean');
 
     expect(submitReviewMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -250,6 +258,7 @@ describe('GitReviewService', () => {
     await service.submitReview(options);
 
     expect(createBundleMock).toHaveBeenCalledWith({ format: 'critic' });
+    expect(getOperationSnapshotsMock).toHaveBeenCalledWith('critic');
 
     expect(submitReviewMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -309,5 +318,78 @@ describe('GitReviewService', () => {
     expect(submitReviewMock).toHaveBeenCalled();
 
     getConfigMock.mockReturnValue(buildDefaultGitConfig());
+  });
+
+  it('creates per-operation file changes when snapshots are available', async () => {
+    const operations: Operation[] = [
+      {
+        id: 'op-1',
+        type: 'edit',
+        elementId: 'para-1',
+        timestamp: 1,
+        userId: 'tester',
+        data: {
+          type: 'edit',
+          oldContent: 'old',
+          newContent: 'new',
+          changes: [],
+          newMetadata: { type: 'Para' },
+        },
+      },
+      {
+        id: 'op-2',
+        type: 'insert',
+        elementId: 'para-2',
+        timestamp: 2,
+        userId: 'tester',
+        data: {
+          type: 'insert',
+          content: 'extra',
+          metadata: { type: 'Para' },
+          position: { after: 'para-1' },
+        },
+      },
+    ];
+
+    getOperationSnapshotsMock.mockResolvedValue([
+      {
+        filename: 'document.qmd',
+        content: 'state-1',
+        operation: operations[0],
+        index: 0,
+      },
+      {
+        filename: 'document.qmd',
+        content: 'state-2',
+        operation: operations[1],
+        index: 1,
+      },
+    ]);
+
+    await service.submitReview({
+      reviewer: 'zoe',
+      commitMessage: 'Review updates',
+      pullRequest: { title: 'Snapshot review' },
+    });
+
+    expect(getOperationSnapshotsMock).toHaveBeenCalledWith('clean');
+    const payload = submitReviewMock.mock.calls[0]?.[0];
+    expect(payload?.files).toEqual([
+      {
+        path: 'document.qmd',
+        content: 'state-1',
+        message: 'document.qmd: edit Para (step 1)',
+      },
+      {
+        path: 'document.qmd',
+        content: 'state-2',
+        message: 'document.qmd: insert Para (step 2)',
+      },
+      {
+        path: '_quarto.yml',
+        content: 'project: website',
+        message: 'Review updates',
+      },
+    ]);
   });
 });
