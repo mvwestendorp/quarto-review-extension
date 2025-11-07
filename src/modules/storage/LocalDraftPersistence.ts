@@ -89,10 +89,33 @@ export class LocalDraftPersistence {
       }
 
       await this.store.saveFile(this.filename, serialized, message);
-      logger.debug('Saved local draft', {
+
+      logger.info('Saved local draft to EmbeddedSourceStore', {
         filename: this.filename,
         operationCount: operations?.length ?? 0,
+        elementCount: elements.length,
+        commentCount: comments?.length ?? 0,
+        serializedLength: serialized.length,
       });
+
+      // Verify the save by immediately loading it back
+      const verification = await this.store.getSource(this.filename);
+      if (verification) {
+        logger.debug(
+          'Draft save verified - file exists in EmbeddedSourceStore',
+          {
+            filename: this.filename,
+            storedLength: verification.content?.length ?? 0,
+          }
+        );
+      } else {
+        logger.warn(
+          'Draft save verification failed - file not found after save',
+          {
+            filename: this.filename,
+          }
+        );
+      }
     } catch (error) {
       logger.warn('Failed to persist local draft', error);
     }

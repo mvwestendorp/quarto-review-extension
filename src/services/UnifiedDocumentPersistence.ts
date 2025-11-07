@@ -105,19 +105,25 @@ export class UnifiedDocumentPersistence {
     // Save review layer to git-backed storage
     if (payload.review) {
       try {
+        logger.debug('Saving review layer to EmbeddedSourceStore', {
+          elementCount: payload.review.elements.length,
+          operationCount: payload.review.operations?.length ?? 0,
+          commentCount: payload.review.comments?.length ?? 0,
+        });
+
         await this.localPersistence.saveDraft(payload.review.elements, {
           message: `Local draft update: ${new Date().toISOString()}`,
           comments: payload.review.comments,
           operations: payload.review.operations,
         });
 
-        logger.debug('Review layer saved successfully', {
+        logger.info('Review layer saved successfully to EmbeddedSourceStore', {
           elementCount: payload.review.elements.length,
           commentCount: payload.review.comments?.length ?? 0,
           operationCount: payload.review.operations?.length ?? 0,
         });
       } catch (error) {
-        logger.warn('Failed to save review layer', error);
+        logger.error('Failed to save review layer', error);
       }
     }
 
