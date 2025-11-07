@@ -238,34 +238,28 @@ describe('UI Regression Tests', () => {
       expect(loaded).toBeNull();
     });
 
-    it('should migrate legacy draft to new filename', async () => {
-      const draftPayload = {
-        savedAt: new Date().toISOString(),
-        elements: [
-          {
-            id: 'elem-1',
-            content: 'Legacy content',
-            metadata: { type: 'Para' },
-          },
-        ],
-      };
+    it('should explicitly reject document files loaded as drafts', async () => {
+      // This test ensures that if a document file (YAML/Markdown) is accidentally
+      // stored as a draft, it will be explicitly rejected rather than silently failing
+      const malformedPayload = `---
+title: "Example Document"
+author: "Test"
+format:
+  html:
+    include-in-header: test
+---
 
-      // First call returns null (new filename not found)
-      // Second call returns legacy draft
-      vi.mocked(mockStore.getSource)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({
-          content: JSON.stringify(draftPayload),
-          commitMessage: 'Legacy',
-        } as any);
+# Content`;
+
+      vi.mocked(mockStore.getSource).mockResolvedValueOnce({
+        content: malformedPayload,
+        commitMessage: 'Document file',
+      } as any);
 
       const loaded = await persistence.loadDraft();
 
-      expect(loaded).toBeDefined();
-      expect(loaded?.elements[0]?.content).toBe('Legacy content');
-
-      // Should have called saveFile to migrate
-      expect(mockStore.saveFile).toHaveBeenCalled();
+      // Should return null because YAML is not valid JSON and not DraftPayload
+      expect(loaded).toBeNull();
     });
 
     it('should handle draft restoration when current state is empty during initialization', () => {

@@ -81,39 +81,17 @@ it('loads draft payload from configured filename', async () => {
   expect(store.saveFile).not.toHaveBeenCalled();
 });
 
-it('migrates legacy draft files when new filename missing', async () => {
-  const legacyPayload = {
-    savedAt: 'legacy',
-    elements: [{ id: 'legacy', content: 'legacy content' }],
-  };
+it('returns null when draft file does not exist', async () => {
   const store = {
-    saveFile: vi.fn().mockResolvedValue(undefined),
+    saveFile: vi.fn(),
     clearAll: vi.fn(),
-    getSource: vi
-      .fn()
-      .mockImplementation(async (filename: string) => {
-        if (filename === 'review-draft.json') {
-          return null;
-        }
-        if (filename === 'document.qmd') {
-          return {
-            content: JSON.stringify(legacyPayload),
-            commitMessage: 'legacy message',
-          };
-        }
-        return null;
-      }),
+    getSource: vi.fn().mockResolvedValue(null),
   };
   const persistence = new LocalDraftPersistence(store as any, {});
 
   const result = await persistence.loadDraft();
 
-  expect(result).toEqual(legacyPayload);
-  expect(store.saveFile).toHaveBeenCalledWith(
-    'review-draft.json',
-    JSON.stringify(legacyPayload),
-    'legacy message'
-  );
+  expect(result).toBeNull();
 });
 
 it('returns null when stored draft is malformed', async () => {

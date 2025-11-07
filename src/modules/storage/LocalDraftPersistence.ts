@@ -3,7 +3,6 @@ import { createModuleLogger } from '@utils/debug';
 import type { Comment, Operation } from '@/types';
 
 const logger = createModuleLogger('LocalDraftPersistence');
-const LEGACY_DRAFT_FILENAME = 'document.qmd';
 
 export interface LocalDraftPersistenceOptions {
   filename?: string;
@@ -110,69 +109,53 @@ export class LocalDraftPersistence {
 
   public async loadDraft(): Promise<DraftPayload | null> {
     try {
-      let source = await this.store.getSource(this.filename);
-      let migratedFromLegacy = false;
+      const source = await this.store.getSource(this.filename);
       if (!source) {
-        source = await this.store.getSource(LEGACY_DRAFT_FILENAME);
-        if (!source) {
-          return null;
-        }
-        migratedFromLegacy = true;
+        // Draft file does not exist - this is normal, return null
+        return null;
       }
 
       let parsed: DraftPayload;
       try {
         parsed = JSON.parse(source.content) as DraftPayload;
       } catch (parseError) {
-        logger.warn(
-          'Failed to parse draft content as JSON',
-          parseError instanceof Error ? parseError.message : String(parseError)
-        );
+        logger.error('Failed to parse draft content as JSON', {
+          error:
+            parseError instanceof Error
+              ? parseError.message
+              : String(parseError),
+          filename: this.filename,
+          contentLength: source.content?.length ?? 0,
+          contentPreview: source.content?.substring(0, 100),
+          contentType: typeof source.content,
+        });
         return null;
       }
 
       // Validate that parsed data has the expected DraftPayload structure
       if (!parsed || typeof parsed !== 'object') {
-        logger.warn('Draft payload is not an object', {
+        logger.error('Draft payload is not a valid object', {
+          filename: this.filename,
           type: typeof parsed,
         });
         return null;
       }
 
-      // Check for EditorHistoryStorage format (common mistake - different data type)
-      if (
-        'elementId' in parsed &&
-        'states' in parsed &&
-        !('elements' in parsed)
-      ) {
-        logger.warn(
-          'Draft storage contains EditorHistoryStorage data instead of DraftPayload',
-          {
-            elementId: (parsed as any).elementId,
-            stateCount: Array.isArray((parsed as any).states)
-              ? (parsed as any).states.length
-              : 0,
-          }
-        );
+      // Require 'elements' field for valid DraftPayload
+      if (!Array.isArray(parsed.elements)) {
+        logger.error('Draft payload missing required "elements" array', {
+          filename: this.filename,
+          hasElements: 'elements' in parsed,
+          keys: Object.keys(parsed),
+        });
         return null;
       }
 
-      if (!Array.isArray(parsed.elements) || parsed.elements.length === 0) {
-        logger.debug('Draft has no elements or is empty');
+      if (parsed.elements.length === 0) {
+        logger.debug('Draft has no elements');
         return null;
       }
 
-      if (migratedFromLegacy) {
-        try {
-          await this.store.saveFile(
-            this.filename,
-            source.content,
-            source.commitMessage ?? this.defaultMessage
-          );
-        } catch (migrationError) {
-          logger.warn('Failed to migrate legacy draft storage', migrationError);
-        }
-      }
       return parsed;
     } catch (error) {
       logger.warn('Failed to load local draft', error);
