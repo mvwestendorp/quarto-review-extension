@@ -213,10 +213,7 @@ export class QmdExportService {
     format: ExportFormat,
     sources: EmbeddedSourceRecord[]
   ): string {
-    const body =
-      format === 'critic'
-        ? this.changes.toTrackedMarkdown()
-        : this.changes.toCleanMarkdown();
+    const body = this.getBodyMarkdown(format);
     const sourceRecord = sources.find(
       (record) => record.filename === primaryFilename
     );
@@ -323,6 +320,36 @@ export class QmdExportService {
   private formatYamlString(value: string): string {
     const escaped = value.replace(/"/g, '\\"');
     return `"${escaped}"`;
+  }
+
+  private getBodyMarkdown(format: ExportFormat): string {
+    const elements = this.changes.getCurrentState?.();
+    if (!Array.isArray(elements) || elements.length === 0) {
+      return format === 'critic'
+        ? this.changes.toTrackedMarkdown()
+        : this.changes.toCleanMarkdown();
+    }
+
+    const filtered = elements.filter((element) => {
+      const type = element.metadata?.type;
+      return type !== 'DocumentTitle' && type !== 'Title';
+    });
+
+    if (filtered.length === 0) {
+      return format === 'critic'
+        ? this.changes.toTrackedMarkdown()
+        : this.changes.toCleanMarkdown();
+    }
+
+    if (format === 'critic') {
+      return filtered
+        .map((element) =>
+          this.changes.getElementContentWithTrackedChanges(element.id)
+        )
+        .join('\n\n');
+    }
+
+    return filtered.map((element) => element.content).join('\n\n');
   }
 
   private deduplicateFiles(files: ExportedFile[]): ExportedFile[] {

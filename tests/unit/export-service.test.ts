@@ -7,24 +7,54 @@ describe('QmdExportService', () => {
       clean?: string;
       critic?: string;
       title?: string;
+      body?: string;
+      includeTitle?: boolean;
     } = {}
-  ) => ({
-    toCleanMarkdown: vi.fn().mockReturnValue(options.clean ?? 'updated content'),
-    toTrackedMarkdown: vi.fn().mockReturnValue(
-      options.critic ?? 'tracked content'
-    ),
-    getCurrentState: vi.fn().mockReturnValue(
-      options.title
-        ? [
-            {
-              id: 'doc-title',
-              content: options.title,
-              metadata: { type: 'Title' },
-            },
-          ]
-        : []
-    ),
-  });
+  ) => {
+    const elements: Array<{
+      id: string;
+      content: string;
+      metadata: { type: string };
+    }> = [];
+
+    const includeTitle =
+      options.includeTitle ?? (typeof options.title === 'string');
+    if (includeTitle) {
+      elements.push({
+        id: 'doc-title',
+        content: options.title ?? 'Document Title',
+        metadata: { type: 'Title' },
+      });
+    }
+
+    elements.push({
+      id: 'body-1',
+      content: options.body ?? options.clean ?? 'updated content',
+      metadata: { type: 'Para' },
+    });
+
+    return {
+      toCleanMarkdown: vi
+        .fn()
+        .mockReturnValue(options.clean ?? 'updated content'),
+      toTrackedMarkdown: vi
+        .fn()
+        .mockReturnValue(options.critic ?? 'tracked content'),
+      getCurrentState: vi.fn().mockReturnValue(elements),
+      getElementContentWithTrackedChanges: vi
+        .fn()
+        .mockImplementation((elementId: string) => {
+          const element = elements.find((el) => el.id === elementId);
+          if (!element) {
+            return '';
+          }
+          if (elementId === 'body-1') {
+            return options.critic ?? element.content;
+          }
+          return element.content;
+        }),
+    };
+  };
 
   const createGitStub = (sourceFile = 'document.qmd') => ({
     getConfig: vi.fn().mockReturnValue({
@@ -61,7 +91,7 @@ describe('QmdExportService', () => {
     expect(bundle.primaryFilename).toBe('article.qmd');
     expect(bundle.files).toHaveLength(1);
     expect(bundle.files[0]?.content).toBe('final markdown');
-    expect(changes.toCleanMarkdown).toHaveBeenCalled();
+    expect(changes.getCurrentState).toHaveBeenCalled();
     expect(bundle.format).toBe('clean');
     expect(bundle.forceArchive).toBe(false);
   });
@@ -145,6 +175,35 @@ describe('QmdExportService', () => {
     expect(exported.trimEnd().endsWith('# Body Content')).toBe(true);
   });
 
+  it('omits the document title element from the exported body', async () => {
+    const changes = createChangesStub({
+      clean: '# Body Content',
+      title: 'Front Matter Title',
+    });
+    const git = createGitStub('doc.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'doc.qmd',
+        content: ['---', 'title: "Original"', '---', '', 'Body'].join('\n'),
+        originalContent: '',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+
+    const service = new QmdExportService(changes as any, { git: git as any });
+    const bundle = await service.createBundle();
+    const fileContent = bundle.files[0]?.content ?? '';
+
+    const sections = fileContent.split('---').filter((part) => part.trim());
+    expect(fileContent).toContain('title: "Front Matter Title"');
+    const body = sections[sections.length - 1]?.trim() ?? '';
+    expect(body.startsWith('# Body Content')).toBe(true);
+    // Ensure the plain title text doesn't appear outside the YAML front matter.
+    const bodyWithoutYaml = fileContent.split('---\n\n').pop() ?? '';
+    expect(bodyWithoutYaml).not.toMatch(/^\s*Front Matter Title\s*$/m);
+  });
+
   it('downloads a single file bundle directly', async () => {
     vi.useFakeTimers();
     const changes = createChangesStub({ clean: 'single file' });
@@ -224,7 +283,7 @@ describe('QmdExportService', () => {
 
     const bundle = await service.createBundle({ format: 'critic' });
 
-    expect(changes.toTrackedMarkdown).toHaveBeenCalled();
+    expect(changes.getElementContentWithTrackedChanges).toHaveBeenCalled();
     expect(bundle.files[0]?.content).toBe('critic version');
     expect(bundle.format).toBe('critic');
     expect(bundle.suggestedArchiveName).toMatch(/critic-/);
