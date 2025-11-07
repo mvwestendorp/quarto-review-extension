@@ -7,7 +7,7 @@
 
 .review-segment-actions {
   position: absolute;
-  right: -50px;
+  right: -60px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -17,9 +17,13 @@
   transition: opacity 0.2s ease;
   pointer-events: none;
   z-index: 10;
+  /* Extend hitbox to make buttons easier to click */
+  padding: 20px 10px;
+  margin: -20px -10px;
 }
 
-[data-review-id]:hover .review-segment-actions {
+[data-review-id]:hover .review-segment-actions,
+.review-segment-actions:hover {
   opacity: 1;
   pointer-events: auto;
 }
