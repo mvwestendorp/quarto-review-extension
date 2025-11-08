@@ -72,6 +72,12 @@ interface PersistedDraftSnapshot {
   operations?: Operation[];
 }
 
+interface ChunkMetadata {
+  label?: string;
+  figCaption?: string;
+  tableCaption?: string;
+}
+
 type ElementSnapshot = {
   id: string;
   content: string;
@@ -723,7 +729,12 @@ export class QmdExportService {
     operationsByElement: Map<string, Operation[]>
   ): string {
     let content = element.content;
-
+    if (element.metadata?.type === 'CodeBlock') {
+      if (this.isCodeOutputElement(element.id)) {
+        return '';
+      }
+      content = this.injectChunkMetadata(content, element.id);
+    }
     if (format === 'critic') {
       let tracked = false;
       try {
@@ -764,6 +775,48 @@ export class QmdExportService {
     return `${trimmed}${separator}${markup}`;
   }
 
+  private injectChunkMetadata(content: string, elementId: string): string {
+    const metadata = this.getChunkMetadata(elementId);
+    if (!metadata) {
+      return content;
+    }
+
+    const lines = content.split('\n');
+    const fenceIndex = lines.findIndex((line) => line.trim().startsWith('```'));
+    if (fenceIndex === -1) {
+      return content;
+    }
+
+    const existingOptions = new Set(
+      lines
+        .map((line) => line.trim())
+        .filter((line) => line.startsWith('#|'))
+        .map((line) => line.slice(2).split(':')[0]?.trim())
+    );
+
+    const insertLines: string[] = [];
+    if (metadata.label && !existingOptions.has('label')) {
+      insertLines.push(`#| label: ${metadata.label}`);
+    }
+    if (metadata.figCaption && !existingOptions.has('fig-cap')) {
+      insertLines.push(
+        `#| fig-cap: ${this.formatChunkOptionValue(metadata.figCaption)}`
+      );
+    }
+    if (metadata.tableCaption && !existingOptions.has('tbl-cap')) {
+      insertLines.push(
+        `#| tbl-cap: ${this.formatChunkOptionValue(metadata.tableCaption)}`
+      );
+    }
+
+    if (!insertLines.length) {
+      return content;
+    }
+
+    lines.splice(fenceIndex + 1, 0, ...insertLines);
+    return lines.join('\n');
+  }
+
   private buildCriticContentFromOperations(
     element: ElementSnapshot,
     operations: Operation[] | undefined
@@ -793,6 +846,25 @@ export class QmdExportService {
       return element.content;
     }
     return changesToCriticMarkup(baseline, diffs);
+  }
+
+  private formatChunkOptionValue(value: string): string {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '""';
+    }
+    if (/^[\w_.-]+$/.test(trimmed)) {
+      return trimmed;
+    }
+    const hasDouble = trimmed.includes('"');
+    const hasSingle = trimmed.includes("'");
+    if (!hasDouble) {
+      return `"${trimmed}"`;
+    }
+    if (!hasSingle) {
+      return `'${trimmed}'`;
+    }
+    return `"${trimmed.replace(/"/g, '\\"')}"`;
   }
 
   private extractTitleFromElements(elements: ElementSnapshot[]): string | null {
@@ -981,6 +1053,88 @@ export class QmdExportService {
       map.get(operation.elementId)!.push(operation);
     });
     return map;
+  }
+
+  private getChunkMetadata(elementId: string): ChunkMetadata | null {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+
+    const node = this.getElementNode(elementId);
+    if (!node) {
+      return null;
+    }
+
+    const cell = node.closest('.cell');
+    if (!cell) {
+      return null;
+    }
+
+    const metadata: ChunkMetadata = {};
+
+    const figure = cell.querySelector<HTMLElement>(
+      '.quarto-float.quarto-figure[id]'
+    );
+    if (figure) {
+      metadata.label = figure.id || undefined;
+      const captionEl = figure.querySelector<HTMLElement>('figcaption');
+      if (captionEl) {
+        metadata.figCaption = this.normalizeCaptionText(
+          captionEl.textContent ?? ''
+        );
+      }
+    }
+
+    const table = cell.querySelector<HTMLElement>(
+      '.quarto-float.quarto-table[id], .quarto-float.quarto-float-table[id]'
+    );
+    if (table) {
+      metadata.label = table.id || metadata.label;
+      const captionEl = table.querySelector<HTMLElement>('figcaption, caption');
+      if (captionEl) {
+        metadata.tableCaption = this.normalizeCaptionText(
+          captionEl.textContent ?? ''
+        );
+      }
+    }
+
+    if (!metadata.label && node.getAttribute('id')) {
+      metadata.label = node.getAttribute('id') ?? undefined;
+    }
+
+    if (!metadata.label && !metadata.figCaption && !metadata.tableCaption) {
+      return null;
+    }
+    return metadata;
+  }
+
+  private normalizeCaptionText(text: string): string {
+    const cleaned = text.replace(/\s+/g, ' ').trim();
+    const match = cleaned.match(/^[A-Za-z]+\s*\d+:\s*(.*)$/);
+    return (match ? match[1] : cleaned).trim();
+  }
+
+  private getElementNode(elementId: string): HTMLElement | null {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+    const selectorId =
+      typeof CSS !== 'undefined' && CSS.escape
+        ? CSS.escape(elementId)
+        : elementId.replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
+    return document.querySelector<HTMLElement>(
+      `[data-review-id="${selectorId}"]`
+    );
+  }
+
+  private isCodeOutputElement(elementId: string): boolean {
+    const node = this.getElementNode(elementId);
+    if (!node) {
+      return false;
+    }
+    return Boolean(
+      node.closest('.cell-output, .cell-output-display, .cell-output-table')
+    );
   }
 
   private extractFrontMatter(source: string): string | null {

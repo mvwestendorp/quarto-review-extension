@@ -279,6 +279,131 @@ describe('QmdExportService', () => {
     expect(exported).toContain('{>>Needs clarification<<}');
   });
 
+  describe('chunk metadata reconstruction from DOM', () => {
+    afterEach(() => {
+      document.body.innerHTML = '';
+    });
+
+    it('re-injects fig-cap metadata for figure chunks', async () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div data-review-id="demo.codeblock-1" class="review-editable" data-review-type="CodeBlock"></div>
+          <div class="cell-output-display">
+            <div id="fig-cars" class="quarto-float quarto-figure">
+              <figure>
+                <figcaption>Figure 1: Figure caption text</figcaption>
+              </figure>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const mockGit = createGitStub('document.qmd');
+      const changes = createChangesStub({
+        clean: ['```{r}', 'plot(cars)', '```'].join('\n'),
+        critic: ['```{r}', 'plot(cars)', '```'].join('\n'),
+        elements: [
+          {
+            id: 'demo.codeblock-1',
+            content: ['```{r}', 'plot(cars)', '```'].join('\n'),
+            metadata: { type: 'CodeBlock' },
+          },
+        ],
+      });
+
+      const service = new QmdExportService(changes as any, { git: mockGit as any });
+      const bundle = await service.createBundle({ format: 'clean' });
+      const file = bundle.files[0];
+      expect(file?.content).toContain('#| label: fig-cars');
+      expect(file?.content).toContain('#| fig-cap: "Figure caption text"');
+    });
+
+    it('re-injects tbl-cap metadata for table chunks', async () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div data-review-id="demo.codeblock-2" class="review-editable" data-review-type="CodeBlock"></div>
+          <div class="cell-output-display">
+            <div id="tbl-data" class="quarto-float quarto-table">
+              <figure>
+                <figcaption>Table 2: Table caption text</figcaption>
+              </figure>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const mockGit = createGitStub('document.qmd');
+      const changes = createChangesStub({
+        clean: ['```{r}', 'plot(cars)', '```'].join('\n'),
+        critic: ['```{r}', 'plot(cars)', '```'].join('\n'),
+        elements: [
+          {
+            id: 'demo.codeblock-2',
+            content: ['```{r}', 'plot(cars)', '```'].join('\n'),
+            metadata: { type: 'CodeBlock' },
+          },
+        ],
+      });
+
+      const service = new QmdExportService(changes as any, { git: mockGit as any });
+      const bundle = await service.createBundle({ format: 'clean' });
+      const file = bundle.files[0];
+      expect(file?.content).toContain('#| label: tbl-data');
+      expect(file?.content).toContain('#| tbl-cap: "Table caption text"');
+    });
+
+    it('omits code output blocks when exporting', async () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div data-review-id="demo.codeblock-3" class="review-editable" data-review-type="CodeBlock"></div>
+          <div class="cell-output cell-output-stdout">
+            <div data-review-id="demo.codeblock-4" class="review-editable" data-review-type="CodeBlock"></div>
+          </div>
+        </div>
+      `;
+
+      const mockGit = createGitStub('document.qmd');
+      const changes = createChangesStub({
+        clean: [
+          '```{r}',
+          'plot(cars)',
+          '```',
+          '',
+          '```',
+          '[1] "Some code that is not editable."',
+          '```',
+        ].join('\n'),
+        critic: [
+          '```{r}',
+          'plot(cars)',
+          '```',
+          '',
+          '```',
+          '[1] "Some code that is not editable."',
+          '```',
+        ].join('\n'),
+        elements: [
+          {
+            id: 'demo.codeblock-3',
+            content: ['```{r}', 'plot(cars)', '```'].join('\n'),
+            metadata: { type: 'CodeBlock' },
+          },
+          {
+            id: 'demo.codeblock-4',
+            content: ['```', '[1] "Some code that is not editable."', '```'].join('\n'),
+            metadata: { type: 'CodeBlock' },
+          },
+        ],
+      });
+
+      const service = new QmdExportService(changes as any, { git: mockGit as any });
+      const bundle = await service.createBundle({ format: 'clean' });
+      const file = bundle.files[0];
+      expect(file?.content).toContain('```{r}');
+      expect(file?.content).not.toContain('[1] "Some code that is not editable."');
+    });
+  });
+
   it('omits the document title element from the exported body', async () => {
     const changes = createChangesStub({
       clean: '# Body Content',
