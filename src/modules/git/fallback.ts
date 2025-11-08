@@ -61,9 +61,14 @@ export class EmbeddedSourceStore {
    */
   public async listSources(): Promise<EmbeddedSourceRecord[]> {
     await this.readyPromise;
-    return Array.from(this.sources.values()).map((record) => ({
+    const sourcesList = Array.from(this.sources.values()).map((record) => ({
       ...record,
     }));
+    this.logger.debug('listSources() returning files', {
+      count: sourcesList.length,
+      filenames: sourcesList.map((s) => s.filename),
+    });
+    return sourcesList;
   }
 
   public async getSource(
@@ -138,12 +143,17 @@ export class EmbeddedSourceStore {
 
     const script = document.getElementById(EMBEDDED_SOURCES_ID);
     if (!script || !script.textContent) {
+      this.logger.debug('No embedded-sources script found in document');
       return;
     }
 
     try {
       const payload = JSON.parse(script.textContent) as PersistedSourcePayload;
       if (payload?.sources) {
+        this.logger.debug(
+          'Found embedded-sources with files:',
+          Object.keys(payload.sources)
+        );
         Object.entries(payload.sources).forEach(([filename, data]) => {
           this.sources.set(filename, {
             filename,
@@ -221,12 +231,29 @@ export class EmbeddedSourceStore {
       return;
     }
 
+    // IMPORTANT: Preserve existing embedded-sources from the HTML when updating
+    // Only update the entries that have been modified/saved, don't remove others
+    let existingPayload: PersistedSourcePayload | null = null;
+    const existingScript = document.getElementById(EMBEDDED_SOURCES_ID);
+    if (existingScript && existingScript.textContent) {
+      try {
+        existingPayload = JSON.parse(
+          existingScript.textContent
+        ) as PersistedSourcePayload;
+      } catch (error) {
+        this.logger.warn('Failed to parse existing embedded-sources:', error);
+      }
+    }
+
     const payload: PersistedSourcePayload = {
       timestamp: new Date().toISOString(),
-      sources: {},
+      // Start with existing sources if available, to preserve project files
+      sources: existingPayload?.sources ? { ...existingPayload.sources } : {},
       version: this.generateVersionId(),
     };
 
+    // Update/merge with current store sources
+    // This ensures we preserve unmodified project files while updating edited ones
     this.sources.forEach((record, filename) => {
       payload.sources[filename] = {
         content: record.content,

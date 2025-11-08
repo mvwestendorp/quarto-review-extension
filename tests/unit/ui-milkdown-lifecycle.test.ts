@@ -120,18 +120,22 @@ vi.mock('@modules/ui/comments/CommentBadges', () => ({
   }),
 }));
 
-vi.mock('@modules/ui/sidebars/MainSidebar', () => ({
-  MainSidebar: vi.fn(function MockMainSidebar(this: unknown) {
-    return {
+const {
+  getUnifiedSidebarConstructor,
+  resetUnifiedSidebarMocks,
+} = vi.hoisted(() => {
+  const instances: Array<Record<string, ReturnType<typeof vi.fn>>> = [];
+  const constructor = vi.fn(function MockUnifiedSidebar(this: unknown) {
+    const instance = {
       create: vi.fn().mockImplementation(() => {
         const element = document.createElement('div');
-        element.className = 'review-toolbar review-persistent-sidebar';
+        element.className =
+          'review-toolbar review-persistent-sidebar review-unified-sidebar';
         return element;
       }),
       onUndo: vi.fn(),
       onRedo: vi.fn(),
       onTrackedChangesToggle: vi.fn(),
-      onShowComments: vi.fn(),
       onToggleSidebar: vi.fn(),
       onClearDrafts: vi.fn(),
       onExportClean: vi.fn(),
@@ -146,9 +150,42 @@ vi.mock('@modules/ui/sidebars/MainSidebar', () => ({
       onToggleTranslation: vi.fn(),
       setTranslationEnabled: vi.fn(),
       setTranslationActive: vi.fn(),
+      setTranslationMode: vi.fn(),
+      setTranslationBusy: vi.fn(),
+      setTranslationProgress: vi.fn(),
+      updateTranslationUndoRedoState: vi.fn(),
+      updateTranslationProviders: vi.fn(),
+      updateTranslationLanguages: vi.fn(),
+      updateComments: vi.fn(),
+      onTranslateDocument: vi.fn(),
+      onTranslateSentence: vi.fn(),
+      onProviderChange: vi.fn(),
+      onSourceLanguageChange: vi.fn(),
+      onTargetLanguageChange: vi.fn(),
+      onSwapLanguages: vi.fn(),
+      onAutoTranslateChange: vi.fn(),
+      onTranslationExportUnified: vi.fn(),
+      onTranslationExportSeparated: vi.fn(),
+      onClearLocalModelCache: vi.fn(),
+      onTranslationUndo: vi.fn(),
+      onTranslationRedo: vi.fn(),
       destroy: vi.fn(),
     };
-  }),
+    instances.push(instance);
+    return instance;
+  });
+
+  return {
+    getUnifiedSidebarConstructor: () => constructor,
+    resetUnifiedSidebarMocks: () => {
+      instances.length = 0;
+      constructor.mockClear();
+    },
+  };
+});
+
+vi.mock('@modules/ui/sidebars/UnifiedSidebar', () => ({
+  UnifiedSidebar: getUnifiedSidebarConstructor(),
 }));
 
 vi.mock('@modules/ui/sidebars/ContextMenu', () => ({
@@ -203,6 +240,7 @@ describe('UIModule Milkdown lifecycle handling', () => {
   beforeEach(() => {
     resetMilkdownEditorMocks();
     document.body.innerHTML = '';
+    resetUnifiedSidebarMocks();
   });
 
   it('destroys any previous MilkdownEditor before creating a new one', async () => {

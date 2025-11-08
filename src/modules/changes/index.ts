@@ -109,6 +109,7 @@ Please report this issue with your Quarto document structure.
       const level = elem.getAttribute('data-review-level');
       const sourceLine = elem.getAttribute('data-review-source-line');
       const sourceColumn = elem.getAttribute('data-review-source-column');
+      const sourceFile = elem.getAttribute('data-review-source-file');
 
       const metadata: ElementMetadata = {
         type: type as Element['metadata']['type'],
@@ -130,6 +131,10 @@ Please report this issue with your Quarto document structure.
           line: parseInt(sourceLine, 10),
           column: sourceColumn ? parseInt(sourceColumn, 10) : 0,
         };
+      }
+
+      if (sourceFile) {
+        element.sourceFile = sourceFile;
       }
 
       return element;
@@ -362,6 +367,10 @@ Please report this issue with your Quarto document structure.
 
   /**
    * Edit an element
+   *
+   * BUG FIX: Only create operation if content or metadata actually changed.
+   * This prevents "ghost edits" where oldContent === newContent but metadata changed.
+   * See: https://github.com/quarto-dev/quarto-review-extension/issues/XXX
    */
   public edit(
     elementId: string,
@@ -375,16 +384,27 @@ Please report this issue with your Quarto document structure.
     }
 
     const oldContent = element.content;
-    const metadataChanged =
-      newMetadata &&
-      (newMetadata.type !== element.metadata.type ||
+    const contentChanged = oldContent !== newContent;
+
+    // Check if metadata actually changed (comparing all metadata fields)
+    const metadataChanged = newMetadata
+      ? newMetadata.type !== element.metadata.type ||
         newMetadata.level !== element.metadata.level ||
         JSON.stringify(newMetadata.attributes ?? {}) !==
           JSON.stringify(element.metadata.attributes ?? {}) ||
         JSON.stringify(newMetadata.classes ?? []) !==
-          JSON.stringify(element.metadata.classes ?? []));
+          JSON.stringify(element.metadata.classes ?? [])
+      : false;
 
-    if (!metadataChanged && oldContent === newContent) return;
+    // Skip operation if nothing actually changed (prevents ghost edits)
+    if (!contentChanged && !metadataChanged) {
+      logger.debug('Edit would not change element, skipping operation', {
+        elementId,
+        contentSame: true,
+        metadataSame: true,
+      });
+      return;
+    }
 
     // Generate character-level changes
     const changes = generateChanges(oldContent, newContent);
@@ -953,7 +973,9 @@ Please report this issue with your Quarto document structure.
   }
 
   private renderMarkdown(elements: Element[]): string {
-    return elements.map((e) => e.content).join('\n\n');
+    return elements
+      .map((e) => e.content.replace(/\s+$/, '')) // Trim trailing whitespace
+      .join('\n\n'); // Consistent double newline separator
   }
 }
 

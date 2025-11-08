@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { QmdExportService } from '@modules/export';
+import type { Comment, Operation } from '@/types';
 
 describe('QmdExportService', () => {
   const createChangesStub = (
@@ -9,29 +10,51 @@ describe('QmdExportService', () => {
       title?: string;
       body?: string;
       includeTitle?: boolean;
+      operations?: Operation[];
+      cleanSnapshots?: string[];
+      criticSnapshots?: string[];
+      elements?: Array<{
+        id: string;
+        content: string;
+        metadata: { type: string };
+      }>;
     } = {}
   ) => {
     const elements: Array<{
       id: string;
       content: string;
       metadata: { type: string };
-    }> = [];
+    }> = options.elements ? [...options.elements] : [];
 
-    const includeTitle =
-      options.includeTitle ?? (typeof options.title === 'string');
-    if (includeTitle) {
+    if (!options.elements) {
+      const includeTitle =
+        options.includeTitle ?? (typeof options.title === 'string');
+      if (includeTitle) {
+        elements.push({
+          id: 'doc-title',
+          content: options.title ?? 'Document Title',
+          metadata: { type: 'Title' },
+        });
+      }
+
       elements.push({
-        id: 'doc-title',
-        content: options.title ?? 'Document Title',
-        metadata: { type: 'Title' },
+        id: 'body-1',
+        content: options.body ?? options.clean ?? 'updated content',
+        metadata: { type: 'Para' },
       });
     }
 
-    elements.push({
-      id: 'body-1',
-      content: options.body ?? options.clean ?? 'updated content',
-      metadata: { type: 'Para' },
-    });
+    const resolveSnapshot = (
+      snapshots: string[] | undefined,
+      fallback: string | undefined
+    ) => {
+      return (count?: number) => {
+        if (typeof count === 'number' && count > 0) {
+          return snapshots?.[count - 1] ?? fallback ?? elements[1]?.content ?? '';
+        }
+        return fallback ?? elements[1]?.content ?? '';
+      };
+    };
 
     return {
       toCleanMarkdown: vi
@@ -53,6 +76,23 @@ describe('QmdExportService', () => {
           }
           return element.content;
         }),
+      getOperations: vi.fn().mockReturnValue(options.operations ?? []),
+      toCleanMarkdownSnapshot: vi
+        .fn()
+        .mockImplementation(
+          resolveSnapshot(
+            options.cleanSnapshots,
+            options.clean ?? options.body ?? 'updated content'
+          )
+        ),
+      toMarkdownSnapshot: vi
+        .fn()
+        .mockImplementation(
+          resolveSnapshot(
+            options.criticSnapshots,
+            options.critic ?? options.body ?? options.clean ?? 'updated content'
+          )
+        ),
     };
   };
 
@@ -175,6 +215,70 @@ describe('QmdExportService', () => {
     expect(exported.trimEnd().endsWith('# Body Content')).toBe(true);
   });
 
+  it('includes unresolved comments as HTML comments in clean exports', async () => {
+    const changes = createChangesStub({
+      clean: 'Paragraph content',
+    });
+    const git = createGitStub('article.qmd');
+    const comment: Comment = {
+      id: 'comment-1',
+      elementId: 'body-1',
+      content: 'Needs clarification',
+      resolved: false,
+      timestamp: Date.now(),
+      userId: 'tester',
+      type: 'comment',
+    };
+    const commentsModule = {
+      getAllComments: vi.fn().mockReturnValue([comment]),
+      createComment: vi
+        .fn()
+        .mockImplementation((text: string) => `{>>${text}<<}`),
+    };
+
+    const service = new QmdExportService(changes as any, {
+      git: git as any,
+      comments: commentsModule as any,
+    });
+    const bundle = await service.createBundle();
+
+    const exported = bundle.files[0]?.content ?? '';
+    expect(exported).toContain('<!-- Needs clarification -->');
+    expect(exported).not.toContain('{>>Needs clarification<<}');
+  });
+
+  it('includes CriticMarkup comments in critic exports', async () => {
+    const changes = createChangesStub({
+      clean: 'Paragraph content',
+      critic: 'Paragraph content with critic',
+    });
+    const git = createGitStub('article.qmd');
+    const comment: Comment = {
+      id: 'comment-1',
+      elementId: 'body-1',
+      content: 'Needs clarification',
+      resolved: false,
+      timestamp: Date.now(),
+      userId: 'tester',
+      type: 'comment',
+    };
+    const commentsModule = {
+      getAllComments: vi.fn().mockReturnValue([comment]),
+      createComment: vi
+        .fn()
+        .mockImplementation((text: string) => `{>>${text}<<}`),
+    };
+
+    const service = new QmdExportService(changes as any, {
+      git: git as any,
+      comments: commentsModule as any,
+    });
+    const bundle = await service.createBundle({ format: 'critic' });
+
+    const exported = bundle.files[0]?.content ?? '';
+    expect(exported).toContain('{>>Needs clarification<<}');
+  });
+
   it('omits the document title element from the exported body', async () => {
     const changes = createChangesStub({
       clean: '# Body Content',
@@ -287,5 +391,150 @@ describe('QmdExportService', () => {
     expect(bundle.files[0]?.content).toBe('critic version');
     expect(bundle.format).toBe('critic');
     expect(bundle.suggestedArchiveName).toMatch(/critic-/);
+  });
+
+  it('merges persisted elements for pages missing from the current DOM', async () => {
+    const changes = createChangesStub({
+      elements: [
+        {
+          id: 'document.para-1',
+          content: 'Document updated',
+          metadata: { type: 'Para' },
+        },
+      ],
+      operations: [
+        {
+          id: 'op-1',
+          type: 'edit',
+          elementId: 'document.para-1',
+          timestamp: Date.now(),
+          data: {
+            type: 'edit',
+            oldContent: 'Document original',
+            newContent: 'Document updated',
+            changes: [],
+          },
+        },
+        {
+          id: 'op-2',
+          type: 'edit',
+          elementId: 'chapter-two.para-1',
+          timestamp: Date.now(),
+          data: {
+            type: 'edit',
+            oldContent: 'Chapter original',
+            newContent: 'Chapter updated',
+            changes: [],
+          },
+        },
+      ],
+    });
+    const git = createGitStub('document.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'document.qmd',
+        content: 'Document original',
+        originalContent: 'Document original',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+      {
+        filename: 'chapter-two.qmd',
+        content: 'Chapter original',
+        originalContent: 'Chapter original',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+    const localPersistence = {
+      loadDraft: vi.fn().mockResolvedValue({
+        elements: [
+          {
+            id: 'chapter-two.para-1',
+            content: 'Chapter updated',
+            metadata: { type: 'Para' },
+          },
+        ],
+        comments: [],
+        operations: [],
+      }),
+    };
+
+    const service = new QmdExportService(changes as any, {
+      git: git as any,
+      localPersistence: localPersistence as any,
+    });
+    const bundle = await service.createBundle();
+
+    const chapterFile = bundle.files.find(
+      (file) => file.filename === 'chapter-two.qmd'
+    );
+    expect(chapterFile).toBeDefined();
+    expect(chapterFile?.content).toContain('Chapter updated');
+  });
+
+  it('builds operation snapshots for each change step', async () => {
+    const operations: Operation[] = [
+      {
+        id: 'op-1',
+        type: 'edit',
+        elementId: 'body-1',
+        timestamp: 1,
+        userId: 'alice',
+        data: {
+          type: 'edit',
+          oldContent: 'Original body',
+          newContent: 'Original body updated',
+          changes: [],
+        },
+      },
+      {
+        id: 'op-2',
+        type: 'insert',
+        elementId: 'body-2',
+        timestamp: 2,
+        userId: 'alice',
+        data: {
+          type: 'insert',
+          content: 'Inserted paragraph',
+          metadata: { type: 'Para' },
+          position: { after: 'body-1' },
+        },
+      },
+    ];
+
+    const changes = createChangesStub({
+      clean: 'final body',
+      operations,
+      cleanSnapshots: ['Body after edit', 'Body after insert'],
+    });
+    const git = createGitStub('article.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'article.qmd',
+        content: [
+          '---',
+          'title: "Original Title"',
+          'format: html',
+          '---',
+          '',
+          'Original body',
+        ].join('\n'),
+        originalContent: '',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+
+    const service = new QmdExportService(changes as any, { git: git as any });
+    const snapshots = await service.getOperationSnapshots('clean');
+
+    expect(changes.getOperations).toHaveBeenCalled();
+    expect(changes.toCleanMarkdownSnapshot).toHaveBeenCalledWith(1);
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots[0]?.operation).toBe(operations[0]);
+    expect(snapshots[0]?.content).toContain('format: html');
+    expect(snapshots[0]?.content).toContain('Body after edit');
+    expect(snapshots[1]?.content).toContain('Body after insert');
   });
 });

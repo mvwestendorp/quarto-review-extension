@@ -12,7 +12,3 @@ export { UnifiedSidebar } from './UnifiedSidebar';
 export type { CommentsSidebarCallbacks } from './UnifiedSidebar';
 export { ContextMenu } from './ContextMenu';
 export type { MenuPosition } from './ContextMenu';
-
-// Legacy exports (deprecated)
-export { MainSidebar } from './MainSidebar';
-export { CommentsSidebar } from '../comments/CommentsSidebar';

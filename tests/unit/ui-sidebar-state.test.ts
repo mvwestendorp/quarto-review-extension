@@ -328,7 +328,7 @@ describe('UIModule sidebar state handling', () => {
     vi.unstubAllGlobals();
   });
 
-  it('toggleSidebarCollapsed updates DOM and notifies MainSidebar', () => {
+  it('toggleSidebarCollapsed updates DOM and notifies UnifiedSidebar', () => {
     const ui = new UIModule(createStubConfig());
     const unifiedSidebar = getUnifiedSidebarInstances()[0];
     expect(unifiedSidebar).toBeDefined();

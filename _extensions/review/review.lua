@@ -5,6 +5,7 @@ Adds deterministic IDs to elements for review functionality
 
 local config = {
   id_prefix = "",  -- Will be set to filename by detect_document_identifier
+  source_file = nil,  -- The actual source file (e.g., "document.qmd", "path/to/page.qmd")
   id_separator = ".",
   enabled = true,
   debug = false,
@@ -441,6 +442,35 @@ The solution is handled on the UI side:
 - Users edit the entire list (including nested items) in one editor session
 ]]--
 
+-- Extract relative source file path from document identifier
+-- Used to store the actual source file for elements
+local function extract_source_file(identifier)
+  if not identifier or identifier == '' then
+    return nil
+  end
+
+  -- Normalize path separators
+  local normalized = identifier:gsub('\\', '/')
+
+  -- Strip Quarto temporary directories
+  normalized = normalized:gsub('^.*/quarto%-input[^/]+/', '')
+  normalized = normalized:gsub('^.*/quarto%-session[^/]+/', '')
+  normalized = normalized:gsub('^quarto%-input[^/]+/', '')
+  normalized = normalized:gsub('^quarto%-session[^/]+/', '')
+
+  -- Strip leading ./
+  normalized = normalized:gsub('^%./', '')
+
+  -- Normalize relative paths
+  local abs = to_absolute_path(normalized)
+  local project_root = detect_project_root()
+  if project_root then
+    normalized = make_relative(abs, project_root)
+  end
+
+  return normalized ~= '' and normalized or nil
+end
+
 -- Load configuration from metadata
 function load_config(meta)
   -- Store custom prefix if provided
@@ -464,6 +494,13 @@ function load_config(meta)
     -- ALWAYS process filename first, then add custom prefix
     local identifier = detect_document_identifier(meta)
     debug_print('Detected document identifier: ' .. tostring(identifier))
+
+    -- Store the actual source file
+    config.source_file = extract_source_file(identifier)
+    if config.source_file then
+      debug_print('Extracted source file: ' .. config.source_file)
+    end
+
     local filename_prefix = sanitize_identifier(identifier)
 
     -- Build prefix with filename FIRST, then any custom prefix
@@ -876,6 +913,22 @@ function make_editable(elem, elem_type, level)
   -- Convert clean element to markdown
   local markdown = element_to_markdown(clean_elem)
 
+  -- Extract source file from the id_prefix
+  -- For multi-page docs, id_prefix is like "processes-page-2" or "path-to-document"
+  -- We need to convert this back to the original filename
+  -- The original source file can be reconstructed from the page prefix
+  local source_file = nil
+  if config.id_prefix and config.id_prefix ~= '' then
+    -- Try to find the actual source file by matching the id_prefix to known sources
+    -- We'll store a hint in the config during load_config
+    if config.source_file then
+      source_file = config.source_file
+    else
+      -- Fallback: derive from id_prefix (assumes id_prefix is from source file)
+      source_file = config.id_prefix:gsub('%-', '/') .. '.qmd'
+    end
+  end
+
   local attrs = {
     ['data-review-id'] = id,
     ['data-review-type'] = elem_type,
@@ -893,6 +946,10 @@ function make_editable(elem, elem_type, level)
 
   if level then
     attrs['data-review-level'] = tostring(level)
+  end
+
+  if source_file then
+    attrs['data-review-source-file'] = source_file
   end
 
   return pandoc.Div({elem}, pandoc.Attr("", {}, attrs))

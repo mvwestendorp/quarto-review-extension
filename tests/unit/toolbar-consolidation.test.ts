@@ -4,12 +4,14 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { MainSidebar } from '../../src/modules/ui/sidebars/MainSidebar';
-import { TranslationToolbar } from '../../src/modules/ui/translation/TranslationToolbar';
-import type { TranslationToolbarConfig } from '../../src/modules/ui/translation/TranslationToolbar';
+import { UnifiedSidebar } from '@modules/ui/sidebars/UnifiedSidebar';
+import {
+  TranslationToolbar,
+  type TranslationToolbarConfig,
+} from '@modules/ui/translation/TranslationToolbar';
 
 describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
-  let mainSidebar: MainSidebar;
+  let unifiedSidebar: UnifiedSidebar;
   let translationToolbar: TranslationToolbar | null = null;
   let container: HTMLElement;
 
@@ -18,13 +20,13 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
 
-    // Initialize MainSidebar
-    mainSidebar = new MainSidebar();
+    // Initialize UnifiedSidebar
+    unifiedSidebar = new UnifiedSidebar();
   });
 
   afterEach(() => {
     // Cleanup
-    mainSidebar.destroy();
+    unifiedSidebar.destroy();
     if (translationToolbar) {
       translationToolbar.destroy();
       translationToolbar = null;
@@ -34,7 +36,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
 
   describe('Review Mode - Undo/Redo Buttons', () => {
     it('should display undo/redo buttons in review mode', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]');
       const redoBtn = sidebar.querySelector('[data-action="redo"]');
 
@@ -45,7 +47,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should have correct text labels in review mode', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
 
@@ -54,7 +56,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should start with undo/redo buttons disabled in review mode', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
 
@@ -64,25 +66,25 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
 
     it('should register review mode undo callback method', () => {
       const undoCallback = vi.fn();
-      mainSidebar.onUndo(undoCallback);
+      unifiedSidebar.onUndo(undoCallback);
 
       // Just verify the method exists and can be called
-      expect(typeof mainSidebar.onUndo).toBe('function');
+      expect(typeof unifiedSidebar.onUndo).toBe('function');
     });
 
     it('should register review mode redo callback method', () => {
       const redoCallback = vi.fn();
-      mainSidebar.onRedo(redoCallback);
+      unifiedSidebar.onRedo(redoCallback);
 
       // Just verify the method exists and can be called
-      expect(typeof mainSidebar.onRedo).toBe('function');
+      expect(typeof unifiedSidebar.onRedo).toBe('function');
     });
   });
 
   describe('Translation Mode - Undo/Redo Button Switching', () => {
     it('should switch button text to translation mode labels', () => {
-      const sidebar = mainSidebar.create();
-      mainSidebar.setTranslationMode(true);
+      const sidebar = unifiedSidebar.create();
+      unifiedSidebar.setTranslationMode(true);
 
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
@@ -95,19 +97,19 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
       const translationUndoCallback = vi.fn();
       const translationRedoCallback = vi.fn();
 
-      mainSidebar.create();
-      mainSidebar.onTranslationUndo(translationUndoCallback);
-      mainSidebar.onTranslationRedo(translationRedoCallback);
+      unifiedSidebar.create();
+      unifiedSidebar.onTranslationUndo(translationUndoCallback);
+      unifiedSidebar.onTranslationRedo(translationRedoCallback);
 
       // Verify callbacks can be registered
-      expect(typeof mainSidebar.onTranslationUndo).toBe('function');
-      expect(typeof mainSidebar.onTranslationRedo).toBe('function');
+      expect(typeof unifiedSidebar.onTranslationUndo).toBe('function');
+      expect(typeof unifiedSidebar.onTranslationRedo).toBe('function');
     });
 
     it('should restore review mode when exiting translation mode', () => {
-      const sidebar = mainSidebar.create();
-      mainSidebar.setTranslationMode(true);
-      mainSidebar.setTranslationMode(false);
+      const sidebar = unifiedSidebar.create();
+      unifiedSidebar.setTranslationMode(true);
+      unifiedSidebar.setTranslationMode(false);
 
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
@@ -117,26 +119,26 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should restore review mode when exiting translation mode callbacks', () => {
-      mainSidebar.create();
-      mainSidebar.onUndo(() => {});
-      mainSidebar.onRedo(() => {});
+      unifiedSidebar.create();
+      unifiedSidebar.onUndo(() => {});
+      unifiedSidebar.onRedo(() => {});
 
       // Switch to translation mode and back
-      mainSidebar.setTranslationMode(true);
-      const sidebar = mainSidebar.getElement();
+      unifiedSidebar.setTranslationMode(true);
+      const sidebar = unifiedSidebar.getElement();
       const undoBtn = sidebar?.querySelector('[data-action="undo"]') as HTMLButtonElement;
 
       // After exiting translation mode, buttons should be in review text
-      mainSidebar.setTranslationMode(false);
+      unifiedSidebar.setTranslationMode(false);
 
       expect(undoBtn?.textContent).toBe('↶ Undo');
     });
 
     it('should update button enabled state in translation mode', () => {
-      const sidebar = mainSidebar.create();
-      mainSidebar.setTranslationMode(true);
+      const sidebar = unifiedSidebar.create();
+      unifiedSidebar.setTranslationMode(true);
 
-      mainSidebar.updateTranslationUndoRedoState(true, true);
+      unifiedSidebar.updateTranslationUndoRedoState(true, true);
 
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
@@ -146,10 +148,10 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should disable buttons when translation undo/redo unavailable', () => {
-      const sidebar = mainSidebar.create();
-      mainSidebar.setTranslationMode(true);
+      const sidebar = unifiedSidebar.create();
+      unifiedSidebar.setTranslationMode(true);
 
-      mainSidebar.updateTranslationUndoRedoState(false, false);
+      unifiedSidebar.updateTranslationUndoRedoState(false, false);
 
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
@@ -159,10 +161,10 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should not update buttons when not in translation mode', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       // Don't set translation mode
 
-      mainSidebar.updateTranslationUndoRedoState(true, true);
+      unifiedSidebar.updateTranslationUndoRedoState(true, true);
 
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
@@ -190,7 +192,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
       expect(toolbar.querySelector('[data-action="translate-document"]')).toBeTruthy();
     });
 
-    it('should have separate toolbar not overlapping with MainSidebar buttons', () => {
+    it('should have separate toolbar not overlapping with UnifiedSidebar buttons', () => {
       const config: TranslationToolbarConfig = {
         availableProviders: ['manual'],
         defaultProvider: 'manual',
@@ -200,7 +202,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
       };
 
       translationToolbar = new TranslationToolbar(config, {});
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const toolbar = translationToolbar.create();
 
       // Sidebar undo/redo should be separate from toolbar translate buttons
@@ -230,8 +232,8 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
 
   describe('Button State Management', () => {
     it('should apply disabled CSS class when button disabled', () => {
-      const sidebar = mainSidebar.create();
-      mainSidebar.updateUndoRedoState(false, false);
+      const sidebar = unifiedSidebar.create();
+      unifiedSidebar.updateUndoRedoState(false, false);
 
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
@@ -241,8 +243,8 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should remove disabled CSS class when button enabled', () => {
-      const sidebar = mainSidebar.create();
-      mainSidebar.updateUndoRedoState(true, true);
+      const sidebar = unifiedSidebar.create();
+      unifiedSidebar.updateUndoRedoState(true, true);
 
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
@@ -252,10 +254,10 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should toggle disabled state independently for undo and redo', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
 
       // Enable only undo
-      mainSidebar.updateUndoRedoState(true, false);
+      unifiedSidebar.updateUndoRedoState(true, false);
       let undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       let redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
 
@@ -263,7 +265,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
       expect(redoBtn.disabled).toBe(true);
 
       // Enable only redo
-      mainSidebar.updateUndoRedoState(false, true);
+      unifiedSidebar.updateUndoRedoState(false, true);
       undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
 
@@ -274,7 +276,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
 
   describe('Accessibility and Aria Labels', () => {
     it('should have aria labels for undo/redo buttons', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]');
       const redoBtn = sidebar.querySelector('[data-action="redo"]');
 
@@ -283,7 +285,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should have title attributes for tooltip accessibility', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]');
       const redoBtn = sidebar.querySelector('[data-action="redo"]');
 
@@ -292,7 +294,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should have proper button role', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]');
       const redoBtn = sidebar.querySelector('[data-action="redo"]');
 
@@ -304,7 +306,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
 
   describe('Mode Switching Workflow', () => {
     it('should handle complete workflow: review -> translation -> review modes', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
       const redoBtn = sidebar.querySelector('[data-action="redo"]') as HTMLButtonElement;
 
@@ -313,64 +315,64 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
       expect(redoBtn?.textContent).toBe('↷ Redo');
 
       // Switch to translation mode
-      mainSidebar.setTranslationMode(true);
+      unifiedSidebar.setTranslationMode(true);
       expect(undoBtn?.textContent).toBe('↶ Undo Edit');
       expect(redoBtn?.textContent).toBe('↷ Redo Edit');
 
       // Switch back to review mode
-      mainSidebar.setTranslationMode(false);
+      unifiedSidebar.setTranslationMode(false);
       expect(undoBtn?.textContent).toBe('↶ Undo');
       expect(redoBtn?.textContent).toBe('↷ Redo');
     });
 
     it('should maintain correct state through multiple mode switches', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
 
       // Review mode
-      mainSidebar.updateUndoRedoState(true, false);
+      unifiedSidebar.updateUndoRedoState(true, false);
       expect(undoBtn.disabled).toBe(false);
 
       // Switch to translation
-      mainSidebar.setTranslationMode(true);
-      mainSidebar.updateTranslationUndoRedoState(false, false);
+      unifiedSidebar.setTranslationMode(true);
+      unifiedSidebar.updateTranslationUndoRedoState(false, false);
       expect(undoBtn.disabled).toBe(true);
 
       // Back to review
-      mainSidebar.setTranslationMode(false);
-      mainSidebar.updateUndoRedoState(true, false);
+      unifiedSidebar.setTranslationMode(false);
+      unifiedSidebar.updateUndoRedoState(true, false);
       expect(undoBtn.disabled).toBe(false);
 
       // To translation again
-      mainSidebar.setTranslationMode(true);
-      mainSidebar.updateTranslationUndoRedoState(true, true);
+      unifiedSidebar.setTranslationMode(true);
+      unifiedSidebar.updateTranslationUndoRedoState(true, true);
       expect(undoBtn.disabled).toBe(false);
     });
 
     it('should keep button text synchronized with mode', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
 
       expect(undoBtn.textContent).toBe('↶ Undo');
 
-      mainSidebar.setTranslationMode(true);
+      unifiedSidebar.setTranslationMode(true);
       expect(undoBtn.textContent).toBe('↶ Undo Edit');
 
-      mainSidebar.setTranslationMode(false);
+      unifiedSidebar.setTranslationMode(false);
       expect(undoBtn.textContent).toBe('↶ Undo');
     });
   });
 
   describe('No Duplicate Buttons Visible', () => {
     it('should have only one undo button in sidebar', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtns = sidebar.querySelectorAll('[data-action="undo"]');
 
       expect(undoBtns.length).toBe(1);
     });
 
     it('should have only one redo button in sidebar', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const redoBtns = sidebar.querySelectorAll('[data-action="redo"]');
 
       expect(redoBtns.length).toBe(1);
@@ -416,8 +418,8 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
 
   describe('CSS Class Management', () => {
     it('should have review-btn-active class when in translation mode', () => {
-      const sidebar = mainSidebar.create();
-      mainSidebar.setTranslationActive(true);
+      const sidebar = unifiedSidebar.create();
+      unifiedSidebar.setTranslationActive(true);
 
       const translationBtn = sidebar.querySelector('[data-action="toggle-translation"]') as HTMLButtonElement;
 
@@ -425,9 +427,9 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should remove review-btn-active class when exiting translation mode', () => {
-      const sidebar = mainSidebar.create();
-      mainSidebar.setTranslationActive(true);
-      mainSidebar.setTranslationActive(false);
+      const sidebar = unifiedSidebar.create();
+      unifiedSidebar.setTranslationActive(true);
+      unifiedSidebar.setTranslationActive(false);
 
       const translationBtn = sidebar.querySelector('[data-action="toggle-translation"]') as HTMLButtonElement;
 
@@ -435,7 +437,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
     });
 
     it('should have consistent button styling across modes', () => {
-      const sidebar = mainSidebar.create();
+      const sidebar = unifiedSidebar.create();
       const undoBtn = sidebar.querySelector('[data-action="undo"]') as HTMLButtonElement;
 
       // Should always have review-btn classes
@@ -444,7 +446,7 @@ describe('Toolbar Consolidation (Phase 2 Task 2.1)', () => {
       expect(undoBtn.className).toContain('review-btn-block');
 
       // Switching modes shouldn't change base classes
-      mainSidebar.setTranslationMode(true);
+      unifiedSidebar.setTranslationMode(true);
       expect(undoBtn.className).toContain('review-btn');
     });
   });

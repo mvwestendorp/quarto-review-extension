@@ -230,29 +230,39 @@ export class GitIntegrationService {
     defaultMessage?: string
   ): Promise<ReviewFileResult[]> {
     const results: ReviewFileResult[] = [];
+    const latestFileSha = new Map<string, string | undefined>();
 
     for (const file of files) {
       const path = file.path.trim();
       const commitMessage = file.message || defaultMessage || `Update ${path}`;
+      let shaHint: string | undefined;
 
-      const existing = await this.provider
-        .getFileContent(path, branchName)
-        .catch((error) => {
-          logger.debug('Failed to read file from branch, assuming new file', {
-            path,
-            branchName,
-            error,
+      if (latestFileSha.has(path)) {
+        shaHint = latestFileSha.get(path);
+      } else {
+        const existing = await this.provider
+          .getFileContent(path, branchName)
+          .catch((error) => {
+            logger.debug('Failed to read file from branch, assuming new file', {
+              path,
+              branchName,
+              error,
+            });
+            return null;
           });
-          return null;
-        });
+        shaHint = existing?.sha;
+        latestFileSha.set(path, shaHint);
+      }
 
       const upsertResult = await this.provider.createOrUpdateFile(
         path,
         file.content,
         commitMessage,
         branchName,
-        existing?.sha
+        shaHint
       );
+
+      latestFileSha.set(path, upsertResult.sha);
 
       results.push({
         path: upsertResult.path,

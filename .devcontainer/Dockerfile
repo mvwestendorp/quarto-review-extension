@@ -1,6 +1,7 @@
 FROM node:22-bookworm-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Install essential packages in a single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,8 +31,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /workspace
 
+RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
+    && npx -y playwright@1.56.1 install --with-deps
+
 # Set up node user permissions
-RUN chown -R node:node /workspace
+RUN chown -R node:node /workspace "${PLAYWRIGHT_BROWSERS_PATH}"
 
 # Configure git for the container (as node user)
 USER node

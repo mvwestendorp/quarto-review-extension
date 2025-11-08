@@ -5,19 +5,18 @@
 
 import { createModuleLogger } from '@utils/debug';
 import type LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
+import type { DraftElementPayload } from '@modules/storage/LocalDraftPersistence';
 import type { TranslationPersistence } from '@modules/translation/storage/TranslationPersistence';
 import type { ChangesModule } from '@modules/changes';
 import type { CommentsModule } from '@modules/comments';
 import type { EditorHistoryStorage } from '@modules/ui/editor/EditorHistoryStorage';
 import type { NotificationService } from './NotificationService';
+import type { Operation, Comment } from '@/types';
+import { getPagePrefixFromElementId } from '@utils/page-utils';
 import {
   UnifiedDocumentPersistence,
   type TranslationRestorationInfo,
 } from './UnifiedDocumentPersistence';
-import {
-  filterOperationsByPage,
-  getCurrentPagePrefix,
-} from '../utils/page-utils';
 
 const logger = createModuleLogger('PersistenceManager');
 
@@ -77,66 +76,97 @@ export class PersistenceManager {
    * - TranslationPersistence (browser storage) for translation state
    */
   public persistDocument(): void {
-    try {
-      const elements = this.config.changes.getCurrentState();
+    void (async () => {
+      try {
+        const elements = this.config.changes.getCurrentState();
 
-      // Strip inline comment markup from content before saving
-      // since comments are now stored separately in the comments array
-      const payload = elements.map((elem) => {
-        let cleanContent = elem.content;
+        // Strip inline comment markup from content before saving
+        // since comments are now stored separately in the comments array
+        const payload = elements.map((elem) => {
+          let cleanContent = elem.content;
 
-        // Remove inline CriticMarkup comments {>>...<<} from content
-        if (this.config.comments) {
-          const matches = this.config.comments.parse(elem.content);
-          const commentMatches = matches.filter((m) => m.type === 'comment');
+          // Remove inline CriticMarkup comments {>>...<<} from content
+          if (this.config.comments) {
+            const matches = this.config.comments.parse(elem.content);
+            const commentMatches = matches.filter((m) => m.type === 'comment');
 
-          // Process in reverse order to maintain string indices
-          for (let i = commentMatches.length - 1; i >= 0; i--) {
-            const match = commentMatches[i];
-            if (!match) continue;
-            cleanContent = this.config.comments.accept(cleanContent, match);
+            // Process in reverse order to maintain string indices
+            for (let i = commentMatches.length - 1; i >= 0; i--) {
+              const match = commentMatches[i];
+              if (!match) continue;
+              cleanContent = this.config.comments.accept(cleanContent, match);
+            }
           }
+
+          return {
+            id: elem.id,
+            content: cleanContent,
+            metadata: elem.metadata,
+          };
+        });
+
+        const currentPagePrefixes = this.getPagePrefixesFromElements(payload);
+
+        let existingDraft: Awaited<
+          ReturnType<LocalDraftPersistence['loadDraft']>
+        > | null = null;
+        try {
+          existingDraft = await this.config.localPersistence.loadDraft();
+        } catch (error) {
+          logger.debug('Unable to load existing draft for merge', {
+            error: error instanceof Error ? error.message : String(error),
+          });
         }
 
-        return {
-          id: elem.id,
-          content: cleanContent,
-          metadata: elem.metadata,
-        };
-      });
+        const mergedElements = this.mergeElementsByPage(
+          existingDraft?.elements ?? [],
+          payload,
+          currentPagePrefixes
+        );
 
-      const commentsSnapshot =
-        typeof this.config.comments?.getAllComments === 'function'
-          ? this.config.comments.getAllComments()
-          : undefined;
-      const operationsSnapshot =
-        typeof this.config.changes.getOperations === 'function'
-          ? Array.from(this.config.changes.getOperations())
-          : undefined;
+        const commentsSnapshot =
+          typeof this.config.comments?.getAllComments === 'function'
+            ? this.config.comments.getAllComments()
+            : undefined;
+        const operationsSnapshot =
+          typeof this.config.changes.getOperations === 'function'
+            ? Array.from(this.config.changes.getOperations())
+            : undefined;
 
-      logger.debug('Preparing to persist document', {
-        elementCount: payload.length,
-        operationCount: operationsSnapshot?.length ?? 0,
-        commentCount: commentsSnapshot?.length ?? 0,
-      });
+        const mergedComments = this.mergeCommentsByPage(
+          existingDraft?.comments as Comment[] | undefined,
+          commentsSnapshot,
+          currentPagePrefixes
+        );
+        const mergedOperations =
+          operationsSnapshot && operationsSnapshot.length > 0
+            ? operationsSnapshot
+            : existingDraft?.operations;
 
-      // Single unified code path - always use unified persistence
-      void this.unifiedPersistence.saveDocument({
-        id: `doc-${Date.now()}`,
-        documentId: this.buildDocumentId(),
-        savedAt: Date.now(),
-        version: 1,
-        review: {
-          elements: payload,
-          operations: operationsSnapshot,
-          comments: commentsSnapshot,
-        },
-      });
+        logger.debug('Preparing to persist document', {
+          elementCount: mergedElements.length,
+          operationCount: mergedOperations?.length ?? 0,
+          commentCount: mergedComments?.length ?? 0,
+        });
 
-      logger.debug('Document persisted via unified persistence');
-    } catch (error) {
-      logger.warn('Failed to persist document', error);
-    }
+        // Single unified code path - always use unified persistence
+        await this.unifiedPersistence.saveDocument({
+          id: `doc-${Date.now()}`,
+          documentId: this.buildDocumentId(),
+          savedAt: Date.now(),
+          version: 1,
+          review: {
+            elements: mergedElements,
+            operations: mergedOperations,
+            comments: mergedComments,
+          },
+        });
+
+        logger.debug('Document persisted via unified persistence');
+      } catch (error) {
+        logger.warn('Failed to persist document', error);
+      }
+    })();
   }
 
   /**
@@ -224,6 +254,11 @@ export class PersistenceManager {
       }
 
       // Restore operations if available
+      // BUG FIX: Restore ALL operations, not just current page
+      // Previous code filtered by getCurrentPagePrefix(), which caused multi-page edits
+      // to be lost when navigating between pages. Now we restore the full operation
+      // history so all pages have their changes available.
+      // See: https://github.com/quarto-dev/quarto-review-extension/issues/XXX
       logger.debug('Checking for operations in restored payload', {
         hasOperations: !!unifiedPayload.review?.operations,
         operationCount: unifiedPayload.review?.operations?.length ?? 0,
@@ -236,24 +271,20 @@ export class PersistenceManager {
         unifiedPayload.review.operations.length > 0 &&
         typeof this.config.changes.initializeWithOperations === 'function'
       ) {
-        // For multi-page projects: filter operations to only those for the current page
-        // Element IDs contain page prefixes (e.g., "index.para-1", "about.header-2")
-        // We only apply operations for the current page to the DOM
-        const currentPagePrefix = getCurrentPagePrefix();
-        const filteredOps = filterOperationsByPage(
-          unifiedPayload.review.operations,
-          currentPagePrefix
-        );
+        // Restore ALL operations from all pages
+        // This is safe because:
+        // 1. Operations contain element IDs with page prefixes
+        // 2. When user navigates to a page, only that page's elements are rendered
+        // 3. Non-existent elements are silently skipped by initializeWithOperations
+        const allOps = unifiedPayload.review.operations;
+        const pageDistribution = this.summarizeOperationsByPage(allOps);
 
         logger.info('Restoring operations from draft', {
-          totalCount: unifiedPayload.review.operations.length,
-          filteredCount: filteredOps.length,
-          pagePrefix: currentPagePrefix,
-          multiPage:
-            unifiedPayload.review.operations.length !== filteredOps.length,
+          totalCount: allOps.length,
+          pageDistribution,
         });
 
-        this.config.changes.initializeWithOperations(filteredOps);
+        this.config.changes.initializeWithOperations(allOps);
       } else if (unifiedPayload.review?.operations?.length === 0) {
         logger.debug('Draft has no operations - using current state');
       }
@@ -380,6 +411,71 @@ export class PersistenceManager {
         ? this.config.localPersistence.getFilename()
         : 'review-draft.json';
     return `quarto-review:draft-restored:${filename}`;
+  }
+
+  private getPagePrefixesFromElements(
+    elements: DraftElementPayload[]
+  ): Set<string> {
+    const prefixes = new Set<string>();
+    elements.forEach((element) => {
+      if (!element?.id) return;
+      const prefix = getPagePrefixFromElementId(element.id);
+      if (prefix) {
+        prefixes.add(prefix);
+      }
+    });
+    return prefixes;
+  }
+
+  private mergeElementsByPage(
+    existing: DraftElementPayload[],
+    updates: DraftElementPayload[],
+    updatedPrefixes: Set<string>
+  ): DraftElementPayload[] {
+    if (!existing.length) {
+      return updates;
+    }
+    if (updatedPrefixes.size === 0) {
+      return existing;
+    }
+    const filteredExisting = existing.filter((element) => {
+      const prefix = getPagePrefixFromElementId(element.id);
+      return !updatedPrefixes.has(prefix);
+    });
+    return [...filteredExisting, ...updates];
+  }
+
+  private mergeCommentsByPage(
+    existing: Comment[] | undefined,
+    updates: Comment[] | undefined,
+    updatedPrefixes: Set<string>
+  ): Comment[] | undefined {
+    const filteredExisting = (existing ?? []).filter((comment) => {
+      const prefix = getPagePrefixFromElementId(comment.elementId);
+      return !updatedPrefixes.has(prefix);
+    });
+
+    const merged = new Map<string, Comment>();
+    filteredExisting.forEach((comment) => merged.set(comment.id, comment));
+    (updates ?? []).forEach((comment) => merged.set(comment.id, comment));
+
+    return merged.size > 0 ? Array.from(merged.values()) : undefined;
+  }
+
+  /**
+   * Summarize operations by page for logging
+   * Helps with debugging multi-page persistence
+   */
+  private summarizeOperationsByPage(
+    operations: Operation[]
+  ): Record<string, number> {
+    const summary: Record<string, number> = {};
+    for (const op of operations) {
+      const elementId = op.elementId || '';
+      const pagePrefix = elementId.split('.')[0] || 'unknown';
+      summary[pagePrefix] = (summary[pagePrefix] || 0) + 1;
+    }
+    return summary;
   }
 
   /**

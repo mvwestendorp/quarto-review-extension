@@ -60,7 +60,7 @@
       "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "npm install && npx playwright install chromium",
+  "postCreateCommand": "npm install",
   "remoteUser": "node",
   "mounts": [
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/node/.ssh,readonly,type=bind,consistency=cached"

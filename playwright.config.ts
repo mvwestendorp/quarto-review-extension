@@ -10,7 +10,7 @@ export default defineConfig({
   timeout: 45000, // 45 seconds per test
   expect: { timeout: 10000 }, // 10 seconds for expect assertions
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://127.0.0.1:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     navigationTimeout: 30000,
@@ -32,10 +32,10 @@ export default defineConfig({
     // },
   ],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
+    command: 'npm run serve:e2e',
+    url: 'http://127.0.0.1:5173',
     reuseExistingServer: true,
-    timeout: 180000, // 3 minutes timeout for dev server startup
-    readyTimeout: 30000, // Wait up to 30s for server to respond
+    timeout: 60000, // Static server should boot quickly
+    readyTimeout: 5000,
   },
 });

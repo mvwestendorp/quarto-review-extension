@@ -44,6 +44,8 @@ type MockGitModule = Pick<
   | 'getFallbackStore'
   | 'requiresAuthToken'
   | 'setAuthToken'
+  | 'listEmbeddedSources'
+  | 'ensureRepositoryInitialized'
 >;
 type MockExportService = Pick<
   QmdExportService,
@@ -64,6 +66,8 @@ describe('GitReviewService', () => {
   let fallbackStoreSaveMock: ReturnType<typeof vi.fn>;
   let requiresAuthTokenMock: ReturnType<typeof vi.fn>;
   let setAuthTokenMock: ReturnType<typeof vi.fn>;
+  let listEmbeddedSourcesMock: ReturnType<typeof vi.fn>;
+  let ensureRepositoryInitializedMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     bundleFixture = buildBundle();
@@ -102,6 +106,10 @@ describe('GitReviewService', () => {
     });
     requiresAuthTokenMock = vi.fn().mockReturnValue(false);
     setAuthTokenMock = vi.fn();
+    listEmbeddedSourcesMock = vi.fn().mockResolvedValue([]);
+    ensureRepositoryInitializedMock = vi.fn().mockImplementation(async (sources, fallbackBase) => ({
+      baseBranch: fallbackBase,
+    }));
 
     git = {
       isEnabled: isEnabledMock,
@@ -110,6 +118,8 @@ describe('GitReviewService', () => {
       getFallbackStore: getFallbackStoreMock,
       requiresAuthToken: requiresAuthTokenMock,
       setAuthToken: setAuthTokenMock,
+      listEmbeddedSources: listEmbeddedSourcesMock,
+      ensureRepositoryInitialized: ensureRepositoryInitializedMock,
     };
 
     createBundleMock = vi.fn().mockResolvedValue(bundleFixture);
@@ -377,13 +387,9 @@ describe('GitReviewService', () => {
     expect(payload?.files).toEqual([
       {
         path: 'document.qmd',
-        content: 'state-1',
-        message: 'document.qmd: edit Para (step 1)',
-      },
-      {
-        path: 'document.qmd',
-        content: 'state-2',
-        message: 'document.qmd: insert Para (step 2)',
+        content: 'Hello world',
+        message:
+          'document.qmd: edit Para (step 1); document.qmd: insert Para (step 2)',
       },
       {
         path: '_quarto.yml',

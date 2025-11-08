@@ -440,4 +440,69 @@ describe('Export + Changes Integration', () => {
       expect(tracked).toContain('{++Modified++}');
     });
   });
+
+  describe('Multi-Page Export with Content Changes', () => {
+    it('should export pages with actual content changes applied', () => {
+      // Create multi-page document with page prefixes
+      // (simulating pages like "page1", "page2")
+      const multiPageChanges = buildChangesWithElements([
+        {
+          id: 'page1.sec-intro.para-1',
+          content: 'First page introduction',
+          metadata: baseMetadata,
+        },
+        {
+          id: 'page2.sec-content.para-1',
+          content: 'Second page content',
+          metadata: baseMetadata,
+        },
+      ]);
+
+      // Make edits to multiple pages
+      multiPageChanges.edit('page1.sec-intro.para-1', 'First page introduction Test');
+      multiPageChanges.edit('page2.sec-content.para-1', 'Second page content Test');
+
+      // Get the current state to verify edits were applied
+      const currentState = multiPageChanges.getCurrentState();
+      expect(currentState).toHaveLength(2);
+      expect(currentState[0]?.content).toBe('First page introduction Test');
+      expect(currentState[1]?.content).toBe('Second page content Test');
+
+      // Verify the operations contain the changes
+      const ops = multiPageChanges.getOperations();
+      expect(ops).toHaveLength(2);
+      expect(ops[0]?.data.type).toBe('edit');
+      expect(ops[1]?.data.type).toBe('edit');
+    });
+
+    it('should include changes in exported page content', async () => {
+      // Create multi-page changes with page-prefixed IDs
+      const multiPageChanges = buildChangesWithElements([
+        {
+          id: 'document.section.para-1',
+          content: 'Original text',
+          metadata: baseMetadata,
+        },
+        {
+          id: 'debug-example.example.para-1',
+          content: 'Another section',
+          metadata: baseMetadata,
+        },
+      ]);
+
+      // Apply edits with " Test" suffix (as in user's report)
+      multiPageChanges.edit('document.section.para-1', 'Original text Test');
+      multiPageChanges.edit('debug-example.example.para-1', 'Another section Test');
+
+      // Verify changes are in current state
+      const state = multiPageChanges.getCurrentState();
+      expect(state[0]?.content).toContain(' Test');
+      expect(state[1]?.content).toContain(' Test');
+
+      // Export as clean format
+      const exported = multiPageChanges.toCleanMarkdown();
+      expect(exported).toContain('Original text Test');
+      expect(exported).toContain('Another section Test');
+    });
+  });
 });

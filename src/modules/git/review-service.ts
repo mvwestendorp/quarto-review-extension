@@ -139,31 +139,27 @@ export class GitReviewService {
     commitMessage?: string,
     snapshots?: OperationSnapshot[]
   ): ReviewFileChange[] {
+    const perFileMessages = new Map<string, string>();
+
     if (snapshots && snapshots.length > 0) {
-      const primaryFilename = snapshots[0]?.filename;
-      const results: ReviewFileChange[] = snapshots.map((snapshot) => ({
-        path: snapshot.filename,
-        content: snapshot.content,
-        message: this.describeOperation(snapshot),
-      }));
+      const grouped = new Map<string, string[]>();
+      snapshots.forEach((snapshot) => {
+        const message = this.describeOperation(snapshot);
+        if (!grouped.has(snapshot.filename)) {
+          grouped.set(snapshot.filename, []);
+        }
+        grouped.get(snapshot.filename)!.push(message);
+      });
 
-      files
-        .filter((file) => file.filename !== primaryFilename)
-        .forEach((file) => {
-          results.push({
-            path: file.filename,
-            content: file.content,
-            message: commitMessage,
-          });
-        });
-
-      return results;
+      grouped.forEach((messages, filename) => {
+        perFileMessages.set(filename, messages.join('; '));
+      });
     }
 
     return files.map((file) => ({
       path: file.filename,
       content: file.content,
-      message: commitMessage,
+      message: perFileMessages.get(file.filename) ?? commitMessage,
     }));
   }
 

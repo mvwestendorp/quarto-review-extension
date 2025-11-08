@@ -142,8 +142,14 @@ export class QuartoReview {
     this.comments = new CommentsModule();
     this.user = new UserModule();
     this.git = new GitModule(this.config.git);
+    this.draftFilename = this.deriveDraftFilename();
+    this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore(), {
+      filename: this.draftFilename,
+    });
     this.exporter = new QmdExportService(this.changes, {
       git: this.git,
+      localPersistence: this.localDrafts,
+      comments: this.comments,
     });
     if (this.git.isEnabled()) {
       this.reviewService = new GitReviewService(this.git, this.exporter);
@@ -156,10 +162,6 @@ export class QuartoReview {
         'To enable: Add review.git configuration with provider, owner, and repo to your document metadata'
       );
     }
-    this.draftFilename = this.deriveDraftFilename();
-    this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore(), {
-      filename: this.draftFilename,
-    });
 
     // Initialize translation module (always available if built into extension)
     // CRITICAL FIX: Always include local provider configuration with sensible defaults

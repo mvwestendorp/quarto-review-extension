@@ -36,6 +36,7 @@ export interface Element {
     line: number;
     column: number;
   };
+  sourceFile?: string; // The original QMD/MD file this element came from (e.g., "document.qmd", "processes/page-2.qmd")
 }
 
 export interface Operation {
