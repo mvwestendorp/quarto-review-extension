@@ -144,33 +144,44 @@ export class SegmentActionButtons {
     }
     parentElement.dataset.hoverTrackingAdded = 'true';
 
-    const enterHandler = () => {
+    // Track whether the pointer is directly over the segment/buttons or simply
+    // aligned with the same horizontal row. We keep the buttons visible as long
+    // as either condition is true.
+    let hasDirectHover = false;
+    let isInExtendedRowZone = false;
+
+    const enableHover = () => {
       parentElement.classList.add('review-segment-hovered');
     };
 
-    const leaveHandler = () => {
-      parentElement.classList.remove('review-segment-hovered');
+    const disableHoverIfAllowed = () => {
+      if (!hasDirectHover && !isInExtendedRowZone) {
+        parentElement.classList.remove('review-segment-hovered');
+      }
     };
 
-    // Track mouse position to detect when cursor is at same vertical level
-    let isInVerticalZone = false;
+    const enterHandler = () => {
+      hasDirectHover = true;
+      enableHover();
+    };
+
+    const leaveHandler = () => {
+      hasDirectHover = false;
+      disableHoverIfAllowed();
+    };
 
     const mouseMoveHandler = (e: MouseEvent) => {
       const rect = parentElement.getBoundingClientRect();
-      const isInVerticalRange =
-        e.clientY >= rect.top && e.clientY <= rect.bottom;
+      const inRowRange = e.clientY >= rect.top && e.clientY <= rect.bottom;
 
-      // Show buttons if cursor is at the same vertical level as the segment
-      // Regardless of horizontal position, as long as user is at the same height
-      if (isInVerticalRange) {
-        if (!isInVerticalZone) {
-          isInVerticalZone = true;
-          enterHandler();
+      if (inRowRange) {
+        if (!isInExtendedRowZone) {
+          isInExtendedRowZone = true;
+          enableHover();
         }
-      } else if (isInVerticalZone) {
-        // Only hide when cursor moves vertically away from the segment
-        isInVerticalZone = false;
-        leaveHandler();
+      } else if (isInExtendedRowZone) {
+        isInExtendedRowZone = false;
+        disableHoverIfAllowed();
       }
     };
 
