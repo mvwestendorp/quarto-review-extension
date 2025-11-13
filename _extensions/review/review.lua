@@ -1214,6 +1214,14 @@ function Meta(meta)
       end
     end
 
+    -- Add user authentication configuration if present
+    if meta.review and meta.review.user then
+      local user_config = meta_to_json(meta.review.user)
+      if user_config then
+        init_config.user = user_config
+      end
+    end
+
     -- Convert config to JSON string (with fallback encoding)
     local project_sources = collect_project_sources()
     local config_json = table_to_json(init_config)

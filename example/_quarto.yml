@@ -34,5 +34,11 @@ review:
   user:
     auth:
       mode: 'oauth2-proxy'
+      userHeader: 'x-auth-request-user'
+      emailHeader: 'x-auth-request-email'
+      usernameHeader: 'x-auth-request-preferred-username'
+      defaultRole: 'editor'
+      debug: true
+
 filters:
   - review
