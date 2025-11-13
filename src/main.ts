@@ -360,7 +360,12 @@ if (typeof window !== 'undefined') {
         });
       }
 
-      new QuartoReview(parsedConfig);
+      const quarto = new QuartoReview(parsedConfig);
+      // Expose QuartoReview instance globally for debugging and advanced usage
+      (window as any).__quarto = {
+        instance: quarto,
+        userModule: quarto.user,
+      };
     }
   });
 }

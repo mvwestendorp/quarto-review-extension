@@ -10,32 +10,38 @@ This guide shows how to check user authentication status and debug issues using 
 
 2. **Run this command:**
    ```javascript
-   // Access the window object to get UI module and user module
-   // The UI module stores the user module internally
-   console.log('Checking user authentication...');
-
-   // Try to find the user module in window object
-   const userModule = window.__quarto?.userModule || window.userModule;
-   if (userModule && typeof userModule.getCurrentUser === 'function') {
-     const user = userModule.getCurrentUser();
-     console.log('Current User:', user);
-  } else {
-    console.log('User module not found in window object');
-  }
+   // Access the QuartoReview instance via window.__quarto
+   const userModule = window.__quarto?.userModule;
+   console.log('Current User:', userModule?.getCurrentUser?.());
+   console.log('Is Authenticated:', userModule?.isAuthenticated?.());
+   console.log('Permissions:', userModule?.getPermissions?.());
    ```
+
+   If you see `undefined`, make sure:
+   - The page has finished loading (check `DOMContentLoaded` event)
+   - The `[data-review]` attribute is present in your HTML
+   - The extension is properly initialized
 
 ## Finding the User Module
 
-### Option 1: Via UIModule (if exposed)
+### Primary Way: Via window.__quarto
 ```javascript
-// If UIModule is exposed globally
-const uiModule = window.__quarto?.uiModule || window.uiModule;
-if (uiModule) {
-  console.log('UIModule found:', uiModule);
+// Access the QuartoReview instance and its user module
+const quarto = window.__quarto?.instance;
+const userModule = window.__quarto?.userModule;
+
+console.log('QuartoReview instance:', quarto);
+console.log('UserModule:', userModule);
+
+// Access all modules from the instance
+if (quarto) {
+  console.log('Changes module:', quarto.changes);  // Note: private, may not be accessible
+  console.log('User module:', quarto.user);
+  console.log('Translation module:', quarto.getTranslation());
 }
 ```
 
-### Option 2: Via UnifiedSidebar
+### Via UnifiedSidebar DOM
 ```javascript
 // Find the sidebar element
 const sidebar = document.querySelector('.review-unified-sidebar');
@@ -52,7 +58,7 @@ if (sidebar) {
 }
 ```
 
-### Option 3: Manual inspection
+### Check for 👤 Icon
 ```javascript
 // Check all elements with 👤 icon
 const userElements = Array.from(document.querySelectorAll('span')).filter(
@@ -71,11 +77,13 @@ userElements.forEach(el => {
 ### 1. Check if OAuth2-Proxy is Configured
 ```javascript
 const userModule = window.__quarto?.userModule;
-if (userModule) {
-  const config = userModule.getOAuth2ProxyConfig?.();
-  console.log('OAuth2-Proxy Config:', config);
-  console.log('Auth Mode:', config?.mode);
-  console.log('Debug Enabled:', config?.debug);
+console.log('OAuth2-Proxy Config:', userModule?.getOAuth2ProxyConfig?.());
+console.log('Auth Mode:', userModule?.getOAuth2ProxyConfig?.()?.mode);
+console.log('Debug Enabled:', userModule?.getOAuth2ProxyConfig?.()?.debug);
+
+// If config is undefined, oauth2-proxy is not configured
+if (!userModule?.getOAuth2ProxyConfig?.()) {
+  console.log('ℹ️ OAuth2-Proxy is not configured - falling back to other auth methods');
 }
 ```
 
@@ -98,32 +106,39 @@ headers.forEach(meta => {
 ### 3. Check Authentication Status
 ```javascript
 const userModule = window.__quarto?.userModule;
+console.log('Is Authenticated:', userModule?.isAuthenticated?.());
+console.log('Current User:', userModule?.getCurrentUser?.());
+console.log('User Permissions:', userModule?.getPermissions?.());
+console.log('Can Edit:', userModule?.canEdit?.());
+console.log('Can Comment:', userModule?.canComment?.());
+console.log('Is Admin:', userModule?.isAdmin?.());
+```
+
+### 4. Manually Trigger OAuth2-Proxy Login
+```javascript
+// If headers are available but user wasn't logged in during initialization
+const userModule = window.__quarto?.userModule;
 if (userModule) {
-  console.log('Is Authenticated:', userModule.isAuthenticated?.());
-  console.log('Current User:', userModule.getCurrentUser?.());
-  console.log('User Permissions:', userModule.getPermissions?.());
-  console.log('Can Edit:', userModule.canEdit?.());
-  console.log('Can Comment:', userModule.canComment?.());
-  console.log('Is Admin:', userModule.isAdmin?.());
+  const success = userModule.loginFromOAuth2ProxyHeaders?.();
+  console.log('OAuth2-Proxy login attempted:', success);
+  console.log('Current user:', userModule.getCurrentUser?.());
 }
 ```
 
-### 4. Check Header Provider (Debug Mode)
+### 5. Check Available Headers (Debug Mode)
 ```javascript
-// If debug mode is enabled, check which headers were found
-const userModule = window.__quarto?.userModule;
-if (userModule) {
-  // Check the logs - if debug is enabled you'll see messages like:
-  // "[HeaderProvider] Found header "x-auth-request-user" from meta tag: john.doe"
+// If debug mode is enabled in YAML, you'll see detailed logs:
+// "[HeaderProvider] Found header "x-auth-request-user" from meta tag: john.doe"
+// "[HeaderProvider] Found header "x-auth-request-email" from window.__authHeaders"
 
-  // To enable debug mode dynamically:
-  const config = userModule.config;
-  if (config && config.headerProvider) {
-    config.headerProvider.setDebugMode?.(true);
-    // Try login again
-    userModule.loginFromOAuth2ProxyHeaders?.();
-  }
-}
+// Check which headers are available in meta tags:
+const headers = Array.from(document.querySelectorAll('meta[name^="x-"]'));
+headers.forEach(meta => {
+  console.log(`${meta.getAttribute('name')}: ${meta.getAttribute('content')}`);
+});
+
+// Check window.__authHeaders if set by oauth2-proxy:
+console.log('window.__authHeaders:', (window as any).__authHeaders);
 ```
 
 ## Common Console Outputs
@@ -182,37 +197,43 @@ OAuth2-Proxy Config: {
 
 When user info is not appearing, check in order:
 
-1. **Is the sidebar visible?**
+1. **Is QuartoReview initialized?**
    ```javascript
-   const sidebar = document.querySelector('.review-unified-sidebar');
-   console.log('Sidebar exists:', !!sidebar);
+   console.log('QuartoReview instance:', window.__quarto?.instance);
+   console.log('UserModule:', window.__quarto?.userModule);
    ```
+
+   If undefined, the extension may not be initialized yet. Wait for `DOMContentLoaded` or check for `[data-review]` attribute.
 
 2. **Is there a user logged in?**
    ```javascript
    const userModule = window.__quarto?.userModule;
-   console.log('User logged in:', userModule?.isAuthenticated?.());
+   console.log('Is Authenticated:', userModule?.isAuthenticated?.());
+   console.log('Current User:', userModule?.getCurrentUser?.());
    ```
 
-3. **Is the user info element being created?**
+3. **Is the sidebar visible?**
+   ```javascript
+   const sidebar = document.querySelector('.review-unified-sidebar');
+   console.log('Sidebar exists:', !!sidebar);
+   console.log('Sidebar visible:', sidebar?.style.display !== 'none');
+   ```
+
+4. **Is the user info element being created?**
    ```javascript
    const userInfo = document.querySelector('[title*="Logged in as"]');
-   console.log('User info element:', userInfo);
-   console.log('Display style:', userInfo?.style.display);
+   console.log('User info element exists:', !!userInfo);
+   if (!userInfo) {
+     console.log('Build info section HTML:', document.querySelector('.review-build-info')?.innerHTML);
+   }
    ```
 
-4. **What does the build info section show?**
-   ```javascript
-   const buildInfo = document.querySelector('.review-build-info');
-   console.log('Build info section:', buildInfo);
-   console.log('Build info HTML:', buildInfo?.innerHTML);
-   ```
-
-5. **Check browser console for warnings/errors:**
+5. **Check for console errors/warnings:**
    - Look for messages starting with `[Quarto Review]`
    - Look for messages starting with `[UserModule]`
    - Look for messages starting with `[HeaderProvider]`
    - Look for messages starting with `[OAuth2ProxyInit]`
+   - Check for any JavaScript errors in the console
 
 ## Enabling Full Debug Mode
 
@@ -263,42 +284,77 @@ if (userModule) {
 
 If user info still doesn't appear after following this guide:
 
-1. **Check the fix in UIModule:**
-   - Verify that `createPersistentSidebar()` calls `this.unifiedSidebar.setUserModule(this.userModule)`
-   - This is in `src/modules/ui/index.ts` around line 2588
+1. **Verify QuartoReview is exposed globally:**
+   ```javascript
+   // Check if window.__quarto is available
+   console.log('window.__quarto:', window.__quarto);
 
-2. **Verify build info section renders:**
+   // If undefined, the extension may not be initialized yet
+   // Try again after a few seconds
+   setTimeout(() => {
+     console.log('window.__quarto after delay:', window.__quarto);
+   }, 2000);
+   ```
+
+2. **Check if [data-review] attribute exists:**
+   ```javascript
+   const reviewElement = document.querySelector('[data-review]');
+   console.log('[data-review] element:', reviewElement);
+   ```
+
+3. **Verify build info section renders:**
    ```javascript
    const buildInfo = document.querySelector('.review-build-info');
-   console.log('Section exists:', !!buildInfo);
-   console.log('Section HTML:', buildInfo?.innerHTML);
+   console.log('Build info section:', buildInfo);
+   console.log('HTML:', buildInfo?.innerHTML);
    ```
 
-3. **Check UnifiedSidebar has userModule property:**
+4. **Enable full debug logging:**
    ```javascript
-   // In the sidebar instance, check if userModule is set
-   // This depends on how you access the sidebar instance
+   localStorage.setItem('debug', '*');
+   location.reload();  // Reload to see all debug messages
    ```
 
-4. **Enable full debug logging** and reload to see what's happening step by step
+5. **Check for initialization errors:**
+   ```javascript
+   // The extension logs startup info to console
+   // Look for messages like:
+   // "🎨 Quarto Review Extension 0.1.0"
+   // "✓ Git review service initialized"
+
+   // If these don't appear, check:
+   // 1. Is the extension JavaScript loaded? Check Network tab in DevTools
+   // 2. Are there any JavaScript errors? Check Console tab
+   // 3. Is the [data-review] attribute present in your HTML?
+   ```
 
 ---
 
-**Pro Tip:** You can copy-paste the entire debug check script into console at once:
+**Pro Tip:** Full debug check script:
 
 ```javascript
+console.group('🔍 Quarto Review Debug Info');
+console.log('QuartoReview instance:', window.__quarto?.instance);
+console.log('UserModule:', window.__quarto?.userModule);
+
 const userModule = window.__quarto?.userModule;
-console.group('User Authentication Debug Info');
-console.log('Module exists:', !!userModule);
 if (userModule) {
+  console.group('User Info');
   console.log('Is authenticated:', userModule.isAuthenticated?.());
   console.log('Current user:', userModule.getCurrentUser?.());
   console.log('OAuth2 config:', userModule.getOAuth2ProxyConfig?.());
   console.log('Permissions:', userModule.getPermissions?.());
+  console.groupEnd();
 }
+
 const sidebar = document.querySelector('.review-unified-sidebar');
-console.log('Sidebar exists:', !!sidebar);
-const userInfo = document.querySelector('[title*="Logged in as"]');
-console.log('User info element:', userInfo);
+console.log('Sidebar element:', sidebar);
+if (sidebar) {
+  const userInfo = document.querySelector('[title*="Logged in as"]');
+  console.log('User info element:', userInfo);
+  console.log('Build info HTML:', document.querySelector('.review-build-info')?.innerHTML);
+}
+
+console.log('[data-review] attribute:', document.querySelector('[data-review]'));
 console.groupEnd();
 ```
