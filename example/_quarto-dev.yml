@@ -1,0 +1,38 @@
+project:
+  type: website
+  output-dir: _output
+
+website:
+  title: 'Quarto Review Example'
+  navbar:
+    left:
+      - text: 'Home'
+        file: document.qmd
+      - text: 'Debug'
+        file: debug-example.qmd
+      - text: 'Translation'
+        file: doc-translation.qmd
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+
+# ============================================
+# DEVELOPMENT-ONLY: User Authentication
+# ============================================
+review:
+  user:
+    auth:
+      # Test with OAuth2-Proxy mode (headers will be injected via meta tags)
+      mode: "oauth2-proxy"
+      userHeader: "x-auth-request-user"
+      emailHeader: "x-auth-request-email"
+      usernameHeader: "x-auth-request-preferred-username"
+      defaultRole: "editor"
+      # Enable detailed debug logging to console
+      debug: true
+
+filters:
+  - review
