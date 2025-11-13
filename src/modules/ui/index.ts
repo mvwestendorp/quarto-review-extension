@@ -811,6 +811,14 @@ export class UIModule {
     return this.stateStore.getEditorState().showTrackedChanges;
   }
 
+  /**
+   * Update user display in sidebar after authentication
+   * Call this after user logs in to refresh the UI
+   */
+  public updateUserDisplay(): void {
+    this.unifiedSidebar.updateUserDisplay();
+  }
+
   public attachEventListeners(): void {
     this.bindEditableElements(document);
     this.bindGlobalShortcuts();
