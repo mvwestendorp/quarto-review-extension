@@ -2,6 +2,7 @@ import { createModuleLogger } from '@utils/debug';
 import { getBuildString, getFullBuildInfo } from '../../../version';
 import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from '../comments/CommentController';
+import type { UserModule } from '../../user';
 
 const logger = createModuleLogger('UnifiedSidebar');
 
@@ -27,6 +28,7 @@ export class UnifiedSidebar {
   private element: HTMLElement | null = null;
   private translationMode = false;
   private commentsExpanded = true;
+  private userModule?: UserModule;
 
   // Header elements
   private toggleBtn: HTMLButtonElement | null = null;
@@ -171,6 +173,13 @@ export class UnifiedSidebar {
 
   getElement(): HTMLElement | null {
     return this.element;
+  }
+
+  /**
+   * Set the user module for displaying user status
+   */
+  setUserModule(userModule: UserModule): void {
+    this.userModule = userModule;
   }
 
   /**
@@ -744,7 +753,7 @@ export class UnifiedSidebar {
   }
 
   /**
-   * Create build info section
+   * Create build info section with user status
    */
   private createBuildInfo(): HTMLElement {
     const buildInfoSection = document.createElement('div');
@@ -757,21 +766,70 @@ export class UnifiedSidebar {
       color: var(--review-text-muted, #6b7280);
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
+      flex-wrap: wrap;
       cursor: help;
+    `;
+
+    // User info section (if authenticated)
+    const currentUser = this.userModule?.getCurrentUser?.();
+    if (currentUser) {
+      const userSection = document.createElement('div');
+      userSection.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding-right: 8px;
+        border-right: 1px solid var(--review-border-color, #e5e7eb);
+      `;
+
+      const userIcon = document.createElement('span');
+      userIcon.textContent = '👤';
+      userIcon.style.fontSize = '12px';
+      userSection.appendChild(userIcon);
+
+      const userNameSpan = document.createElement('span');
+      const displayName =
+        currentUser.name?.trim() ||
+        currentUser.email?.trim() ||
+        currentUser.id?.trim() ||
+        'User';
+      userNameSpan.textContent = displayName;
+      userNameSpan.style.userSelect = 'text';
+      userSection.appendChild(userNameSpan);
+
+      // Tooltip with full user info
+      const tooltipText = `Logged in as:
+Name: ${currentUser.name || '(not set)'}
+Email: ${currentUser.email || '(not set)'}
+ID: ${currentUser.id}
+Role: ${currentUser.role}`;
+      userSection.title = tooltipText;
+
+      buildInfoSection.appendChild(userSection);
+    }
+
+    // Build info
+    const buildSection = document.createElement('div');
+    buildSection.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 4px;
     `;
 
     const infoIcon = document.createElement('span');
     infoIcon.textContent = 'ℹ️';
-    infoIcon.style.fontSize = '14px';
+    infoIcon.style.fontSize = '12px';
 
     const buildText = document.createElement('span');
     buildText.textContent = `v${getBuildString()}`;
     buildText.style.userSelect = 'text';
 
-    buildInfoSection.appendChild(infoIcon);
-    buildInfoSection.appendChild(buildText);
-    buildInfoSection.title = getFullBuildInfo();
+    buildSection.appendChild(infoIcon);
+    buildSection.appendChild(buildText);
+    buildSection.title = getFullBuildInfo();
+
+    buildInfoSection.appendChild(buildSection);
 
     return buildInfoSection;
   }

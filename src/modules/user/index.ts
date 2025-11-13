@@ -30,9 +30,9 @@ export class UserModule {
     this.config = {
       storageKey: config.storageKey || 'quarto-review-user',
       sessionTimeout: config.sessionTimeout || 3600000, // 1 hour default
-      userAuthConfig: config.userAuthConfig,
-      headerProvider: config.headerProvider,
-    };
+      userAuthConfig: config.userAuthConfig || undefined,
+      headerProvider: config.headerProvider || undefined,
+    } as Required<AuthConfig>;
 
     this.headerProvider = config.headerProvider || getHeaderProvider();
 
