@@ -19,11 +19,11 @@ import {
 } from '@utils/debug';
 import { QmdExportService } from '@modules/export';
 import GitReviewService from '@modules/git/review-service';
+import type { ReviewGitConfig } from '@/types';
 import {
   TranslationModule,
   type TranslationConfig,
 } from '@modules/translation';
-import type { ReviewGitConfig } from '@/types';
 import { BUILD_INFO, getBuildString } from './version';
 import {
   mergeWithGlobalConfig,
@@ -111,7 +111,7 @@ export class QuartoReview {
   private localDrafts: LocalDraftPersistence;
   private exporter: QmdExportService;
   private reviewService?: GitReviewService;
-  private translation?: TranslationModule;
+  private translation?: any; // Will be TranslationModule instance, imported dynamically
   public user: UserModule; // Public so it can be accessed for permissions
   private config: QuartoReviewConfig;
   private autoSaveInterval?: number;
@@ -183,44 +183,16 @@ export class QuartoReview {
       );
     }
 
-    // Initialize translation module (always available if built into extension)
-    // CRITICAL FIX: Always include local provider configuration with sensible defaults
-    // This ensures the local provider appears in the provider dropdown
-    const providers = this.config.translation?.providers || {};
-    const translationConfig: TranslationConfig = {
-      enabled: true,
-      sourceLanguage: this.config.translation?.sourceLanguage || 'en',
-      targetLanguage: this.config.translation?.targetLanguage || 'nl',
-      defaultProvider: this.config.translation?.defaultProvider || 'manual',
-      autoTranslateOnEdit:
-        this.config.translation?.autoTranslateOnEdit ?? false,
-      autoTranslateOnLoad:
-        this.config.translation?.autoTranslateOnLoad ?? false,
-      showCorrespondenceLines:
-        this.config.translation?.showCorrespondenceLines ?? true,
-      highlightOnHover: this.config.translation?.highlightOnHover ?? true,
-      providers: {
-        ...providers,
-        // Ensure local provider is always available with defaults if not explicitly disabled
-        local:
-          providers.local !== null
-            ? (providers.local ?? {
-                model: 'nllb-200-600m',
-                backend: 'auto',
-                mode: 'balanced',
-                downloadOnLoad: false,
-                useWebWorker: true,
-              })
-            : undefined,
-      },
-    };
-
-    this.translation = new TranslationModule({
-      config: translationConfig,
-      changes: this.changes,
-      markdown: this.markdown,
-      exporter: this.exporter,
-    });
+    // Initialize translation module (only if enabled in config)
+    // Uses lazy loading to reduce bundle size when translation is not needed
+    // Dynamic import allows bundlers to tree-shake translation code
+    if (this.config.enableTranslation !== false) {
+      // Lazy load TranslationModule only when needed
+      // This is wrapped in the constructor's initialization chain
+      void this.initializeTranslationModuleAsync();
+    } else {
+      logger.info('Translation module disabled via enableTranslation config');
+    }
 
     this.ui = new UIModule({
       changes: this.changes,
@@ -235,6 +207,66 @@ export class QuartoReview {
     });
 
     this.initialize();
+  }
+
+  /**
+   * Lazy load and initialize the translation module asynchronously
+   * This allows bundlers to tree-shake translation code when not used
+   */
+  private async initializeTranslationModuleAsync(): Promise<void> {
+    try {
+      // Dynamic import for lazy loading and code splitting
+      const { TranslationModule } = await import('@modules/translation');
+
+      // Build translation configuration
+      const providers = this.config.translation?.providers || {};
+      const translationConfig: TranslationConfig = {
+        enabled: true,
+        sourceLanguage: this.config.translation?.sourceLanguage || 'en',
+        targetLanguage: this.config.translation?.targetLanguage || 'nl',
+        defaultProvider: this.config.translation?.defaultProvider || 'manual',
+        autoTranslateOnEdit:
+          this.config.translation?.autoTranslateOnEdit ?? false,
+        autoTranslateOnLoad:
+          this.config.translation?.autoTranslateOnLoad ?? false,
+        showCorrespondenceLines:
+          this.config.translation?.showCorrespondenceLines ?? true,
+        highlightOnHover: this.config.translation?.highlightOnHover ?? true,
+        providers: {
+          ...providers,
+          // Ensure local provider is always available with defaults if not explicitly disabled
+          local:
+            providers.local !== null
+              ? (providers.local ?? {
+                  model: 'nllb-200-600m',
+                  backend: 'auto',
+                  mode: 'balanced',
+                  downloadOnLoad: false,
+                  useWebWorker: true,
+                })
+              : undefined,
+        },
+      };
+
+      // Create translation module instance
+      this.translation = new TranslationModule({
+        config: translationConfig,
+        changes: this.changes,
+        markdown: this.markdown,
+        exporter: this.exporter,
+      });
+
+      // Update UI if already initialized
+      // This allows the translation button to become enabled after async load
+      if (this.ui) {
+        this.ui.updateTranslationModule(this.translation);
+      }
+
+      logger.info('Translation module loaded successfully');
+    } catch (error) {
+      logger.warn('Failed to load translation module', error);
+      // Continue without translation - not a critical failure
+    }
   }
 
   private deriveDraftFilename(): string {
@@ -255,7 +287,7 @@ export class QuartoReview {
     // Update UI to show authenticated user (whether just logged in or already authenticated)
     this.ui.updateUserDisplay();
 
-    // Initialize translation if enabled
+    // Initialize translation if enabled and created
     if (this.translation) {
       await this.translation.initialize();
     }
@@ -392,6 +424,7 @@ if (typeof window !== 'undefined') {
       (window as any).__quarto = {
         instance: quarto,
         userModule: quarto.user,
+        getTranslation: () => quarto.getTranslation(),
       };
     }
   });

@@ -819,6 +819,21 @@ export class UIModule {
     this.unifiedSidebar.updateUserDisplay();
   }
 
+  /**
+   * Update translation module after lazy loading
+   * Enables translation button after async module initialization
+   */
+  public updateTranslationModule(
+    translationModule:
+      | import('@modules/translation').TranslationModule
+      | undefined
+  ): void {
+    this.translationModule = translationModule;
+    // Update sidebar to reflect that translation is now available
+    const enableTranslation = Boolean(this.translationModule);
+    this.unifiedSidebar.setTranslationEnabled(enableTranslation);
+  }
+
   public attachEventListeners(): void {
     this.bindEditableElements(document);
     this.bindGlobalShortcuts();

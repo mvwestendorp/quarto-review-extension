@@ -108,7 +108,8 @@ export interface Comment {
 
 export interface User {
   id: string;
-  name: string;
+  userId?: string; // Alternative ID for different auth systems (e.g., databricks-app)
+  name?: string;
   email?: string;
   role: 'viewer' | 'editor' | 'admin';
 }
@@ -123,10 +124,11 @@ export interface UserAuthConfig {
   /**
    * Authentication mode for identifying application users.
    * `oauth2-proxy` reads user identity from oauth2-proxy headers (e.g., x-auth-request-user).
+   * `databricks-app` fetches user info from Databricks App API endpoint.
    * `manual` relies on programmatic login via UserModule.login().
    * `none` disables user authentication.
    */
-  mode?: 'oauth2-proxy' | 'manual' | 'none';
+  mode?: 'oauth2-proxy' | 'databricks-app' | 'manual' | 'none';
   /**
    * Header name for user identifier when mode is `oauth2-proxy`.
    * Defaults to 'x-auth-request-user'.
@@ -144,10 +146,19 @@ export interface UserAuthConfig {
    */
   usernameHeader?: string;
   /**
-   * Default role assigned to users authenticated via oauth2-proxy.
+   * Default role assigned to users authenticated via oauth2-proxy or databricks-app.
    * Defaults to 'editor'.
    */
   defaultRole?: 'viewer' | 'editor' | 'admin';
+  /**
+   * Configuration for Databricks App authentication (when mode is 'databricks-app').
+   */
+  databricks?: {
+    /** API endpoint for user info (default: /api/userinfo) */
+    endpoint?: string;
+    /** Timeout for API call in milliseconds (default: 5000) */
+    timeout?: number;
+  };
   /**
    * Enable detailed debug logging for troubleshooting.
    * Logs which headers are checked, where they come from, and why auth failed.

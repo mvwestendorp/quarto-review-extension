@@ -120,10 +120,17 @@ export async function loginFromDatabricksAPI(
     }
 
     if (data.authenticated && data.userId) {
+      // Validate role is one of the allowed types
+      const validRoles = ['viewer', 'editor', 'admin'];
+      const role = validRoles.includes(data.role?.toLowerCase() || '')
+        ? (data.role?.toLowerCase() as 'viewer' | 'editor' | 'admin')
+        : 'editor';
+
       const user: User = {
+        id: data.userId,
         userId: data.userId,
         email: data.email || data.userId,
-        role: data.role || 'editor',
+        role,
       };
 
       logger.info('✓ Databricks authentication successful', {

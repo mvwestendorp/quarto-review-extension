@@ -152,7 +152,7 @@ async function initializeDatabricksAuth(
     logger.info('✓ Databricks App authentication successful', {
       userId: user.userId,
     });
-    userModule.login(user.userId, user.email, user.role);
+    userModule.login(user);
     return true;
   }
 

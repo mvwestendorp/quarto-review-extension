@@ -1155,7 +1155,7 @@ export class QmdExportService {
       const captionEl = figure.querySelector<HTMLElement>('figcaption');
       if (captionEl) {
         metadata.figCaption = this.normalizeCaptionText(
-          captionEl.textContent ?? ''
+          this.getTextContentWithoutActionButtons(captionEl)
         );
       }
     }
@@ -1168,7 +1168,7 @@ export class QmdExportService {
       const captionEl = table.querySelector<HTMLElement>('figcaption, caption');
       if (captionEl) {
         metadata.tableCaption = this.normalizeCaptionText(
-          captionEl.textContent ?? ''
+          this.getTextContentWithoutActionButtons(captionEl)
         );
       }
     }
@@ -1181,6 +1181,13 @@ export class QmdExportService {
       return null;
     }
     return metadata;
+  }
+
+  private getTextContentWithoutActionButtons(element: HTMLElement): string {
+    const clone = element.cloneNode(true) as HTMLElement;
+    const actionButtons = clone.querySelectorAll('.review-segment-actions');
+    actionButtons.forEach((btn) => btn.remove());
+    return clone.textContent ?? '';
   }
 
   private normalizeCaptionText(text: string): string {
