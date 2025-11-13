@@ -96,6 +96,10 @@ export interface QuartoReviewConfig {
   debug?: Partial<DebugConfig>;
   /** Markdown rendering configuration */
   markdown?: MarkdownOptions;
+  /** User authentication configuration (e.g., oauth2-proxy) */
+  user?: {
+    auth?: import('@/types').UserAuthConfig;
+  };
 }
 
 export class QuartoReview {
@@ -141,7 +145,9 @@ export class QuartoReview {
     this.changes = new ChangesModule();
     this.markdown = new MarkdownModule(this.config.markdown);
     this.comments = new CommentsModule();
-    this.user = new UserModule();
+    this.user = new UserModule({
+      userAuthConfig: this.config.user?.auth,
+    });
     this.git = new GitModule(this.config.git);
     this.draftFilename = this.deriveDraftFilename();
     this.localDrafts = new LocalDraftPersistence(this.git.getFallbackStore(), {
