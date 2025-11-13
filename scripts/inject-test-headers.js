@@ -27,13 +27,13 @@ const testHeaders = {
   'x-auth-request-preferred-username': 'test.user',
 };
 
-function createMetaTags() {
-  return Object.entries(testHeaders)
-    .map(
-      ([name, content]) =>
-        `<meta name="${name}" content="${content}" />`
-    )
-    .join('\n  ');
+function createAuthScript() {
+  const headersJson = JSON.stringify(testHeaders, null, 2);
+  return `<script>
+  // OAuth2-Proxy test headers for local development
+  window.__authHeaders = ${headersJson};
+  console.log('[Dev Auth] Test headers injected into window.__authHeaders');
+</script>`;
 }
 
 function injectHeaders(filePath) {
@@ -41,27 +41,28 @@ function injectHeaders(filePath) {
     const content = readFileSync(filePath, 'utf-8');
 
     // Check if headers already exist
-    if (content.includes('x-auth-request-user')) {
+    if (content.includes('window.__authHeaders')) {
       console.log(`⏭️  Skipped ${filePath} (headers already present)`);
       return;
     }
 
-    // Find closing head tag
-    const headTagIndex = content.indexOf('</head>');
-    if (headTagIndex === -1) {
-      console.warn(`⚠️  Skipped ${filePath} (no </head> tag found)`);
+    // Find opening head tag
+    const headTagMatch = content.match(/<head[^>]*>/i);
+    if (!headTagMatch) {
+      console.warn(`⚠️  Skipped ${filePath} (no <head> tag found)`);
       return;
     }
 
-    // Inject meta tags before closing head tag
-    const metaTags = createMetaTags();
+    // Inject script right after opening head tag
+    const headTagEndIndex = content.indexOf(headTagMatch[0]) + headTagMatch[0].length;
+    const authScript = createAuthScript();
     const injected =
-      content.substring(0, headTagIndex) +
-      `\n  <!-- OAuth2-Proxy test headers (for local development) -->\n  ${metaTags}\n  ` +
-      content.substring(headTagIndex);
+      content.substring(0, headTagEndIndex) +
+      `\n  ${authScript}\n  ` +
+      content.substring(headTagEndIndex);
 
     writeFileSync(filePath, injected);
-    console.log(`✓ Injected headers into ${filePath}`);
+    console.log(`✓ Injected OAuth2-Proxy headers into ${filePath}`);
   } catch (error) {
     console.error(`✗ Error processing ${filePath}:`, error.message);
   }
@@ -100,13 +101,16 @@ function main() {
 
     console.log('\n✅ Header injection complete!');
     console.log(
-      'Test headers available:\n' +
+      'Test headers injected via window.__authHeaders:\n' +
         Object.entries(testHeaders)
           .map(([name, content]) => `  ${name}: ${content}`)
           .join('\n')
     );
     console.log(
       '\nNow run: npm run serve:e2e\nThen visit: http://127.0.0.1:5173'
+    );
+    console.log(
+      '\nIn browser console, verify: console.log(window.__authHeaders)'
     );
   } catch (error) {
     console.error('Error:', error.message);
