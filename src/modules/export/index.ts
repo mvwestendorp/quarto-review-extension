@@ -58,6 +58,11 @@ export type ExportFormat = 'clean' | 'critic';
 
 export interface ExportOptions {
   format?: ExportFormat;
+  /**
+   * When false, comment annotations are excluded from the exported markdown.
+   * Defaults to true to preserve current download behavior.
+   */
+  includeCommentsInOutput?: boolean;
 }
 
 interface ProjectContext {
@@ -113,12 +118,17 @@ export class QmdExportService {
     options: ExportOptions = {}
   ): Promise<ExportBundle> {
     const format: ExportFormat = options.format ?? 'clean';
+    const includeComments =
+      options.includeCommentsInOutput === undefined
+        ? true
+        : Boolean(options.includeCommentsInOutput);
     const primaryFilename = this.resolvePrimaryFilename();
     const projectContext = await this.resolveProjectContext();
     const files = await this.collectFiles(
       primaryFilename,
       format,
-      projectContext
+      projectContext,
+      includeComments
     );
     const deduped = this.deduplicateFiles(files);
     const suggestedArchiveName = this.suggestArchiveName(
@@ -290,7 +300,8 @@ export class QmdExportService {
   private async collectFiles(
     primaryFilename: string,
     format: ExportFormat,
-    context: ProjectContext
+    context: ProjectContext,
+    includeComments: boolean
   ): Promise<ExportedFile[]> {
     const operations = this.changes.getOperations?.();
     const operationsByElement = this.groupOperationsByElement(
@@ -298,7 +309,9 @@ export class QmdExportService {
     );
     const currentElements = this.changes.getCurrentState?.() ?? [];
     const persistedDraft = await this.loadPersistedDraftSnapshot();
-    const commentMap = this.buildCommentMarkupMap(persistedDraft?.comments);
+    const commentMap: Map<string, CommentMarkupBlock> = includeComments
+      ? this.buildCommentMarkupMap(persistedDraft?.comments)
+      : new Map();
 
     // Check if we have proper multi-page IDs (format: page.something)
     // Not multi-page if IDs are just simple IDs without dots (like p-1, p-2)
@@ -337,7 +350,8 @@ export class QmdExportService {
         currentElements,
         persistedDraft?.elements ?? [],
         commentMap,
-        operationsByElement
+        operationsByElement,
+        primaryFilename
       );
     }
 
@@ -424,7 +438,8 @@ export class QmdExportService {
     currentElements: Element[],
     persistedElements: DraftElementPayload[],
     commentMap: Map<string, CommentMarkupBlock>,
-    operationsByElement: Map<string, Operation[]>
+    operationsByElement: Map<string, Operation[]>,
+    primaryFilename: string
   ): ExportedFile[] {
     const operations = Array.from(this.changes.getOperations?.() || []);
     const files: ExportedFile[] = [];
@@ -526,7 +541,6 @@ export class QmdExportService {
       // This ensures buildPageDocument can use the correct filename for lookups
       let sourceFilename = pageToSourceFile.get(pagePrefix);
       if (!sourceFilename) {
-        // No source file mapping exists, use inferred filename from page prefix
         sourceFilename = inferQmdFilenameFromPagePrefix(pagePrefix);
         logger.debug(
           'No source file found for page prefix, using inferred filename',
@@ -536,6 +550,21 @@ export class QmdExportService {
           }
         );
       }
+
+      const resolvedFilename = this.resolveExistingSourceFilename(
+        sourceFilename,
+        context,
+        primaryFilename
+      );
+      if (resolvedFilename !== sourceFilename) {
+        logger.debug('Resolved inferred filename to existing project source', {
+          pagePrefix,
+          originalFilename: sourceFilename,
+          resolvedFilename,
+        });
+      }
+      sourceFilename = resolvedFilename;
+      pageToSourceFile.set(pagePrefix, sourceFilename);
 
       const pageElements: ElementSnapshot[] =
         elementsByPage.get(pagePrefix) ??
@@ -630,6 +659,52 @@ export class QmdExportService {
     }
 
     return files;
+  }
+
+  private resolveExistingSourceFilename(
+    candidate: string,
+    context: ProjectContext,
+    primaryFilename: string
+  ): string {
+    if (!candidate) {
+      return this.findFirstContentSource(context)?.filename ?? primaryFilename;
+    }
+
+    const matchingSource = context.sources.find((source) =>
+      this.isFilenameMatch(source.filename, candidate)
+    );
+    if (matchingSource?.filename) {
+      return matchingSource.filename;
+    }
+
+    const fallback = this.findFirstContentSource(context);
+    if (fallback?.filename) {
+      return fallback.filename;
+    }
+
+    return primaryFilename;
+  }
+
+  private isFilenameMatch(
+    sourceFilename: string | undefined,
+    candidate: string
+  ): boolean {
+    if (!sourceFilename || !candidate) {
+      return false;
+    }
+    if (sourceFilename === candidate) {
+      return true;
+    }
+    return sourceFilename.endsWith(`/${candidate}`);
+  }
+
+  private findFirstContentSource(
+    context: ProjectContext
+  ): EmbeddedSourceRecord | undefined {
+    return context.sources.find(
+      (record) =>
+        this.isQmdFile(record.filename) || this.isMdFile(record.filename)
+    );
   }
 
   private buildPrimaryDocument(
@@ -1111,7 +1186,8 @@ export class QmdExportService {
   private normalizeCaptionText(text: string): string {
     const cleaned = text.replace(/\s+/g, ' ').trim();
     const match = cleaned.match(/^[A-Za-z]+\s*\d+:\s*(.*)$/);
-    return (match ? match[1] : cleaned).trim();
+    const remainder = match && match[1] ? match[1] : cleaned;
+    return remainder.trim();
   }
 
   private getElementNode(elementId: string): HTMLElement | null {
@@ -1211,15 +1287,59 @@ export class QmdExportService {
 
   private deduplicateFiles(files: ExportedFile[]): ExportedFile[] {
     const seen = new Map<string, ExportedFile>();
+
     for (const file of files) {
-      if (!seen.has(file.filename)) {
-        seen.set(file.filename, file);
-      } else if (file.primary) {
-        // Ensure the active document wins if duplicate filenames exist.
-        seen.set(file.filename, file);
+      const existing = seen.get(file.filename);
+      if (!existing) {
+        // Clone to avoid mutating original references
+        seen.set(file.filename, { ...file });
+        continue;
       }
+
+      // Merge content from duplicate filenames (e.g., orphan prefixes falling back to same source file)
+      existing.content = this.mergeFileContent(existing.content, file.content);
+
+      // Preserve origin preference (active-document > embedded > project-config)
+      if (
+        existing.origin !== 'active-document' &&
+        file.origin === 'active-document'
+      ) {
+        existing.origin = 'active-document';
+      }
+
+      // Maintain project-config if that's the only origin available
+      if (
+        existing.origin === 'project-config' &&
+        (file.origin === 'embedded' || file.origin === 'active-document')
+      ) {
+        existing.origin = file.origin;
+      }
+
+      // If any duplicate is marked primary, keep that flag
+      existing.primary = existing.primary || Boolean(file.primary);
     }
+
     return Array.from(seen.values());
+  }
+
+  private mergeFileContent(
+    existingContent: string,
+    newContent: string
+  ): string {
+    const existingTrimmed = existingContent?.trimEnd() ?? '';
+    const newTrimmed = newContent?.trim() ?? '';
+
+    if (!newTrimmed.length) {
+      return existingContent;
+    }
+    if (!existingTrimmed.length) {
+      return newContent;
+    }
+    if (existingTrimmed.includes(newTrimmed)) {
+      return existingContent;
+    }
+
+    return `${existingTrimmed}\n\n${newTrimmed}`.trim();
   }
 
   private async resolveProjectContext(): Promise<ProjectContext> {

@@ -232,14 +232,102 @@ export class MarkdownModule {
 
   private renderHeading(content: string, level: number): string {
     const cleaned = this.stripPandocHeadingAttributes(content);
-    const textContent = this.extractHeadingText(cleaned);
-    const markdown = textContent
-      ? `${'#'.repeat(level)} ${textContent}`
+
+    // Try to detect CriticMarkup wrappers using specific patterns
+    let criticMarkupPrefix = '';
+    let criticMarkupSuffix = '';
+    let plainContent = '';
+    let isSubstitution = false;
+    let oldText = '';
+
+    // Check for addition {++...++}
+    const additionMatch = cleaned.match(/^\{\+\+(.+?)\+\+\}$/);
+    if (additionMatch) {
+      criticMarkupPrefix = '{++';
+      criticMarkupSuffix = '++}';
+      // Extract and clean the content, removing any heading markers
+      const extractedText = additionMatch[1]?.trim() || '';
+      plainContent = this.stripHeadingMarkers(extractedText);
+    } else {
+      // Check for deletion {--...--}
+      const deletionMatch = cleaned.match(/^\{--(.+?)--\}$/);
+      if (deletionMatch) {
+        criticMarkupPrefix = '{--';
+        criticMarkupSuffix = '--}';
+        // Extract and clean the content, removing any heading markers
+        const extractedText = deletionMatch[1]?.trim() || '';
+        plainContent = this.stripHeadingMarkers(extractedText);
+      } else {
+        // Check for substitution {~~...~>...~~}
+        const substitutionMatch = cleaned.match(/^\{~~(.+?)~>(.+?)~~\}$/);
+        if (substitutionMatch) {
+          isSubstitution = true;
+          criticMarkupPrefix = '{~~';
+          criticMarkupSuffix = '~~}';
+          // Extract and clean both parts, removing any heading markers
+          oldText = this.stripHeadingMarkers(
+            substitutionMatch[1]?.trim() || ''
+          );
+          plainContent = this.stripHeadingMarkers(
+            substitutionMatch[2]?.trim() || ''
+          );
+        } else {
+          // No CriticMarkup wrapper - extract plain text normally
+          plainContent = this.extractPlainHeadingText(cleaned);
+        }
+      }
+    }
+
+    // Reconstruct the markdown with heading markers (without CriticMarkup)
+    const headingMarkdown = plainContent
+      ? `${'#'.repeat(level)} ${plainContent}`
       : `${'#'.repeat(level)}`;
-    return this.renderSync(markdown);
+
+    // Render the heading first to get proper HTML
+    const headingHtml = this.renderSync(headingMarkdown);
+
+    // If we detected CriticMarkup, we need to wrap the heading content with it
+    // For headings, we wrap just the content inside the heading tags
+    if (criticMarkupPrefix && criticMarkupSuffix) {
+      if (isSubstitution) {
+        // For substitutions, render the CriticMarkup substitution and extract the content
+        // Use just the plain text (without heading markers) for the substitution
+        const substitutionMarkdown = `${criticMarkupPrefix}${oldText}~>${plainContent}${criticMarkupSuffix}`;
+        const substitutionHtml = this.renderSync(substitutionMarkdown);
+
+        // Extract the content from the paragraph (which contains the substitution markup)
+        const substitutionMatch = substitutionHtml.match(/<p>(.*?)<\/p>/);
+        const substitutionContent = substitutionMatch?.[1] || substitutionHtml;
+
+        // Wrap in heading tags
+        return `<h${level}>${substitutionContent}</h${level}>`;
+      } else {
+        // For additions and deletions, wrap the entire heading content
+        const headingMatch = headingHtml.match(/<h\d[^>]*>(.*?)<\/h\d>/);
+        if (headingMatch) {
+          const headingContent = headingMatch[1] || '';
+          const headingTag =
+            headingMatch[0]?.match(/<h\d[^>]*>/)?.[0] || `<h${level}>`;
+          const closingTag = `</h${level}>`;
+
+          // Render the CriticMarkup wrapping
+          const wrappedMarkup = this.renderSync(
+            `${criticMarkupPrefix}${headingContent}${criticMarkupSuffix}`
+          );
+
+          // Extract the content from the wrapped markup
+          const wrappedMatch = wrappedMarkup.match(/<p>(.*?)<\/p>/);
+          const wrappedContent = wrappedMatch?.[1] || wrappedMarkup;
+
+          return `${headingTag}${wrappedContent}${closingTag}`;
+        }
+      }
+    }
+
+    return headingHtml;
   }
 
-  private extractHeadingText(source: string): string {
+  private extractPlainHeadingText(source: string): string {
     const trimmed = source.trim();
 
     const stripLeadingMarkers = (value: string): string => {
@@ -249,13 +337,30 @@ export class MarkdownModule {
       return value.replace(/^#+\s+/, '').trim();
     };
 
-    const atxMatch = trimmed.match(/^#+\s*(.*)$/);
+    // If the entire source is wrapped in CriticMarkup, extract the text first
+    // This handles cases like {++New Heading++} from newly inserted sections
+    const criticWrappers = [
+      /^\{\+\+([\s\S]*?)\+\+\}$/, // {++...++}
+      /^\{--([\s\S]*?)--\}$/, // {--...--}
+      /^\{~~([\s\S]*?)~>[^]*~~\}$/, // {~~...~>...~~}
+    ];
+
+    let workingText = trimmed;
+    for (const pattern of criticWrappers) {
+      const match = workingText.match(pattern);
+      if (match && match[1]) {
+        workingText = match[1].trim();
+        break;
+      }
+    }
+
+    const atxMatch = workingText.match(/^#+\s*(.*)$/);
     if (atxMatch) {
       const candidate = atxMatch[1]?.trim() ?? '';
       return stripLeadingMarkers(candidate);
     }
 
-    const lines = trimmed.split(/\r?\n/);
+    const lines = workingText.split(/\r?\n/);
     if (lines.length >= 2) {
       const underline = lines[1]?.trim() ?? '';
       if (/^=+$|^-+$/.test(underline)) {
@@ -264,7 +369,23 @@ export class MarkdownModule {
       }
     }
 
-    return stripLeadingMarkers(trimmed);
+    return stripLeadingMarkers(workingText);
+  }
+
+  /**
+   * Strip heading markdown markers (# or ## etc) from text
+   * Handles both ATX-style (#) and escaped markers (\#)
+   */
+  private stripHeadingMarkers(text: string): string {
+    const trimmed = text.trim();
+
+    // If starts with escaped hash, preserve it
+    if (trimmed.startsWith('\\#')) {
+      return trimmed;
+    }
+
+    // Remove leading hash markers
+    return trimmed.replace(/^#+\s+/, '').trim();
   }
 
   private isPandocAttributeBlock(content: string): boolean {
