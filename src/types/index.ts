@@ -119,6 +119,37 @@ export interface GitProvider {
   token?: string;
 }
 
+export interface UserAuthConfig {
+  /**
+   * Authentication mode for identifying application users.
+   * `oauth2-proxy` reads user identity from oauth2-proxy headers (e.g., x-auth-request-user).
+   * `manual` relies on programmatic login via UserModule.login().
+   * `none` disables user authentication.
+   */
+  mode?: 'oauth2-proxy' | 'manual' | 'none';
+  /**
+   * Header name for user identifier when mode is `oauth2-proxy`.
+   * Defaults to 'x-auth-request-user'.
+   */
+  userHeader?: string;
+  /**
+   * Header name for user email when mode is `oauth2-proxy`.
+   * Defaults to 'x-auth-request-email'.
+   */
+  emailHeader?: string;
+  /**
+   * Header name for preferred username when mode is `oauth2-proxy`.
+   * Defaults to 'x-auth-request-preferred-username'.
+   * Used as fallback if userHeader is unavailable.
+   */
+  usernameHeader?: string;
+  /**
+   * Default role assigned to users authenticated via oauth2-proxy.
+   * Defaults to 'editor'.
+   */
+  defaultRole?: 'viewer' | 'editor' | 'admin';
+}
+
 export interface ReviewGitAuthConfig {
   /**
    * Authentication mode used when communicating with the provider.

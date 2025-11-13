@@ -4,27 +4,91 @@
  */
 
 import { createModuleLogger } from '@utils/debug';
-import type { User } from '@/types';
+import type { User, UserAuthConfig } from '@/types';
+import { getHeaderProvider, type IHeaderProvider } from './HeaderProvider';
 
 const logger = createModuleLogger('UserModule');
 
 export interface AuthConfig {
   storageKey?: string;
   sessionTimeout?: number; // in milliseconds
+  userAuthConfig?: UserAuthConfig;
+  headerProvider?: IHeaderProvider;
 }
 
 export class UserModule {
   private currentUser: User | null = null;
   private config: Required<AuthConfig>;
   private sessionTimer: ReturnType<typeof setTimeout> | null = null;
+  private headerProvider: IHeaderProvider;
 
   constructor(config: AuthConfig = {}) {
     this.config = {
       storageKey: config.storageKey || 'quarto-review-user',
       sessionTimeout: config.sessionTimeout || 3600000, // 1 hour default
+      userAuthConfig: config.userAuthConfig,
+      headerProvider: config.headerProvider,
     };
 
+    this.headerProvider = config.headerProvider || getHeaderProvider();
     this.loadFromStorage();
+  }
+
+  /**
+   * Authenticate a user from oauth2-proxy headers
+   * Reads user identity from x-auth-request-user, x-auth-request-email headers
+   * Returns true if user was successfully authenticated, false otherwise
+   */
+  public loginFromOAuth2ProxyHeaders(): boolean {
+    const authConfig = this.config.userAuthConfig;
+
+    if (!authConfig || authConfig.mode !== 'oauth2-proxy') {
+      logger.debug('OAuth2-proxy auth mode not configured');
+      return false;
+    }
+
+    // Get header names with defaults
+    const userHeaderName = authConfig.userHeader || 'x-auth-request-user';
+    const emailHeaderName = authConfig.emailHeader || 'x-auth-request-email';
+    const usernameHeaderName =
+      authConfig.usernameHeader || 'x-auth-request-preferred-username';
+
+    // Try to get user identifier
+    let userId = this.headerProvider.getHeader(userHeaderName);
+    if (!userId) {
+      userId = this.headerProvider.getHeader(usernameHeaderName);
+    }
+
+    if (!userId) {
+      logger.debug('No user identifier found in oauth2-proxy headers', {
+        userHeader: userHeaderName,
+        usernameHeader: usernameHeaderName,
+      });
+      return false;
+    }
+
+    // Get email if available
+    const email = this.headerProvider.getHeader(emailHeaderName);
+
+    // Get default role from config, fall back to 'editor'
+    const role = authConfig.defaultRole || 'editor';
+
+    // Create and login user
+    const user: User = {
+      id: userId,
+      name: userId, // Use userId as name if not available separately
+      email,
+      role,
+    };
+
+    logger.debug('Logging in user from oauth2-proxy headers', {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    this.login(user);
+    return true;
   }
 
   /**
