@@ -36,12 +36,25 @@ export class UserModule {
 
     this.headerProvider = config.headerProvider || getHeaderProvider();
 
+    // Log received configuration for debugging
+    if (config.userAuthConfig?.debug) {
+      console.debug('[UserModule] Constructor received userAuthConfig:', {
+        mode: config.userAuthConfig?.mode,
+        debug: config.userAuthConfig?.debug,
+        userHeader: config.userAuthConfig?.userHeader,
+        emailHeader: config.userAuthConfig?.emailHeader,
+        usernameHeader: config.userAuthConfig?.usernameHeader,
+        defaultRole: config.userAuthConfig?.defaultRole,
+      });
+    }
+
     // Enable debug mode on header provider if configured
     if (
       this.config.userAuthConfig?.debug &&
       this.headerProvider instanceof BrowserHeaderProvider
     ) {
       (this.headerProvider as BrowserHeaderProvider).setDebugMode(true);
+      console.debug('[UserModule] Debug mode enabled on HeaderProvider');
     }
 
     this.loadFromStorage();
@@ -67,6 +80,12 @@ export class UserModule {
 
     if (!authConfig || authConfig.mode !== 'oauth2-proxy') {
       logger.debug('OAuth2-proxy auth mode not configured');
+      if (authConfig?.debug) {
+        console.debug('[UserModule] OAuth2-proxy auth mode not configured', {
+          configuredMode: authConfig?.mode,
+          expectedMode: 'oauth2-proxy',
+        });
+      }
       return false;
     }
 
@@ -76,37 +95,89 @@ export class UserModule {
     const usernameHeaderName =
       authConfig.usernameHeader || 'x-auth-request-preferred-username';
 
+    const debugMode = authConfig.debug === true;
+    if (debugMode) {
+      console.debug('[UserModule] === OAUTH2-PROXY AUTHENTICATION START ===', {
+        mode: authConfig.mode,
+        debugMode: true,
+      });
+      console.debug('[UserModule] Configured header names:', {
+        userHeader: userHeaderName,
+        emailHeader: emailHeaderName,
+        usernameHeader: usernameHeaderName,
+      });
+    }
+
     logger.debug('Attempting oauth2-proxy authentication', {
       checking: [userHeaderName, usernameHeaderName],
       emailHeader: emailHeaderName,
     });
 
     // Try to get user identifier
+    if (debugMode) {
+      console.debug(
+        '[UserModule] Attempting to read user header:',
+        userHeaderName
+      );
+    }
     let userId = this.headerProvider.getHeader(userHeaderName);
     let headerSource = userHeaderName;
 
     if (!userId) {
+      if (debugMode) {
+        console.debug(
+          `[UserModule] "${userHeaderName}" not found, trying fallback:`,
+          usernameHeaderName
+        );
+      }
       userId = this.headerProvider.getHeader(usernameHeaderName);
       headerSource = usernameHeaderName;
+    } else if (debugMode) {
+      console.debug(`[UserModule] ✓ User ID found from "${userHeaderName}"`, {
+        userId,
+      });
     }
 
     if (!userId) {
+      const errorMsg =
+        'Neither primary nor fallback header contained a value. ' +
+        'Verify: 1) oauth2-proxy is configured in Istio, 2) User is authenticated to oauth2-proxy, ' +
+        '3) Headers are forwarded in headersToUpstreamOnAllow, ' +
+        '4) Header names match your oauth2-proxy configuration';
+
       logger.debug(
         'oauth2-proxy authentication failed: no user identifier found',
         {
           attemptedHeaders: [userHeaderName, usernameHeaderName],
-          reason:
-            'Neither primary nor fallback header contained a value. ' +
-            'Verify: 1) oauth2-proxy is configured in Istio, 2) User is authenticated to oauth2-proxy, ' +
-            '3) Headers are forwarded in headersToUpstreamOnAllow, ' +
-            '4) Header names match your oauth2-proxy configuration',
+          reason: errorMsg,
         }
       );
+
+      if (debugMode) {
+        console.error(
+          '[UserModule] ✗ AUTHENTICATION FAILED: No user identifier found',
+          {
+            attemptedHeaders: [userHeaderName, usernameHeaderName],
+            troubleshooting: errorMsg,
+          }
+        );
+      }
       return false;
     }
 
     // Get email if available
+    if (debugMode) {
+      console.debug(
+        '[UserModule] Attempting to read email header:',
+        emailHeaderName
+      );
+    }
     const email = this.headerProvider.getHeader(emailHeaderName);
+    if (debugMode && email) {
+      console.debug('[UserModule] ✓ Email found:', { email });
+    } else if (debugMode) {
+      console.debug('[UserModule] Email header not found (optional)');
+    }
 
     // Get default role from config, fall back to 'editor'
     const role = authConfig.defaultRole || 'editor';
@@ -126,6 +197,16 @@ export class UserModule {
       headerSource,
       authMode: authConfig.mode,
     });
+
+    if (debugMode) {
+      console.debug('[UserModule] ✓ AUTHENTICATION SUCCESSFUL', {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        headerSource,
+      });
+      console.debug('[UserModule] === OAUTH2-PROXY AUTHENTICATION END ===');
+    }
 
     this.login(user);
     return true;

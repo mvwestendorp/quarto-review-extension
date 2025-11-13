@@ -40,44 +40,74 @@ export class BrowserHeaderProvider implements IHeaderProvider {
    * 2. Window variables (e.g., window.__authHeaders)
    * 3. Session storage
    *
-   * Logs available headers when ?oauth2-debug query param is present for troubleshooting
+   * Logs available headers when debug mode is enabled for troubleshooting
    */
   getHeader(name: string): string | undefined {
     const normalizedName = name.toLowerCase().replace(/_/g, '-');
 
+    if (this.debugMode) {
+      console.debug(
+        `[HeaderProvider] Attempting to retrieve header: "${name}" (normalized: "${normalizedName}")`
+      );
+    }
+
     // Try meta tags first
-    const metaTag = document.querySelector(
-      `meta[name="${normalizedName}"]`
-    ) as HTMLMetaElement;
-    if (metaTag?.content) {
+    if (typeof document !== 'undefined') {
+      const metaTag = document.querySelector(
+        `meta[name="${normalizedName}"]`
+      ) as HTMLMetaElement;
+      if (metaTag?.content) {
+        if (this.debugMode) {
+          console.debug(
+            `[HeaderProvider] ✓ Found header "${name}" from META TAG`,
+            { value: metaTag.content.substring(0, 50) }
+          );
+        }
+        return metaTag.content;
+      }
       if (this.debugMode) {
         console.debug(
-          `[HeaderProvider] Found header "${name}" from meta tag: ${metaTag.content.substring(0, 20)}...`
+          `[HeaderProvider] ✗ Meta tag not found for: "${normalizedName}"`
         );
       }
-      return metaTag.content;
     }
 
     // Try window variable
     if (typeof window !== 'undefined') {
-      const headers =
+      const windowHeaders =
         (window as unknown as { __authHeaders?: Record<string, string> })
           ?.__authHeaders || {};
-      if (name in headers) {
-        if (this.debugMode) {
-          console.debug(
-            `[HeaderProvider] Found header "${name}" from window.__authHeaders`
-          );
-        }
-        return headers[name];
+
+      if (this.debugMode) {
+        const availableKeys = Object.keys(windowHeaders);
+        console.debug(
+          `[HeaderProvider] window.__authHeaders available keys:`,
+          availableKeys
+        );
       }
-      if (normalizedName in headers) {
+
+      if (name in windowHeaders) {
         if (this.debugMode) {
           console.debug(
-            `[HeaderProvider] Found header "${normalizedName}" from window.__authHeaders`
+            `[HeaderProvider] ✓ Found header "${name}" from window.__authHeaders (exact match)`,
+            { value: windowHeaders[name]?.substring(0, 50) }
           );
         }
-        return headers[normalizedName];
+        return windowHeaders[name];
+      }
+      if (normalizedName in windowHeaders) {
+        if (this.debugMode) {
+          console.debug(
+            `[HeaderProvider] ✓ Found header "${normalizedName}" from window.__authHeaders (normalized match)`,
+            { value: windowHeaders[normalizedName]?.substring(0, 50) }
+          );
+        }
+        return windowHeaders[normalizedName];
+      }
+      if (this.debugMode) {
+        console.debug(
+          `[HeaderProvider] ✗ Header "${name}" not found in window.__authHeaders`
+        );
       }
     }
 
@@ -87,32 +117,88 @@ export class BrowserHeaderProvider implements IHeaderProvider {
       if (stored) {
         if (this.debugMode) {
           console.debug(
-            `[HeaderProvider] Found header "${name}" from sessionStorage`
+            `[HeaderProvider] ✓ Found header "${name}" from sessionStorage`,
+            { value: stored.substring(0, 50) }
           );
         }
         return stored;
       }
-    } catch {
-      // sessionStorage may not be available
+      if (this.debugMode) {
+        console.debug(
+          `[HeaderProvider] ✗ Header "${name}" not found in sessionStorage`
+        );
+      }
+    } catch (error) {
+      if (this.debugMode) {
+        console.debug(
+          `[HeaderProvider] ✗ sessionStorage access failed:`,
+          error
+        );
+      }
     }
 
+    // Not found anywhere - provide detailed diagnostics
     if (this.debugMode) {
-      console.debug(
-        `[HeaderProvider] Header "${name}" not found in meta tags, window, or sessionStorage`
-      );
+      console.error(`[HeaderProvider] ✗ HEADER NOT FOUND: "${name}"`, {
+        normalizedName,
+      });
+
+      // Print all available headers from all sources
       if (typeof document !== 'undefined') {
         const allMetas = Array.from(
           document.querySelectorAll('meta[name^="x-"]')
         );
         if (allMetas.length > 0) {
           console.debug(
-            '[HeaderProvider] Available x-* headers:',
-            allMetas.map(
-              (m) =>
-                `${m.getAttribute('name')}=${m.getAttribute('content')?.substring(0, 20)}...`
-            )
+            '[HeaderProvider] Available x-* meta tags:',
+            allMetas.map((m) => ({
+              name: m.getAttribute('name'),
+              value: m.getAttribute('content')?.substring(0, 50) + '...',
+            }))
           );
+        } else {
+          console.debug('[HeaderProvider] No x-* meta tags found in document');
         }
+      }
+
+      if (typeof window !== 'undefined') {
+        const windowHeaders =
+          (window as unknown as { __authHeaders?: Record<string, string> })
+            ?.__authHeaders || {};
+        if (Object.keys(windowHeaders).length > 0) {
+          console.debug(
+            '[HeaderProvider] Available window.__authHeaders:',
+            Object.entries(windowHeaders).map(([key, value]) => ({
+              name: key,
+              value: value?.substring(0, 50) + '...',
+            }))
+          );
+        } else {
+          console.debug('[HeaderProvider] window.__authHeaders is empty');
+        }
+      }
+
+      try {
+        const storageKeys = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+          const key = sessionStorage.key(i);
+          if (key?.startsWith('header:')) {
+            storageKeys.push(key);
+          }
+        }
+        if (storageKeys.length > 0) {
+          console.debug(
+            '[HeaderProvider] Available sessionStorage headers:',
+            storageKeys
+          );
+        } else {
+          console.debug('[HeaderProvider] No headers in sessionStorage');
+        }
+      } catch (error) {
+        console.debug(
+          '[HeaderProvider] Could not access sessionStorage:',
+          error
+        );
       }
     }
 
