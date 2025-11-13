@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/modules/translation/sentence-segmenter.ts</title>
+    <title>Code coverage report for src/utils/page-utils.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../../prettify.css" />
-    <link rel="stylesheet" href="../../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../../sort-arrow-sprite.png);
+            background-image: url(../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/modules/translation</a> sentence-segmenter.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/utils</a> page-utils.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">97.67% </span>
+                <span class="strong">38.59% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>42/43</span>
+                <span class='fraction'>22/57</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90% </span>
+                <span class="strong">20.58% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>9/10</span>
+                <span class='fraction'>7/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">28.57% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>14/14</span>
+                <span class='fraction'>4/14</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">41.5% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>39/39</span>
+                <span class='fraction'>22/53</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -240,7 +240,54 @@
 <a name='L175'></a><a href='#L175'>175</a>
 <a name='L176'></a><a href='#L176'>176</a>
 <a name='L177'></a><a href='#L177'>177</a>
-<a name='L178'></a><a href='#L178'>178</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L178'></a><a href='#L178'>178</a>
+<a name='L179'></a><a href='#L179'>179</a>
+<a name='L180'></a><a href='#L180'>180</a>
+<a name='L181'></a><a href='#L181'>181</a>
+<a name='L182'></a><a href='#L182'>182</a>
+<a name='L183'></a><a href='#L183'>183</a>
+<a name='L184'></a><a href='#L184'>184</a>
+<a name='L185'></a><a href='#L185'>185</a>
+<a name='L186'></a><a href='#L186'>186</a>
+<a name='L187'></a><a href='#L187'>187</a>
+<a name='L188'></a><a href='#L188'>188</a>
+<a name='L189'></a><a href='#L189'>189</a>
+<a name='L190'></a><a href='#L190'>190</a>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a>
+<a name='L201'></a><a href='#L201'>201</a>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a>
+<a name='L211'></a><a href='#L211'>211</a>
+<a name='L212'></a><a href='#L212'>212</a>
+<a name='L213'></a><a href='#L213'>213</a>
+<a name='L214'></a><a href='#L214'>214</a>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -255,78 +302,71 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">194x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
-<span class="cline-any cline-yes">192x</span>
-<span class="cline-any cline-yes">265x</span>
-<span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">265x</span>
-<span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">265x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
-<span class="cline-any cline-yes">192x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
-<span class="cline-any cline-yes">3680x</span>
-<span class="cline-any cline-yes">3680x</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">108x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
+<span class="cline-any cline-yes">108x</span>
+<span class="cline-any cline-yes">108x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">265x</span>
-<span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -338,18 +378,26 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">24x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">192x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -359,9 +407,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -369,11 +418,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">42x</span>
+<span class="cline-any cline-yes">50x</span>
+<span class="cline-any cline-yes">50x</span>
+<span class="cline-any cline-yes">50x</span>
+<span class="cline-any cline-yes">50x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">188x</span>
+<span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -381,28 +436,23 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">269x</span>
-<span class="cline-any cline-yes">269x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">534x</span>
-<span class="cline-any cline-yes">534x</span>
-<span class="cline-any cline-yes">13516x</span>
-<span class="cline-any cline-yes">13516x</span>
-<span class="cline-any cline-yes">13516x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">534x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -413,186 +463,277 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">13x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
- * Sentence Segmenter
- * Splits text into sentences using language-aware parsing
+ * Page Utility Functions
+ *
+ * Helpers for working with element IDs and page prefixes in multi-page projects.
+ * Element IDs follow the pattern: {page-slug}.{section}.{type}-{counter}
+ *
+ * Examples:
+ *   index.para-1
+ *   processes-page-2.header-1
+ *   about.blockquote-3
  */
 &nbsp;
-import type { Language, Sentence } from './types';
+import { createModuleLogger } from './debug';
+import type { Operation } from '@/types';
 &nbsp;
-export class SentenceSegmenter {
-  /**
-   * Split text into sentences using simple regex-based approach
-   * For production, consider using a library like 'compromise' for better accuracy
-   */
-  segmentText(
-    text: string,
-    language: Language,
-    elementId: string = ''
-  ): Sentence[] {
-    if (!text || text.trim().length === 0) {
-      return [];
+const logger = createModuleLogger('PageUtils');
+&nbsp;
+/**
+ * Get the current page's ID prefix based on the URL pathname
+ * Extracts the page slug and converts it to match the Lua filter's sanitization
+ *
+ * Examples:
+ *   /index.html -&gt; "index"
+ *   /processes/page-2.html -&gt; "processes-page-2"
+ *   /about/ -&gt; "about"
+ */
+export function <span class="fstat-no" title="function not covered" >getCurrentPagePrefix(): string {</span>
+<span class="cstat-no" title="statement not covered" >  if (typeof window === 'undefined') {</span>
+<span class="cstat-no" title="statement not covered" >    return 'document';</span>
+  }
+&nbsp;
+  const path = <span class="cstat-no" title="statement not covered" >window.location.pathname || '';</span>
+  const segments = <span class="cstat-no" title="statement not covered" >path.split('/').filter(Boolean);</span>
+  const last = <span class="cstat-no" title="statement not covered" >segments.pop();</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (!last) {</span>
+    // Root page (index)
+<span class="cstat-no" title="statement not covered" >    return 'index';</span>
+  }
+&nbsp;
+  // Remove .html or .htm extension
+  let base = <span class="cstat-no" title="statement not covered" >last.replace(/\.(html?|htm)$/i, '');</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  if (!base) {</span>
+    // Was just "index.html" or similar
+<span class="cstat-no" title="statement not covered" >    return 'index';</span>
+  }
+&nbsp;
+  // Sanitize to match Lua filter's sanitization:
+  // Convert to lowercase and replace non-word, non-hyphen chars with hyphens
+  const sanitized = <span class="cstat-no" title="statement not covered" >base</span>
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-');
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  return sanitized || 'document';</span>
+}
+&nbsp;
+/**
+ * Extract the page prefix from an element ID
+ *
+ * Example: "index.para-1" -&gt; "index"
+ */
+export function getPagePrefixFromElementId(elementId: string): string {
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (!elementId) {
+<span class="cstat-no" title="statement not covered" >    return '';</span>
+  }
+  const parts = elementId.split('.');
+  return parts[0] || <span class="branch-1 cbranch-no" title="branch not covered" >'';</span>
+}
+&nbsp;
+/**
+ * Check if an element ID belongs to the given page prefix
+ */
+export function <span class="fstat-no" title="function not covered" >elementBelongsToPage(</span>
+  elementId: string,
+  pagePrefix: string
+): boolean {
+<span class="cstat-no" title="statement not covered" >  return elementId.startsWith(pagePrefix + '.');</span>
+}
+&nbsp;
+/**
+ * Group operations by their page prefix
+ *
+ * Returns a map where keys are page prefixes and values are arrays of operations
+ * for that page
+ */
+export function groupOperationsByPage(
+  operations: Operation[]
+): Map&lt;string, Operation[]&gt; {
+  const grouped = new Map&lt;string, Operation[]&gt;();
+&nbsp;
+  for (const op of operations) {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!op.elementId) <span class="cstat-no" title="statement not covered" >continue;</span>
+&nbsp;
+    const pagePrefix = getPagePrefixFromElementId(op.elementId);
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!pagePrefix) <span class="cstat-no" title="statement not covered" >continue;</span>
+&nbsp;
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (!grouped.has(pagePrefix)) {
+      grouped.set(pagePrefix, []);
     }
-&nbsp;
-    const sentences: Sentence[] = [];
-&nbsp;
-    // Split on sentence boundaries (., !, ?)
-    // This is a simplified approach - for better accuracy, use NLP libraries
-    const sentenceTexts = this.splitIntoSentences(text, language);
-&nbsp;
-    let offset = 0;
-    sentenceTexts.forEach((sentenceText, index) =&gt; {
-      const trimmed = sentenceText.trim();
-      <span class="missing-if-branch" title="if path not taken" >I</span>if (!trimmed) <span class="cstat-no" title="statement not covered" >return;</span>
-&nbsp;
-      const startOffset = text.indexOf(sentenceText, offset);
-      const endOffset = startOffset + sentenceText.length;
-&nbsp;
-      sentences.push({
-        id: this.generateSentenceId(trimmed, index),
-        elementId,
-        content: trimmed,
-        language,
-        order: index,
-        startOffset,
-        endOffset,
-        hash: this.hashContent(trimmed),
-      });
-&nbsp;
-      offset = endOffset;
-    });
-&nbsp;
-    return sentences;
+    grouped.get(pagePrefix)!.push(op);
   }
 &nbsp;
-  /**
-   * Split text into sentences based on punctuation
-   */
-  private splitIntoSentences(text: string, language: Language): string[] {
-    // Basic sentence splitting regex
-    // Matches periods, exclamation marks, question marks followed by space or end
-    // Handles common abbreviations (Mr., Mrs., Dr., etc.)
-    const sentencePattern = /(?&lt;=[.!?])\s+(?=[A-Z])|(?&lt;=[.!?])$/gm;
+  logger.debug('Grouped operations by page', {
+    pages: Array.from(grouped.keys()),
+    totalOps: operations.length,
+  });
 &nbsp;
-    // First, protect common abbreviations
-    let protectedText = text;
-    const abbreviations = this.getAbbreviations(language);
+  return grouped;
+}
 &nbsp;
-    abbreviations.forEach((abbr) =&gt; {
-      const regex = new RegExp(`\\b${abbr}\\.`, 'gi');
-      protectedText = protectedText.replace(regex, (match) =&gt;
-        match.replace('.', '&lt;!DOT!&gt;')
-      );
-    });
+/**
+ * Filter operations to only those belonging to a specific page
+ */
+export function <span class="fstat-no" title="function not covered" >filterOperationsByPage(</span>
+  operations: Operation[],
+  pagePrefix: string
+): Operation[] {
+<span class="cstat-no" title="statement not covered" >  return operations.filter(<span class="fstat-no" title="function not covered" >(o</span>p) =&gt;</span>
+<span class="cstat-no" title="statement not covered" >    elementBelongsToPage(op.elementId || '', pagePrefix)</span>
+  );
+}
 &nbsp;
-    // Split on sentence boundaries
-    const sentences = protectedText
-      .split(sentencePattern)
-      .map((s) =&gt; s.replace(/&lt;!DOT!&gt;/g, '.').trim())
-      .filter((s) =&gt; s.length &gt; 0);
+/**
+ * Get all unique page prefixes from a list of operations
+ */
+export function getPagePrefixesFromOperations(
+  operations: Operation[]
+): string[] {
+  const prefixes = new Set&lt;string&gt;();
 &nbsp;
-    return sentences;
-  }
-&nbsp;
-  /**
-   * Get common abbreviations for a language
-   */
-  private getAbbreviations(language: Language): string[] {
-    const common = [
-      'Mr',
-      'Mrs',
-      'Ms',
-      'Dr',
-      'Prof',
-      'Sr',
-      'Jr',
-      'vs',
-      'etc',
-      'i.e',
-      'e.g',
-      'Mt',
-      'St',
-      'Ave',
-      'Blvd',
-      'Inc',
-      'Ltd',
-      'Corp',
-      'Co',
-    ];
-&nbsp;
-    switch (language) {
-      case 'nl':
-        return [
-          ...common,
-          'dhr',
-          'mevr',
-          'mw',
-          'dr',
-          'prof',
-          'etc',
-          'bijv',
-          'nl',
-        ];
-      case 'fr':
-        return [
-          ...common,
-          'M',
-          'Mme',
-          'Mlle',
-          'Dr',
-          'Prof',
-          'etc',
-          'p.ex',
-          'c.-à-d',
-        ];
-      default:
-        return common;
+  for (const op of operations) {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (!op.elementId) <span class="cstat-no" title="statement not covered" >continue;</span>
+    const prefix = getPagePrefixFromElementId(op.elementId);
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (prefix) {
+      prefixes.add(prefix);
     }
   }
 &nbsp;
-  /**
-   * Generate unique sentence ID
-   */
-  private generateSentenceId(text: string, index: number): string {
-    const hash = this.hashContent(text);
-    return `sent-${index}-${hash.substring(0, 8)}`;
+  return Array.from(prefixes).sort();
+}
+&nbsp;
+/**
+ * Get a human-readable page name from a page prefix
+ * This is useful for UI display
+ *
+ * Examples:
+ *   "index" -&gt; "Home"
+ *   "processes-page-2" -&gt; "Processes Page 2"
+ *   "about" -&gt; "About"
+ */
+export function <span class="fstat-no" title="function not covered" >getPageDisplayName(p</span>agePrefix: string): string {
+<span class="cstat-no" title="statement not covered" >  if (pagePrefix === 'index') {</span>
+<span class="cstat-no" title="statement not covered" >    return 'Home';</span>
   }
 &nbsp;
-  /**
-   * Simple hash function for content comparison
-   */
-  private hashContent(text: string): string {
-    let hash = 0;
-    for (let i = 0; i &lt; text.length; i++) {
-      const char = text.charCodeAt(i);
-      hash = (hash &lt;&lt; 5) - hash + char;
-      hash = hash &amp; hash; // Convert to 32-bit integer
+  // Convert hyphens to spaces and capitalize each word
+<span class="cstat-no" title="statement not covered" >  return pagePrefix</span>
+    .split('-')
+    .map(<span class="fstat-no" title="function not covered" >(w</span>ord) =&gt; <span class="cstat-no" title="statement not covered" >word.charAt(0).toUpperCase() + word.slice(1))</span>
+    .join(' ');
+}
+&nbsp;
+/**
+ * Infer the QMD filename from a page prefix
+ *
+ * Examples:
+ *   "index" -&gt; "index.qmd"
+ *   "processes-page-2" -&gt; "processes/page-2.qmd" (guessed)
+ *   "about" -&gt; "about.qmd"
+ */
+export function inferQmdFilenameFromPagePrefix(pagePrefix: string): string {
+  // For now, simple mapping: page-prefix -&gt; page-prefix.qmd
+  // More sophisticated logic could parse the prefix to reconstruct directory structure
+  return `${pagePrefix}.qmd`;
+}
+&nbsp;
+/**
+ * Check if there are changes on pages other than the current one
+ */
+export function <span class="fstat-no" title="function not covered" >hasChangesOnOtherPages(</span>
+  operations: Operation[],
+  currentPagePrefix: string
+): boolean {
+<span class="cstat-no" title="statement not covered" >  for (const op of operations) {</span>
+<span class="cstat-no" title="statement not covered" >    if (!op.elementId) <span class="cstat-no" title="statement not covered" >continue;</span></span>
+    const pagePrefix = <span class="cstat-no" title="statement not covered" >getPagePrefixFromElementId(op.elementId);</span>
+<span class="cstat-no" title="statement not covered" >    if (pagePrefix &amp;&amp; pagePrefix !== currentPagePrefix) {</span>
+<span class="cstat-no" title="statement not covered" >      return true;</span>
     }
-    return Math.abs(hash).toString(16);
   }
+<span class="cstat-no" title="statement not covered" >  return false;</span>
+}
 &nbsp;
-  /**
-   * Update sentence IDs for consistency
-   */
-  updateSentenceIds(sentences: Sentence[], elementId: string): Sentence[] {
-    return sentences.map((sentence, index) =&gt; ({
-      ...sentence,
-      id: this.generateSentenceId(sentence.content, index),
-      elementId,
-      order: index,
-    }));
-  }
+/**
+ * Get a summary of changes by page
+ * Useful for display in UI (e.g., "5 changes across 2 pages")
+ */
+export function <span class="fstat-no" title="function not covered" >getChangesSummaryByPage(o</span>perations: Operation[]): {
+  totalChanges: number;
+  pageCount: number;
+  details: Array&lt;{
+    pagePrefix: string;
+    displayName: string;
+    changeCount: number;
+  }&gt;;
+} {
+  const grouped = <span class="cstat-no" title="statement not covered" >groupOperationsByPage(operations);</span>
+  const details = <span class="cstat-no" title="statement not covered" >Array.from(grouped.entries())</span>
+    .map(<span class="fstat-no" title="function not covered" >([</span>pagePrefix, ops]) =&gt; (<span class="cstat-no" title="statement not covered" >{</span>
+      pagePrefix,
+      displayName: getPageDisplayName(pagePrefix),
+      changeCount: ops.length,
+    }))
+    .sort(<span class="fstat-no" title="function not covered" >(a</span>, b) =&gt; <span class="cstat-no" title="statement not covered" >a.pagePrefix.localeCompare(b.pagePrefix))</span>;
 &nbsp;
-  /**
-   * Merge sentences back into text
-   */
-  mergeSentences(sentences: Sentence[]): string {
-    return sentences.map((s) =&gt; s.content).join(' ');
-  }
+<span class="cstat-no" title="statement not covered" >  return {</span>
+    totalChanges: operations.length,
+    pageCount: grouped.size,
+    details,
+  };
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -603,14 +744,14 @@ export class SentenceSegmenter {
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2025-11-13T08:06:13.680Z
             </div>
-        <script src="../../../prettify.js"></script>
+        <script src="../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../../sorter.js"></script>
-        <script src="../../../block-navigation.js"></script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
     </body>
 </html>
     
