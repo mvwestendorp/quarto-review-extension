@@ -157,6 +157,31 @@ function Meta(meta)
       end
     end
 
+    -- Add user authentication configuration if present
+    if meta.review and meta.review.user then
+      local user_config = string_utils.meta_to_json(meta.review.user)
+      if user_config then
+        local function flatten(value)
+          if type(value) == 'table' then
+            if #value == 1 then
+              return value[1]
+            end
+          end
+          return value
+        end
+        -- Flatten nested auth configuration
+        if user_config.auth then
+          user_config.auth.mode = flatten(user_config.auth.mode)
+          user_config.auth.userHeader = flatten(user_config.auth.userHeader)
+          user_config.auth.emailHeader = flatten(user_config.auth.emailHeader)
+          user_config.auth.usernameHeader = flatten(user_config.auth.usernameHeader)
+          user_config.auth.defaultRole = flatten(user_config.auth.defaultRole)
+          user_config.auth.debug = flatten(user_config.auth.debug)
+        end
+        init_config.user = user_config
+      end
+    end
+
     -- Collect project sources and build embedded script
     local project_sources = project_detection.collect_project_sources()
     local config_json = string_utils.table_to_json(init_config)
