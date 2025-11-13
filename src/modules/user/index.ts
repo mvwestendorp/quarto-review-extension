@@ -35,9 +35,19 @@ export class UserModule {
   }
 
   /**
+   * Get the current oauth2-proxy configuration
+   * Used for debugging and conditional behavior
+   */
+  public getOAuth2ProxyConfig(): UserAuthConfig | undefined {
+    return this.config.userAuthConfig;
+  }
+
+  /**
    * Authenticate a user from oauth2-proxy headers
    * Reads user identity from x-auth-request-user, x-auth-request-email headers
    * Returns true if user was successfully authenticated, false otherwise
+   *
+   * Logs detailed debug info about which headers were checked and why auth failed
    */
   public loginFromOAuth2ProxyHeaders(): boolean {
     const authConfig = this.config.userAuthConfig;
@@ -53,17 +63,32 @@ export class UserModule {
     const usernameHeaderName =
       authConfig.usernameHeader || 'x-auth-request-preferred-username';
 
+    logger.debug('Attempting oauth2-proxy authentication', {
+      checking: [userHeaderName, usernameHeaderName],
+      emailHeader: emailHeaderName,
+    });
+
     // Try to get user identifier
     let userId = this.headerProvider.getHeader(userHeaderName);
+    let headerSource = userHeaderName;
+
     if (!userId) {
       userId = this.headerProvider.getHeader(usernameHeaderName);
+      headerSource = usernameHeaderName;
     }
 
     if (!userId) {
-      logger.debug('No user identifier found in oauth2-proxy headers', {
-        userHeader: userHeaderName,
-        usernameHeader: usernameHeaderName,
-      });
+      logger.debug(
+        'oauth2-proxy authentication failed: no user identifier found',
+        {
+          attemptedHeaders: [userHeaderName, usernameHeaderName],
+          reason:
+            'Neither primary nor fallback header contained a value. ' +
+            'Verify: 1) oauth2-proxy is configured in Istio, 2) User is authenticated to oauth2-proxy, ' +
+            '3) Headers are forwarded in headersToUpstreamOnAllow, ' +
+            '4) Header names match your oauth2-proxy configuration',
+        }
+      );
       return false;
     }
 
@@ -81,10 +106,12 @@ export class UserModule {
       role,
     };
 
-    logger.debug('Logging in user from oauth2-proxy headers', {
+    logger.debug('Successfully authenticated user from oauth2-proxy headers', {
       userId: user.id,
       email: user.email,
       role: user.role,
+      headerSource,
+      authMode: authConfig.mode,
     });
 
     this.login(user);

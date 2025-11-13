@@ -21,11 +21,22 @@ export interface IHeaderProvider {
  * Reads from meta tags or injected window variables
  */
 export class BrowserHeaderProvider implements IHeaderProvider {
+  private debugMode = false;
+
+  constructor() {
+    // Enable debug mode if query param ?oauth2-debug is present
+    if (typeof window !== 'undefined' && typeof location !== 'undefined') {
+      this.debugMode = location.search.includes('oauth2-debug');
+    }
+  }
+
   /**
    * Attempt to get header from multiple sources:
    * 1. Meta tags (e.g., <meta name="x-auth-request-user" content="john">)
    * 2. Window variables (e.g., window.__authHeaders)
    * 3. Session storage
+   *
+   * Logs available headers when ?oauth2-debug query param is present for troubleshooting
    */
   getHeader(name: string): string | undefined {
     const normalizedName = name.toLowerCase().replace(/_/g, '-');
@@ -35,6 +46,11 @@ export class BrowserHeaderProvider implements IHeaderProvider {
       `meta[name="${normalizedName}"]`
     ) as HTMLMetaElement;
     if (metaTag?.content) {
+      if (this.debugMode) {
+        console.debug(
+          `[HeaderProvider] Found header "${name}" from meta tag: ${metaTag.content.substring(0, 20)}...`
+        );
+      }
       return metaTag.content;
     }
 
@@ -44,9 +60,19 @@ export class BrowserHeaderProvider implements IHeaderProvider {
         (window as unknown as { __authHeaders?: Record<string, string> })
           ?.__authHeaders || {};
       if (name in headers) {
+        if (this.debugMode) {
+          console.debug(
+            `[HeaderProvider] Found header "${name}" from window.__authHeaders`
+          );
+        }
         return headers[name];
       }
       if (normalizedName in headers) {
+        if (this.debugMode) {
+          console.debug(
+            `[HeaderProvider] Found header "${normalizedName}" from window.__authHeaders`
+          );
+        }
         return headers[normalizedName];
       }
     }
@@ -55,10 +81,35 @@ export class BrowserHeaderProvider implements IHeaderProvider {
     try {
       const stored = sessionStorage.getItem(`header:${name}`);
       if (stored) {
+        if (this.debugMode) {
+          console.debug(
+            `[HeaderProvider] Found header "${name}" from sessionStorage`
+          );
+        }
         return stored;
       }
     } catch {
       // sessionStorage may not be available
+    }
+
+    if (this.debugMode) {
+      console.debug(
+        `[HeaderProvider] Header "${name}" not found in meta tags, window, or sessionStorage`
+      );
+      if (typeof document !== 'undefined') {
+        const allMetas = Array.from(
+          document.querySelectorAll('meta[name^="x-"]')
+        );
+        if (allMetas.length > 0) {
+          console.debug(
+            '[HeaderProvider] Available x-* headers:',
+            allMetas.map(
+              (m) =>
+                `${m.getAttribute('name')}=${m.getAttribute('content')?.substring(0, 20)}...`
+            )
+          );
+        }
+      }
     }
 
     return undefined;

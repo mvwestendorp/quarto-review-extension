@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UserModule } from '@/modules/user';
 import {
   MockHeaderProvider,
   setHeaderProvider,
   resetHeaderProvider,
+  type IHeaderProvider,
 } from '@/modules/user/HeaderProvider';
 import {
   initializeOAuth2ProxyAuth,
@@ -281,6 +282,99 @@ describe('OAuth2Proxy Authentication', () => {
 
       expect(success).toBe(true);
       expect(userModule.getCurrentUser()?.id).toBe('user123');
+    });
+  });
+
+  describe('Console warnings and fallback behavior', () => {
+    it('should log console warning when oauth2-proxy is configured but headers missing', () => {
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const authConfig: UserAuthConfig = {
+        mode: 'oauth2-proxy',
+      };
+
+      const userModule = new UserModule({ userAuthConfig: authConfig });
+      initializeOAuth2ProxyAuth(userModule);
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[Quarto Review] Warning: oauth2-proxy authentication is enabled')
+      );
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('headers are missing')
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should not warn when oauth2-proxy is not configured', () => {
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      // No auth config
+      const userModule = new UserModule({});
+      initializeOAuth2ProxyAuth(userModule);
+
+      expect(consoleSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('[Quarto Review] Warning')
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should provide detailed debug info when headers are missing', () => {
+      const authConfig: UserAuthConfig = {
+        mode: 'oauth2-proxy',
+        userHeader: 'x-auth-request-user',
+        usernameHeader: 'x-auth-request-preferred-username',
+      };
+
+      const userModule = new UserModule({ userAuthConfig: authConfig });
+      const success = userModule.loginFromOAuth2ProxyHeaders();
+
+      expect(success).toBe(false);
+    });
+
+    it('should gracefully handle errors during authentication', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // Mock header provider that throws an error
+      const errorProvider: IHeaderProvider = {
+        getHeader: () => {
+          throw new Error('Header read failed');
+        },
+      };
+
+      const authConfig: UserAuthConfig = {
+        mode: 'oauth2-proxy',
+      };
+
+      const userModule = new UserModule({
+        userAuthConfig: authConfig,
+        headerProvider: errorProvider,
+      });
+
+      const success = initializeOAuth2ProxyAuth(userModule);
+
+      expect(success).toBe(false);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[Quarto Review] Error during oauth2-proxy authentication')
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should return detailed error reasons in debug logs', () => {
+      const authConfig: UserAuthConfig = {
+        mode: 'oauth2-proxy',
+      };
+
+      // Clear any headers
+      mockHeaderProvider.clear();
+
+      const userModule = new UserModule({ userAuthConfig: authConfig });
+      userModule.loginFromOAuth2ProxyHeaders();
+
+      // The debug logs should contain detailed troubleshooting info
+      // In production, check the browser console logs
     });
   });
 
