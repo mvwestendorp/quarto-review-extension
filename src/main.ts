@@ -122,6 +122,7 @@ export class QuartoReview {
       autoSave: true, // FIXED: Enable auto-save by default to persist drafts
       autoSaveInterval: 30000, // 30 seconds - more frequent for draft preservation
       enableComments: true,
+      enableTranslation: config.enableTranslation ?? false, // Default to disabled for smaller bundle
       ...config,
     };
 

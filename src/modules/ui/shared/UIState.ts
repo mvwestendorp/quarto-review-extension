@@ -103,7 +103,7 @@ export function createInitialEditorState(): EditorState {
  */
 export function createInitialUIState(): UIState {
   return {
-    isSidebarCollapsed: false,
+    isSidebarCollapsed: true,
   };
 }
 

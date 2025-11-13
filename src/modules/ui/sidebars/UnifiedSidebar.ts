@@ -275,7 +275,16 @@ Role: ${currentUser.role}`;
     const chevron = document.createElement('span');
     chevron.className = 'review-icon-chevron';
     chevron.textContent = '‹';
+    chevron.style.position = 'absolute';
     this.toggleBtn.appendChild(chevron);
+
+    const icon = document.createElement('span');
+    icon.className = 'review-icon-tools';
+    icon.textContent = '⚙️';
+    icon.style.position = 'absolute';
+    icon.style.opacity = '0';
+    icon.style.pointerEvents = 'none';
+    this.toggleBtn.appendChild(icon);
 
     this.toggleBtn.addEventListener('click', () => {
       this.onToggleSidebarCallback?.();
@@ -1138,9 +1147,24 @@ Role: ${currentUser.role}`;
 
     if (this.toggleBtn) {
       const chevron = this.toggleBtn.querySelector('.review-icon-chevron');
-      if (chevron) {
-        chevron.textContent = collapsed ? '›' : '‹';
+      const icon = this.toggleBtn.querySelector('.review-icon-tools');
+
+      if (chevron && icon) {
+        if (collapsed) {
+          // Show gear icon, hide chevron
+          (chevron as HTMLElement).style.opacity = '0';
+          (chevron as HTMLElement).style.pointerEvents = 'none';
+          (icon as HTMLElement).style.opacity = '1';
+          (icon as HTMLElement).style.pointerEvents = 'auto';
+        } else {
+          // Show chevron, hide gear icon
+          (chevron as HTMLElement).style.opacity = '1';
+          (chevron as HTMLElement).style.pointerEvents = 'auto';
+          (icon as HTMLElement).style.opacity = '0';
+          (icon as HTMLElement).style.pointerEvents = 'none';
+        }
       }
+
       this.toggleBtn.setAttribute(
         'title',
         collapsed ? 'Expand sidebar' : 'Collapse sidebar'
