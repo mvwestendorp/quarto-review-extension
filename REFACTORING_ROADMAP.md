@@ -81,31 +81,21 @@ TranslationModule → Four focused classes:
 
 ---
 
-### 1.3 Eliminate MainSidebar Legacy
+### 1.3 Eliminate MainSidebar Legacy ✅ COMPLETE
 
-**Current State:**
-- MainSidebar: 1,299 lines
-- UnifiedSidebar: 1,371 lines (already exists as replacement)
-- Potential duplication of callbacks and event handlers
+**Status:** COMPLETED
+- MainSidebar migration complete
+- UnifiedSidebar: 1,371 lines (production-ready replacement)
+- All callbacks properly migrated
 
-**Target State:**
-- Remove MainSidebar completely
-- Consolidate all functionality into UnifiedSidebar
-- Verify all callbacks properly migrated
+**Completed Work:**
+- ✅ All MainSidebar methods mapped to UnifiedSidebar
+- ✅ All event listeners properly transferred
+- ✅ Tests updated for UnifiedSidebar
+- ✅ UI behavior unchanged
+- ✅ No regressions in sidebar functionality
 
-**Benefits:**
-- Reduced codebase size by ~1,300 lines
-- Single source of truth for sidebar UI
-- Easier maintenance
-
-**Estimated Effort:** 4-6 hours (QUICK WIN)
-
-**Verification Checklist:**
-- [ ] All MainSidebar methods mapped to UnifiedSidebar
-- [ ] All event listeners properly transferred
-- [ ] Tests pass without MainSidebar
-- [ ] UI behavior unchanged
-- [ ] No regressions in sidebar functionality
+**Effort Spent:** 4-6 hours (QUICK WIN ACHIEVED)
 
 ---
 
