@@ -279,6 +279,125 @@ describe('QmdExportService', () => {
     expect(exported).toContain('{>>Needs clarification<<}');
   });
 
+  it('does not create new files for unmapped page prefixes', async () => {
+    const operations: Operation[] = [
+      {
+        id: 'op-1',
+        type: 'edit',
+        elementId: 'index.para-1',
+        timestamp: 1,
+        data: {
+          type: 'edit',
+          oldContent: 'Original paragraph',
+          newContent: 'Updated paragraph',
+          changes: [],
+        },
+      },
+      {
+        id: 'op-2',
+        type: 'insert',
+        elementId: 'temp-new.section-1',
+        timestamp: 2,
+        data: {
+          type: 'insert',
+          content: 'New section',
+          metadata: { type: 'Para' },
+          position: { after: 'index.para-1' },
+        },
+      },
+    ];
+
+    const changes = createChangesStub({
+      elements: [
+        {
+          id: 'index.para-1',
+          content: 'Updated paragraph',
+          metadata: { type: 'Para' },
+        },
+        {
+          id: 'temp-new.section-1',
+          content: 'New section',
+          metadata: { type: 'Para' },
+        },
+      ],
+      operations,
+    });
+
+    const git = createGitStub('document.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'document.qmd',
+        content: 'Original paragraph',
+        originalContent: 'Original paragraph',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+
+    const service = new QmdExportService(changes as any, { git: git as any });
+    const bundle = await service.createBundle();
+
+    const filenames = bundle.files.map((file) => file.filename);
+    expect(filenames).toEqual(['document.qmd']);
+  });
+
+  it('exports newly inserted sections into the primary document', async () => {
+    const operations: Operation[] = [
+      {
+        id: 'op-1',
+        type: 'insert',
+        elementId: 'index.section-2',
+        timestamp: 1,
+        data: {
+          type: 'insert',
+          content: '## Added Section\n\nNew insights here.',
+          metadata: { type: 'Header' },
+          position: { after: 'index.section-1' },
+        },
+      },
+    ];
+
+    const cleanContent = ['# Existing Title', '', 'Original body.'].join('\n');
+    const newSection = ['## Added Section', '', 'New insights here.'].join('\n');
+
+    const changes = createChangesStub({
+      clean: `${cleanContent}\n\n${newSection}`,
+      elements: [
+        {
+          id: 'index.section-1',
+          content: cleanContent,
+          metadata: { type: 'Para' },
+        },
+        {
+          id: 'index.section-2',
+          content: newSection,
+          metadata: { type: 'Para' },
+        },
+      ],
+      operations,
+    });
+
+    const git = createGitStub('document.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'document.qmd',
+        content: cleanContent,
+        originalContent: cleanContent,
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+
+    const service = new QmdExportService(changes as any, { git: git as any });
+    const bundle = await service.createBundle();
+    const exported = bundle.files[0]?.content ?? '';
+
+    expect(exported).toContain('# Existing Title');
+    expect(exported).toContain('Original body.');
+    expect(exported).toContain('## Added Section');
+    expect(exported).toContain('New insights here.');
+  });
+
   describe('chunk metadata reconstruction from DOM', () => {
     afterEach(() => {
       document.body.innerHTML = '';

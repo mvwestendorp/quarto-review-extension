@@ -461,7 +461,7 @@ describe('UIModule.saveEditor comment handling', () => {
     notificationSpy.mockRestore();
   });
 
-  it('preserves segment content when no edits are made', () => {
+  it('preserves segment content when no edits are made', async () => {
     const contentStore = new Map<string, string>([
       ['section-1', 'Original content'],
     ]);
@@ -494,14 +494,16 @@ describe('UIModule.saveEditor comment handling', () => {
       .calls[0][1];
     expect(savedSegments).toHaveLength(1);
     expect(savedSegments[0]?.content).toBe('Original content');
-    expect(config.persistenceMocks.saveDraft).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: 'section-1',
-          content: 'Original content',
-        }),
-      ]),
-      expect.any(Object)
-    );
+    await vi.waitFor(() => {
+      expect(config.persistenceMocks.saveDraft).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: 'section-1',
+            content: 'Original content',
+          }),
+        ]),
+        expect.any(Object)
+      );
+    });
   });
 });

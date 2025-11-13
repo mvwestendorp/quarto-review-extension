@@ -4,8 +4,12 @@ import GitReviewService, {
 } from '@/modules/git/review-service';
 import type GitModule from '@/modules/git';
 import type QmdExportService from '@/modules/export';
-import type { ReviewSubmissionResult } from '@/modules/git';
+import type {
+  ReviewSubmissionResult,
+  ReviewSubmissionPayload,
+} from '@/modules/git';
 import type { Operation } from '@/types';
+import type { OperationSnapshot } from '@/modules/export';
 
 const buildBundle = () => ({
   files: [
@@ -123,7 +127,9 @@ describe('GitReviewService', () => {
     };
 
     createBundleMock = vi.fn().mockResolvedValue(bundleFixture);
-    getOperationSnapshotsMock = vi.fn().mockResolvedValue([]);
+    getOperationSnapshotsMock = vi.fn().mockResolvedValue([
+      buildOperationSnapshot(),
+    ]);
     exporter = {
       createBundle: createBundleMock,
       getOperationSnapshots: getOperationSnapshotsMock,
@@ -169,6 +175,18 @@ describe('GitReviewService', () => {
     getConfigMock.mockReturnValue(buildDefaultGitConfig());
   });
 
+  it('requests bundles without embedded comments for git submissions', async () => {
+    await service.submitReview({
+      reviewer: 'grace',
+      pullRequest: { title: 'Review' },
+    });
+
+    expect(createBundleMock).toHaveBeenCalledWith({
+      format: 'clean',
+      includeCommentsInOutput: false,
+    });
+  });
+
   it('throws for unsupported providers', async () => {
     getConfigMock.mockReturnValue({
       provider: 'local',
@@ -202,6 +220,28 @@ describe('GitReviewService', () => {
     ).rejects.toThrow('Git integration is not configured');
   });
 
+  it('omits unchanged auxiliary files from submission payload', async () => {
+    await service.submitReview({
+      reviewer: 'eve',
+      pullRequest: { title: 'Review' },
+    });
+
+    const payload = submitReviewMock.mock.calls[0][0] as ReviewSubmissionPayload;
+    expect(payload.files).toHaveLength(1);
+    expect(payload.files?.[0]?.path).toBe('document.qmd');
+  });
+
+  it('throws when no tracked operations are available', async () => {
+    getOperationSnapshotsMock.mockResolvedValue([]);
+    await expect(
+      service.submitReview({
+        reviewer: 'frank',
+        pullRequest: { title: 'No changes' },
+      })
+    ).rejects.toThrow('No tracked document changes were found');
+    getOperationSnapshotsMock.mockResolvedValue([buildOperationSnapshot()]);
+  });
+
   it('creates review submission payload from export bundle', async () => {
     const options: SubmitReviewOptions = {
       reviewer: 'alice',
@@ -223,6 +263,7 @@ describe('GitReviewService', () => {
 
     expect(createBundleMock).toHaveBeenCalledWith({
       format: 'clean',
+      includeCommentsInOutput: false,
     });
     expect(getOperationSnapshotsMock).toHaveBeenCalledWith('clean');
 
@@ -267,7 +308,10 @@ describe('GitReviewService', () => {
 
     await service.submitReview(options);
 
-    expect(createBundleMock).toHaveBeenCalledWith({ format: 'critic' });
+    expect(createBundleMock).toHaveBeenCalledWith({
+      format: 'critic',
+      includeCommentsInOutput: false,
+    });
     expect(getOperationSnapshotsMock).toHaveBeenCalledWith('critic');
 
     expect(submitReviewMock).toHaveBeenCalledWith(
@@ -391,11 +435,29 @@ describe('GitReviewService', () => {
         message:
           'document.qmd: edit Para (step 1); document.qmd: insert Para (step 2)',
       },
-      {
-        path: '_quarto.yml',
-        content: 'project: website',
-        message: 'Review updates',
-      },
     ]);
   });
 });
+const buildOperationSnapshot = (
+  overrides: Partial<OperationSnapshot> = {}
+): OperationSnapshot => {
+  const baseOperation: Operation = {
+    id: 'op-1',
+    type: 'edit',
+    elementId: 'page-1.p1',
+    timestamp: Date.now(),
+    data: {
+      type: 'edit',
+      oldContent: 'old',
+      newContent: 'new',
+      changes: [],
+    },
+  };
+  return {
+    filename: 'document.qmd',
+    content: 'Updated content',
+    operation: baseOperation,
+    index: 0,
+    ...overrides,
+  };
+};

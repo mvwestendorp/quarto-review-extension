@@ -138,8 +138,9 @@ describe('CommentComposer', () => {
 
       expect(composer.getIsOpen()).toBe(true);
       const element = composer.getElement();
-      expect(element?.style.display).toBe('block');
+      expect(element?.classList.contains('review-active')).toBe(true);
       expect(element?.getAttribute('aria-hidden')).toBe('false');
+      expect(document.body.contains(element!)).toBe(true);
     });
 
     it('shows "Add comment" for new comment', async () => {
@@ -204,7 +205,7 @@ describe('CommentComposer', () => {
       ).not.toBeNull();
     });
 
-    it('prepends composer to sidebar body', async () => {
+    it('renders composer as floating modal attached to body', async () => {
       const context: ComposerContext = {
         sectionId: 'section-1',
         elementId: 'elem-1',
@@ -212,7 +213,9 @@ describe('CommentComposer', () => {
 
       await composer.open(context, sidebarBody);
 
-      expect(sidebarBody.firstElementChild).toBe(composer.getElement());
+      const element = composer.getElement();
+      expect(element).not.toBeNull();
+      expect(element?.parentElement).toBe(document.body);
     });
 
     it('removes empty state message when opened', async () => {
@@ -231,7 +234,7 @@ describe('CommentComposer', () => {
       expect(sidebarBody.querySelector('.review-comments-empty')).toBeNull();
     });
 
-    it('scrolls sidebar to top', async () => {
+    it('does not modify sidebar scroll position', async () => {
       sidebarBody.style.overflow = 'auto';
       sidebarBody.style.height = '100px';
       const tallContent = document.createElement('div');
@@ -246,7 +249,7 @@ describe('CommentComposer', () => {
 
       await composer.open(context, sidebarBody);
 
-      expect(sidebarBody.scrollTop).toBe(0);
+      expect(sidebarBody.scrollTop).toBe(100);
     });
 
     it('emits COMMENT_COMPOSER_OPENED event', async () => {
@@ -325,7 +328,7 @@ describe('CommentComposer', () => {
       composer.close();
 
       const element = composer.getElement();
-      expect(element?.style.display).toBe('none');
+      expect(element?.classList.contains('review-active')).toBe(false);
       expect(element?.getAttribute('aria-hidden')).toBe('true');
       expect(composer.getIsOpen()).toBe(false);
     });

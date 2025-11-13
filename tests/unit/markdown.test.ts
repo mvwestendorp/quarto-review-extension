@@ -346,4 +346,110 @@ describe('MarkdownModule', () => {
       expect(ast.type).toBe('root');
     });
   });
+
+  describe('Heading rendering with CriticMarkup', () => {
+    it('should render heading with CriticMarkup addition', () => {
+      // New section with addition markup: {++New Heading++}
+      const result = markdown.renderElement('{++New Heading++}', 'Header', 2);
+      console.log('Addition test result:', result);
+
+      // Should contain heading tags
+      expect(result).toContain('<h2>');
+      expect(result).toContain('</h2>');
+
+      // Should NOT contain visible ## markers anywhere
+      expect(result).not.toContain('##');
+
+      // Should contain the heading text
+      expect(result).toContain('New Heading');
+
+      // Should contain CriticMarkup classes for green line
+      expect(result).toContain('critic-addition');
+      expect(result).toContain('<ins');
+      expect(result).toContain('</ins>');
+
+      // Should have proper structure: h2 with ins inside
+      expect(result).toMatch(/<h2><ins[^>]*>New Heading<\/ins><\/h2>/);
+    });
+
+    it('should render heading with CriticMarkup deletion', () => {
+      const result = markdown.renderElement('{--Old Heading--}', 'Header', 2);
+      console.log('Deletion test result:', result);
+
+      expect(result).toContain('<h2>');
+      expect(result).toContain('</h2>');
+      expect(result).not.toContain('##');
+      expect(result).toContain('Old Heading');
+      expect(result).toContain('critic-deletion');
+      expect(result).toContain('<del');
+      expect(result).toContain('</del>');
+
+      // Should have proper structure: h2 with del inside
+      expect(result).toMatch(/<h2><del[^>]*>Old Heading<\/del><\/h2>/);
+    });
+
+    it('should render heading with CriticMarkup substitution', () => {
+      const result = markdown.renderElement('{~~Old~>New~~}', 'Header', 2);
+      console.log('Substitution test result:', result);
+
+      expect(result).toContain('<h2>');
+      expect(result).toContain('</h2>');
+      expect(result).not.toContain('##');
+      expect(result).toContain('critic-substitution');
+      expect(result).toContain('<del');
+      expect(result).toContain('<ins');
+
+      // Should have proper structure with both old and new text
+      expect(result).toMatch(/<h2><span[^>]*>.*<del[^>]*>Old<\/del>.*<ins[^>]*>New<\/ins>.*<\/span><\/h2>/);
+    });
+
+    it('should handle heading with Pandoc attributes and CriticMarkup', () => {
+      const result = markdown.renderElement('{++New Heading++} {#id .class}', 'Header', 3);
+      console.log('Pandoc attributes test result:', result);
+
+      // Should contain h3 tags (level 3)
+      expect(result).toContain('<h3>');
+      expect(result).not.toContain('##');
+      expect(result).toContain('New Heading');
+      expect(result).toContain('critic-addition');
+
+      // Pandoc attributes should be stripped
+      expect(result).not.toContain('{#id');
+      expect(result).not.toContain('.class}');
+    });
+
+    it('should render plain heading without CriticMarkup', () => {
+      const result = markdown.renderElement('Simple Heading', 'Header', 2);
+      console.log('Plain heading test result:', result);
+
+      expect(result).toStrictEqual('<h2>Simple Heading</h2>');
+      expect(result).not.toContain('critic');
+      expect(result).not.toContain('##');
+    });
+
+    it('should handle heading with CriticMarkup containing heading markers', () => {
+      // Edge case: CriticMarkup wrapper contains heading markers
+      const result = markdown.renderElement('{++## New Heading++}', 'Header', 2);
+      console.log('Edge case test result:', result);
+
+      // Should NOT show ## even if input contains them within CriticMarkup
+      expect(result).not.toContain('##');
+      expect(result).toContain('<h2>');
+      expect(result).toContain('New Heading');
+      expect(result).toContain('critic-addition');
+    });
+
+    it('should handle heading with CriticMarkup not fully wrapped', () => {
+      // Edge case: Heading markers outside CriticMarkup
+      const result = markdown.renderElement('## {++New Heading++}', 'Header', 2);
+      console.log('Partially wrapped test result:', result);
+
+      // The ## should be treated as content to extract
+      // Should render as proper heading
+      expect(result).toContain('<h2>');
+      expect(result).toContain('critic-addition');
+      // Should NOT show literal ## in output
+      expect(result).not.toContain('##<');
+    });
+  });
 });

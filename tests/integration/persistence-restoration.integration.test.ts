@@ -148,7 +148,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       expect(stateBefore[0].content).toBe('Modified content');
 
       // Act: Save to localStorage
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       // Simulate reload: Reset modules
       changes.clear?.();
@@ -197,7 +197,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       expect(state[0].content).toBe('Edit 3');
 
       // Act: Save and reload
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       changes.clear?.();
       const newChanges = new ChangesModule();
@@ -245,7 +245,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       changes.edit('elem-1', 'Updated content');
 
       // Act: Save and reload
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       changes.clear?.();
       const newChanges = new ChangesModule();
@@ -305,7 +305,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       comments.addComment('elem-1', 'Second comment', 'user-1', 'comment');
 
       // Act: Save to localStorage
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       // Simulate reload: Reset modules
       comments.clear?.();
@@ -351,7 +351,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       }
 
       // Act: Save and reload
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       comments.clear?.();
       const newComments = new CommentsModule();
@@ -407,7 +407,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       comments.resolveComment(c2.id);
 
       // Act: Save and reload
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       comments.clear?.();
       const newComments = new CommentsModule();
@@ -449,7 +449,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       const comment = comments.addComment('elem-1', 'Feedback', 'alice@example.com', 'comment');
 
       // Act: Save and reload
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       comments.clear?.();
       const newComments = new CommentsModule();
@@ -499,7 +499,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       comments.addComment('elem-1', 'Needs revision', 'user-2', 'comment');
 
       // Act: Save and reload
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       changes.clear?.();
       comments.clear?.();
@@ -547,7 +547,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       comments.addComment('elem-1', 'Comment on edited content', 'user-1', 'comment');
 
       // Act: Save and reload
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       changes.clear?.();
       comments.clear?.();
@@ -595,7 +595,7 @@ describe('localStorage - Cross-Session Restoration', () => {
       changes.delete('elem-1');
 
       // Act: Save and reload
-      persistenceManager.persistDocument();
+      await persistenceManager.persistDocument();
 
       changes.clear?.();
       comments.clear?.();

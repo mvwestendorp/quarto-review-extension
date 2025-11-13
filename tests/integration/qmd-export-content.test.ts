@@ -55,6 +55,38 @@ Final content`;
         return '';
       }),
       writeFile: vi.fn().mockResolvedValue(undefined),
+      listEmbeddedSources: vi.fn().mockResolvedValue([
+        {
+          filename: 'document.qmd',
+          content: `# Main Document
+
+Original text
+
+More content`,
+          originalContent: `# Main Document
+
+Original text
+
+More content`,
+          lastModified: new Date().toISOString(),
+          version: '1',
+        },
+        {
+          filename: 'debug-example.qmd',
+          content: `# Debug Example
+
+Another section
+
+Final content`,
+          originalContent: `# Debug Example
+
+Another section
+
+Final content`,
+          lastModified: new Date().toISOString(),
+          version: '1',
+        },
+      ]),
     } as unknown as GitModule;
   });
 
@@ -232,6 +264,22 @@ Another section`;
         return '';
       }),
       writeFile: vi.fn().mockResolvedValue(undefined),
+      listEmbeddedSources: vi.fn().mockResolvedValue([
+        {
+          filename: 'document.qmd',
+          content: `# Document\n\nOriginal text`,
+          originalContent: `# Document\n\nOriginal text`,
+          lastModified: new Date().toISOString(),
+          version: '1',
+        },
+        {
+          filename: 'debug-example.qmd',
+          content: `# Debug Example\n\nAnother section`,
+          originalContent: `# Debug Example\n\nAnother section`,
+          lastModified: new Date().toISOString(),
+          version: '1',
+        },
+      ]),
     } as unknown as GitModule;
 
     // Create multi-page document
@@ -287,6 +335,45 @@ Another section`;
     expect(debugFile).toBeDefined();
     expect(debugFile?.content).toContain('Another section Test');
     expect(debugFile?.origin).toBe('active-document');
+  });
+
+  it('should merge newly inserted sections into the resolved source file', async () => {
+    const changes = buildChangesWithElements([
+      {
+        id: 'document.para-1',
+        content: 'Original text',
+        metadata: baseMetadata,
+        sourcePosition: { line: 3, column: 0 },
+      },
+      {
+        id: 'debug-example.para-1',
+        content: 'Another section',
+        metadata: baseMetadata,
+        sourcePosition: { line: 3, column: 0 },
+      },
+    ]);
+
+    // Existing element gets an edit with a proper page prefix to trigger multi-page export
+    changes.edit('document.para-1', 'Original text Test');
+
+    // Insert a brand-new section (will receive a temp-* element id with no page prefix)
+    changes.insert(
+      '## Brand New Section\n\nThis content is newly added.',
+      { type: 'Heading', level: 2 },
+      { after: 'document.para-1' }
+    );
+
+    const exporter = new QmdExportService(changes, {
+      git: mockGitModule,
+    });
+
+    const bundle = await exporter.createBundle({ format: 'clean' });
+    const documentFile = bundle.files.find((file) => file.filename === 'document.qmd');
+
+    expect(documentFile).toBeDefined();
+    expect(documentFile?.content).toContain('Original text Test');
+    expect(documentFile?.content).toContain('## Brand New Section');
+    expect(documentFile?.content).toContain('This content is newly added.');
   });
 
   it('should not include original files in multi-page export zip', async () => {

@@ -8,6 +8,7 @@ import {
   BaseProvider,
   type PullRequest,
   type Issue,
+  type RepositoryInitOptions,
 } from '@/modules/git/providers/base';
 import type {
   CreateBranchResult,
@@ -84,6 +85,10 @@ class MockProvider extends BaseProvider {
       url: string;
       defaultBranch: string;
     }>
+  >();
+  createRepository = vi.fn<
+    [RepositoryInitOptions],
+    Promise<{ defaultBranch: string }>
   >();
   hasWriteAccess = vi.fn<[], Promise<boolean>>();
 }
@@ -346,5 +351,68 @@ describe('GitIntegrationService', () => {
         })
       )
     ).rejects.toThrow('Pull request title is required');
+  });
+
+  it('rejects submissions when exported file matches branch content', async () => {
+    provider.createBranch.mockResolvedValue({
+      name: 'feature/review',
+      sha: 'base-sha',
+    });
+    provider.getFileContent.mockResolvedValue({
+      path: 'document.qmd',
+      sha: 'sha-original',
+      content: 'Updated content',
+    });
+
+    const payload = createPayload({
+      files: [
+        {
+          path: 'document.qmd',
+          content: 'Updated content',
+          message: 'Update document',
+        },
+      ],
+    });
+
+    await expect(service.submitReview(payload)).rejects.toThrow(
+      'No repository updates were necessary'
+    );
+    expect(provider.createOrUpdateFile).not.toHaveBeenCalled();
+  });
+
+  it('creates repository and seeds original markdown when missing upstream repo', async () => {
+    provider.getRepository.mockRejectedValue({ status: 404 });
+    provider.createRepository.mockResolvedValue({ defaultBranch: 'main' });
+    provider.getFileContent.mockResolvedValue(null);
+    provider.createOrUpdateFile.mockResolvedValue({
+      path: 'document.qmd',
+      sha: 'seed-sha',
+      commitSha: 'seed-commit',
+    });
+
+    const sources = [
+      {
+        filename: 'document.qmd',
+        content: 'Edited content',
+        originalContent: 'Original content',
+        lastModified: new Date().toISOString(),
+        version: 'v1',
+      },
+    ];
+
+    const state = await service.ensureRepositoryState(sources, 'main');
+
+    expect(provider.createRepository).toHaveBeenCalledWith({
+      name: baseConfig.repository.name,
+      defaultBranch: 'main',
+    });
+    expect(provider.createOrUpdateFile).toHaveBeenCalledWith(
+      'document.qmd',
+      'Original content',
+      'Seed repository with document.qmd',
+      'main',
+      undefined
+    );
+    expect(state.baseBranch).toBe('main');
   });
 });

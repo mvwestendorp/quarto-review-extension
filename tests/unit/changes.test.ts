@@ -635,6 +635,43 @@ describe('ChangesModule', () => {
       expect(count).toBe(2); // Both should exist independently
     });
 
+    it('should handle multiple sections with identical content correctly', () => {
+      const metadata: ElementMetadata = { type: 'Para' };
+      const identicalContent = 'This is the same content';
+
+      // Insert multiple sections with identical content
+      const id1 = changes.insert(identicalContent, metadata, {});
+      const id2 = changes.insert(identicalContent, metadata, {});
+      const id3 = changes.insert(identicalContent, metadata, {});
+
+      // All IDs should be unique despite identical content
+      expect(id1).not.toBe(id2);
+      expect(id2).not.toBe(id3);
+      expect(id1).not.toBe(id3);
+
+      const state = changes.getCurrentState();
+      // Should have original 3 + 3 new = 6 elements
+      expect(state).toHaveLength(6);
+
+      // All three new sections should exist with the same content
+      const inserted = state.filter((e) => e.content === identicalContent);
+      expect(inserted).toHaveLength(3);
+
+      // All sections should have their unique IDs preserved
+      expect(state.find((e) => e.id === id1)).toBeDefined();
+      expect(state.find((e) => e.id === id2)).toBeDefined();
+      expect(state.find((e) => e.id === id3)).toBeDefined();
+
+      // Verify they're not lost and remain accessible
+      const id1Element = changes.getElementById(id1);
+      const id2Element = changes.getElementById(id2);
+      const id3Element = changes.getElementById(id3);
+
+      expect(id1Element?.content).toBe(identicalContent);
+      expect(id2Element?.content).toBe(identicalContent);
+      expect(id3Element?.content).toBe(identicalContent);
+    });
+
     it('should maintain operation history consistency with nested operations', () => {
       const metadata: ElementMetadata = { type: 'Para' };
 

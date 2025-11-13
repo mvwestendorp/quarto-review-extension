@@ -230,6 +230,6 @@ describe('Example project multi-document workflow', () => {
     expect(translationFile?.content).toContain('Added translator note.');
     expect(
       payload.files.some((file: { path: string }) => file.path === '_quarto.yml')
-    ).toBe(true);
+    ).toBe(false);
   });
 });
