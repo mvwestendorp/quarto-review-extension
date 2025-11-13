@@ -31,5 +31,8 @@ review:
     base-branch: main # optional; defaults to `main`
     auth:
       mode: pat
+  user:
+    auth:
+      mode: 'oauth2-proxy'
 filters:
   - review
