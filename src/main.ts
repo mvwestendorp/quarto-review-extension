@@ -11,6 +11,7 @@ import { registerSupplementalEditableSegments } from '@modules/ui/segment-prepro
 import { GitModule } from '@modules/git';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import { UserModule } from '@modules/user';
+import { initializeOAuth2ProxyAuth } from '@modules/user/oauth2-proxy-init';
 import {
   debugLogger,
   type DebugConfig,
@@ -227,6 +228,10 @@ export class QuartoReview {
   private async initialize(): Promise<void> {
     // Parse the rendered HTML to extract original elements
     this.changes.initializeFromDOM();
+
+    // Initialize OAuth2-proxy authentication if configured
+    // This will auto-login users based on oauth2-proxy headers
+    initializeOAuth2ProxyAuth(this.user);
 
     // Initialize translation if enabled
     if (this.translation) {
