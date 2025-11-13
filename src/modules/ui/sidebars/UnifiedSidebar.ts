@@ -183,6 +183,77 @@ export class UnifiedSidebar {
   }
 
   /**
+   * Update user display in the build info section
+   * Call this after a user logs in to refresh the UI
+   */
+  updateUserDisplay(): void {
+    if (!this.element) return;
+
+    // Find the build info section
+    const buildInfoSection = this.element.querySelector('.review-build-info');
+    if (!buildInfoSection) return;
+
+    // Remove old user section if present
+    const oldUserSection = buildInfoSection.querySelector('[data-user-info]');
+    if (oldUserSection) {
+      oldUserSection.remove();
+    }
+
+    // Get current user
+    const currentUser = this.userModule?.getCurrentUser?.();
+    if (!currentUser) return;
+
+    // Create new user section
+    const userSection = document.createElement('div');
+    userSection.setAttribute('data-user-info', 'true');
+    userSection.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding-right: 8px;
+      border-right: 1px solid var(--review-border-color, #e5e7eb);
+    `;
+
+    const userIcon = document.createElement('span');
+    userIcon.textContent = '👤';
+    userIcon.style.fontSize = '12px';
+    userSection.appendChild(userIcon);
+
+    const userNameSpan = document.createElement('span');
+    const displayName =
+      currentUser.name?.trim() ||
+      currentUser.email?.trim() ||
+      currentUser.id?.trim() ||
+      'User';
+    userNameSpan.textContent = displayName;
+    userNameSpan.style.userSelect = 'text';
+    userSection.appendChild(userNameSpan);
+
+    // Tooltip with full user info
+    const tooltipText = `Logged in as:
+Name: ${currentUser.name || '(not set)'}
+Email: ${currentUser.email || '(not set)'}
+ID: ${currentUser.id}
+Role: ${currentUser.role}`;
+    userSection.title = tooltipText;
+
+    // Insert before the build section
+    const buildSection = buildInfoSection.querySelector(
+      'div:last-child'
+    ) as HTMLElement;
+    if (buildSection) {
+      buildInfoSection.insertBefore(userSection, buildSection);
+    } else {
+      buildInfoSection.appendChild(userSection);
+    }
+
+    logger.debug('User display updated', {
+      userId: currentUser.id,
+      displayName,
+    });
+  }
+
+  /**
    * Create header with title and toggle button
    */
   private createHeader(): HTMLElement {
