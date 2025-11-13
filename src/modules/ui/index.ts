@@ -2364,8 +2364,23 @@ export class UIModule {
       domElement.removeAttribute('data-review-level');
     }
 
+    // Get content with tracked changes applied (for newly inserted sections,
+    // this will wrap content with {++...++} to show green line formatting)
+    let cleanContent = elem.content;
+    try {
+      cleanContent = this.config.changes.getElementContentWithTrackedChanges(
+        elem.id
+      );
+    } catch {
+      // If tracked changes aren't available, fall back to plain content
+      logger.debug('Tracked changes unavailable for element', {
+        elementId: elem.id,
+      });
+      cleanContent = elem.content;
+    }
+
     // Clean content: remove any nested review-editable fence divs
-    let cleanContent = this.cleanNestedDivs(elem.content);
+    cleanContent = this.cleanNestedDivs(cleanContent);
 
     // For headings, remove persistent Pandoc references for display
     // and normalize CriticMarkup to a single line to avoid rendering issues

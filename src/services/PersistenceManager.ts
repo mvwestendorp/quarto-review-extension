@@ -75,98 +75,96 @@ export class PersistenceManager {
    * - LocalDraftPersistence (git-backed) for review changes
    * - TranslationPersistence (browser storage) for translation state
    */
-  public persistDocument(): void {
-    void (async () => {
-      try {
-        const elements = this.config.changes.getCurrentState();
+  public async persistDocument(): Promise<void> {
+    try {
+      const elements = this.config.changes.getCurrentState();
 
-        // Strip inline comment markup from content before saving
-        // since comments are now stored separately in the comments array
-        const payload = elements.map((elem) => {
-          let cleanContent = elem.content;
+      // Strip inline comment markup from content before saving
+      // since comments are now stored separately in the comments array
+      const payload = elements.map((elem) => {
+        let cleanContent = elem.content;
 
-          // Remove inline CriticMarkup comments {>>...<<} from content
-          if (this.config.comments) {
-            const matches = this.config.comments.parse(elem.content);
-            const commentMatches = matches.filter((m) => m.type === 'comment');
+        // Remove inline CriticMarkup comments {>>...<<} from content
+        if (this.config.comments) {
+          const matches = this.config.comments.parse(elem.content);
+          const commentMatches = matches.filter((m) => m.type === 'comment');
 
-            // Process in reverse order to maintain string indices
-            for (let i = commentMatches.length - 1; i >= 0; i--) {
-              const match = commentMatches[i];
-              if (!match) continue;
-              cleanContent = this.config.comments.accept(cleanContent, match);
-            }
+          // Process in reverse order to maintain string indices
+          for (let i = commentMatches.length - 1; i >= 0; i--) {
+            const match = commentMatches[i];
+            if (!match) continue;
+            cleanContent = this.config.comments.accept(cleanContent, match);
           }
-
-          return {
-            id: elem.id,
-            content: cleanContent,
-            metadata: elem.metadata,
-          };
-        });
-
-        const currentPagePrefixes = this.getPagePrefixesFromElements(payload);
-
-        let existingDraft: Awaited<
-          ReturnType<LocalDraftPersistence['loadDraft']>
-        > | null = null;
-        try {
-          existingDraft = await this.config.localPersistence.loadDraft();
-        } catch (error) {
-          logger.debug('Unable to load existing draft for merge', {
-            error: error instanceof Error ? error.message : String(error),
-          });
         }
 
-        const mergedElements = this.mergeElementsByPage(
-          existingDraft?.elements ?? [],
-          payload,
-          currentPagePrefixes
-        );
+        return {
+          id: elem.id,
+          content: cleanContent,
+          metadata: elem.metadata,
+        };
+      });
 
-        const commentsSnapshot =
-          typeof this.config.comments?.getAllComments === 'function'
-            ? this.config.comments.getAllComments()
-            : undefined;
-        const operationsSnapshot =
-          typeof this.config.changes.getOperations === 'function'
-            ? Array.from(this.config.changes.getOperations())
-            : undefined;
+      const currentPagePrefixes = this.getPagePrefixesFromElements(payload);
 
-        const mergedComments = this.mergeCommentsByPage(
-          existingDraft?.comments as Comment[] | undefined,
-          commentsSnapshot,
-          currentPagePrefixes
-        );
-        const mergedOperations =
-          operationsSnapshot && operationsSnapshot.length > 0
-            ? operationsSnapshot
-            : existingDraft?.operations;
-
-        logger.debug('Preparing to persist document', {
-          elementCount: mergedElements.length,
-          operationCount: mergedOperations?.length ?? 0,
-          commentCount: mergedComments?.length ?? 0,
-        });
-
-        // Single unified code path - always use unified persistence
-        await this.unifiedPersistence.saveDocument({
-          id: `doc-${Date.now()}`,
-          documentId: this.buildDocumentId(),
-          savedAt: Date.now(),
-          version: 1,
-          review: {
-            elements: mergedElements,
-            operations: mergedOperations,
-            comments: mergedComments,
-          },
-        });
-
-        logger.debug('Document persisted via unified persistence');
+      let existingDraft: Awaited<
+        ReturnType<LocalDraftPersistence['loadDraft']>
+      > | null = null;
+      try {
+        existingDraft = await this.config.localPersistence.loadDraft();
       } catch (error) {
-        logger.warn('Failed to persist document', error);
+        logger.debug('Unable to load existing draft for merge', {
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
-    })();
+
+      const mergedElements = this.mergeElementsByPage(
+        existingDraft?.elements ?? [],
+        payload,
+        currentPagePrefixes
+      );
+
+      const commentsSnapshot =
+        typeof this.config.comments?.getAllComments === 'function'
+          ? this.config.comments.getAllComments()
+          : undefined;
+      const operationsSnapshot =
+        typeof this.config.changes.getOperations === 'function'
+          ? Array.from(this.config.changes.getOperations())
+          : undefined;
+
+      const mergedComments = this.mergeCommentsByPage(
+        existingDraft?.comments as Comment[] | undefined,
+        commentsSnapshot,
+        currentPagePrefixes
+      );
+      const mergedOperations =
+        operationsSnapshot && operationsSnapshot.length > 0
+          ? operationsSnapshot
+          : existingDraft?.operations;
+
+      logger.debug('Preparing to persist document', {
+        elementCount: mergedElements.length,
+        operationCount: mergedOperations?.length ?? 0,
+        commentCount: mergedComments?.length ?? 0,
+      });
+
+      // Single unified code path - always use unified persistence
+      await this.unifiedPersistence.saveDocument({
+        id: `doc-${Date.now()}`,
+        documentId: this.buildDocumentId(),
+        savedAt: Date.now(),
+        version: 1,
+        review: {
+          elements: mergedElements,
+          operations: mergedOperations,
+          comments: mergedComments,
+        },
+      });
+
+      logger.debug('Document persisted via unified persistence');
+    } catch (error) {
+      logger.warn('Failed to persist document', error);
+    }
   }
 
   /**

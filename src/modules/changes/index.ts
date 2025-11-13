@@ -652,12 +652,20 @@ Please report this issue with your Quarto document structure.
     }
 
     const activeIds = new Set<string>();
+    const directChildren = new Map<string, string[]>(); // Track direct children of each segment
 
+    // Build a map of which segments have which direct children
     for (const op of this.operations) {
       if (op.type === 'insert') {
         const insertData = op.data as InsertData;
-        if (insertData.parentId === parentId) {
-          activeIds.add(op.elementId);
+        if (insertData.parentId) {
+          if (!directChildren.has(insertData.parentId)) {
+            directChildren.set(insertData.parentId, []);
+          }
+          directChildren.get(insertData.parentId)!.push(op.elementId);
+          if (insertData.parentId === parentId) {
+            activeIds.add(op.elementId);
+          }
         }
       } else if (op.type === 'delete') {
         if (activeIds.has(op.elementId)) {
@@ -676,6 +684,8 @@ Please report this issue with your Quarto document structure.
       return [];
     }
 
+    // Only collect consecutive segments immediately after the parent,
+    // stopping at the first segment that is NOT a direct child of this parent
     const orderedIds: string[] = [];
     for (let i = parentIndex + 1; i < state.length; i++) {
       const candidate = state[i];
@@ -683,9 +693,22 @@ Please report this issue with your Quarto document structure.
         break;
       }
       const candidateId = candidate.id;
+
+      // Only include if this is a direct child of parentId (not a child of another segment)
       if (!activeIds.has(candidateId)) {
         break;
       }
+
+      // Check if this segment has any children - if it does, we stop here
+      // because any new segments after this would be children of this segment, not the parent
+      if (
+        directChildren.has(candidateId) &&
+        directChildren.get(candidateId)!.length > 0
+      ) {
+        orderedIds.push(candidateId);
+        break; // Don't include segments after this one as they belong to this child
+      }
+
       orderedIds.push(candidateId);
     }
 
@@ -883,6 +906,10 @@ Please report this issue with your Quarto document structure.
   /**
    * Get the baseline content for an element (content before current edit session)
    * This is used to display tracked changes in CriticMarkup format
+   *
+   * For newly inserted elements, returns empty string so all content appears as additions.
+   * For elements with edits, returns the original content from before the edit.
+   * For existing elements, returns the original content from the DOM.
    */
   private getElementBaseline(id: string): string {
     // If a baseline was explicitly set for this element, use it
@@ -894,13 +921,15 @@ Please report this issue with your Quarto document structure.
     const original = this.findOriginalElement(id);
     if (original) return original.content;
 
-    // For newly inserted elements, use the content from the first insert operation
+    // For newly inserted elements, the baseline should be empty so all content
+    // appears as additions with green line formatting ({++...++})
     const firstInsert = this.operations.find(
       (op) => op.type === 'insert' && op.elementId === id
     );
     if (firstInsert) {
-      const data = firstInsert.data as InsertData;
-      return data.content;
+      // Return empty baseline for new sections - this makes the entire content
+      // appear as an addition, which displays with the green line styling
+      return '';
     }
 
     return '';

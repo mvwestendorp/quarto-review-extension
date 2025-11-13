@@ -9,7 +9,12 @@
  */
 
 import { createModuleLogger } from '@utils/debug';
-import { Editor, rootCtx, defaultValueCtx } from '@milkdown/kit/core';
+import {
+  Editor,
+  rootCtx,
+  defaultValueCtx,
+  editorViewCtx,
+} from '@milkdown/kit/core';
 import { commonmark } from '@milkdown/kit/preset/commonmark';
 import { nord } from '@milkdown/theme-nord';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
@@ -94,7 +99,10 @@ export class CommentEditor {
     }
 
     try {
-      (this.editor as any).focus();
+      this.editor.action((ctx: any) => {
+        const view = ctx.get(editorViewCtx);
+        view?.focus();
+      });
       logger.debug('Editor focused');
     } catch (error) {
       logger.warn('Failed to focus editor', error);

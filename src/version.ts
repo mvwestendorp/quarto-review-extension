@@ -20,8 +20,8 @@ export interface BuildInfo {
 export const BUILD_INFO: BuildInfo = {
   version: '0.1.0',
   buildNumber: 'dev',
-  buildDate: '2025-11-08T16:35:11.513Z',
-  commit: '7c480c48080ad2386c3c4913be141f0135e0447d',
+  buildDate: '2025-11-12T08:17:26.263Z',
+  commit: '5ad68baf893beeb26403f569549a4bfafdb078a0',
   branch: 'main',
   pr: undefined,
   buildType: 'dev',

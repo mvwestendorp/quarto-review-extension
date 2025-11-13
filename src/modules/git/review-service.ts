@@ -42,6 +42,8 @@ export class GitReviewService {
     'forgejo',
     'azure-devops',
   ];
+  private static readonly NO_CHANGES_ERROR =
+    'No tracked document changes were found. Make edits in the document before submitting a review.';
 
   constructor(
     private readonly git: GitModule,
@@ -95,14 +97,26 @@ export class GitReviewService {
     const format = options.format ?? 'clean';
     const bundle = await this.exporter.createBundle({
       format,
+      includeCommentsInOutput: false,
     });
     const operationSnapshots =
       await this.exporter.getOperationSnapshots(format);
 
+    if (!operationSnapshots?.length) {
+      throw new Error(GitReviewService.NO_CHANGES_ERROR);
+    }
+
+    const { files: changedFiles, snapshots: filteredSnapshots } =
+      this.selectFilesForSubmission(bundle.files, operationSnapshots);
+
+    if (!changedFiles.length) {
+      throw new Error(GitReviewService.NO_CHANGES_ERROR);
+    }
+
     const files = this.toReviewFiles(
-      bundle.files,
+      changedFiles,
       options.commitMessage,
-      operationSnapshots
+      filteredSnapshots
     );
 
     const payload: ReviewSubmissionPayload = {
@@ -161,6 +175,40 @@ export class GitReviewService {
       content: file.content,
       message: perFileMessages.get(file.filename) ?? commitMessage,
     }));
+  }
+
+  private selectFilesForSubmission(
+    files: Array<{ filename: string; content: string }>,
+    snapshots: OperationSnapshot[]
+  ): {
+    files: Array<{ filename: string; content: string }>;
+    snapshots: OperationSnapshot[];
+  } {
+    if (!snapshots?.length) {
+      return { files: [], snapshots: [] };
+    }
+
+    const changedFilenames = new Set(
+      snapshots
+        .map((snapshot) => snapshot.filename?.trim())
+        .filter((name): name is string => Boolean(name))
+    );
+
+    if (changedFilenames.size === 0) {
+      return { files: [], snapshots: [] };
+    }
+
+    const filteredFiles = files.filter((file) =>
+      changedFilenames.has(file.filename)
+    );
+    const filteredSnapshots = snapshots.filter((snapshot) =>
+      changedFilenames.has(snapshot.filename)
+    );
+
+    return {
+      files: filteredFiles,
+      snapshots: filteredSnapshots,
+    };
   }
 
   private describeOperation(snapshot: OperationSnapshot): string {
