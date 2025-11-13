@@ -5,7 +5,11 @@
 
 import { createModuleLogger } from '@utils/debug';
 import type { User, UserAuthConfig } from '@/types';
-import { getHeaderProvider, type IHeaderProvider } from './HeaderProvider';
+import {
+  getHeaderProvider,
+  BrowserHeaderProvider,
+  type IHeaderProvider,
+} from './HeaderProvider';
 
 const logger = createModuleLogger('UserModule');
 
@@ -31,6 +35,15 @@ export class UserModule {
     };
 
     this.headerProvider = config.headerProvider || getHeaderProvider();
+
+    // Enable debug mode on header provider if configured
+    if (
+      this.config.userAuthConfig?.debug &&
+      this.headerProvider instanceof BrowserHeaderProvider
+    ) {
+      (this.headerProvider as BrowserHeaderProvider).setDebugMode(true);
+    }
+
     this.loadFromStorage();
   }
 

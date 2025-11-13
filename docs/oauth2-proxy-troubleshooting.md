@@ -6,9 +6,17 @@ This guide helps you diagnose and fix oauth2-proxy authentication issues.
 
 ### Enable Debug Mode
 
-Add `?oauth2-debug` to your URL:
-```
-http://your-app.example.com/?oauth2-debug
+Add `debug: true` to your Quarto document YAML:
+
+```yaml
+---
+review:
+  user:
+    auth:
+      mode: "oauth2-proxy"
+      defaultRole: "editor"
+      debug: true  # Enable detailed debug logging
+---
 ```
 
 Then open DevTools → Console. You'll see detailed header debugging information:
@@ -113,12 +121,17 @@ Look for the full error message in console. Common errors:
 
 **Step 2: Increase logging**
 
-Enable debug mode and check what's logged:
-```bash
-# In console
-localStorage.setItem('debug', 'UserModule,OAuth2ProxyInit,*');
-// Reload page
+Enable debug mode in your YAML config:
+
+```yaml
+review:
+  user:
+    auth:
+      mode: "oauth2-proxy"
+      debug: true  # Enable detailed debugging
 ```
+
+Reload the page and check browser DevTools → Console for detailed output.
 
 ---
 

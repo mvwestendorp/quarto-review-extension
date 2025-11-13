@@ -148,6 +148,12 @@ export interface UserAuthConfig {
    * Defaults to 'editor'.
    */
   defaultRole?: 'viewer' | 'editor' | 'admin';
+  /**
+   * Enable detailed debug logging for troubleshooting.
+   * Logs which headers are checked, where they come from, and why auth failed.
+   * Can be enabled via YAML: auth: { mode: "oauth2-proxy", debug: true }
+   */
+  debug?: boolean;
 }
 
 export interface ReviewGitAuthConfig {

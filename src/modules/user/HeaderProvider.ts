@@ -23,11 +23,15 @@ export interface IHeaderProvider {
 export class BrowserHeaderProvider implements IHeaderProvider {
   private debugMode = false;
 
-  constructor() {
-    // Enable debug mode if query param ?oauth2-debug is present
-    if (typeof window !== 'undefined' && typeof location !== 'undefined') {
-      this.debugMode = location.search.includes('oauth2-debug');
-    }
+  constructor(debugMode = false) {
+    this.debugMode = debugMode;
+  }
+
+  /**
+   * Enable debug mode for detailed logging
+   */
+  public setDebugMode(enabled: boolean): void {
+    this.debugMode = enabled;
   }
 
   /**
