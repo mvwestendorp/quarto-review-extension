@@ -1,7 +1,7 @@
 import { createModuleLogger } from '@utils/debug';
 import type { BaseProvider, PullRequest } from './providers';
 import type { ResolvedGitConfig } from './types';
-import type { ReviewCommentInput } from './types';
+import type { ReviewCommentInput, RepositoryFile } from './types';
 import type { EmbeddedSourceRecord } from './fallback';
 
 const logger = createModuleLogger('GitIntegration');
@@ -136,6 +136,12 @@ export class GitIntegrationService {
       payload.commitMessage
     );
 
+    if (fileResults.length === 0) {
+      throw new Error(
+        'No repository updates were necessary because the exported files match the current branch.'
+      );
+    }
+
     const { pullRequest, reused } = await this.ensurePullRequest(
       branchName,
       baseBranch,
@@ -231,16 +237,19 @@ export class GitIntegrationService {
   ): Promise<ReviewFileResult[]> {
     const results: ReviewFileResult[] = [];
     const latestFileSha = new Map<string, string | undefined>();
+    const existingFileCache = new Map<string, RepositoryFile | null>();
 
     for (const file of files) {
       const path = file.path.trim();
       const commitMessage = file.message || defaultMessage || `Update ${path}`;
       let shaHint: string | undefined;
+      let existingRecord: RepositoryFile | null | undefined;
 
       if (latestFileSha.has(path)) {
         shaHint = latestFileSha.get(path);
+        existingRecord = existingFileCache.get(path);
       } else {
-        const existing = await this.provider
+        existingRecord = await this.provider
           .getFileContent(path, branchName)
           .catch((error) => {
             logger.debug('Failed to read file from branch, assuming new file', {
@@ -250,8 +259,18 @@ export class GitIntegrationService {
             });
             return null;
           });
-        shaHint = existing?.sha;
+        shaHint = existingRecord?.sha;
         latestFileSha.set(path, shaHint);
+        existingFileCache.set(path, existingRecord);
+      }
+
+      const baselineContent = existingRecord?.content;
+      if (
+        typeof baselineContent === 'string' &&
+        !this.hasContentChanged(baselineContent, file.content)
+      ) {
+        logger.debug('Skipping unchanged file export', { path });
+        continue;
       }
 
       const upsertResult = await this.provider.createOrUpdateFile(
@@ -263,6 +282,11 @@ export class GitIntegrationService {
       );
 
       latestFileSha.set(path, upsertResult.sha);
+      existingFileCache.set(path, {
+        path: upsertResult.path,
+        sha: upsertResult.sha,
+        content: file.content,
+      });
 
       results.push({
         path: upsertResult.path,
@@ -272,6 +296,21 @@ export class GitIntegrationService {
     }
 
     return results;
+  }
+
+  private hasContentChanged(
+    previousContent: string,
+    nextContent: string
+  ): boolean {
+    return (
+      this.normalizeContentForComparison(previousContent) !==
+      this.normalizeContentForComparison(nextContent)
+    );
+  }
+
+  private normalizeContentForComparison(input: string): string {
+    const normalized = input.replace(/\r\n/g, '\n');
+    return normalized.endsWith('\n') ? normalized : `${normalized}\n`;
   }
 
   private async ensurePullRequest(
