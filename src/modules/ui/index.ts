@@ -2584,6 +2584,11 @@ export class UIModule {
   private createPersistentSidebar(): HTMLElement {
     const sidebar = this.unifiedSidebar.create();
 
+    // Pass user module to sidebar for displaying user status
+    if (this.userModule) {
+      this.unifiedSidebar.setUserModule(this.userModule);
+    }
+
     if (!this.changeSummaryDashboard) {
       this.changeSummaryDashboard = new ChangeSummaryDashboard(this.config);
     }
