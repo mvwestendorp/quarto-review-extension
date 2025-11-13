@@ -145,6 +145,19 @@ export class QuartoReview {
     this.changes = new ChangesModule();
     this.markdown = new MarkdownModule(this.config.markdown);
     this.comments = new CommentsModule();
+
+    // Log user auth configuration if present
+    if (this.config.user?.auth?.debug) {
+      console.debug(
+        '[QuartoReview] Initializing UserModule with auth config:',
+        {
+          mode: this.config.user?.auth?.mode,
+          debug: this.config.user?.auth?.debug,
+          userHeader: this.config.user?.auth?.userHeader,
+        }
+      );
+    }
+
     this.user = new UserModule({
       userAuthConfig: this.config.user?.auth,
     });
@@ -238,6 +251,9 @@ export class QuartoReview {
     // Initialize OAuth2-proxy authentication if configured
     // This will auto-login users based on oauth2-proxy headers
     initializeOAuth2ProxyAuth(this.user);
+
+    // Update UI to show authenticated user (whether just logged in or already authenticated)
+    this.ui.updateUserDisplay();
 
     // Initialize translation if enabled
     if (this.translation) {
