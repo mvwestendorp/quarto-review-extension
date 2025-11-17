@@ -333,27 +333,29 @@ describe('UIModule sidebar state handling', () => {
     const unifiedSidebar = getUnifiedSidebarInstances()[0];
     expect(unifiedSidebar).toBeDefined();
 
+    // Initial state is collapsed (true), so toggling makes it expanded (false)
     ui.toggleSidebarCollapsed();
 
     const toolbar = document.querySelector(
       '.review-toolbar'
     ) as HTMLElement | null;
     expect(toolbar).not.toBeNull();
-    expect(toolbar?.classList.contains('review-sidebar-collapsed')).toBe(true);
-    expect(
-      document.body.classList.contains('review-sidebar-collapsed-mode')
-    ).toBe(true);
-    expect(unifiedSidebar?.setCollapsed).toHaveBeenLastCalledWith(true);
-    expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(true);
-
-    ui.toggleSidebarCollapsed(false);
-
     expect(toolbar?.classList.contains('review-sidebar-collapsed')).toBe(false);
     expect(
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(false);
     expect(unifiedSidebar?.setCollapsed).toHaveBeenLastCalledWith(false);
     expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(false);
+
+    // Toggle back to collapsed (true)
+    ui.toggleSidebarCollapsed(true);
+
+    expect(toolbar?.classList.contains('review-sidebar-collapsed')).toBe(true);
+    expect(
+      document.body.classList.contains('review-sidebar-collapsed-mode')
+    ).toBe(true);
+    expect(unifiedSidebar?.setCollapsed).toHaveBeenLastCalledWith(true);
+    expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(true);
   });
 
   it('clears local drafts when confirmation is accepted', async () => {
