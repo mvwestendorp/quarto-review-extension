@@ -94,11 +94,7 @@ describe('AuthInit', () => {
       const result = await initializeAuthentication(mockUserModule, config);
 
       expect(result).toBe(true);
-      expect(mockUserModule.login).toHaveBeenCalledWith(
-        'alice@example.com',
-        'alice@example.com',
-        'editor'
-      );
+      expect(mockUserModule.login).toHaveBeenCalledWith(mockUser);
     });
 
     it('should return false when databricks auth fails', async () => {
@@ -250,11 +246,7 @@ describe('AuthInit', () => {
       );
 
       expect(result).toBe(true);
-      expect(mockUserModule.login).toHaveBeenCalledWith(
-        'bob@example.com',
-        'bob@example.com',
-        'admin'
-      );
+      expect(mockUserModule.login).toHaveBeenCalledWith(mockUser);
     });
 
     // Note: Promise rejection test removed - causes test harness timeout
@@ -297,11 +289,7 @@ describe('AuthInit', () => {
       const result = await initializeAuthentication(mockUserModule, config);
 
       expect(result).toBe(true);
-      expect(mockUserModule.login).toHaveBeenCalledWith(
-        'charlie@example.com',
-        'charlie@example.com',
-        'editor'
-      );
+      expect(mockUserModule.login).toHaveBeenCalledWith(mockUser);
     });
 
     it('should fail gracefully when both oauth2-proxy and databricks fail', async () => {
