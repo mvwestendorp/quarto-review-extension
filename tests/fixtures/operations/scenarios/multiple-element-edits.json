@@ -1,0 +1,48 @@
+{
+  "description": "Test editing multiple elements independently",
+  "initialState": {
+    "elements": [
+      {
+        "id": "test.para-1",
+        "type": "Para",
+        "markdown": "First paragraph"
+      },
+      {
+        "id": "test.para-2",
+        "type": "Para",
+        "markdown": "Second paragraph"
+      },
+      {
+        "id": "test.para-3",
+        "type": "Para",
+        "markdown": "Third paragraph"
+      }
+    ]
+  },
+  "operations": [
+    {
+      "type": "edit",
+      "elementId": "test.para-1",
+      "newContent": "Modified first paragraph"
+    },
+    {
+      "type": "edit",
+      "elementId": "test.para-3",
+      "newContent": "Modified third paragraph"
+    }
+  ],
+  "expectedState": {
+    "test.para-1": {
+      "currentContent": "Modified first paragraph",
+      "trackedChanges": "{~~First~>Modified first~~} paragraph"
+    },
+    "test.para-2": {
+      "currentContent": "Second paragraph",
+      "trackedChanges": null
+    },
+    "test.para-3": {
+      "currentContent": "Modified third paragraph",
+      "trackedChanges": "{~~Third~>Modified third~~} paragraph"
+    }
+  }
+}

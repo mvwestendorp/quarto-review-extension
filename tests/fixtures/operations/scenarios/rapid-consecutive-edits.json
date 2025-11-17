@@ -1,0 +1,36 @@
+{
+  "description": "Test rapid consecutive edits to the same element",
+  "initialState": {
+    "elements": [
+      {
+        "id": "test.para-1",
+        "type": "Para",
+        "markdown": "Version 0"
+      }
+    ]
+  },
+  "operations": [
+    {
+      "type": "edit",
+      "elementId": "test.para-1",
+      "newContent": "Version 1"
+    },
+    {
+      "type": "edit",
+      "elementId": "test.para-1",
+      "newContent": "Version 2"
+    },
+    {
+      "type": "edit",
+      "elementId": "test.para-1",
+      "newContent": "Version 3"
+    }
+  ],
+  "expectedState": {
+    "test.para-1": {
+      "currentContent": "Version 3",
+      "trackedChanges": "{~~Version 0~>Version 3~~}",
+      "comment": "Should show final state with changes from original baseline"
+    }
+  }
+}
