@@ -36,7 +36,7 @@ describe('StateStore', () => {
 
     it('should have initial UI state', () => {
       const uiState = store.getUIState();
-      expect(uiState.isSidebarCollapsed).toBe(false);
+      expect(uiState.isSidebarCollapsed).toBe(true);
     });
 
     it('should have initial comment state', () => {
@@ -417,10 +417,10 @@ describe('StateStore', () => {
     });
 
     it('should reset UI state', () => {
-      store.setUIState({ isSidebarCollapsed: true });
+      store.setUIState({ isSidebarCollapsed: false });
       store.resetUIState();
       const state = store.getUIState();
-      expect(state.isSidebarCollapsed).toBe(false);
+      expect(state.isSidebarCollapsed).toBe(true);
     });
 
     it('should reset comment state', () => {
@@ -463,7 +463,7 @@ describe('StateStore', () => {
     it('should reset all state', () => {
       const mockElement = document.createElement('div');
       store.setEditorState({ activeEditor: mockElement });
-      store.setUIState({ isSidebarCollapsed: true });
+      store.setUIState({ isSidebarCollapsed: false });
       store.setCommentState({ activeCommentComposer: mockElement });
       store.setContextMenuState({ activeContextMenu: mockElement });
       store.setTranslationState({
@@ -479,7 +479,7 @@ describe('StateStore', () => {
 
       const state = store.getState();
       expect(state.editor.activeEditor).toBeNull();
-      expect(state.ui.isSidebarCollapsed).toBe(false);
+      expect(state.ui.isSidebarCollapsed).toBe(true);
       expect(state.comment.activeCommentComposer).toBeNull();
       expect(state.contextMenu.activeContextMenu).toBeNull();
       expect(state.translation.isActive).toBe(false);
