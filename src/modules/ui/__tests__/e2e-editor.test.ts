@@ -128,7 +128,17 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
   });
 
   describe('Opening and Editing', () => {
-    // TODO: Fix implementation - modal creation in test environment
+    /**
+     * KNOWN LIMITATION: Modal initialization in JSDOM test environment
+     *
+     * Modal element is not found in the JSDOM test environment.
+     * The inline editor tests pass; only the modal editor test fails.
+     * See KNOWN_LIMITATIONS.md #4 for details.
+     *
+     * To fix: Either:
+     * - Investigate UIModule modal initialization requirements for tests
+     * - Convert to full Playwright test (browser-based E2E)
+     */
     it.skip('should be able to open the editor for the list element', async () => {
       // Attach event listeners (required for editor opening)
       ui.attachEventListeners();

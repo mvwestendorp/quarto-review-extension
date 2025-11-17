@@ -101,8 +101,8 @@ function resolveCaptionContext(
 ): CaptionContext | null {
   let container = caption.closest<HTMLElement>(
     '.quarto-figure, .quarto-figure-center, .quarto-figure-container, ' +
-    '.quarto-table, .quarto-table-center, .quarto-table-container, ' +
-    '.quarto-float'
+      '.quarto-table, .quarto-table-center, .quarto-table-container, ' +
+      '.quarto-float'
   );
   if (!container) {
     return null;

@@ -25,11 +25,16 @@ describe('Text Transformation Pipeline', () => {
   }
 
   describe('Full Pipeline (fixture-based tests)', () => {
-    // Known issues with certain fixtures due to implementation limitations
+    /**
+     * KNOWN LIMITATIONS:
+     *
+     * - list-delete-item: Line-based diff algorithm leaves empty list items
+     *   when deleting entire list items. See KNOWN_LIMITATIONS.md #1.
+     *
+     * To fix: Implement structure-aware diffing that understands Markdown syntax
+     */
     const knownIssues = new Set([
-      'comments-inline', // Comments in edit are treated as literal text, not as comment markup
-      'list-delete-item', // List item deletion leaves empty list items
-      'mixed-changes-and-comments', // Comment handling with spaces has issues
+      'list-delete-item',
     ]);
 
     testCases.forEach((testCase) => {
@@ -329,7 +334,14 @@ describe('Text Transformation Pipeline', () => {
   });
 
   describe('Mixed Content Types', () => {
-    // Skipping due to trailing space artifacts from diff algorithm
+    /**
+     * KNOWN LIMITATION: Trailing space artifacts
+     *
+     * The diff algorithm adds trailing spaces to lines near modified content.
+     * See KNOWN_LIMITATIONS.md #2 for details.
+     *
+     * To fix: Implement post-processing to strip trailing whitespace
+     */
     it.skip('should handle documents with mixed elements', () => {
       const original = `# Heading
 
