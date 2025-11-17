@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">53.33% </span>
+                <span class="strong">53.84% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>112/210</span>
+                <span class='fraction'>112/208</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">34.57% </span>
+                <span class="strong">35.51% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>37/107</span>
+                <span class='fraction'>38/107</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">58.82% </span>
+                <span class="strong">61.76% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>20/34</span>
+                <span class='fraction'>21/34</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">52.76% </span>
+                <span class="strong">53.29% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>105/199</span>
+                <span class='fraction'>105/197</span>
             </div>
         
             
@@ -666,7 +666,20 @@
 <a name='L601'></a><a href='#L601'>601</a>
 <a name='L602'></a><a href='#L602'>602</a>
 <a name='L603'></a><a href='#L603'>603</a>
-<a name='L604'></a><a href='#L604'>604</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L604'></a><a href='#L604'>604</a>
+<a name='L605'></a><a href='#L605'>605</a>
+<a name='L606'></a><a href='#L606'>606</a>
+<a name='L607'></a><a href='#L607'>607</a>
+<a name='L608'></a><a href='#L608'>608</a>
+<a name='L609'></a><a href='#L609'>609</a>
+<a name='L610'></a><a href='#L610'>610</a>
+<a name='L611'></a><a href='#L611'>611</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -760,10 +773,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">61x</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">61x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">61x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -798,8 +811,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">59x</span>
 <span class="cline-any cline-yes">59x</span>
-<span class="cline-any cline-yes">59x</span>
-<span class="cline-any cline-yes">59x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">59x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1278,6 +1292,12 @@ import { createModuleLogger } from '@utils/debug';
 import type { DocumentSearchConfig } from '@/types';
 import { escapeHtml } from './shared/utils';
 import { UI_CONSTANTS, getAnimationDuration } from './constants';
+import {
+  createDiv,
+  setAttributes,
+  addClass,
+  removeClass,
+} from '@utils/dom-helpers';
 &nbsp;
 const logger = createModuleLogger('DocumentSearch');
 &nbsp;
@@ -1362,11 +1382,11 @@ export class DocumentSearch {
     document.body.appendChild(this.searchPanel);
 &nbsp;
     // Focus input and select all text if any
-    requestAnimationFrame(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
-      const input = <span class="cstat-no" title="statement not covered" >this.searchPanel?.querySelector(</span>
+    requestAnimationFrame(() =&gt; {
+      const input = this.searchPanel?.querySelector(
         '.review-search-input'
       ) as HTMLInputElement;
-<span class="cstat-no" title="statement not covered" >      if (input) {</span>
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (input) {
 <span class="cstat-no" title="statement not covered" >        input.focus();</span>
 <span class="cstat-no" title="statement not covered" >        input.select();</span>
       }
@@ -1383,7 +1403,7 @@ export class DocumentSearch {
     this.clearHighlights();
 &nbsp;
     <span class="missing-if-branch" title="else path not taken" >E</span>if (this.searchPanel) {
-      this.searchPanel.classList.add('review-search-closing');
+      addClass(this.searchPanel, 'review-search-closing');
       if (this.removalTimer) {
         clearTimeout(this.removalTimer);
       }
@@ -1399,10 +1419,11 @@ export class DocumentSearch {
    * Create the search panel UI
    */
   private createSearchPanel(): HTMLElement {
-    const panel = document.createElement('div');
-    panel.className = 'review-search-panel';
-    panel.setAttribute('role', 'search');
-    panel.setAttribute('aria-label', 'Search in document');
+    const panel = createDiv('review-search-panel');
+    setAttributes(panel, {
+      role: 'search',
+      'aria-label': 'Search in document',
+    });
 &nbsp;
     panel.innerHTML = `
       &lt;div class="review-search-container"&gt;
@@ -1691,9 +1712,9 @@ export class DocumentSearch {
 <span class="cstat-no" title="statement not covered" >      element.scrollIntoView({ behavior: 'smooth', block: 'center' });</span>
 &nbsp;
       // Flash highlight
-<span class="cstat-no" title="statement not covered" >      element.classList.add('review-highlight-flash');</span>
+<span class="cstat-no" title="statement not covered" >      addClass(element, 'review-highlight-flash');</span>
 <span class="cstat-no" title="statement not covered" >      setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >        element.classList.remove('review-highlight-flash');</span>
+<span class="cstat-no" title="statement not covered" >        removeClass(element, 'review-highlight-flash');</span>
       }, UI_CONSTANTS.SEARCH_HIGHLIGHT_DURATION_MS);
 &nbsp;
       // Highlight the specific match within element
@@ -1764,9 +1785,9 @@ export class DocumentSearch {
         `[data-review-id="${match.elementId}"]`
       );
 <span class="cstat-no" title="statement not covered" >      if (element instanceof HTMLElement) {</span>
-<span class="cstat-no" title="statement not covered" >        element.classList.add('review-search-has-match');</span>
+<span class="cstat-no" title="statement not covered" >        addClass(element, 'review-search-has-match');</span>
 <span class="cstat-no" title="statement not covered" >        if (index === this.currentMatchIndex) {</span>
-<span class="cstat-no" title="statement not covered" >          element.classList.add('review-search-current-match');</span>
+<span class="cstat-no" title="statement not covered" >          addClass(element, 'review-search-current-match');</span>
         }
 <span class="cstat-no" title="statement not covered" >        this.highlightedElements.add(element);</span>
       }
@@ -1788,8 +1809,8 @@ export class DocumentSearch {
 &nbsp;
     // Remove CSS classes
     this.highlightedElements.forEach(<span class="fstat-no" title="function not covered" >(e</span>lement) =&gt; {
-<span class="cstat-no" title="statement not covered" >      element.classList.remove('review-search-has-match');</span>
-<span class="cstat-no" title="statement not covered" >      element.classList.remove('review-search-current-match');</span>
+<span class="cstat-no" title="statement not covered" >      removeClass(element, 'review-search-has-match');</span>
+<span class="cstat-no" title="statement not covered" >      removeClass(element, 'review-search-current-match');</span>
     });
 &nbsp;
     this.highlightedElements.clear();
@@ -1805,10 +1826,10 @@ export class DocumentSearch {
     <span class="missing-if-branch" title="else path not taken" >E</span>if (counter) {
       if (this.matches.length === 0) {
         counter.textContent = '0/0';
-        this.searchPanel.classList.add('review-search-no-results');
+        addClass(this.searchPanel, 'review-search-no-results');
       } else <span class="missing-if-branch" title="else path not taken" >E</span>{
 <span class="cstat-no" title="statement not covered" >        counter.textContent = `${this.currentMatchIndex + 1}/${this.matches.length}`;</span>
-<span class="cstat-no" title="statement not covered" >        this.searchPanel.classList.remove('review-search-no-results');</span>
+<span class="cstat-no" title="statement not covered" >        removeClass(this.searchPanel, 'review-search-no-results');</span>
       }
     }
 &nbsp;
@@ -1879,7 +1900,7 @@ export class DocumentSearch {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-17T09:24:59.594Z
+                at 2025-11-17T10:40:27.528Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

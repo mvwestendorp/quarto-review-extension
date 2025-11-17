@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">53.7% </span>
+                <span class="strong">54.08% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>87/162</span>
+                <span class='fraction'>86/159</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">54.48% </span>
+                <span class="strong">54.9% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>85/156</span>
+                <span class='fraction'>84/153</span>
             </div>
         
             
@@ -640,7 +640,10 @@
 <a name='L575'></a><a href='#L575'>575</a>
 <a name='L576'></a><a href='#L576'>576</a>
 <a name='L577'></a><a href='#L577'>577</a>
-<a name='L578'></a><a href='#L578'>578</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L578'></a><a href='#L578'>578</a>
+<a name='L579'></a><a href='#L579'>579</a>
+<a name='L580'></a><a href='#L580'>580</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -807,7 +810,6 @@
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
-<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">9x</span>
@@ -957,7 +959,8 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1189,7 +1192,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1226,6 +1230,7 @@ import type { ChangeSummaryConfig } from '@/types';
 import { escapeHtml } from './shared/utils';
 import { UI_CONSTANTS, getAnimationDuration } from './constants';
 import { createModuleLogger } from '@utils/debug';
+import { createDiv, addClass, removeClass } from '@utils/dom-helpers';
 &nbsp;
 const logger = createModuleLogger('ChangeSummary');
 &nbsp;
@@ -1381,8 +1386,7 @@ export class ChangeSummaryDashboard {
   renderDashboard(): HTMLElement {
     try {
       const summary = this.calculateSummary();
-      const dashboard = document.createElement('div');
-      dashboard.className = 'review-change-summary-dashboard';
+      const dashboard = createDiv('review-change-summary-dashboard');
       dashboard.setAttribute('role', 'region');
       dashboard.setAttribute('aria-label', 'Change summary statistics');
 &nbsp;
@@ -1533,8 +1537,9 @@ export class ChangeSummaryDashboard {
     } catch (error) {
 <span class="cstat-no" title="statement not covered" >      logger.error('Failed to render change summary dashboard:', error);</span>
       // Return a fallback error dashboard
-      const errorDashboard = <span class="cstat-no" title="statement not covered" >document.createElement('div');</span>
-<span class="cstat-no" title="statement not covered" >      errorDashboard.className = 'review-change-summary-dashboard review-error';</span>
+      const <span class="cstat-no" title="statement not covered" >errorDashboard = createDiv(</span>
+        'review-change-summary-dashboard review-error'
+      );
 <span class="cstat-no" title="statement not covered" >      errorDashboard.innerHTML = `</span>
         &lt;div class="review-summary-section"&gt;
           &lt;div class="review-summary-header"&gt;
@@ -1679,15 +1684,15 @@ export class ChangeSummaryDashboard {
 <span class="cstat-no" title="statement not covered" >    element.scrollIntoView({ behavior: 'smooth', block: 'center' });</span>
 &nbsp;
     // Flash highlight
-<span class="cstat-no" title="statement not covered" >    element.classList.add('review-highlight-flash');</span>
+<span class="cstat-no" title="statement not covered" >    addClass(element, 'review-highlight-flash');</span>
 <span class="cstat-no" title="statement not covered" >    setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >      element.classList.remove('review-highlight-flash');</span>
+<span class="cstat-no" title="statement not covered" >      removeClass(element, 'review-highlight-flash');</span>
     }, getAnimationDuration('LONG_HIGHLIGHT'));
 &nbsp;
     // Show temporary focus indicator
-<span class="cstat-no" title="statement not covered" >    element.classList.add('review-jump-target');</span>
+<span class="cstat-no" title="statement not covered" >    addClass(element, 'review-jump-target');</span>
 <span class="cstat-no" title="statement not covered" >    setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >      element.classList.remove('review-jump-target');</span>
+<span class="cstat-no" title="statement not covered" >      removeClass(element, 'review-jump-target');</span>
     }, getAnimationDuration('FLASH_HIGHLIGHT'));
   }
 &nbsp;
@@ -1765,8 +1770,9 @@ export class ChangeSummaryDashboard {
     message: string,
     type: 'info' | 'success' | 'error'
   ): void {
-    const notification = <span class="cstat-no" title="statement not covered" >document.createElement('div');</span>
-<span class="cstat-no" title="statement not covered" >    notification.className = `review-notification review-notification-${type}`;</span>
+    const <span class="cstat-no" title="statement not covered" >notification = createDiv(</span>
+      `review-notification review-notification-${type}`
+    );
 <span class="cstat-no" title="statement not covered" >    notification.textContent = message;</span>
 <span class="cstat-no" title="statement not covered" >    notification.setAttribute('role', 'alert');</span>
 <span class="cstat-no" title="statement not covered" >    notification.setAttribute('aria-live', 'assertive');</span>
@@ -1774,11 +1780,11 @@ export class ChangeSummaryDashboard {
 <span class="cstat-no" title="statement not covered" >    document.body.appendChild(notification);</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >      notification.classList.add('review-notification-show');</span>
+<span class="cstat-no" title="statement not covered" >      addClass(notification, 'review-notification-show');</span>
     }, 10);
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >      notification.classList.remove('review-notification-show');</span>
+<span class="cstat-no" title="statement not covered" >      removeClass(notification, 'review-notification-show');</span>
 <span class="cstat-no" title="statement not covered" >      setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >n</span>otification.remove(), g</span>etAnimationDuration('SLOW'));</span>
     }, UI_CONSTANTS.NOTIFICATION_DISPLAY_DURATION_MS);
   }
@@ -1801,7 +1807,7 @@ export class ChangeSummaryDashboard {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-17T09:24:59.594Z
+                at 2025-11-17T10:40:27.528Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
