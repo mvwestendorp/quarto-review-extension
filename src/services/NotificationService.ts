@@ -4,6 +4,7 @@
  */
 
 import { UI_CONSTANTS, getAnimationDuration } from '@modules/ui/constants';
+import { createSingleton } from '../utils/singleton';
 
 export type NotificationType = 'info' | 'success' | 'error' | 'warning';
 
@@ -138,15 +139,7 @@ export class NotificationService {
   }
 }
 
-// Singleton instance
-let notificationServiceInstance: NotificationService | null = null;
-
 /**
  * Get the singleton notification service instance
  */
-export function getNotificationService(): NotificationService {
-  if (!notificationServiceInstance) {
-    notificationServiceInstance = new NotificationService();
-  }
-  return notificationServiceInstance;
-}
+export const getNotificationService = createSingleton(NotificationService);

@@ -3,6 +3,8 @@
  * Handles loading indicators and overlays
  */
 
+import { createSingleton } from '../utils/singleton';
+
 export interface LoadingOptions {
   /** Custom message to display (default: "Loading...") */
   message?: string;
@@ -111,15 +113,7 @@ export class LoadingService {
   }
 }
 
-// Singleton instance
-let loadingServiceInstance: LoadingService | null = null;
-
 /**
  * Get the singleton loading service instance
  */
-export function getLoadingService(): LoadingService {
-  if (!loadingServiceInstance) {
-    loadingServiceInstance = new LoadingService();
-  }
-  return loadingServiceInstance;
-}
+export const getLoadingService = createSingleton(LoadingService);
