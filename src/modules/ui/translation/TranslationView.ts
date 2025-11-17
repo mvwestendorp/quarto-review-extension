@@ -5,7 +5,11 @@
 
 import { createModuleLogger } from '@utils/debug';
 import type { MarkdownModule } from '@modules/markdown';
-import type { TranslationDocument, Sentence } from '@modules/translation/types';
+import type {
+  TranslationDocument,
+  Sentence,
+  TranslationPair,
+} from '@modules/translation/types';
 import type { TranslationEditorBridge } from './TranslationEditorBridge';
 import type { TranslationProgressStatus } from './TranslationController';
 import type { StateStore } from '@/services/StateStore';
@@ -467,8 +471,10 @@ export class TranslationView {
     sentenceElement.dataset.side = side;
     sentenceElement.tabIndex = -1;
 
-    // Get translation status
+    // Get translation status and pair info
     const status = this.getSentenceStatus(sentence.id, side);
+    const pairInfo = this.getSentencePairInfo(sentence.id, side);
+
     if (status) {
       sentenceElement.dataset.status = status;
       // Add CSS class for styling based on status
@@ -477,10 +483,33 @@ export class TranslationView {
         `review-translation-sentence-${status}`,
         true
       );
+
+      // Add visual indicator class for auto-translated content
+      if (status === 'auto-translated' && side === 'target') {
+        toggleClass(sentenceElement, 'review-translation-auto-generated', true);
+      }
+
+      // Add visual indicator class for manually edited content
+      if ((status === 'manual' || status === 'edited') && side === 'target') {
+        toggleClass(sentenceElement, 'review-translation-manual-edit', true);
+      }
+
+      // Add visual indicator for out-of-sync content
+      if (status === 'out-of-sync' && side === 'target') {
+        toggleClass(sentenceElement, 'review-translation-needs-update', true);
+      }
     }
 
     // Create sentence wrapper for better layout
     const wrapper = createDiv('review-translation-sentence-wrapper');
+
+    // Add visual indicator icon for auto-translated/manual status
+    if (side === 'target' && status) {
+      const indicator = this.createStatusIndicator(status, pairInfo);
+      if (indicator) {
+        wrapper.appendChild(indicator);
+      }
+    }
 
     // Create sentence content - render as styled HTML using document-style rendering
     const content = createDiv('review-translation-sentence-content');
@@ -570,6 +599,78 @@ export class TranslationView {
     if (statuses.includes('edited')) return 'edited';
     if (statuses.includes('auto-translated')) return 'auto-translated';
     return 'synced';
+  }
+
+  /**
+   * Get translation pair information for a sentence
+   */
+  private getSentencePairInfo(
+    sentenceId: string,
+    side: 'source' | 'target'
+  ): TranslationPair | null {
+    if (!this.document) return null;
+
+    const pairs = this.document.correspondenceMap.pairs.filter((pair) =>
+      side === 'source'
+        ? pair.sourceId === sentenceId
+        : pair.targetId === sentenceId
+    );
+
+    if (pairs.length === 0) return null;
+
+    // Return the first pair (most common case is 1:1 mapping)
+    return pairs[0] ?? null;
+  }
+
+  /**
+   * Create visual status indicator for a sentence
+   */
+  private createStatusIndicator(
+    status: string,
+    pairInfo: TranslationPair | null
+  ): HTMLElement | null {
+    const indicator = createDiv('review-translation-status-indicator');
+    setAttributes(indicator, {
+      'data-status': status,
+      role: 'img',
+      'aria-label': this.getStatusAriaLabel(status),
+    });
+
+    let icon = '';
+    let title = '';
+
+    switch (status) {
+      case 'auto-translated':
+        icon = '🤖'; // Robot emoji for automatic translation
+        title = pairInfo?.provider
+          ? `Auto-translated by ${pairInfo.provider}`
+          : 'Auto-translated';
+        break;
+      case 'manual':
+        icon = '✍️'; // Writing hand emoji for manual translation
+        title = 'Manually translated';
+        break;
+      case 'edited':
+        icon = '✏️'; // Pencil emoji for edited content
+        title = 'Auto-translated and manually edited';
+        break;
+      case 'out-of-sync':
+        icon = '⚠️'; // Warning emoji for out-of-sync
+        title = 'Source text has changed - translation may be outdated';
+        break;
+      case 'untranslated':
+        icon = '⭕'; // Empty circle for untranslated
+        title = 'Not yet translated';
+        break;
+      default:
+        return null; // No indicator for other statuses
+    }
+
+    indicator.textContent = icon;
+    indicator.title = title;
+    setAttributes(indicator, { 'aria-label': title });
+
+    return indicator;
   }
 
   /**

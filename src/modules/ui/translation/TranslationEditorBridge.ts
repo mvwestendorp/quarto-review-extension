@@ -13,6 +13,7 @@ import {
 import { TranslationChangesModule } from '@modules/translation/TranslationChangesModule';
 import { createModuleLogger } from '@utils/debug';
 import type { Sentence } from '@modules/translation/types';
+import type { DiffHighlightRange } from '../editor/MilkdownEditor';
 
 const logger = createModuleLogger('TranslationEditorBridge');
 
@@ -284,6 +285,81 @@ export class TranslationEditorBridge extends EditorLifecycle {
     }
 
     return module.getContent() !== sentence.content;
+  }
+
+  /**
+   * Compute diff highlights between original and new content
+   * This enables visual feedback showing what changed during editing
+   */
+  public computeDiffHighlights(
+    originalContent: string,
+    newContent: string
+  ): DiffHighlightRange[] {
+    const highlights: DiffHighlightRange[] = [];
+
+    // Simple character-level diff computation
+    // For more sophisticated diff, we could use a library like diff-match-patch
+    // But for now, we'll use a simple approach
+
+    // If content is identical, no highlights
+    if (originalContent === newContent) {
+      return highlights;
+    }
+
+    // Find common prefix and suffix
+    let prefixLen = 0;
+    const minLen = Math.min(originalContent.length, newContent.length);
+
+    while (
+      prefixLen < minLen &&
+      originalContent[prefixLen] === newContent[prefixLen]
+    ) {
+      prefixLen++;
+    }
+
+    let suffixLen = 0;
+    while (
+      suffixLen < minLen - prefixLen &&
+      originalContent[originalContent.length - 1 - suffixLen] ===
+        newContent[newContent.length - 1 - suffixLen]
+    ) {
+      suffixLen++;
+    }
+
+    // Determine what changed
+    const oldMiddle = originalContent.substring(
+      prefixLen,
+      originalContent.length - suffixLen
+    );
+    const newMiddle = newContent.substring(
+      prefixLen,
+      newContent.length - suffixLen
+    );
+
+    if (oldMiddle.length > 0 && newMiddle.length === 0) {
+      // Deletion
+      highlights.push({
+        start: prefixLen,
+        end: prefixLen + oldMiddle.length,
+        type: 'deletion',
+      });
+    } else if (oldMiddle.length === 0 && newMiddle.length > 0) {
+      // Addition
+      highlights.push({
+        start: prefixLen,
+        end: prefixLen + newMiddle.length,
+        type: 'addition',
+      });
+    } else if (oldMiddle.length > 0 && newMiddle.length > 0) {
+      // Modification
+      highlights.push({
+        start: prefixLen,
+        end: prefixLen + newMiddle.length,
+        type: 'modification',
+      });
+    }
+
+    return highlights;
   }
 
   /**
