@@ -17,33 +17,7 @@ import type {
   ReviewCommentInput,
   ReviewCommentResult,
 } from '../types';
-
-function decodeBase64(content: string): string {
-  if (typeof atob === 'function') {
-    return decodeURIComponent(
-      Array.prototype.map
-        .call(
-          atob(content),
-          (c: string) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
-        )
-        .join('')
-    );
-  }
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(content, 'base64').toString('utf-8');
-  }
-  throw new Error('Base64 decoding is not supported in this environment');
-}
-
-function encodeBase64(content: string): string {
-  if (typeof btoa === 'function') {
-    return btoa(unescape(encodeURIComponent(content)));
-  }
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(content, 'utf-8').toString('base64');
-  }
-  throw new Error('Base64 encoding is not supported in this environment');
-}
+import { decodeBase64, encodeBase64 } from '../../../utils/encoding';
 
 export class GiteaProvider extends BaseProvider {
   constructor(config: ProviderConfig) {

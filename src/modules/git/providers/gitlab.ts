@@ -17,27 +17,7 @@ import type {
   ReviewCommentInput,
   ReviewCommentResult,
 } from '../types';
-
-function encodeBase64(content: string): string {
-  if (typeof btoa === 'function') {
-    return btoa(unescape(encodeURIComponent(content)));
-  }
-  return Buffer.from(content, 'utf-8').toString('base64');
-}
-
-function decodeBase64(content: string): string {
-  if (typeof atob === 'function') {
-    return decodeURIComponent(
-      Array.prototype.map
-        .call(
-          atob(content),
-          (c: string) => `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
-        )
-        .join('')
-    );
-  }
-  return Buffer.from(content, 'base64').toString('utf-8');
-}
+import { decodeBase64, encodeBase64 } from '../../../utils/encoding';
 
 function encodePath(path: string): string {
   return encodeURIComponent(path).replace(/%2F/g, '/');
