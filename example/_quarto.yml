@@ -19,6 +19,9 @@ format:
     css: styles.css
     toc: true
 
+execute:
+  enabled: false
+
 review:
   enabled: true
   enableTranslation: true
