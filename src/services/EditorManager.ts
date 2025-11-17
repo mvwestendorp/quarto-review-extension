@@ -174,20 +174,32 @@ export class EditorManager {
 
     const type = element.getAttribute('data-review-type') || 'Para';
 
-    const { plainContent, diffHighlights } = this.callbacks.createEditorSession(
-      elementId,
-      type
-    );
+    const { plainContent, trackedContent, diffHighlights } =
+      this.callbacks.createEditorSession(elementId, type);
+
+    // Use tracked content if tracked changes are enabled, otherwise use plain content
+    const showTrackedChanges =
+      this.stateStore.getEditorState().showTrackedChanges;
+    const contentToDisplay = showTrackedChanges
+      ? trackedContent || plainContent
+      : plainContent;
 
     logger.trace('Editor content (plain):', plainContent);
+    if (showTrackedChanges) {
+      logger.trace('Editor content (tracked):', contentToDisplay);
+    }
 
-    const modal = this.callbacks.createEditorModal(plainContent, type);
+    const modal = this.callbacks.createEditorModal(contentToDisplay, type);
     document.body.appendChild(modal);
     this.stateStore.setEditorState({ activeEditor: modal });
 
     // Delay so DOM renders
     requestAnimationFrame(() => {
-      this.callbacks.initializeMilkdown(modal, plainContent, diffHighlights);
+      this.callbacks.initializeMilkdown(
+        modal,
+        contentToDisplay,
+        diffHighlights
+      );
     });
   }
 
@@ -217,10 +229,15 @@ export class EditorManager {
 
     const type = element.getAttribute('data-review-type') || 'Para';
 
-    const { plainContent, diffHighlights } = this.callbacks.createEditorSession(
-      elementId,
-      type
-    );
+    const { plainContent, trackedContent, diffHighlights } =
+      this.callbacks.createEditorSession(elementId, type);
+
+    // Use tracked content if tracked changes are enabled, otherwise use plain content
+    const showTrackedChanges =
+      this.stateStore.getEditorState().showTrackedChanges;
+    const contentToDisplay = showTrackedChanges
+      ? trackedContent || plainContent
+      : plainContent;
 
     // Mark element as being edited
     element.classList.add('review-editable-editing');
@@ -260,7 +277,7 @@ export class EditorManager {
     requestAnimationFrame(() => {
       this.callbacks.initializeMilkdown(
         inlineEditor,
-        plainContent,
+        contentToDisplay,
         diffHighlights
       );
     });
