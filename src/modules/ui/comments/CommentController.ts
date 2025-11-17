@@ -8,6 +8,7 @@ import type { CommentsSidebar } from './CommentsSidebar';
 import type { CommentBadges, CommentBadgeCallbacks } from './CommentBadges';
 import type { Element as ReviewElement } from '@/types';
 import { getAnimationDuration } from '../constants';
+import { addClass, removeClass } from '@utils/dom-helpers';
 
 export interface CommentControllerConfig {
   changes: ChangesModule;
@@ -112,7 +113,7 @@ export class CommentController {
           `.review-comment-item[data-comment-key="${context.commentKey}"]`
         );
         if (originalItem) {
-          originalItem.classList.add('review-comment-item-hidden');
+          addClass(originalItem, 'review-comment-item-hidden');
           this.commentState.activeComposerOriginalItem = originalItem;
         }
       }
@@ -130,7 +131,8 @@ export class CommentController {
     this.commentState.activeComposerInsertionAnchor = null;
 
     if (this.commentState.activeComposerOriginalItem) {
-      this.commentState.activeComposerOriginalItem.classList.remove(
+      removeClass(
+        this.commentState.activeComposerOriginalItem,
         'review-comment-item-hidden'
       );
       this.commentState.activeComposerOriginalItem = null;
@@ -326,14 +328,15 @@ export class CommentController {
       this.commentState.activeHighlightedSection &&
       this.commentState.activeHighlightedSection !== element
     ) {
-      this.commentState.activeHighlightedSection.classList.remove(
+      removeClass(
+        this.commentState.activeHighlightedSection,
         'review-comment-section-highlight'
       );
     }
 
     this.commentState.activeHighlightedSection = element;
     this.commentState.highlightedBy = source;
-    element.classList.add('review-comment-section-highlight');
+    addClass(element, 'review-comment-section-highlight');
 
     this.updateCommentHighlights(elementId, commentKey, source);
 
@@ -341,11 +344,13 @@ export class CommentController {
       const isComposerElement =
         this.commentState.activeCommentComposer.dataset.elementId === elementId;
       if (source === 'composer' && isComposerElement) {
-        this.commentState.activeCommentComposer.classList.add(
+        addClass(
+          this.commentState.activeCommentComposer,
           'review-comment-composer-active'
         );
       } else if (source === 'hover') {
-        this.commentState.activeCommentComposer.classList.remove(
+        removeClass(
+          this.commentState.activeCommentComposer,
           'review-comment-composer-active'
         );
       }
@@ -364,7 +369,8 @@ export class CommentController {
     }
 
     if (this.commentState.activeHighlightedSection) {
-      this.commentState.activeHighlightedSection.classList.remove(
+      removeClass(
+        this.commentState.activeHighlightedSection,
         'review-comment-section-highlight'
       );
     }
@@ -378,7 +384,8 @@ export class CommentController {
       this.commentState.activeCommentComposer &&
       source === 'composer'
     ) {
-      this.commentState.activeCommentComposer.classList.remove(
+      removeClass(
+        this.commentState.activeCommentComposer,
         'review-comment-composer-active'
       );
     }
@@ -412,16 +419,16 @@ export class CommentController {
 
     if (anchor) {
       anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      anchor.classList.add('review-comment-anchor-highlight');
+      addClass(anchor, 'review-comment-anchor-highlight');
       setTimeout(() => {
-        anchor.classList.remove('review-comment-anchor-highlight');
+        removeClass(anchor, 'review-comment-anchor-highlight');
       }, getAnimationDuration('LONG_HIGHLIGHT'));
       anchor.focus({ preventScroll: true });
     } else {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('review-highlight-flash');
+      addClass(element, 'review-highlight-flash');
       setTimeout(() => {
-        element.classList.remove('review-highlight-flash');
+        removeClass(element, 'review-highlight-flash');
       }, getAnimationDuration('LONG_HIGHLIGHT'));
     }
   }
@@ -433,9 +440,7 @@ export class CommentController {
   ): void {
     document
       .querySelectorAll<HTMLElement>('.review-comment-item')
-      .forEach((item) =>
-        item.classList.remove('review-comment-item-highlight')
-      );
+      .forEach((item) => removeClass(item, 'review-comment-item-highlight'));
 
     if (!elementId) {
       return;
@@ -448,13 +453,11 @@ export class CommentController {
     if (commentKey) {
       items.forEach((item) => {
         if (item.dataset.commentKey === commentKey) {
-          item.classList.add('review-comment-item-highlight');
+          addClass(item, 'review-comment-item-highlight');
         }
       });
     } else if (source === 'hover') {
-      items.forEach((item) =>
-        item.classList.add('review-comment-item-highlight')
-      );
+      items.forEach((item) => addClass(item, 'review-comment-item-highlight'));
     }
   }
 
@@ -480,7 +483,7 @@ export class CommentController {
     element
       .querySelectorAll<HTMLElement>('[data-critic-type="highlight"]')
       .forEach((node) => {
-        node.classList.remove('review-comment-anchor');
+        removeClass(node, 'review-comment-anchor');
         node.removeAttribute('data-comment-anchor');
         node.removeAttribute('tabindex');
         node.removeAttribute('role');

@@ -31,6 +31,13 @@ import {
 import { normalizeContentForComparison } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
 import { QmdExportService, type ExportFormat } from '@modules/export';
+import {
+  createDiv,
+  setAttributes,
+  addClass,
+  removeClass,
+  toggleClass,
+} from '@utils/dom-helpers';
 import ReviewSubmissionModal, {
   type ReviewSubmissionInitialValues,
 } from './modals/ReviewSubmissionModal';
@@ -434,12 +441,14 @@ export class UIModule {
         '.review-toolbar'
       ) as HTMLElement | null;
       if (toolbar) {
-        toolbar.classList.toggle(
+        toggleClass(
+          toolbar,
           'review-sidebar-collapsed',
           uiState.isSidebarCollapsed
         );
         if (document.body) {
-          document.body.classList.toggle(
+          toggleClass(
+            document.body,
             'review-sidebar-collapsed-mode',
             uiState.isSidebarCollapsed
           );
@@ -474,12 +483,9 @@ export class UIModule {
     const toolbar = sidebar ?? this.getOrCreateToolbar();
     this.stateStore.setUIState({ isSidebarCollapsed: collapsed });
 
-    toolbar.classList.toggle('review-sidebar-collapsed', collapsed);
+    toggleClass(toolbar, 'review-sidebar-collapsed', collapsed);
     if (document.body) {
-      document.body.classList.toggle(
-        'review-sidebar-collapsed-mode',
-        collapsed
-      );
+      toggleClass(document.body, 'review-sidebar-collapsed-mode', collapsed);
     }
 
     this.unifiedSidebar.setCollapsed(collapsed);
@@ -707,7 +713,7 @@ export class UIModule {
 
         // Show original content (sidebar stays visible with comments section restored)
         this.showOriginalDocument(true);
-        document.body.classList.remove('translation-mode');
+        removeClass(document.body, 'translation-mode');
 
         // Switch sidebar back to review mode
         this.unifiedSidebar.setTranslationMode(false);
@@ -720,12 +726,11 @@ export class UIModule {
       } else {
         // Open translation UI - hide original document (comments section handled by unified sidebar)
         this.showOriginalDocument(false);
-        document.body.classList.add('translation-mode');
+        addClass(document.body, 'translation-mode');
 
         // Create translation view container (directly in document, no separate wrapper needed)
-        const container = document.createElement('div');
+        const container = createDiv('review-translation-view');
         container.id = 'translation-view-container';
-        container.className = 'review-translation-view';
 
         // Insert translation view into document
         const mainContent = document.querySelector('#quarto-document-content');
@@ -872,12 +877,12 @@ export class UIModule {
 
     elem.addEventListener('mouseenter', () => {
       if (!elem.classList.contains('review-editable-editing')) {
-        elem.classList.add('review-hover');
+        addClass(elem, 'review-hover');
       }
     });
 
     elem.addEventListener('mouseleave', () => {
-      elem.classList.remove('review-hover');
+      removeClass(elem, 'review-hover');
     });
   }
 
@@ -1480,8 +1485,7 @@ export class UIModule {
   }
 
   private createEditorModal(_content: string, type: string): HTMLElement {
-    const modal = document.createElement('div');
-    modal.className = 'review-editor-modal';
+    const modal = createDiv('review-editor-modal');
     modal.innerHTML = `
       <div class="review-editor-container">
         <div class="review-editor-header">
@@ -2141,14 +2145,16 @@ export class UIModule {
     id: string,
     metadata: ElementMetadata
   ): HTMLElement {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'review-editable review-editable-generated';
-    wrapper.setAttribute('data-review-id', id);
-    wrapper.setAttribute('data-review-type', metadata.type);
+    const wrapper = createDiv('review-editable review-editable-generated');
+    const attrs: Record<string, string> = {
+      'data-review-id': id,
+      'data-review-type': metadata.type,
+      'data-review-origin': 'generated',
+    };
     if (metadata.level) {
-      wrapper.setAttribute('data-review-level', String(metadata.level));
+      attrs['data-review-level'] = String(metadata.level);
     }
-    wrapper.setAttribute('data-review-origin', 'generated');
+    setAttributes(wrapper, attrs);
     return wrapper;
   }
 
@@ -2380,10 +2386,14 @@ export class UIModule {
     ) as HTMLElement | null;
     if (!domElement) return;
 
-    domElement.setAttribute('data-review-type', elem.metadata.type);
+    const attrs: Record<string, string> = {
+      'data-review-type': elem.metadata.type,
+    };
     if (elem.metadata.level !== undefined) {
-      domElement.setAttribute('data-review-level', String(elem.metadata.level));
-    } else {
+      attrs['data-review-level'] = String(elem.metadata.level);
+    }
+    setAttributes(domElement, attrs);
+    if (elem.metadata.level === undefined) {
       domElement.removeAttribute('data-review-level');
     }
 
@@ -2460,7 +2470,7 @@ export class UIModule {
       }
     });
 
-    const temp = document.createElement('div');
+    const temp = createDiv();
     temp.innerHTML = html;
     const newNodes: ChildNode[] = [];
     while (temp.firstChild) {
@@ -2708,16 +2718,14 @@ export class UIModule {
     if (alreadyWrapped) {
       const fragment = document.createDocumentFragment();
       nodes.forEach((node) => fragment.appendChild(node));
-      const container = document.createElement('div');
-      container.setAttribute('data-review-wrapper', 'true');
-      container.className = 'review-section-wrapper';
+      const container = createDiv('review-section-wrapper');
+      setAttributes(container, { 'data-review-wrapper': 'true' });
       container.appendChild(fragment);
       return container;
     }
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'review-section-wrapper';
-    wrapper.setAttribute('data-review-wrapper', 'true');
+    const wrapper = createDiv('review-section-wrapper');
+    setAttributes(wrapper, { 'data-review-wrapper': 'true' });
     const fragment = document.createDocumentFragment();
     nodes.forEach((node) => fragment.appendChild(node));
     wrapper.appendChild(fragment);

@@ -2,6 +2,7 @@ import { createModuleLogger } from '@utils/debug';
 import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 import { escapeHtml } from '../shared';
+import { createDiv, createButton, setAttributes } from '@utils/dom-helpers';
 
 const logger = createModuleLogger('CommentsSidebar');
 
@@ -81,25 +82,21 @@ export class CommentsSidebar {
     content.innerHTML = '';
 
     if (this.sections.length === 0) {
-      const emptyMsg = document.createElement('div');
-      emptyMsg.className = 'review-comments-empty';
+      const emptyMsg = createDiv('review-comments-empty');
       emptyMsg.textContent = 'No comments yet';
       content.appendChild(emptyMsg);
       return;
     }
 
     this.sections.forEach((snapshot) => {
-      const section = document.createElement('div');
-      section.className = 'review-comments-section';
+      const section = createDiv('review-comments-section');
       section.dataset.sectionId = snapshot.element.id;
 
-      /*const header = document.createElement('div');
-      header.className = 'review-comments-section-header';
+      /*const header = createDiv('review-comments-section-header');
       header.textContent = this.getSectionLabel(snapshot);
       section.appendChild(header);*/
 
-      const list = document.createElement('div');
-      list.className = 'review-comments-list';
+      const list = createDiv('review-comments-list');
 
       snapshot.comments.forEach((comment, index) => {
         const item = this.renderComment(snapshot, comment, index);
@@ -128,27 +125,29 @@ export class CommentsSidebar {
   private ensureElementCreated(): void {
     if (this.element) return;
 
-    const sidebar = document.createElement('div');
-    sidebar.className =
-      'review-comments-sidebar review-persistent-sidebar review-sidebar-collapsed';
-    sidebar.setAttribute('role', 'region');
-    sidebar.setAttribute('aria-label', 'Comments');
-    sidebar.setAttribute('aria-hidden', 'true');
+    const sidebar = createDiv(
+      'review-comments-sidebar review-persistent-sidebar review-sidebar-collapsed'
+    );
+    setAttributes(sidebar, {
+      role: 'region',
+      'aria-label': 'Comments',
+      'aria-hidden': 'true',
+    });
 
-    const header = document.createElement('div');
-    header.className = 'review-sidebar-header';
-    header.setAttribute('data-sidebar-label', 'Comments');
+    const header = createDiv('review-sidebar-header');
+    setAttributes(header, { 'data-sidebar-label': 'Comments' });
 
     const title = document.createElement('h3');
     title.textContent = 'Comments';
     header.appendChild(title);
 
-    this.toggleBtn = document.createElement('button');
-    this.toggleBtn.className = 'review-btn review-btn-icon';
-    this.toggleBtn.setAttribute('data-action', 'toggle-comments-sidebar');
-    this.toggleBtn.setAttribute('aria-label', 'Expand comments panel');
-    this.toggleBtn.setAttribute('title', 'Expand comments panel');
-    this.toggleBtn.setAttribute('aria-expanded', 'false');
+    this.toggleBtn = createButton('', 'review-btn review-btn-icon');
+    setAttributes(this.toggleBtn, {
+      'data-action': 'toggle-comments-sidebar',
+      'aria-label': 'Expand comments panel',
+      title: 'Expand comments panel',
+      'aria-expanded': 'false',
+    });
     const chevron = document.createElement('span');
     chevron.className = 'review-icon-chevron';
     chevron.textContent = '‹';
@@ -158,11 +157,11 @@ export class CommentsSidebar {
 
     sidebar.appendChild(header);
 
-    const content = document.createElement('div');
-    content.className = 'review-sidebar-body review-comments-sidebar-body';
+    const content = createDiv(
+      'review-sidebar-body review-comments-sidebar-body'
+    );
 
-    const listContainer = document.createElement('div');
-    listContainer.className = 'review-comments-sidebar-content';
+    const listContainer = createDiv('review-comments-sidebar-content');
     content.appendChild(listContainer);
 
     sidebar.appendChild(content);
@@ -213,30 +212,26 @@ export class CommentsSidebar {
     const elementId = snapshot.element.id;
     const commentKey = `${elementId}:${comment.id}`;
 
-    const container = document.createElement('div');
-    container.className = 'review-comment-item';
+    const container = createDiv('review-comment-item');
     container.dataset.commentKey = commentKey;
     container.dataset.elementId = elementId;
     container.dataset.commentId = comment.id;
-    container.setAttribute('role', 'article');
+    setAttributes(container, { role: 'article' });
 
-    const header = document.createElement('div');
-    header.className = 'review-comment-item-header';
+    const header = createDiv('review-comment-item-header');
     header.innerHTML = `
       <span class="review-comment-position">${index + 1}/${snapshot.comments.length}</span>
       <span class="review-comment-link" aria-hidden="true">⟶</span>
     `;
     container.appendChild(header);
 
-    const body = document.createElement('div');
-    body.className = 'review-comment-item-body';
+    const body = createDiv('review-comment-item-body');
     body.innerHTML = `<div class="review-comment-text">${escapeHtml(
       this.extractPlainText(comment.content)
     )}</div>`;
     container.appendChild(body);
 
-    const actions = document.createElement('div');
-    actions.className = 'review-comment-item-actions';
+    const actions = createDiv('review-comment-item-actions');
     actions.innerHTML = `
       <button class="review-comment-action-btn" data-action="goto">View</button>
       <button class="review-comment-action-btn" data-action="remove">Remove</button>

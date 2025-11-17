@@ -20,8 +20,8 @@ export interface BuildInfo {
 export const BUILD_INFO: BuildInfo = {
   version: '0.1.0',
   buildNumber: 'dev',
-  buildDate: '2025-11-17T09:39:57.874Z',
-  commit: '165b573b34f790eebf6b1d36a2c1dee2295dbc9b',
+  buildDate: '2025-11-17T10:00:15.222Z',
+  commit: '2fb37a8b36337893c76326bd733b3f4a8c03ae8b',
   branch: 'claude/refactor-ui-components-01491zeABjufyuX182Rjp4TN',
   pr: undefined,
   buildType: 'dev',
@@ -46,16 +46,7 @@ export function getBuildString(): string {
  * Get full build information string
  */
 export function getFullBuildInfo(): string {
-  const {
-    version,
-    buildNumber,
-    buildDate,
-    commit,
-    branch,
-    pr,
-    buildType,
-    buildUrl,
-  } = BUILD_INFO;
+  const { version, buildNumber, buildDate, commit, branch, pr, buildType, buildUrl } = BUILD_INFO;
   const parts = [
     `Version: ${version}`,
     `Build: ${buildNumber}`,

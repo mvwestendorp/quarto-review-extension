@@ -17,6 +17,7 @@ import {
   //escapeHtml,
 } from '../shared';
 import { CommentEditor } from './CommentEditor';
+import { createDiv, createButton, setAttributes } from '@utils/dom-helpers';
 
 const logger = createModuleLogger('CommentComposer');
 
@@ -48,54 +49,54 @@ export class CommentComposer extends ModuleEventEmitter {
    * Create the composer element
    */
   create(): HTMLElement {
-    const composer = document.createElement('div');
-    composer.className = 'review-comment-composer';
-    composer.setAttribute('role', 'dialog');
-    composer.setAttribute('aria-label', 'Comment composer');
+    const composer = createDiv('review-comment-composer');
+    setAttributes(composer, {
+      role: 'dialog',
+      'aria-label': 'Comment composer',
+    });
 
     // Header
-    const header = document.createElement('div');
-    header.className = 'review-comment-composer-header';
+    const header = createDiv('review-comment-composer-header');
 
     const title = document.createElement('h3');
     title.textContent = 'Add Comment';
     header.appendChild(title);
 
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'review-comment-composer-close';
-    closeBtn.setAttribute('aria-label', 'Close composer');
-    closeBtn.textContent = '×';
+    const closeBtn = createButton('×', 'review-comment-composer-close');
+    setAttributes(closeBtn, { 'aria-label': 'Close composer' });
     closeBtn.addEventListener('click', () => this.cancel());
     header.appendChild(closeBtn);
 
     composer.appendChild(header);
 
     // Textarea
-    const textareaContainer = document.createElement('div');
-    textareaContainer.className = 'review-comment-composer-body';
+    const textareaContainer = createDiv('review-comment-composer-body');
 
     const textarea = document.createElement('textarea');
     textarea.className = 'review-comment-composer-textarea';
     textarea.placeholder = 'Enter your comment...';
-    textarea.setAttribute('rows', '4');
-    textarea.setAttribute('aria-label', 'Comment text');
+    setAttributes(textarea, {
+      rows: '4',
+      'aria-label': 'Comment text',
+    });
     textareaContainer.appendChild(textarea);
 
     composer.appendChild(textareaContainer);
 
     // Footer with buttons
-    const footer = document.createElement('div');
-    footer.className = 'review-comment-composer-footer';
+    const footer = createDiv('review-comment-composer-footer');
 
-    const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'review-comment-composer-cancel-btn';
-    cancelBtn.textContent = 'Cancel';
+    const cancelBtn = createButton(
+      'Cancel',
+      'review-comment-composer-cancel-btn'
+    );
     cancelBtn.addEventListener('click', () => this.cancel());
     footer.appendChild(cancelBtn);
 
-    const submitBtn = document.createElement('button');
-    submitBtn.className = 'review-comment-composer-submit-btn';
-    submitBtn.textContent = 'Post Comment';
+    const submitBtn = createButton(
+      'Post Comment',
+      'review-comment-composer-submit-btn'
+    );
     submitBtn.addEventListener('click', () => this.submit());
     footer.appendChild(submitBtn);
 
@@ -148,8 +149,7 @@ export class CommentComposer extends ModuleEventEmitter {
 
     // Create overlay if it doesn't exist
     if (!this.overlay) {
-      this.overlay = document.createElement('div');
-      this.overlay.className = 'review-comment-composer-overlay';
+      this.overlay = createDiv('review-comment-composer-overlay');
       document.body.appendChild(this.overlay);
       // Close when clicking outside the composer
       this.overlay.addEventListener('click', () => this.cancel());
@@ -231,8 +231,7 @@ export class CommentComposer extends ModuleEventEmitter {
       } catch (error) {
         logger.error('Failed to initialize comment editor', error);
         // Show error message to user
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'review-comment-composer-error';
+        const errorDiv = createDiv('review-comment-composer-error');
         errorDiv.style.color = 'red';
         errorDiv.style.padding = '10px';
         errorDiv.textContent = 'Failed to initialize editor. Please try again.';
