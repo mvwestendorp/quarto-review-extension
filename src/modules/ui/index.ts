@@ -84,7 +84,6 @@ export interface UIConfig {
   changes: ChangesModule;
   markdown: MarkdownModule;
   comments: CommentsModule;
-  inlineEditing?: boolean; // Use inline editing instead of modal
   persistence?: LocalDraftPersistence;
   exporter?: QmdExportService;
   reviewService?: GitReviewService;
@@ -285,7 +284,6 @@ export class UIModule {
       changes: this.config.changes,
       comments: this.config.comments,
       markdown: this.config.markdown,
-      inlineEditing: this.config.inlineEditing ?? false,
       historyStorage: this.historyStorage,
       notificationService: this.notificationService,
       editorLifecycle: this.editorLifecycle,
@@ -316,8 +314,6 @@ export class UIModule {
       onEditorSaved: () => {
         this.handleEditorSaved();
       },
-      createEditorModal: (content, type) =>
-        this.createEditorModal(content, type),
       initializeMilkdown: (container, content, diffHighlights) =>
         this.initializeMilkdown(container, content, diffHighlights ?? []),
       createEditorSession: (elementId, type) =>
@@ -1482,41 +1478,6 @@ export class UIModule {
     } catch {
       // noop
     }
-  }
-
-  private createEditorModal(_content: string, type: string): HTMLElement {
-    const modal = createDiv('review-editor-modal');
-    modal.innerHTML = `
-      <div class="review-editor-container">
-        <div class="review-editor-header">
-          <h3>Edit ${type}</h3>
-          <button class="review-btn review-btn-secondary" data-action="close">✕</button>
-        </div>
-        <div class="review-editor-body"></div>
-        <div class="review-editor-footer">
-          <button class="review-btn review-btn-secondary" data-action="cancel">Cancel</button>
-          <button class="review-btn review-btn-primary" data-action="save">Save</button>
-        </div>
-      </div>
-    `;
-
-    modal
-      .querySelector('[data-action="close"]')
-      ?.addEventListener('click', () => this.closeEditor());
-    modal
-      .querySelector('[data-action="cancel"]')
-      ?.addEventListener('click', () => this.closeEditor());
-    modal
-      .querySelector('[data-action="save"]')
-      ?.addEventListener('click', () => this.saveEditor());
-
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        this.closeEditor();
-      }
-    });
-
-    return modal;
   }
 
   public refresh(): void {

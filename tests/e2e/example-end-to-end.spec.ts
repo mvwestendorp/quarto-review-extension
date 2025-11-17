@@ -92,14 +92,14 @@ async function applyEdit(options: {
   await expect(locator).toBeVisible();
 
   await locator.dblclick();
-  await page.waitForSelector('.review-editor-modal', { state: 'visible' });
+  await page.waitForSelector('.review-inline-editor-container', { state: 'visible' });
 
-  const textarea = page.locator('.review-editor-content textarea').first();
+  const textarea = page.locator('.milkdown .ProseMirror').first();
   const existing = await textarea.inputValue();
   await textarea.fill(`${existing} ${marker}`.trim());
 
   await page.locator('button:has-text("Save")').first().click();
-  await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+  await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
   await expect(locator).toContainText(marker.replace(/\s+/g, ' ').trim());
 }

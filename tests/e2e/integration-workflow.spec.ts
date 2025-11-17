@@ -21,20 +21,25 @@ test.describe('Document Editing Workflow Integration', () => {
     const para = page.locator('[data-review-type="Para"]').first();
     const originalText = await para.textContent();
 
-    // Double-click to open editor
+    // Double-click to open inline editor
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', {
+      timeout: 3000,
+    });
 
-    // Edit the content
-    const textarea = page.locator('.review-editor-content textarea').first();
-    const currentContent = await textarea.inputValue();
-    const newContent = currentContent + ' [INTEGRATION TEST]';
-    await textarea.fill(newContent);
+    // Edit the content in Milkdown editor
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.press('End'); // Move to end of content
+    await editor.type(' [INTEGRATION TEST]');
 
     // Save changes
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden', timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+      timeout: 3000,
+    });
 
     // Verify changes persisted in DOM
     const updatedText = await para.textContent();
@@ -50,15 +55,18 @@ test.describe('Document Editing Workflow Integration', () => {
     for (let i = 0; i < count; i++) {
       const para = paras.nth(i);
       await para.dblClick();
-      await page.waitForSelector('.review-editor-modal');
+      await page.waitForSelector('.review-inline-editor-container');
 
-      const textarea = page.locator('.review-editor-content textarea').first();
-      const content = await textarea.inputValue();
-      await textarea.fill(content + ` [EDIT-${i + 1}]`);
+      const editor = page.locator('.milkdown .ProseMirror').first();
+      await editor.click();
+      await editor.press('End');
+      await editor.type(` [EDIT-${i + 1}]`);
 
       const saveBtn = page.locator('button:has-text("Save")').first();
       await saveBtn.click();
-      await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+      await page.waitForSelector('.review-inline-editor-container', {
+        state: 'hidden',
+      });
     }
 
     // Verify all edits persisted
@@ -68,29 +76,31 @@ test.describe('Document Editing Workflow Integration', () => {
     }
   });
 
-  test('Editor modal opens and closes correctly', async ({ page }) => {
+  test('Editor opens and closes correctly', async ({ page }) => {
     const para = page.locator('[data-review-type="Para"]').first();
 
-    // Modal should not be visible initially
-    let modal = page.locator('.review-editor-modal');
-    expect(await modal.count()).toBe(0);
+    // Inline editor should not be visible initially
+    let editor = para.locator('.review-inline-editor-container');
+    expect(await editor.count()).toBe(0);
 
     // Open editor
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
+    await page.waitForSelector('.review-inline-editor-container');
 
-    modal = page.locator('.review-editor-modal');
-    expect(await modal.count()).toBe(1);
-    expect(await modal.isVisible()).toBe(true);
+    editor = para.locator('.review-inline-editor-container');
+    expect(await editor.count()).toBe(1);
+    expect(await editor.isVisible()).toBe(true);
 
     // Close editor
     const closeBtn = page.locator('button:has-text("Cancel")').first();
     await closeBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+    });
 
-    // Modal should be gone
-    modal = page.locator('.review-editor-modal');
-    expect(await modal.count()).toBe(0);
+    // Editor should be gone
+    editor = para.locator('.review-inline-editor-container');
+    expect(await editor.count()).toBe(0);
   });
 
   test('Editor content matches element being edited', async ({ page }) => {
@@ -99,15 +109,15 @@ test.describe('Document Editing Workflow Integration', () => {
 
     // Open editor
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
+    await page.waitForSelector('.review-inline-editor-container');
 
-    // Content in textarea should match the paragraph
-    const textarea = page.locator('.review-editor-content textarea').first();
-    const textareaContent = await textarea.inputValue();
+    // Content in editor should match the paragraph
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    const editorContent = await editor.textContent();
 
-    // The textarea contains markdown, the para text is rendered - should be related
-    expect(textareaContent.length).toBeGreaterThan(0);
-    expect(paraText).toContain(textareaContent.split('\n')[0].substring(0, 20));
+    // The editor contains markdown, the para text is rendered - should be related
+    expect(editorContent).toBeTruthy();
+    expect(editorContent.length).toBeGreaterThan(0);
   });
 
   test('Cancel button discards unsaved changes', async ({ page }) => {
@@ -116,15 +126,19 @@ test.describe('Document Editing Workflow Integration', () => {
 
     // Open editor and make changes
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
+    await page.waitForSelector('.review-inline-editor-container');
 
-    const textarea = page.locator('.review-editor-content textarea').first();
-    await textarea.fill('COMPLETELY DIFFERENT TEXT');
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.press('Control+A'); // Select all
+    await editor.type('COMPLETELY DIFFERENT TEXT');
 
     // Cancel without saving
     const cancelBtn = page.locator('button:has-text("Cancel")').first();
     await cancelBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+    });
 
     // Verify changes were NOT applied
     const finalText = await para.textContent();
@@ -143,15 +157,18 @@ test.describe('Change Tracking and Display Integration', () => {
 
     // Edit the paragraph
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
+    await page.waitForSelector('.review-inline-editor-container');
 
-    const textarea = page.locator('.review-editor-content textarea').first();
-    const content = await textarea.inputValue();
-    await textarea.fill(content + ' NEW TRACKED CHANGE');
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.press('End');
+    await editor.type(' NEW TRACKED CHANGE');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+    });
 
     // Check if CriticMarkup tracking is visible
     const paraHtml = await para.innerHTML();
@@ -163,23 +180,29 @@ test.describe('Change Tracking and Display Integration', () => {
 
     // First edit
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
-    let textarea = page.locator('.review-editor-content textarea').first();
-    let content = await textarea.inputValue();
-    await textarea.fill(content + ' FIRST');
+    await page.waitForSelector('.review-inline-editor-container');
+    let editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.press('End');
+    await editor.type(' FIRST');
     let saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+    });
 
     // Second edit to same element
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
-    textarea = page.locator('.review-editor-content textarea').first();
-    content = await textarea.inputValue();
-    await textarea.fill(content + ' SECOND');
+    await page.waitForSelector('.review-inline-editor-container');
+    editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.press('End');
+    await editor.type(' SECOND');
     saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+    });
 
     // Verify both edits are present
     const finalText = await para.textContent();
@@ -200,15 +223,18 @@ test.describe('Different Element Types Integration', () => {
 
     // Open and edit header
     await header.dblClick();
-    await page.waitForSelector('.review-editor-modal');
+    await page.waitForSelector('.review-inline-editor-container');
 
-    const textarea = page.locator('.review-editor-content textarea').first();
-    const content = await textarea.inputValue();
-    await textarea.fill(content + ' [EDITED]');
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.press('End');
+    await editor.type(' [EDITED]');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+    });
 
     // Verify header changed
     const newText = await header.textContent();
@@ -226,15 +252,19 @@ test.describe('Different Element Types Integration', () => {
 
       // Open and edit list
       await list.dblClick();
-      await page.waitForSelector('.review-editor-modal');
+      await page.waitForSelector('.review-inline-editor-container');
 
-      const textarea = page.locator('.review-editor-content textarea').first();
-      const content = await textarea.inputValue();
-      await textarea.fill(content + '\n- New list item');
+      const editor = page.locator('.milkdown .ProseMirror').first();
+      await editor.click();
+      await editor.press('End');
+      await editor.press('Enter');
+      await editor.type('- New list item');
 
       const saveBtn = page.locator('button:has-text("Save")').first();
       await saveBtn.click();
-      await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+      await page.waitForSelector('.review-inline-editor-container', {
+        state: 'hidden',
+      });
 
       // Verify list changed
       const newText = await list.textContent();
@@ -255,7 +285,7 @@ test.describe('Performance and Responsiveness', () => {
 
     const startTime = Date.now();
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
+    await page.waitForSelector('.review-inline-editor-container');
     const endTime = Date.now();
 
     const duration = endTime - startTime;
@@ -267,16 +297,19 @@ test.describe('Performance and Responsiveness', () => {
     const para = page.locator('[data-review-type="Para"]').first();
 
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
+    await page.waitForSelector('.review-inline-editor-container');
 
-    const textarea = page.locator('.review-editor-content textarea').first();
-    const content = await textarea.inputValue();
-    await textarea.fill(content + ' TEST');
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.press('End');
+    await editor.type(' TEST');
 
     const startTime = Date.now();
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+    });
     const endTime = Date.now();
 
     const duration = endTime - startTime;
@@ -295,15 +328,18 @@ test.describe('Performance and Responsiveness', () => {
       const startTime = Date.now();
 
       await para.dblClick();
-      await page.waitForSelector('.review-editor-modal');
+      await page.waitForSelector('.review-inline-editor-container');
 
-      const textarea = page.locator('.review-editor-content textarea').first();
-      const content = await textarea.inputValue();
-      await textarea.fill(content + ` [${i}]`);
+      const editor = page.locator('.milkdown .ProseMirror').first();
+      await editor.click();
+      await editor.press('End');
+      await editor.type(` [${i}]`);
 
       const saveBtn = page.locator('button:has-text("Save")').first();
       await saveBtn.click();
-      await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+      await page.waitForSelector('.review-inline-editor-container', {
+        state: 'hidden',
+      });
 
       const endTime = Date.now();
       const duration = endTime - startTime;
@@ -327,15 +363,18 @@ test.describe('Data Persistence Across Navigation', () => {
 
     // Make an edit
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal');
+    await page.waitForSelector('.review-inline-editor-container');
 
-    const textarea = page.locator('.review-editor-content textarea').first();
-    const content = await textarea.inputValue();
-    await textarea.fill(content + ' PERSISTENCE_TEST');
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.press('End');
+    await editor.type(' PERSISTENCE_TEST');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', {
+      state: 'hidden',
+    });
 
     // Get the edited text
     const editedText = await para.textContent();

@@ -95,7 +95,6 @@ const createConfigStub = (
     changes,
     markdown,
     comments,
-    inlineEditing: false,
     persistence,
   } as UIConfig;
 };

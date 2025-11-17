@@ -145,7 +145,7 @@ test.describe('UI Modernization - Color Scheme & Shadows', () => {
       document.body.appendChild(modal);
     });
 
-    const modal = page.locator('.review-editor-modal').first();
+    const modal = page.locator('.review-inline-editor-container').first();
     const bgColor = await modal.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );

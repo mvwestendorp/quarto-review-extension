@@ -94,16 +94,16 @@ async function applyEdit(options: {
   expect(elementId, 'Element must include a data-review-id attribute').toBeDefined();
 
   await locator.dblclick();
-  await page.waitForSelector('.review-editor-modal', { state: 'visible' });
+  await page.waitForSelector('.review-inline-editor-container', { state: 'visible' });
 
-  const textarea = page.locator('.review-editor-content textarea').first();
+  const textarea = page.locator('.milkdown .ProseMirror').first();
   const existing = await textarea.inputValue();
   const updateFn = options.update ?? ((current: string, token: string) => `${current} ${token}`);
   const newValue = updateFn(existing, marker);
 
   await textarea.fill(newValue);
   await page.locator('button:has-text("Save")').first().click();
-  await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+  await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
   const assertionText = marker.replace(/\s+/g, ' ').trim();
   await expect(page.locator(`[data-review-id="${elementId}"]`)).toContainText(assertionText, {

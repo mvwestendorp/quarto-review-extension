@@ -45,16 +45,16 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     const firstOriginalText = await firstPara.textContent();
 
     await firstPara.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const textarea = page.locator('.review-editor-content textarea').first();
+    const textarea = page.locator('.milkdown .ProseMirror').first();
     const firstContent = await textarea.inputValue();
     const firstEditedContent = firstContent + ' [PAGE1_EDIT]';
     await textarea.fill(firstEditedContent);
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Verify first edit persisted
     let firstParagraphText = await firstPara.textContent();
@@ -65,16 +65,16 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     const secondOriginalText = await secondPara.textContent();
 
     await secondPara.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const textarea2 = page.locator('.review-editor-content textarea').first();
+    const textarea2 = page.locator('.milkdown .ProseMirror').first();
     const secondContent = await textarea2.inputValue();
     const secondEditedContent = secondContent + ' [PAGE2_EDIT]';
     await textarea2.fill(secondEditedContent);
 
     const saveBtn2 = page.locator('button:has-text("Save")').first();
     await saveBtn2.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Verify second edit persisted
     let secondParagraphText = await secondPara.textContent();
@@ -105,16 +105,16 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
 
     // Make edit
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const textarea = page.locator('.review-editor-content textarea').first();
+    const textarea = page.locator('.milkdown .ProseMirror').first();
     const content = await textarea.inputValue();
     const editedContent = content + ' [RELOAD_TEST]';
     await textarea.fill(editedContent);
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Verify edit exists before reload
     let textAfterEdit = await para.textContent();
@@ -151,15 +151,15 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
 
     // Edit 1: Make actual change
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const textarea = page.locator('.review-editor-content textarea').first();
+    const textarea = page.locator('.milkdown .ProseMirror').first();
     const content = await textarea.inputValue();
     await textarea.fill(content + ' [REAL_CHANGE]');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Verify change persisted
     let textAfterEdit = await para.textContent();
@@ -169,12 +169,12 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     const originalEditedText = await para.textContent();
 
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
     // Don't make changes - just close
     const cancelBtn = page.locator('button:has-text("Cancel")').first();
     await cancelBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Verify text hasn't changed (no ghost edit)
     const textAfterNoEdit = await para.textContent();
@@ -200,15 +200,15 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
 
     // Make actual edit
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    let textarea = page.locator('.review-editor-content textarea').first();
+    let textarea = page.locator('.milkdown .ProseMirror').first();
     let content = await textarea.inputValue();
     await textarea.fill(content + ' [METADATA_TEST]');
 
     let saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Get the content with edit
     const editedText = await para.textContent();
@@ -216,15 +216,15 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
 
     // Open again and close without changes
     await para.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    textarea = page.locator('.review-editor-content textarea').first();
+    textarea = page.locator('.milkdown .ProseMirror').first();
     const reopenedContent = await textarea.inputValue();
 
     // Close without changes
     const cancelBtn = page.locator('button:has-text("Cancel")').first();
     await cancelBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Verify no change occurred
     const finalText = await para.textContent();
@@ -252,28 +252,28 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     // Edit first paragraph
     const firstPara = paras.first();
     await firstPara.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    let textarea = page.locator('.review-editor-content textarea').first();
+    let textarea = page.locator('.milkdown .ProseMirror').first();
     let content = await textarea.inputValue();
     await textarea.fill(content + ' [RAPID_1]');
 
     let saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Rapidly edit second paragraph
     const secondPara = paras.nth(1);
     await secondPara.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    textarea = page.locator('.review-editor-content textarea').first();
+    textarea = page.locator('.milkdown .ProseMirror').first();
     content = await textarea.inputValue();
     await textarea.fill(content + ' [RAPID_2]');
 
     saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Reload and verify both
     await page.reload();
@@ -307,28 +307,28 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     // Edit first paragraph
     const firstPara = paras.first();
     await firstPara.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    let textarea = page.locator('.review-editor-content textarea').first();
+    let textarea = page.locator('.milkdown .ProseMirror').first();
     let content = await textarea.inputValue();
     await textarea.fill(content + ' [EXPORT_1]');
 
     let saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Edit second paragraph
     const secondPara = paras.nth(1);
     await secondPara.dblClick();
-    await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+    await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    textarea = page.locator('.review-editor-content textarea').first();
+    textarea = page.locator('.milkdown .ProseMirror').first();
     content = await textarea.inputValue();
     await textarea.fill(content + ' [EXPORT_2]');
 
     saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
-    await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+    await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Look for export or download button
     const exportBtn = page.locator('button:has-text("Export")', {
@@ -394,17 +394,17 @@ test.describe('Multi-Page Persistence - Restoration Verification', () => {
     for (const target of editTargets) {
       const para = paras.nth(target.index);
       await para.dblClick();
-      await page.waitForSelector('.review-editor-modal', { timeout: 3000 });
+      await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
       const textarea = page.locator(
-        '.review-editor-content textarea'
+        '.milkdown .ProseMirror'
       ).first();
       const content = await textarea.inputValue();
       await textarea.fill(content + ' ' + target.marker);
 
       const saveBtn = page.locator('button:has-text("Save")').first();
       await saveBtn.click();
-      await page.waitForSelector('.review-editor-modal', { state: 'hidden' });
+      await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
     }
 
     // Verify all edits before reload

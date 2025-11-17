@@ -448,7 +448,7 @@ test.describe('Accessibility - Modal Behavior', () => {
       document.body.appendChild(modal);
     });
 
-    const modal = page.locator('.review-editor-modal').first();
+    const modal = page.locator('.review-inline-editor-container').first();
     const bgColor = await modal.evaluate((el) =>
       window.getComputedStyle(el).backgroundColor
     );
@@ -570,7 +570,7 @@ test.describe('Accessibility - ARIA Attributes', () => {
       document.body.appendChild(modal);
     });
 
-    const modal = page.locator('.review-editor-modal[role="dialog"]').first();
+    const modal = page.locator('.review-inline-editor-container[role="dialog"]').first();
     const hasModal = await modal.count();
 
     expect(hasModal).toBeGreaterThan(0);
