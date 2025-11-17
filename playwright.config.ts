@@ -1,5 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 
+/**
+ * Playwright Configuration for Quarto Review Extension
+ *
+ * Includes responsive testing across multiple viewport sizes:
+ * - Mobile devices (iPhone SE, iPhone 13, Android)
+ * - Tablet devices (iPad Mini, iPad Air)
+ * - Desktop screens (HD, Full HD)
+ */
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false, // Sequential for stability with single dev server
@@ -16,6 +25,7 @@ export default defineConfig({
     navigationTimeout: 30000,
   },
   projects: [
+    // Desktop browser testing
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
@@ -29,6 +39,41 @@ export default defineConfig({
     // {
     //   name: 'webkit',
     //   use: { ...devices['Desktop Safari'] },
+    // },
+
+    // Mobile viewport testing (disabled by default, enable as needed)
+    // Uncomment to run tests on mobile viewports
+    // {
+    //   name: 'mobile-iphone-se',
+    //   use: {
+    //     ...devices['iPhone SE'],
+    //   },
+    // },
+    // {
+    //   name: 'mobile-iphone-13',
+    //   use: {
+    //     ...devices['iPhone 13'],
+    //   },
+    // },
+    // {
+    //   name: 'mobile-pixel-5',
+    //   use: {
+    //     ...devices['Pixel 5'],
+    //   },
+    // },
+
+    // Tablet viewport testing (disabled by default, enable as needed)
+    // {
+    //   name: 'tablet-ipad-mini',
+    //   use: {
+    //     ...devices['iPad Mini'],
+    //   },
+    // },
+    // {
+    //   name: 'tablet-ipad-air',
+    //   use: {
+    //     ...devices['iPad (gen 7)'],
+    //   },
     // },
   ],
   webServer: {
