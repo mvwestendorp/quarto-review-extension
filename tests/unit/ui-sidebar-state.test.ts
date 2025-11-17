@@ -336,11 +336,10 @@ describe('UIModule sidebar state handling', () => {
     // Initial state is collapsed (true), so toggling makes it expanded (false)
     ui.toggleSidebarCollapsed();
 
-    const toolbar = document.querySelector(
-      '.review-toolbar'
+    const drawer = document.querySelector(
+      '.review-bottom-drawer'
     ) as HTMLElement | null;
-    expect(toolbar).not.toBeNull();
-    expect(toolbar?.classList.contains('review-sidebar-collapsed')).toBe(false);
+    expect(drawer).not.toBeNull();
     expect(
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(false);
@@ -350,7 +349,6 @@ describe('UIModule sidebar state handling', () => {
     // Toggle back to collapsed (true)
     ui.toggleSidebarCollapsed(true);
 
-    expect(toolbar?.classList.contains('review-sidebar-collapsed')).toBe(true);
     expect(
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(true);
@@ -363,7 +361,7 @@ describe('UIModule sidebar state handling', () => {
     const config = createStubConfig();
     const ui = new UIModule(config);
     const bottomDrawer = getBottomDrawerInstances()[0];
-    expect(unifiedSidebar).toBeDefined();
+    expect(bottomDrawer).toBeDefined();
 
     const clearCallback = bottomDrawer?.onClearDrafts.mock.calls[0]?.[0];
     expect(clearCallback).toBeInstanceOf(Function);
@@ -389,7 +387,7 @@ describe('UIModule sidebar state handling', () => {
     const config = createStubConfig();
     const ui = new UIModule(config);
     const bottomDrawer = getBottomDrawerInstances()[0];
-    expect(unifiedSidebar).toBeDefined();
+    expect(bottomDrawer).toBeDefined();
 
     const clearCallback = bottomDrawer?.onClearDrafts.mock.calls[0]?.[0];
     expect(clearCallback).toBeInstanceOf(Function);
