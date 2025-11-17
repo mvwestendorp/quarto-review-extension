@@ -12,6 +12,12 @@ import type { Editor } from '@milkdown/kit/core';
 import { editorViewCtx } from '@milkdown/kit/core';
 
 import { CommandRegistry, createStandardCommands } from './CommandRegistry';
+import {
+  createDiv,
+  createButton,
+  addClass,
+  toggleClass,
+} from '@utils/dom-helpers';
 
 /**
  * Editor toolbar action types
@@ -405,8 +411,7 @@ export class EditorToolbar {
     const CORE_BUTTON_COUNT = 3;
 
     buttonGroups.forEach((group, groupIndex) => {
-      const groupElem = document.createElement('div');
-      groupElem.className = 'review-editor-toolbar-group';
+      const groupElem = createDiv('review-editor-toolbar-group');
       groupElem.setAttribute('role', 'group');
       groupElem.setAttribute(
         'aria-label',
@@ -414,18 +419,18 @@ export class EditorToolbar {
       );
 
       group.forEach((buttonConfig) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'review-editor-toolbar-btn';
+        const button = createButton(
+          buttonConfig.label,
+          'review-editor-toolbar-btn'
+        );
         if (buttonConfig.modifierClass) {
-          button.classList.add(buttonConfig.modifierClass);
+          addClass(button, buttonConfig.modifierClass);
         }
         // Mark first N buttons as core buttons (visible in collapsed state)
         if (buttonCount < CORE_BUTTON_COUNT) {
-          button.classList.add('review-editor-toolbar-btn-core');
+          addClass(button, 'review-editor-toolbar-btn-core');
         }
         button.dataset.command = buttonConfig.action;
-        button.textContent = buttonConfig.label;
         button.setAttribute('title', buttonConfig.title);
         button.setAttribute('aria-label', buttonConfig.title);
         button.setAttribute('aria-pressed', 'false');
@@ -467,31 +472,30 @@ export class EditorToolbar {
    * Create the toolbar DOM element
    */
   create(): HTMLElement {
-    const toolbar = document.createElement('div');
-    toolbar.className = 'review-editor-toolbar review-editor-toolbar-collapsed';
+    const toolbar = createDiv(
+      'review-editor-toolbar review-editor-toolbar-collapsed'
+    );
     toolbar.setAttribute('role', 'toolbar');
     toolbar.setAttribute('aria-label', 'Formatting toolbar');
 
     // Add undo button in top-left corner
-    const undoBtn = document.createElement('button');
-    undoBtn.type = 'button';
-    undoBtn.className =
-      'review-editor-toolbar-undo-redo review-editor-toolbar-undo';
+    const undoBtn = createButton(
+      '↶',
+      'review-editor-toolbar-undo-redo review-editor-toolbar-undo'
+    );
     undoBtn.setAttribute('aria-label', 'Undo (Ctrl+Z)');
     undoBtn.setAttribute('title', 'Undo (Ctrl+Z)');
-    undoBtn.textContent = '↶';
     undoBtn.dataset.command = 'undo';
     undoBtn.disabled = true;
     toolbar.appendChild(undoBtn);
 
     // Add redo button in top-right corner
-    const redoBtn = document.createElement('button');
-    redoBtn.type = 'button';
-    redoBtn.className =
-      'review-editor-toolbar-undo-redo review-editor-toolbar-redo';
+    const redoBtn = createButton(
+      '↷',
+      'review-editor-toolbar-undo-redo review-editor-toolbar-redo'
+    );
     redoBtn.setAttribute('aria-label', 'Redo (Ctrl+Y)');
     redoBtn.setAttribute('title', 'Redo (Ctrl+Y)');
-    redoBtn.textContent = '↷';
     redoBtn.dataset.command = 'redo';
     redoBtn.disabled = true;
     toolbar.appendChild(redoBtn);
@@ -503,8 +507,7 @@ export class EditorToolbar {
     const buttonGroups = this.getButtonGroups();
 
     buttonGroups.forEach((group, groupIndex) => {
-      const groupElem = document.createElement('div');
-      groupElem.className = 'review-editor-toolbar-group';
+      const groupElem = createDiv('review-editor-toolbar-group');
       groupElem.setAttribute('role', 'group');
       groupElem.setAttribute(
         'aria-label',
@@ -512,18 +515,18 @@ export class EditorToolbar {
       );
 
       group.forEach((buttonConfig) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'review-editor-toolbar-btn';
+        const button = createButton(
+          buttonConfig.label,
+          'review-editor-toolbar-btn'
+        );
         if (buttonConfig.modifierClass) {
-          button.classList.add(buttonConfig.modifierClass);
+          addClass(button, buttonConfig.modifierClass);
         }
         // Mark first N buttons as core buttons (visible in collapsed state)
         if (buttonCount < CORE_BUTTON_COUNT) {
-          button.classList.add('review-editor-toolbar-btn-core');
+          addClass(button, 'review-editor-toolbar-btn-core');
         }
         button.dataset.command = buttonConfig.action;
-        button.textContent = buttonConfig.label;
         button.setAttribute('title', buttonConfig.title);
         button.setAttribute('aria-label', buttonConfig.title);
         button.setAttribute('aria-pressed', 'false');
@@ -536,9 +539,10 @@ export class EditorToolbar {
     });
 
     // Add context mode toggle button (shows/hides depending on current mode)
-    const contextToggleBtn = document.createElement('button');
-    contextToggleBtn.type = 'button';
-    contextToggleBtn.className = 'review-editor-toolbar-context-toggle';
+    const contextToggleBtn = createButton(
+      '⇄',
+      'review-editor-toolbar-context-toggle'
+    );
     contextToggleBtn.setAttribute(
       'aria-label',
       this.useContextMode ? 'Show all buttons' : 'Show smart buttons'
@@ -547,15 +551,11 @@ export class EditorToolbar {
       'title',
       this.useContextMode ? 'Show all buttons (⇄)' : 'Show smart buttons (⇄)'
     );
-    contextToggleBtn.textContent = '⇄';
     toolbar.appendChild(contextToggleBtn);
 
     // Add expand/collapse toggle button
-    const toggleBtn = document.createElement('button');
-    toggleBtn.type = 'button';
-    toggleBtn.className = 'review-editor-toolbar-toggle';
+    const toggleBtn = createButton('⋯', 'review-editor-toolbar-toggle');
     toggleBtn.setAttribute('aria-label', 'Expand toolbar');
-    toggleBtn.textContent = '⋯';
     toolbar.appendChild(toggleBtn);
 
     this.element = toolbar;
@@ -569,7 +569,8 @@ export class EditorToolbar {
     if (!this.element) return;
 
     this.isCollapsed = !this.isCollapsed;
-    this.element.classList.toggle(
+    toggleClass(
+      this.element,
       'review-editor-toolbar-collapsed',
       this.isCollapsed
     );
@@ -687,14 +688,15 @@ export class EditorToolbar {
       if (action === 'undo' || action === 'redo') {
         const canExecute = this.canExecuteCommand(action);
         button.disabled = !canExecute;
-        button.classList.toggle(
+        toggleClass(
+          button,
           'review-editor-toolbar-undo-redo-disabled',
           !canExecute
         );
       } else {
         // For other buttons, track active state
         const isActive = this.commandRegistry.getActiveState(action);
-        button.classList.toggle('review-editor-toolbar-btn-active', isActive);
+        toggleClass(button, 'review-editor-toolbar-btn-active', isActive);
         button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       }
     });

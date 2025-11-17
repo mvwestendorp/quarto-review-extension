@@ -20,8 +20,8 @@ export interface BuildInfo {
 export const BUILD_INFO: BuildInfo = {
   version: '0.1.0',
   buildNumber: 'dev',
-  buildDate: '2025-11-17T10:00:15.222Z',
-  commit: '2fb37a8b36337893c76326bd733b3f4a8c03ae8b',
+  buildDate: '2025-11-17T10:15:54.235Z',
+  commit: 'a882ffdd3292643ec4c58180211dfbf8506703e7',
   branch: 'claude/refactor-ui-components-01491zeABjufyuX182Rjp4TN',
   pr: undefined,
   buildType: 'dev',

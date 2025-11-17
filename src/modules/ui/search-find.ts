@@ -7,6 +7,12 @@ import { createModuleLogger } from '@utils/debug';
 import type { DocumentSearchConfig } from '@/types';
 import { escapeHtml } from './shared/utils';
 import { UI_CONSTANTS, getAnimationDuration } from './constants';
+import {
+  createDiv,
+  setAttributes,
+  addClass,
+  removeClass,
+} from '@utils/dom-helpers';
 
 const logger = createModuleLogger('DocumentSearch');
 
@@ -112,7 +118,7 @@ export class DocumentSearch {
     this.clearHighlights();
 
     if (this.searchPanel) {
-      this.searchPanel.classList.add('review-search-closing');
+      addClass(this.searchPanel, 'review-search-closing');
       if (this.removalTimer) {
         clearTimeout(this.removalTimer);
       }
@@ -128,10 +134,11 @@ export class DocumentSearch {
    * Create the search panel UI
    */
   private createSearchPanel(): HTMLElement {
-    const panel = document.createElement('div');
-    panel.className = 'review-search-panel';
-    panel.setAttribute('role', 'search');
-    panel.setAttribute('aria-label', 'Search in document');
+    const panel = createDiv('review-search-panel');
+    setAttributes(panel, {
+      role: 'search',
+      'aria-label': 'Search in document',
+    });
 
     panel.innerHTML = `
       <div class="review-search-container">
@@ -420,9 +427,9 @@ export class DocumentSearch {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
       // Flash highlight
-      element.classList.add('review-highlight-flash');
+      addClass(element, 'review-highlight-flash');
       setTimeout(() => {
-        element.classList.remove('review-highlight-flash');
+        removeClass(element, 'review-highlight-flash');
       }, UI_CONSTANTS.SEARCH_HIGHLIGHT_DURATION_MS);
 
       // Highlight the specific match within element
@@ -493,9 +500,9 @@ export class DocumentSearch {
         `[data-review-id="${match.elementId}"]`
       );
       if (element instanceof HTMLElement) {
-        element.classList.add('review-search-has-match');
+        addClass(element, 'review-search-has-match');
         if (index === this.currentMatchIndex) {
-          element.classList.add('review-search-current-match');
+          addClass(element, 'review-search-current-match');
         }
         this.highlightedElements.add(element);
       }
@@ -517,8 +524,8 @@ export class DocumentSearch {
 
     // Remove CSS classes
     this.highlightedElements.forEach((element) => {
-      element.classList.remove('review-search-has-match');
-      element.classList.remove('review-search-current-match');
+      removeClass(element, 'review-search-has-match');
+      removeClass(element, 'review-search-current-match');
     });
 
     this.highlightedElements.clear();
@@ -534,10 +541,10 @@ export class DocumentSearch {
     if (counter) {
       if (this.matches.length === 0) {
         counter.textContent = '0/0';
-        this.searchPanel.classList.add('review-search-no-results');
+        addClass(this.searchPanel, 'review-search-no-results');
       } else {
         counter.textContent = `${this.currentMatchIndex + 1}/${this.matches.length}`;
-        this.searchPanel.classList.remove('review-search-no-results');
+        removeClass(this.searchPanel, 'review-search-no-results');
       }
     }
 
