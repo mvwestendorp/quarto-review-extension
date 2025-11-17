@@ -16,7 +16,7 @@ import { CommentComposer } from './comments/CommentComposer';
 import { CommentBadges } from './comments/CommentBadges';
 import { CommentController } from './comments/CommentController';
 import { SegmentActionButtons } from './comments/SegmentActionButtons';
-import { UnifiedSidebar } from './sidebars/UnifiedSidebar';
+import { BottomDrawer } from './sidebars/BottomDrawer';
 import { ContextMenuCoordinator } from './sidebars/ContextMenuCoordinator';
 import {
   normalizeListMarkers,
@@ -118,7 +118,7 @@ export class UIModule {
   // Module instances (for Phase 3 integration - will be used when code replacement completes)
   private editorLifecycle: EditorLifecycle;
   private editorToolbarModule: EditorToolbar | null = null;
-  private unifiedSidebar: UnifiedSidebar;
+  private bottomDrawer: BottomDrawer;
   private commentComposerModule: CommentComposer | null = null;
   private commentBadgesModule: CommentBadges | null = null;
   private segmentActionButtons: SegmentActionButtons | null = null;
@@ -166,7 +166,7 @@ export class UIModule {
     // NOTE: EditorLifecycle initializes Milkdown on-demand to prevent plugin state corruption
     this.editorLifecycle = new EditorLifecycle();
     this.editorToolbarModule = new EditorToolbar();
-    this.unifiedSidebar = new UnifiedSidebar();
+    this.bottomDrawer = new BottomDrawer();
     this.commentComposerModule = new CommentComposer();
     this.commentBadgesModule = new CommentBadges();
     this.segmentActionButtons = new SegmentActionButtons();
@@ -177,7 +177,7 @@ export class UIModule {
         markdown: this.config.markdown,
       },
       commentState: this.stateStore.getCommentState() as CommentState,
-      sidebar: null, // UnifiedSidebar handles comments internally
+      sidebar: null, // BottomDrawer handles comments internally
       composer: this.commentComposerModule,
       badges: this.commentBadgesModule,
       callbacks: {
@@ -330,7 +330,7 @@ export class UIModule {
       this.stateStore
     );
 
-    this.unifiedSidebar.onUndo(() => {
+    this.bottomDrawer.onUndo(() => {
       if (this.config.changes.undo()) {
         this.refresh();
       }
@@ -339,20 +339,20 @@ export class UIModule {
       changes: this.config.changes,
       comments: this.config.comments,
     });
-    this.unifiedSidebar.onRedo(() => {
+    this.bottomDrawer.onRedo(() => {
       if (this.config.changes.redo()) {
         this.refresh();
       }
     });
     const enableExport = Boolean(this.exporter);
-    this.unifiedSidebar.onExportClean(
+    this.bottomDrawer.onExportClean(
       enableExport
         ? () => {
             void this.handleExportQmd('clean');
           }
         : undefined
     );
-    this.unifiedSidebar.onExportCritic(
+    this.bottomDrawer.onExportCritic(
       enableExport
         ? () => {
             void this.handleExportQmd('critic');
@@ -360,21 +360,21 @@ export class UIModule {
         : undefined
     );
     const enableReviewSubmit = Boolean(this.reviewService);
-    this.unifiedSidebar.onSubmitReview(
+    this.bottomDrawer.onSubmitReview(
       enableReviewSubmit
         ? () => {
             void this.handleSubmitReview();
           }
         : undefined
     );
-    this.unifiedSidebar.setSubmitReviewEnabled(enableReviewSubmit);
-    this.unifiedSidebar.onTrackedChangesToggle((enabled) => {
+    this.bottomDrawer.setSubmitReviewEnabled(enableReviewSubmit);
+    this.bottomDrawer.onTrackedChangesToggle((enabled) => {
       this.toggleTrackedChanges(enabled);
     });
-    this.unifiedSidebar.onToggleSidebar(() => {
+    this.bottomDrawer.onToggleSidebar(() => {
       this.toggleSidebarCollapsed();
     });
-    this.unifiedSidebar.onClearDrafts(() => {
+    this.bottomDrawer.onClearDrafts(() => {
       void this.persistenceManager
         .confirmAndClearLocalDrafts()
         .then(() => {
@@ -427,7 +427,7 @@ export class UIModule {
       // When showTrackedChanges changes, update the sidebar UI
       // Note: refresh() is already called when toggleTrackedChanges is invoked,
       // so we only need to ensure the sidebar reflects the current state
-      this.unifiedSidebar.setTrackedChangesVisible(
+      this.bottomDrawer.setTrackedChangesVisible(
         editorState.showTrackedChanges
       );
     });
@@ -453,7 +453,7 @@ export class UIModule {
             uiState.isSidebarCollapsed
           );
         }
-        this.unifiedSidebar.setCollapsed(uiState.isSidebarCollapsed);
+        this.bottomDrawer.setCollapsed(uiState.isSidebarCollapsed);
       }
     });
 
@@ -488,7 +488,7 @@ export class UIModule {
       toggleClass(document.body, 'review-sidebar-collapsed-mode', collapsed);
     }
 
-    this.unifiedSidebar.setCollapsed(collapsed);
+    this.bottomDrawer.setCollapsed(collapsed);
   }
 
   private mountUIPlugin(
@@ -528,10 +528,10 @@ export class UIModule {
           this.showNotification(message, mappedType);
         },
         onProgress: (status) => {
-          this.unifiedSidebar.setTranslationProgress(status);
+          this.bottomDrawer.setTranslationProgress(status);
         },
         onBusyChange: (busy) => {
-          this.unifiedSidebar.setTranslationBusy(busy);
+          this.bottomDrawer.setTranslationBusy(busy);
         },
       });
     }
@@ -590,43 +590,43 @@ export class UIModule {
       return;
     }
 
-    this.unifiedSidebar.onTranslateDocument(() => {
+    this.bottomDrawer.onTranslateDocument(() => {
       void this.translationController?.translateDocument();
     });
-    this.unifiedSidebar.onTranslateSentence(() => {
+    this.bottomDrawer.onTranslateSentence(() => {
       void this.translationController?.translateSentence();
     });
-    this.unifiedSidebar.onProviderChange((provider) => {
+    this.bottomDrawer.onProviderChange((provider) => {
       this.translationController?.setProvider(provider);
     });
-    this.unifiedSidebar.onSourceLanguageChange((lang) => {
+    this.bottomDrawer.onSourceLanguageChange((lang) => {
       void this.translationController?.setSourceLanguage(lang);
     });
-    this.unifiedSidebar.onTargetLanguageChange((lang) => {
+    this.bottomDrawer.onTargetLanguageChange((lang) => {
       void this.translationController?.setTargetLanguage(lang);
     });
-    this.unifiedSidebar.onSwapLanguages(() => {
+    this.bottomDrawer.onSwapLanguages(() => {
       this.translationController?.swapLanguages();
     });
-    this.unifiedSidebar.onAutoTranslateChange((enabled) => {
+    this.bottomDrawer.onAutoTranslateChange((enabled) => {
       this.translationController?.setAutoTranslate(enabled);
     });
-    this.unifiedSidebar.onTranslationExportUnified(() => {
+    this.bottomDrawer.onTranslationExportUnified(() => {
       void this.translationController?.exportUnified();
     });
-    this.unifiedSidebar.onTranslationExportSeparated(() => {
+    this.bottomDrawer.onTranslationExportSeparated(() => {
       void this.translationController?.exportSeparated();
     });
-    this.unifiedSidebar.onClearLocalModelCache(() => {
+    this.bottomDrawer.onClearLocalModelCache(() => {
       void this.translationController?.clearLocalModelCache();
     });
 
-    this.unifiedSidebar.onTranslationUndo(() => {
+    this.bottomDrawer.onTranslationUndo(() => {
       if (this.translationController?.undo()) {
         this.updateTranslationUndoRedoState();
       }
     });
-    this.unifiedSidebar.onTranslationRedo(() => {
+    this.bottomDrawer.onTranslationRedo(() => {
       if (this.translationController?.redo()) {
         this.updateTranslationUndoRedoState();
       }
@@ -634,18 +634,18 @@ export class UIModule {
   }
 
   private resetTranslationSidebarCallbacks(): void {
-    this.unifiedSidebar.onTranslateDocument(undefined);
-    this.unifiedSidebar.onTranslateSentence(undefined);
-    this.unifiedSidebar.onProviderChange(undefined);
-    this.unifiedSidebar.onSourceLanguageChange(undefined);
-    this.unifiedSidebar.onTargetLanguageChange(undefined);
-    this.unifiedSidebar.onSwapLanguages(undefined);
-    this.unifiedSidebar.onAutoTranslateChange(undefined);
-    this.unifiedSidebar.onTranslationExportUnified(undefined);
-    this.unifiedSidebar.onTranslationExportSeparated(undefined);
-    this.unifiedSidebar.onClearLocalModelCache(undefined);
-    this.unifiedSidebar.onTranslationUndo(undefined);
-    this.unifiedSidebar.onTranslationRedo(undefined);
+    this.bottomDrawer.onTranslateDocument(undefined);
+    this.bottomDrawer.onTranslateSentence(undefined);
+    this.bottomDrawer.onProviderChange(undefined);
+    this.bottomDrawer.onSourceLanguageChange(undefined);
+    this.bottomDrawer.onTargetLanguageChange(undefined);
+    this.bottomDrawer.onSwapLanguages(undefined);
+    this.bottomDrawer.onAutoTranslateChange(undefined);
+    this.bottomDrawer.onTranslationExportUnified(undefined);
+    this.bottomDrawer.onTranslationExportSeparated(undefined);
+    this.bottomDrawer.onClearLocalModelCache(undefined);
+    this.bottomDrawer.onTranslationUndo(undefined);
+    this.bottomDrawer.onTranslationRedo(undefined);
   }
 
   /**
@@ -716,15 +716,15 @@ export class UIModule {
         removeClass(document.body, 'translation-mode');
 
         // Switch sidebar back to review mode
-        this.unifiedSidebar.setTranslationMode(false);
-        this.unifiedSidebar.setTranslationActive(false);
+        this.bottomDrawer.setTranslationMode(false);
+        this.bottomDrawer.setTranslationActive(false);
 
         // Refresh review mode to show merged changes
         this.refresh();
 
         this.showNotification('Translation UI closed', 'info');
       } else {
-        // Open translation UI - hide original document (comments section handled by unified sidebar)
+        // Open translation UI - hide original document (comments section handled by bottom drawer)
         this.showOriginalDocument(false);
         addClass(document.body, 'translation-mode');
 
@@ -758,19 +758,19 @@ export class UIModule {
         this.translationController.focusView();
 
         // Set up translation mode in sidebar (show translation tools, hide review tools)
-        this.unifiedSidebar.setTranslationMode(true);
-        this.unifiedSidebar.setTranslationBusy(false);
+        this.bottomDrawer.setTranslationMode(true);
+        this.bottomDrawer.setTranslationBusy(false);
         this.registerTranslationSidebarCallbacks();
 
         // Update sidebar with translation providers and languages
         const providers = this.translationController.getAvailableProviders();
-        this.unifiedSidebar.updateTranslationProviders(providers);
+        this.bottomDrawer.updateTranslationProviders(providers);
 
         const languages = this.translationController.getAvailableLanguages();
-        this.unifiedSidebar.updateTranslationLanguages(languages, languages);
+        this.bottomDrawer.updateTranslationLanguages(languages, languages);
 
         this.updateTranslationUndoRedoState();
-        this.unifiedSidebar.setTranslationActive(true);
+        this.bottomDrawer.setTranslationActive(true);
 
         this.showNotification('Translation UI opened', 'success');
       }
@@ -800,12 +800,12 @@ export class UIModule {
       typeof force === 'boolean' ? force : !currentShowTrackedChanges;
 
     if (currentShowTrackedChanges === nextState) {
-      this.unifiedSidebar.setTrackedChangesVisible(nextState);
+      this.bottomDrawer.setTrackedChangesVisible(nextState);
       return;
     }
 
     this.stateStore.setEditorState({ showTrackedChanges: nextState });
-    this.unifiedSidebar.setTrackedChangesVisible(nextState);
+    this.bottomDrawer.setTrackedChangesVisible(nextState);
     this.refresh();
   }
 
@@ -821,7 +821,7 @@ export class UIModule {
    * Call this after user logs in to refresh the UI
    */
   public updateUserDisplay(): void {
-    this.unifiedSidebar.updateUserDisplay();
+    this.bottomDrawer.updateUserDisplay();
   }
 
   /**
@@ -836,7 +836,7 @@ export class UIModule {
     this.translationModule = translationModule;
     // Update sidebar to reflect that translation is now available
     const enableTranslation = Boolean(this.translationModule);
-    this.unifiedSidebar.setTranslationEnabled(enableTranslation);
+    this.bottomDrawer.setTranslationEnabled(enableTranslation);
   }
 
   public attachEventListeners(): void {
@@ -1203,7 +1203,7 @@ export class UIModule {
 
     const loading = this.showLoading('Submitting review to Git…');
     this.isSubmittingReview = true;
-    this.unifiedSidebar.setSubmitReviewPending(true);
+    this.bottomDrawer.setSubmitReviewPending(true);
 
     try {
       const context = await this.reviewService.submitReview({
@@ -1245,8 +1245,8 @@ export class UIModule {
     } finally {
       this.hideLoading(loading);
       this.isSubmittingReview = false;
-      this.unifiedSidebar.setSubmitReviewPending(false);
-      this.unifiedSidebar.setSubmitReviewEnabled(Boolean(this.reviewService));
+      this.bottomDrawer.setSubmitReviewPending(false);
+      this.bottomDrawer.setSubmitReviewEnabled(Boolean(this.reviewService));
     }
   }
 
@@ -1596,8 +1596,8 @@ export class UIModule {
     this.syncToolbarState();
 
     // Re-enable export buttons after changes (they should stay enabled if callbacks exist)
-    if (typeof this.unifiedSidebar.enableExportButtons === 'function') {
-      this.unifiedSidebar.enableExportButtons();
+    if (typeof this.bottomDrawer.enableExportButtons === 'function') {
+      this.bottomDrawer.enableExportButtons();
     }
   }
 
@@ -2172,8 +2172,8 @@ export class UIModule {
   private syncToolbarState(): void {
     const canUndo = this.config.changes.canUndo();
     const canRedo = this.config.changes.canRedo();
-    this.unifiedSidebar.updateUndoRedoState(canUndo, canRedo);
-    this.unifiedSidebar.setTrackedChangesVisible(
+    this.bottomDrawer.updateUndoRedoState(canUndo, canRedo);
+    this.bottomDrawer.setTrackedChangesVisible(
       this.stateStore.getEditorState().showTrackedChanges
     );
   }
@@ -2187,7 +2187,7 @@ export class UIModule {
     }
     const canUndo = this.translationController.canUndo();
     const canRedo = this.translationController.canRedo();
-    this.unifiedSidebar.updateTranslationUndoRedoState(canUndo, canRedo);
+    this.bottomDrawer.updateTranslationUndoRedoState(canUndo, canRedo);
   }
 
   private cacheInitialHeadingReferences(): void {
@@ -2578,7 +2578,7 @@ export class UIModule {
     if (hasUnsaved) {
       this.getOrCreateToolbar();
     }
-    this.unifiedSidebar.setHasUnsavedChanges(hasUnsaved);
+    this.bottomDrawer.setHasUnsavedChanges(hasUnsaved);
   }
 
   private getOrCreateToolbar(): HTMLElement {
@@ -2588,7 +2588,7 @@ export class UIModule {
     if (!toolbar) {
       toolbar = this.createPersistentSidebar();
       document.body.appendChild(toolbar);
-      this.unifiedSidebar.setTrackedChangesVisible(
+      this.bottomDrawer.setTrackedChangesVisible(
         this.stateStore.getEditorState().showTrackedChanges
       );
       this.syncToolbarState();
@@ -2599,14 +2599,14 @@ export class UIModule {
 
       // Set up translation toggle after sidebar is created
       const enableTranslation = Boolean(this.translationModule);
-      this.unifiedSidebar.onToggleTranslation(
+      this.bottomDrawer.onToggleTranslation(
         enableTranslation
           ? () => {
               void this.toggleTranslation();
             }
           : undefined
       );
-      this.unifiedSidebar.setTranslationEnabled(enableTranslation);
+      this.bottomDrawer.setTranslationEnabled(enableTranslation);
     }
     return toolbar;
   }
@@ -2615,11 +2615,11 @@ export class UIModule {
    * Create persistent sidebar with all controls
    */
   private createPersistentSidebar(): HTMLElement {
-    const sidebar = this.unifiedSidebar.create();
+    const sidebar = this.bottomDrawer.create();
 
     // Pass user module to sidebar for displaying user status
     if (this.userModule) {
-      this.unifiedSidebar.setUserModule(this.userModule);
+      this.bottomDrawer.setUserModule(this.userModule);
     }
 
     if (!this.changeSummaryDashboard) {
@@ -2658,8 +2658,8 @@ export class UIModule {
     // Get sections from CommentController
     const sections = this.commentController.getSectionComments();
 
-    // Update UnifiedSidebar with comments
-    this.unifiedSidebar.updateComments(sections, {
+    // Update BottomDrawer with comments
+    this.bottomDrawer.updateComments(sections, {
       onNavigate: (elementId, commentKey) => {
         this.commentController.focusCommentAnchor(elementId, commentKey);
       },
@@ -2853,7 +2853,7 @@ export class UIModule {
     this.segmentActionButtons?.destroy();
     this.contextMenuCoordinator?.destroy();
     this.changeSummaryDashboard?.destroy();
-    this.unifiedSidebar.destroy();
+    this.bottomDrawer.destroy();
 
     // Clean up services
     this.notificationService.destroy();
