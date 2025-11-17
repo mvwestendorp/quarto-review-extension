@@ -120,6 +120,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 'pre-release'
+
+      - name: Build extension
+        run: npm run build
+
+      - name: Render example for E2E tests
+        run: quarto render example/
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps chromium
 

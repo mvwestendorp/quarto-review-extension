@@ -2,12 +2,26 @@
 
 End-to-end tests for the Quarto Review Extension using Playwright.
 
+## Prerequisites
+
+Before running E2E tests, you need:
+
+1. **Quarto installed** - [Install Quarto](https://quarto.org/docs/get-started/)
+2. **Extension built** - Run `npm run build`
+3. **Example rendered** - Run `quarto render example/`
+
 ## Quick Start
 
 ```bash
 # Install dependencies (first time only)
 npm ci
 npx playwright install --with-deps chromium
+
+# Build the extension
+npm run build
+
+# Render the example (creates example/_output/)
+quarto render example/
 
 # Run all E2E tests
 npm run test:e2e

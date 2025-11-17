@@ -24,6 +24,29 @@ The responsive testing framework ensures the Quarto Review Extension UI works co
 
 All tests are automated using Playwright and run on every pull request.
 
+## Prerequisites
+
+Before running responsive tests locally, ensure you have:
+
+1. **Quarto installed** - [Download and install Quarto](https://quarto.org/docs/get-started/)
+2. **Node.js dependencies installed** - Run `npm ci`
+3. **Playwright browsers installed** - Run `npx playwright install --with-deps chromium`
+4. **Extension built** - Run `npm run build` to build the extension
+5. **Example rendered** - Run `quarto render example/` to create the test page
+
+**Quick setup:**
+```bash
+# One-time setup
+npm ci
+npx playwright install --with-deps chromium
+
+# Before running tests (whenever code changes)
+npm run build
+quarto render example/
+```
+
+**Note:** In CI/CD, these steps are automated. The GitHub Actions workflow automatically installs Quarto, builds the extension, and renders the example before running E2E tests.
+
 ## Test Structure
 
 ```
@@ -366,6 +389,24 @@ retries: process.env.CI ? 2 : 0,
 ```
 
 ## Troubleshooting
+
+### Web Server Timeout Error
+
+**Problem**: `Error: Timed out waiting 60000ms from config.webServer`
+
+**Cause**: The example hasn't been rendered, so `example/_output/` doesn't exist.
+
+**Solution**:
+```bash
+# Build the extension first
+npm run build
+
+# Render the example to create example/_output/
+quarto render example/
+
+# Now run tests
+npm run test:e2e
+```
 
 ### Tests are Flaky
 
