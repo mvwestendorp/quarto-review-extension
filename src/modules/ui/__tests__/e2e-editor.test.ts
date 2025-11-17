@@ -73,7 +73,6 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
       changes,
       markdown,
       comments,
-      inlineEditing: false, // Use modal editor
     });
   });
 

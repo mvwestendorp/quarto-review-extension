@@ -1,4 +1,4 @@
 - Main item 1
   - Nested item A
-  - Nested item B{++ modified++}
+  - Nested item B {++modified++}
 - Main item 2

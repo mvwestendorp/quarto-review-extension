@@ -1,4 +1,4 @@
 | Column A | Column B |
 |----------|----------|
-| `a \| b` | Normal   |
+| `a \| b` | Normal  |
 | Regular  | `x \| y` |

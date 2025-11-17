@@ -995,6 +995,7 @@ export class UIModule {
     this.persistenceManager.persistDocument();
   }
 
+  // @ts-expect-error - Reserved for future use
   private saveEditor(): void {
     const editorState = this.stateStore.getEditorState();
     if (!editorState.milkdownEditor || !editorState.currentElementId) return;

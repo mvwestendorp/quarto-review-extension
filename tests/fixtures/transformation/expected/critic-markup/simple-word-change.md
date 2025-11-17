@@ -1,1 +1,1 @@
-The {~~quick~>slow~~} brown fox jumps over the lazy dog.
+The {--quick--}{++slow++} brown fox jumps over the lazy dog.
