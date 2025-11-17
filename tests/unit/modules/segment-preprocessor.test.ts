@@ -195,9 +195,7 @@ describe('Segment Preprocessor', () => {
         <div class="quarto-figure">
           <figure>
             <img src="image.png" />
-            <figcaption class="quarto-float-caption">
-              Entire caption is editable
-            </figcaption>
+            <figcaption class="quarto-float-caption">Entire caption is editable</figcaption>
           </figure>
         </div>
       `;
@@ -372,10 +370,14 @@ describe('Segment Preprocessor', () => {
     it('should generate sequential IDs for multiple tables', () => {
       document.body.innerHTML = `
         <div class="quarto-table" id="tbl-1">
-          <caption class="quarto-float-caption">Table 1: First</caption>
+          <table>
+            <caption class="quarto-float-caption">Table 1: First</caption>
+          </table>
         </div>
         <div class="quarto-table" id="tbl-2">
-          <caption class="quarto-float-caption">Table 2: Second</caption>
+          <table>
+            <caption class="quarto-float-caption">Table 2: Second</caption>
+          </table>
         </div>
       `;
 
@@ -394,9 +396,9 @@ describe('Segment Preprocessor', () => {
     it('should handle table caption without colon', () => {
       document.body.innerHTML = `
         <div class="quarto-table">
-          <caption class="quarto-float-caption">
-            Sample table caption
-          </caption>
+          <table>
+            <caption class="quarto-float-caption">Sample table caption</caption>
+          </table>
         </div>
       `;
 
@@ -452,7 +454,9 @@ describe('Segment Preprocessor', () => {
     it('should detect table from container class "quarto-table"', () => {
       document.body.innerHTML = `
         <div class="quarto-table">
-          <caption class="quarto-float-caption">Table: Test</caption>
+          <table>
+            <caption class="quarto-float-caption">Table: Test</caption>
+          </table>
         </div>
       `;
 
@@ -465,7 +469,9 @@ describe('Segment Preprocessor', () => {
     it('should detect table from caption class "quarto-float-table"', () => {
       document.body.innerHTML = `
         <div class="quarto-float">
-          <caption class="quarto-float-caption quarto-float-table">Table: Test</caption>
+          <table>
+            <caption class="quarto-float-caption quarto-float-table">Table: Test</caption>
+          </table>
         </div>
       `;
 
@@ -509,10 +515,14 @@ describe('Segment Preprocessor', () => {
           </h1>
         </header>
         <div class="quarto-figure" id="fig-1">
-          <figcaption class="quarto-float-caption">Figure 1: First figure</figcaption>
+          <figure>
+            <figcaption class="quarto-float-caption">Figure 1: First figure</figcaption>
+          </figure>
         </div>
         <div class="quarto-table" id="tbl-1">
-          <caption class="quarto-float-caption">Table 1: First table</caption>
+          <table>
+            <caption class="quarto-float-caption">Table 1: First table</caption>
+          </table>
         </div>
       `;
 
@@ -526,16 +536,24 @@ describe('Segment Preprocessor', () => {
     it('should handle multiple figures and tables with correct counters', () => {
       document.body.innerHTML = `
         <div class="quarto-figure" id="fig-1">
-          <figcaption class="quarto-float-caption">Figure 1: First</figcaption>
+          <figure>
+            <figcaption class="quarto-float-caption">Figure 1: First</figcaption>
+          </figure>
         </div>
         <div class="quarto-table" id="tbl-1">
-          <caption class="quarto-float-caption">Table 1: First</caption>
+          <table>
+            <caption class="quarto-float-caption">Table 1: First</caption>
+          </table>
         </div>
         <div class="quarto-figure" id="fig-2">
-          <figcaption class="quarto-float-caption">Figure 2: Second</figcaption>
+          <figure>
+            <figcaption class="quarto-float-caption">Figure 2: Second</figcaption>
+          </figure>
         </div>
         <div class="quarto-table" id="tbl-2">
-          <caption class="quarto-float-caption">Table 2: Second</caption>
+          <table>
+            <caption class="quarto-float-caption">Table 2: Second</caption>
+          </table>
         </div>
       `;
 
