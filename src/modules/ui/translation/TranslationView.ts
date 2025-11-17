@@ -10,6 +10,12 @@ import type { TranslationEditorBridge } from './TranslationEditorBridge';
 import type { TranslationProgressStatus } from './TranslationController';
 import type { StateStore } from '@/services/StateStore';
 import type { TranslationState } from '@modules/ui/shared';
+import {
+  createButton,
+  createDiv,
+  setAttributes,
+  toggleClass,
+} from '@utils/dom-helpers';
 
 const logger = createModuleLogger('TranslationView');
 
@@ -171,50 +177,46 @@ export class TranslationView {
    * Create and initialize the translation view
    */
   create(): HTMLElement {
-    const container = document.createElement('div');
-    container.className = 'review-translation-view';
-    container.setAttribute('role', 'region');
-    container.setAttribute('aria-label', 'Translation workspace');
-    container.tabIndex = -1;
+    const container = createDiv('review-translation-view');
+    setAttributes(container, {
+      role: 'region',
+      'aria-label': 'Translation workspace',
+      tabindex: '-1',
+    });
 
     // Create header with language labels
     const header = this.createHeader();
     container.appendChild(header);
 
     // Create main content area with two panes
-    const content = document.createElement('div');
-    content.className = 'review-translation-content';
+    const content = createDiv('review-translation-content');
 
     // Source pane
-    const sourceContainer = document.createElement('div');
-    sourceContainer.className =
-      'review-translation-pane review-translation-source';
+    const sourceContainer = createDiv(
+      'review-translation-pane review-translation-source'
+    );
 
-    const sourceHeader = document.createElement('div');
-    sourceHeader.className = 'review-translation-pane-header';
+    const sourceHeader = createDiv('review-translation-pane-header');
     sourceHeader.innerHTML = `
       <h3>Source <span class="review-translation-lang-label" data-lang="source"></span></h3>
     `;
     sourceContainer.appendChild(sourceHeader);
 
-    this.sourcePane = document.createElement('div');
-    this.sourcePane.className = 'review-translation-pane-body';
+    this.sourcePane = createDiv('review-translation-pane-body');
     sourceContainer.appendChild(this.sourcePane);
 
     // Target pane
-    const targetContainer = document.createElement('div');
-    targetContainer.className =
-      'review-translation-pane review-translation-target';
+    const targetContainer = createDiv(
+      'review-translation-pane review-translation-target'
+    );
 
-    const targetHeader = document.createElement('div');
-    targetHeader.className = 'review-translation-pane-header';
+    const targetHeader = createDiv('review-translation-pane-header');
     targetHeader.innerHTML = `
       <h3>Target <span class="review-translation-lang-label" data-lang="target"></span></h3>
     `;
     targetContainer.appendChild(targetHeader);
 
-    this.targetPane = document.createElement('div');
-    this.targetPane.className = 'review-translation-pane-body';
+    this.targetPane = createDiv('review-translation-pane-body');
     targetContainer.appendChild(this.targetPane);
 
     // Add panes to content
@@ -234,19 +236,16 @@ export class TranslationView {
    * Create header with statistics and controls
    */
   private createHeader(): HTMLElement {
-    const header = document.createElement('div');
-    header.className = 'review-translation-view-header';
+    const header = createDiv('review-translation-view-header');
 
-    const headerLeft = document.createElement('div');
-    headerLeft.className = 'review-translation-header-left';
+    const headerLeft = createDiv('review-translation-header-left');
 
     const heading = document.createElement('h2');
     heading.className = 'review-translation-heading';
     heading.textContent = 'Translation workspace';
     headerLeft.appendChild(heading);
 
-    const stats = document.createElement('div');
-    stats.className = 'review-translation-stats';
+    const stats = createDiv('review-translation-stats');
     stats.innerHTML = `
       <span class="review-translation-stat">
         <span class="review-translation-stat-label">Total:</span>
@@ -264,25 +263,25 @@ export class TranslationView {
     headerLeft.appendChild(stats);
     header.appendChild(headerLeft);
 
-    const progressContainer = document.createElement('div');
-    progressContainer.className = 'review-translation-progress-inline';
+    const progressContainer = createDiv('review-translation-progress-inline');
     progressContainer.hidden = true;
 
-    const progressBar = document.createElement('div');
-    progressBar.className = 'review-translation-progress-bar';
-    progressBar.setAttribute('role', 'progressbar');
-    progressBar.setAttribute('aria-valuemin', '0');
-    progressBar.setAttribute('aria-valuemax', '100');
-    progressBar.setAttribute('aria-valuenow', '0');
+    const progressBar = createDiv('review-translation-progress-bar');
+    setAttributes(progressBar, {
+      role: 'progressbar',
+      'aria-valuemin': '0',
+      'aria-valuemax': '100',
+      'aria-valuenow': '0',
+    });
     progressBar.dataset.indeterminate = 'false';
 
-    const progressFill = document.createElement('div');
-    progressFill.className = 'review-translation-progress-bar-fill';
+    const progressFill = createDiv('review-translation-progress-bar-fill');
     progressBar.appendChild(progressFill);
 
-    const progressMessage = document.createElement('div');
-    progressMessage.className = 'review-translation-progress-message';
-    progressMessage.setAttribute('aria-live', 'polite');
+    const progressMessage = createDiv('review-translation-progress-message');
+    setAttributes(progressMessage, {
+      'aria-live': 'polite',
+    });
 
     progressContainer.appendChild(progressBar);
     progressContainer.appendChild(progressMessage);
@@ -295,20 +294,19 @@ export class TranslationView {
       message: progressMessage,
     };
 
-    const errorBanner = document.createElement('div');
-    errorBanner.className = 'review-translation-error-banner';
+    const errorBanner = createDiv('review-translation-error-banner');
     errorBanner.hidden = true;
-    errorBanner.setAttribute('role', 'alert');
+    setAttributes(errorBanner, {
+      role: 'alert',
+    });
 
     const errorMessage = document.createElement('span');
     errorMessage.className = 'review-translation-error-text';
     errorBanner.appendChild(errorMessage);
 
-    const retryButton = document.createElement('button');
-    retryButton.className = 'review-translation-error-retry';
+    const retryButton = createButton('Retry', 'review-translation-error-retry');
     retryButton.type = 'button';
     retryButton.hidden = true;
-    retryButton.textContent = 'Retry';
     errorBanner.appendChild(retryButton);
 
     header.appendChild(errorBanner);
@@ -416,20 +414,22 @@ export class TranslationView {
     Array.from(sectionMap.entries()).forEach(
       ([elementId, sectionSentences]) => {
         // Create section container (segment-level container)
-        const sectionElement = document.createElement('div');
-        sectionElement.className = 'review-translation-section';
+        const sectionElement = createDiv('review-translation-section');
         sectionElement.dataset.elementId = elementId;
         sectionElement.dataset.side = side;
 
         // Add section header with edit button
-        const sectionHeader = document.createElement('div');
-        sectionHeader.className = 'review-translation-section-header';
+        const sectionHeader = createDiv('review-translation-section-header');
 
-        const editButton = document.createElement('button');
-        editButton.className = 'review-translation-edit-segment-btn';
+        const editButton = createButton(
+          '',
+          'review-translation-edit-segment-btn'
+        );
         editButton.type = 'button';
-        editButton.title = `Edit ${side} segment`;
-        editButton.setAttribute('aria-label', `Edit ${side} segment`);
+        setAttributes(editButton, {
+          title: `Edit ${side} segment`,
+          'aria-label': `Edit ${side} segment`,
+        });
         editButton.innerHTML = `<span class="edit-icon">✏️</span> Edit Segment`;
 
         editButton.addEventListener('click', () => {
@@ -462,8 +462,7 @@ export class TranslationView {
     sentence: Sentence,
     side: 'source' | 'target'
   ): HTMLElement {
-    const sentenceElement = document.createElement('div');
-    sentenceElement.className = 'review-translation-sentence';
+    const sentenceElement = createDiv('review-translation-sentence');
     sentenceElement.dataset.sentenceId = sentence.id;
     sentenceElement.dataset.side = side;
     sentenceElement.tabIndex = -1;
@@ -473,16 +472,18 @@ export class TranslationView {
     if (status) {
       sentenceElement.dataset.status = status;
       // Add CSS class for styling based on status
-      sentenceElement.classList.add(`review-translation-sentence-${status}`);
+      toggleClass(
+        sentenceElement,
+        `review-translation-sentence-${status}`,
+        true
+      );
     }
 
     // Create sentence wrapper for better layout
-    const wrapper = document.createElement('div');
-    wrapper.className = 'review-translation-sentence-wrapper';
+    const wrapper = createDiv('review-translation-sentence-wrapper');
 
     // Create sentence content - render as styled HTML using document-style rendering
-    const content = document.createElement('div');
-    content.className = 'review-translation-sentence-content';
+    const content = createDiv('review-translation-sentence-content');
 
     // Render markdown as HTML if MarkdownModule is available
     if (this.markdown) {
@@ -510,8 +511,10 @@ export class TranslationView {
       statusChip.className = 'review-translation-status-chip';
       statusChip.dataset.role = 'status-chip';
       statusChip.dataset.status = status;
-      statusChip.setAttribute('role', 'status');
-      statusChip.setAttribute('aria-label', this.getStatusAriaLabel(status));
+      setAttributes(statusChip, {
+        role: 'status',
+        'aria-label': this.getStatusAriaLabel(status),
+      });
       statusChip.textContent = this.getStatusLabel(status);
       wrapper.appendChild(statusChip);
     }
@@ -519,19 +522,21 @@ export class TranslationView {
     sentenceElement.appendChild(wrapper);
 
     // Add spinner for loading states
-    const spinner = document.createElement('div');
-    spinner.className = 'review-translation-sentence-spinner';
+    const spinner = createDiv('review-translation-sentence-spinner');
     spinner.dataset.role = 'sentence-spinner';
-    spinner.setAttribute('role', 'status');
-    spinner.setAttribute('aria-label', 'Loading');
+    setAttributes(spinner, {
+      role: 'status',
+      'aria-label': 'Loading',
+    });
     spinner.hidden = true;
     sentenceElement.appendChild(spinner);
 
     // Add error message container
-    const errorMessage = document.createElement('div');
-    errorMessage.className = 'review-translation-sentence-error-message';
+    const errorMessage = createDiv('review-translation-sentence-error-message');
     errorMessage.dataset.role = 'sentence-error';
-    errorMessage.setAttribute('role', 'alert');
+    setAttributes(errorMessage, {
+      role: 'alert',
+    });
     errorMessage.hidden = true;
     sentenceElement.appendChild(errorMessage);
 
@@ -646,7 +651,7 @@ export class TranslationView {
     // Add selected class
     const element = this.findSentenceElement(sentenceId, side);
     if (element) {
-      element.classList.add('review-translation-sentence-selected');
+      toggleClass(element, 'review-translation-sentence-selected', true);
       element.tabIndex = 0;
       element.focus();
     }
@@ -661,7 +666,7 @@ export class TranslationView {
   private hoverSentence(sentenceId: string, side: 'source' | 'target'): void {
     const element = this.findSentenceElement(sentenceId, side);
     if (element) {
-      element.classList.add('review-translation-sentence-hover');
+      toggleClass(element, 'review-translation-sentence-hover', true);
     }
     this.highlightCorrespondences(sentenceId, side, 'hover');
   }
@@ -672,7 +677,7 @@ export class TranslationView {
   private unhoverSentence(sentenceId: string, side: 'source' | 'target'): void {
     const element = this.findSentenceElement(sentenceId, side);
     if (element) {
-      element.classList.remove('review-translation-sentence-hover');
+      toggleClass(element, 'review-translation-sentence-hover', false);
     }
     // Remove hover highlights from correspondences
     this.removeCorrespondenceHighlights('hover');
@@ -749,7 +754,7 @@ export class TranslationView {
       return;
     }
 
-    element.classList.toggle('review-translation-sentence-loading', loading);
+    toggleClass(element, 'review-translation-sentence-loading', loading);
     if (loading) {
       element.setAttribute('aria-busy', 'true');
     } else {
@@ -782,18 +787,18 @@ export class TranslationView {
       bar.setAttribute('aria-valuenow', '0');
       fill.style.width = '0%';
       message.textContent = '';
-      container.classList.remove('review-translation-progress-inline-error');
+      toggleClass(container, 'review-translation-progress-inline-error', false);
       return;
     }
 
     container.hidden = false;
     message.textContent = status.message || '';
 
-    if (status.phase === 'error') {
-      container.classList.add('review-translation-progress-inline-error');
-    } else {
-      container.classList.remove('review-translation-progress-inline-error');
-    }
+    toggleClass(
+      container,
+      'review-translation-progress-inline-error',
+      status.phase === 'error'
+    );
 
     if (typeof status.percent === 'number') {
       const percent = Math.max(0, Math.min(100, status.percent));
@@ -822,7 +827,9 @@ export class TranslationView {
     correspondingIds.forEach((id) => {
       const oppositeSide = side === 'source' ? 'target' : 'source';
       const element = this.findSentenceElement(id, oppositeSide);
-      element?.classList.add(`review-translation-sentence-${className}`);
+      if (element) {
+        toggleClass(element, `review-translation-sentence-${className}`, true);
+      }
     });
   }
 
@@ -837,7 +844,11 @@ export class TranslationView {
       `.review-translation-sentence-${className}`
     );
     highlighted.forEach((el) => {
-      el.classList.remove(`review-translation-sentence-${className}`);
+      toggleClass(
+        el as HTMLElement,
+        `review-translation-sentence-${className}`,
+        false
+      );
     });
   }
 
@@ -868,7 +879,11 @@ export class TranslationView {
       '.review-translation-sentence-selected'
     );
     selected.forEach((el) =>
-      el.classList.remove('review-translation-sentence-selected')
+      toggleClass(
+        el as HTMLElement,
+        'review-translation-sentence-selected',
+        false
+      )
     );
 
     this.element
@@ -888,7 +903,7 @@ export class TranslationView {
     if (!element) {
       return;
     }
-    element.classList.add('review-translation-sentence-selected');
+    toggleClass(element, 'review-translation-sentence-selected', true);
     element.tabIndex = 0;
     this.highlightCorrespondences(id, side, 'selected');
   }
@@ -1065,17 +1080,18 @@ export class TranslationView {
 
     try {
       // Create editor container
-      const editorContainer = document.createElement('div');
-      editorContainer.className =
-        'review-translation-segment-editor review-inline-editor-container';
-      const editorBody = document.createElement('div');
-      editorBody.className = 'review-editor-body review-inline-editor-body';
+      const editorContainer = createDiv(
+        'review-translation-segment-editor review-inline-editor-container'
+      );
+      const editorBody = createDiv(
+        'review-editor-body review-inline-editor-body'
+      );
       editorContainer.appendChild(editorBody);
 
       // Create action buttons
-      const actions = document.createElement('div');
-      actions.className =
-        'review-inline-editor-actions review-translation-editor-actions';
+      const actions = createDiv(
+        'review-inline-editor-actions review-translation-editor-actions'
+      );
       actions.innerHTML = `
         <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
         <button class="review-btn review-btn-primary review-btn-sm" data-action="save">Save</button>
@@ -1258,9 +1274,10 @@ export class TranslationView {
         error,
       });
       // Show error message in the section
-      const errorEl = document.createElement('div');
-      errorEl.className = 'review-translation-editor-error';
-      errorEl.setAttribute('role', 'alert');
+      const errorEl = createDiv('review-translation-editor-error');
+      setAttributes(errorEl, {
+        role: 'alert',
+      });
       errorEl.textContent =
         error instanceof Error ? error.message : 'Failed to initialize editor';
       sectionElement.appendChild(errorEl);
@@ -1286,17 +1303,18 @@ export class TranslationView {
 
     try {
       // Create editor container
-      const editorContainer = document.createElement('div');
-      editorContainer.className =
-        'review-translation-milkdown-editor review-inline-editor-container';
-      const editorBody = document.createElement('div');
-      editorBody.className = 'review-editor-body review-inline-editor-body';
+      const editorContainer = createDiv(
+        'review-translation-milkdown-editor review-inline-editor-container'
+      );
+      const editorBody = createDiv(
+        'review-editor-body review-inline-editor-body'
+      );
       editorContainer.appendChild(editorBody);
 
       // Create action buttons
-      const actions = document.createElement('div');
-      actions.className =
-        'review-inline-editor-actions review-translation-editor-actions';
+      const actions = createDiv(
+        'review-inline-editor-actions review-translation-editor-actions'
+      );
       actions.innerHTML = `
         <button class="review-btn review-btn-secondary review-btn-sm" data-action="cancel">Cancel</button>
         <button class="review-btn review-btn-primary review-btn-sm" data-action="save">Save</button>
@@ -1393,9 +1411,10 @@ export class TranslationView {
     } catch (error) {
       logger.error('Failed to initialize Milkdown editor for sentence', error);
       // Show error message
-      const errorEl = document.createElement('div');
-      errorEl.className = 'review-translation-editor-error';
-      errorEl.setAttribute('role', 'alert');
+      const errorEl = createDiv('review-translation-editor-error');
+      setAttributes(errorEl, {
+        role: 'alert',
+      });
       errorEl.textContent =
         error instanceof Error ? error.message : 'Failed to initialize editor';
       contentEl.innerHTML = '';
@@ -1640,10 +1659,12 @@ export class TranslationView {
     const message = this.sentenceErrors.get(key) ?? null;
     const hasError = message !== null;
 
-    element.classList.toggle('review-translation-sentence-error', hasError);
+    toggleClass(element, 'review-translation-sentence-error', hasError);
     if (hasError) {
-      element.setAttribute('data-error', 'true');
-      element.setAttribute('aria-invalid', 'true');
+      setAttributes(element, {
+        'data-error': 'true',
+        'aria-invalid': 'true',
+      });
     } else {
       element.removeAttribute('data-error');
       element.removeAttribute('aria-invalid');
