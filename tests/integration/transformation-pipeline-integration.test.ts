@@ -455,7 +455,7 @@ describe('ChangesModule DOM Integration', () => {
   beforeEach(() => {
     dom = new JSDOM('<!DOCTYPE html><body></body>');
     document = dom.window.document;
-    global.document = document;
+    (global as any).document = document;
   });
 
   it('should initialize from DOM elements', () => {
@@ -471,7 +471,7 @@ describe('ChangesModule DOM Integration', () => {
     changesModule.initializeFromDOM();
 
     // Verify element was registered
-    const element = changesModule.getElement('test.para-1');
+    const element = changesModule.getElementById('test.para-1');
     expect(element).toBeDefined();
     expect(element?.markdown).toBe('Original content');
   });
