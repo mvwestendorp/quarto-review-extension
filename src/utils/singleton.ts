@@ -21,9 +21,7 @@
  * const service = getMyService();
  * ```
  */
-export function createSingleton<T>(
-  ClassConstructor: new () => T
-): () => T {
+export function createSingleton<T>(ClassConstructor: new () => T): () => T {
   let instance: T | null = null;
 
   return function getInstance(): T {

@@ -127,7 +127,9 @@ export class UnifiedSidebar {
       return this.element;
     }
 
-    const container = createDiv('review-unified-sidebar review-persistent-sidebar');
+    const container = createDiv(
+      'review-unified-sidebar review-persistent-sidebar'
+    );
     setAttributes(container, {
       role: 'complementary',
       'aria-label': 'Review tools and comments',
@@ -583,7 +585,9 @@ Role: ${currentUser.role}`;
     section.appendChild(translateActionsDiv);
 
     // Progress container
-    const progressContainer = createDiv('review-translation-progress-container');
+    const progressContainer = createDiv(
+      'review-translation-progress-container'
+    );
     progressContainer.style.display = 'none';
     progressContainer.setAttribute('aria-live', 'polite');
     progressContainer.innerHTML = `
@@ -784,7 +788,9 @@ Role: ${currentUser.role}`;
    * Create build info section with user status
    */
   private createBuildInfo(): HTMLElement {
-    const buildInfoSection = createDiv('review-sidebar-section review-build-info');
+    const buildInfoSection = createDiv(
+      'review-sidebar-section review-build-info'
+    );
     buildInfoSection.style.cssText = `
       margin-top: auto;
       padding-top: 8px;

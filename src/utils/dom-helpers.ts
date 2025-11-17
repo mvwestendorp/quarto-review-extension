@@ -130,9 +130,7 @@ export function setAttributes(
  * Safe to call with null elements (no-op)
  * @param element - The element to remove
  */
-export function removeElement(
-  element: HTMLElement | null | undefined
-): void {
+export function removeElement(element: HTMLElement | null | undefined): void {
   element?.remove();
 }
 

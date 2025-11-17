@@ -5,11 +5,7 @@
 
 import { createModuleLogger } from '@utils/debug';
 import type { Language } from '@modules/translation/types';
-import {
-  createButton,
-  createDiv,
-  setAttributes,
-} from '@utils/dom-helpers';
+import { createButton, createDiv, setAttributes } from '@utils/dom-helpers';
 
 const logger = createModuleLogger('TranslationToolbar');
 
@@ -106,14 +102,19 @@ export class TranslationToolbar {
     section.appendChild(translateDocBtn);
 
     // Translate selected button
-    const translateSentenceBtn = createButton('', 'review-btn review-btn-secondary');
+    const translateSentenceBtn = createButton(
+      '',
+      'review-btn review-btn-secondary'
+    );
     translateSentenceBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 0a1 1 0 011 1v6h6a1 1 0 110 2H9v6a1 1 0 11-2 0V9H1a1 1 0 010-2h6V1a1 1 0 011-1z"/>
       </svg>
       <span>Translate Selected</span>
     `;
-    setAttributes(translateSentenceBtn, { 'data-action': 'translate-sentence' });
+    setAttributes(translateSentenceBtn, {
+      'data-action': 'translate-sentence',
+    });
     section.appendChild(translateSentenceBtn);
 
     // Progress indicator
@@ -230,7 +231,7 @@ export class TranslationToolbar {
     `;
     setAttributes(swapBtn, {
       title: 'Swap languages',
-      'data-action': 'swap-languages'
+      'data-action': 'swap-languages',
     });
 
     swapBtn.addEventListener('click', () => {
@@ -444,7 +445,10 @@ export class TranslationToolbar {
     section.appendChild(label);
 
     // Export unified button
-    const exportUnifiedBtn = createButton('', 'review-btn review-btn-secondary');
+    const exportUnifiedBtn = createButton(
+      '',
+      'review-btn review-btn-secondary'
+    );
     exportUnifiedBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 1a1 1 0 011 1v10.59l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L7 12.59V2a1 1 0 011-1z"/>
@@ -453,12 +457,15 @@ export class TranslationToolbar {
     `;
     setAttributes(exportUnifiedBtn, {
       'data-action': 'export-unified',
-      title: 'Export target language as .qmd'
+      title: 'Export target language as .qmd',
     });
     section.appendChild(exportUnifiedBtn);
 
     // Export separated button
-    const exportSeparatedBtn = createButton('', 'review-btn review-btn-secondary');
+    const exportSeparatedBtn = createButton(
+      '',
+      'review-btn review-btn-secondary'
+    );
     exportSeparatedBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 1a1 1 0 011 1v10.59l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L7 12.59V2a1 1 0 011-1z"/>
@@ -467,7 +474,7 @@ export class TranslationToolbar {
     `;
     setAttributes(exportSeparatedBtn, {
       'data-action': 'export-separated',
-      title: 'Export source and target languages as separate .qmd files'
+      title: 'Export source and target languages as separate .qmd files',
     });
     section.appendChild(exportSeparatedBtn);
 
