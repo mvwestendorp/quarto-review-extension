@@ -20,6 +20,7 @@ import { Plugin, PluginKey } from '@milkdown/prose/state';
 import type { Node as ProseNode } from '@milkdown/prose/model';
 
 import { createModuleLogger } from '@utils/debug';
+import { createDiv } from '@utils/dom-helpers';
 import {
   MODULE_EVENTS,
   ModuleEventEmitter,
@@ -239,18 +240,14 @@ export class MilkdownEditor extends ModuleEventEmitter {
     if (!layout || !mount || !toolbarElement) {
       container.innerHTML = '';
 
-      layout = document.createElement('div');
-      layout.className = 'review-editor-layout';
+      layout = createDiv('review-editor-layout');
 
-      const contentWrapper = document.createElement('div');
-      contentWrapper.className = 'review-editor-content';
+      const contentWrapper = createDiv('review-editor-content');
 
-      mount = document.createElement('div');
-      mount.className = 'review-editor-surface';
+      mount = createDiv('review-editor-surface');
       contentWrapper.appendChild(mount);
 
-      toolbarElement = document.createElement('div');
-      toolbarElement.className = 'review-editor-toolbar-container';
+      toolbarElement = createDiv('review-editor-toolbar-container');
       contentWrapper.appendChild(toolbarElement);
 
       layout.appendChild(contentWrapper);

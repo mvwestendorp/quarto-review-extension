@@ -8,6 +8,12 @@ import type { UIModuleInterface } from '@/types';
 import { escapeHtml } from './shared/utils';
 import { getAnimationDuration } from './constants';
 import { FocusManager } from '@utils/focus-management';
+import {
+  createDiv,
+  setAttributes,
+  addClass,
+  removeClass,
+} from '@utils/dom-helpers';
 
 const logger = createModuleLogger('KeyboardShortcuts');
 
@@ -89,7 +95,7 @@ export class KeyboardShortcutManager {
     this.paletteElement = palette;
 
     requestAnimationFrame(() => {
-      palette.classList.add('review-palette-visible');
+      addClass(palette, 'review-palette-visible');
 
       // Set up focus management for the modal
       this.focusManager = new FocusManager(palette);
@@ -114,7 +120,7 @@ export class KeyboardShortcutManager {
       this.focusManager = null;
     }
 
-    this.paletteElement.classList.remove('review-palette-visible');
+    removeClass(this.paletteElement, 'review-palette-visible');
     setTimeout(() => {
       this.paletteElement?.remove();
       this.paletteElement = null;
@@ -213,11 +219,12 @@ export class KeyboardShortcutManager {
   }
 
   private createPaletteElement(): HTMLElement {
-    const palette = document.createElement('div');
-    palette.className = 'review-command-palette';
-    palette.setAttribute('role', 'dialog');
-    palette.setAttribute('aria-label', 'Command palette');
-    palette.setAttribute('aria-modal', 'true');
+    const palette = createDiv('review-command-palette');
+    setAttributes(palette, {
+      role: 'dialog',
+      'aria-label': 'Command palette',
+      'aria-modal': 'true',
+    });
 
     palette.innerHTML = `
       <div class="review-palette-overlay" aria-hidden="true"></div>

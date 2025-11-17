@@ -5,6 +5,7 @@
 
 import { createModuleLogger } from '@utils/debug';
 import type { Language } from '@modules/translation/types';
+import { createButton, createDiv, setAttributes } from '@utils/dom-helpers';
 
 const logger = createModuleLogger('TranslationToolbar');
 
@@ -52,8 +53,7 @@ export class TranslationToolbar {
    * Create and initialize the toolbar
    */
   create(): HTMLElement {
-    const toolbar = document.createElement('div');
-    toolbar.className = 'review-translation-toolbar';
+    const toolbar = createDiv('review-translation-toolbar');
 
     // Translation actions section
     const actions = this.createActionsSection();
@@ -83,8 +83,7 @@ export class TranslationToolbar {
    * Create translation actions section
    */
   private createActionsSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-translation-toolbar-section';
+    const section = createDiv('review-translation-toolbar-section');
 
     const label = document.createElement('span');
     label.className = 'review-translation-toolbar-label';
@@ -92,32 +91,34 @@ export class TranslationToolbar {
     section.appendChild(label);
 
     // Translate document button
-    const translateDocBtn = document.createElement('button');
-    translateDocBtn.className = 'review-btn review-btn-primary';
+    const translateDocBtn = createButton('', 'review-btn review-btn-primary');
     translateDocBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M7 0h2v2H7V0zm0 14h2v2H7v-2zM0 7h2v2H0V7zm14 0h2v2h-2V7zM3.05 2.636l1.414 1.414L3.05 5.464 1.636 4.05 3.05 2.636zm9.9 9.9l1.414 1.414-1.414 1.414-1.414-1.414 1.414-1.414zM2.636 12.95l1.414-1.414L5.464 12.95 4.05 14.364 2.636 12.95zM12.95 3.05l1.414 1.414-1.414 1.414-1.414-1.414L12.95 3.05z"/>
       </svg>
       <span>Translate All</span>
     `;
-    translateDocBtn.dataset.action = 'translate-document';
+    setAttributes(translateDocBtn, { 'data-action': 'translate-document' });
     section.appendChild(translateDocBtn);
 
     // Translate selected button
-    const translateSentenceBtn = document.createElement('button');
-    translateSentenceBtn.className = 'review-btn review-btn-secondary';
+    const translateSentenceBtn = createButton(
+      '',
+      'review-btn review-btn-secondary'
+    );
     translateSentenceBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 0a1 1 0 011 1v6h6a1 1 0 110 2H9v6a1 1 0 11-2 0V9H1a1 1 0 010-2h6V1a1 1 0 011-1z"/>
       </svg>
       <span>Translate Selected</span>
     `;
-    translateSentenceBtn.dataset.action = 'translate-sentence';
+    setAttributes(translateSentenceBtn, {
+      'data-action': 'translate-sentence',
+    });
     section.appendChild(translateSentenceBtn);
 
     // Progress indicator
-    const progress = document.createElement('div');
-    progress.className = 'review-translation-progress';
+    const progress = createDiv('review-translation-progress');
     progress.style.display = 'none';
     progress.innerHTML = `
       <div class="review-translation-progress-spinner"></div>
@@ -141,8 +142,7 @@ export class TranslationToolbar {
    * Create provider selection section
    */
   private createProviderSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-translation-toolbar-section';
+    const section = createDiv('review-translation-toolbar-section');
 
     const label = document.createElement('span');
     label.className = 'review-translation-toolbar-label';
@@ -151,7 +151,7 @@ export class TranslationToolbar {
 
     const select = document.createElement('select');
     select.className = 'review-translation-provider-select';
-    select.dataset.setting = 'provider';
+    setAttributes(select, { 'data-setting': 'provider' });
 
     this.config.availableProviders.forEach((provider) => {
       const option = document.createElement('option');
@@ -193,8 +193,7 @@ export class TranslationToolbar {
    * Create language selection section
    */
   private createLanguageSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-translation-toolbar-section';
+    const section = createDiv('review-translation-toolbar-section');
 
     const label = document.createElement('span');
     label.className = 'review-translation-toolbar-label';
@@ -204,7 +203,7 @@ export class TranslationToolbar {
     // Source language select
     const sourceSelect = document.createElement('select');
     sourceSelect.className = 'review-translation-lang-select';
-    sourceSelect.dataset.setting = 'source-language';
+    setAttributes(sourceSelect, { 'data-setting': 'source-language' });
 
     this.config.availableLanguages.forEach((lang) => {
       const option = document.createElement('option');
@@ -224,15 +223,16 @@ export class TranslationToolbar {
     section.appendChild(sourceSelect);
 
     // Swap languages button
-    const swapBtn = document.createElement('button');
-    swapBtn.className = 'review-btn review-btn-icon';
-    swapBtn.title = 'Swap languages';
+    const swapBtn = createButton('', 'review-btn review-btn-icon');
     swapBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M11.5 3.5a.5.5 0 01.5.5v2a.5.5 0 01-.5.5H10a.5.5 0 010-1h.293l-1.647-1.646a.5.5 0 01.708-.708L11 4.793V4.5a.5.5 0 01.5-.5zm-7 6a.5.5 0 00-.5.5v.707l-1.646-1.647a.5.5 0 00-.708.708L3.293 11H3a.5.5 0 000 1h1.5a.5.5 0 00.5-.5v-2a.5.5 0 00-.5-.5z"/>
       </svg>
     `;
-    swapBtn.dataset.action = 'swap-languages';
+    setAttributes(swapBtn, {
+      title: 'Swap languages',
+      'data-action': 'swap-languages',
+    });
 
     swapBtn.addEventListener('click', () => {
       this.callbacks.onSwapLanguages?.();
@@ -244,7 +244,7 @@ export class TranslationToolbar {
     // Target language select
     const targetSelect = document.createElement('select');
     targetSelect.className = 'review-translation-lang-select';
-    targetSelect.dataset.setting = 'target-language';
+    setAttributes(targetSelect, { 'data-setting': 'target-language' });
 
     this.config.availableLanguages.forEach((lang) => {
       const option = document.createElement('option');
@@ -282,8 +282,7 @@ export class TranslationToolbar {
    * Create settings section
    */
   private createSettingsSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-translation-toolbar-section';
+    const section = createDiv('review-translation-toolbar-section');
 
     const label = document.createElement('span');
     label.className = 'review-translation-toolbar-label';
@@ -438,8 +437,7 @@ export class TranslationToolbar {
    * Create export section
    */
   private createExportSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-translation-toolbar-section';
+    const section = createDiv('review-translation-toolbar-section');
 
     const label = document.createElement('span');
     label.className = 'review-translation-toolbar-label';
@@ -447,30 +445,37 @@ export class TranslationToolbar {
     section.appendChild(label);
 
     // Export unified button
-    const exportUnifiedBtn = document.createElement('button');
-    exportUnifiedBtn.className = 'review-btn review-btn-secondary';
+    const exportUnifiedBtn = createButton(
+      '',
+      'review-btn review-btn-secondary'
+    );
     exportUnifiedBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 1a1 1 0 011 1v10.59l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L7 12.59V2a1 1 0 011-1z"/>
       </svg>
       <span>Export Translation</span>
     `;
-    exportUnifiedBtn.dataset.action = 'export-unified';
-    exportUnifiedBtn.title = 'Export target language as .qmd';
+    setAttributes(exportUnifiedBtn, {
+      'data-action': 'export-unified',
+      title: 'Export target language as .qmd',
+    });
     section.appendChild(exportUnifiedBtn);
 
     // Export separated button
-    const exportSeparatedBtn = document.createElement('button');
-    exportSeparatedBtn.className = 'review-btn review-btn-secondary';
+    const exportSeparatedBtn = createButton(
+      '',
+      'review-btn review-btn-secondary'
+    );
     exportSeparatedBtn.innerHTML = `
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
         <path d="M8 1a1 1 0 011 1v10.59l3.293-3.293a1 1 0 111.414 1.414l-5 5a1 1 0 01-1.414 0l-5-5a1 1 0 111.414-1.414L7 12.59V2a1 1 0 011-1z"/>
       </svg>
       <span>Export Both Languages</span>
     `;
-    exportSeparatedBtn.dataset.action = 'export-separated';
-    exportSeparatedBtn.title =
-      'Export source and target languages as separate .qmd files';
+    setAttributes(exportSeparatedBtn, {
+      'data-action': 'export-separated',
+      title: 'Export source and target languages as separate .qmd files',
+    });
     section.appendChild(exportSeparatedBtn);
 
     // Bind events

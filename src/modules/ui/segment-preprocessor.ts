@@ -1,4 +1,5 @@
 import type { ElementType } from '@/types';
+import { addClass } from '@utils/dom-helpers';
 
 type FloatKind = 'FigureCaption' | 'TableCaption';
 
@@ -246,6 +247,6 @@ function applySegmentAttributes(
   element.setAttribute('data-review-origin', descriptor.origin);
 
   if (descriptor.classes?.length) {
-    descriptor.classes.forEach((cls) => element.classList.add(cls));
+    descriptor.classes.forEach((cls) => addClass(element, cls));
   }
 }

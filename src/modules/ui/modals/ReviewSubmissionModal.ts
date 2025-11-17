@@ -1,3 +1,5 @@
+import { createDiv } from '@utils/dom-helpers';
+
 export interface ReviewSubmissionInitialValues {
   reviewer: string;
   branchName: string;
@@ -43,11 +45,9 @@ export class ReviewSubmissionModal {
   }
 
   private render(initial: ReviewSubmissionInitialValues): HTMLElement {
-    const overlay = document.createElement('div');
-    overlay.className = 'review-editor-modal review-review-modal';
+    const overlay = createDiv('review-editor-modal review-review-modal');
 
-    const container = document.createElement('div');
-    container.className = 'review-editor-container';
+    const container = createDiv('review-editor-container');
 
     const form = document.createElement('form');
     form.className = 'review-review-form';

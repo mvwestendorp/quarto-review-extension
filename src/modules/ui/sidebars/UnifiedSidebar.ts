@@ -3,6 +3,13 @@ import { getBuildString, getFullBuildInfo } from '../../../version';
 import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from '../comments/CommentController';
 import type { UserModule } from '../../user';
+import {
+  createButton,
+  createDiv,
+  createIcon,
+  setAttributes,
+  toggleClass,
+} from '@utils/dom-helpers';
 
 const logger = createModuleLogger('UnifiedSidebar');
 
@@ -120,18 +127,20 @@ export class UnifiedSidebar {
       return this.element;
     }
 
-    const container = document.createElement('div');
-    container.className = 'review-unified-sidebar review-persistent-sidebar';
-    container.setAttribute('role', 'complementary');
-    container.setAttribute('aria-label', 'Review tools and comments');
+    const container = createDiv(
+      'review-unified-sidebar review-persistent-sidebar'
+    );
+    setAttributes(container, {
+      role: 'complementary',
+      'aria-label': 'Review tools and comments',
+    });
 
     // Header
     const header = this.createHeader();
     container.appendChild(header);
 
     // Scrollable body
-    const body = document.createElement('div');
-    body.className = 'review-sidebar-body';
+    const body = createDiv('review-sidebar-body');
 
     // Review Tools Section (shown in review mode)
     this.reviewToolsSection = this.createReviewToolsSection();
@@ -204,8 +213,10 @@ export class UnifiedSidebar {
     if (!currentUser) return;
 
     // Create new user section
-    const userSection = document.createElement('div');
-    userSection.setAttribute('data-user-info', 'true');
+    const userSection = createDiv();
+    setAttributes(userSection, {
+      'data-user-info': 'true',
+    });
     userSection.style.cssText = `
       display: flex;
       align-items: center;
@@ -214,8 +225,7 @@ export class UnifiedSidebar {
       border-right: 1px solid var(--review-border-color, #e5e7eb);
     `;
 
-    const userIcon = document.createElement('span');
-    userIcon.textContent = '👤';
+    const userIcon = createIcon('👤');
     userIcon.style.fontSize = '12px';
     userSection.appendChild(userIcon);
 
@@ -257,30 +267,26 @@ Role: ${currentUser.role}`;
    * Create header with title and toggle button
    */
   private createHeader(): HTMLElement {
-    const header = document.createElement('div');
-    header.className = 'review-sidebar-header';
+    const header = createDiv('review-sidebar-header');
     header.setAttribute('data-sidebar-label', 'Review');
 
     this.sidebarTitle = document.createElement('h3');
     this.sidebarTitle.textContent = 'Review Tools';
     header.appendChild(this.sidebarTitle);
 
-    this.toggleBtn = document.createElement('button');
-    this.toggleBtn.className = 'review-btn review-btn-icon';
-    this.toggleBtn.setAttribute('data-action', 'toggle-sidebar');
-    this.toggleBtn.setAttribute('title', 'Collapse sidebar');
-    this.toggleBtn.setAttribute('aria-label', 'Toggle sidebar visibility');
-    this.toggleBtn.setAttribute('aria-expanded', 'true');
+    this.toggleBtn = createButton('', 'review-btn review-btn-icon');
+    setAttributes(this.toggleBtn, {
+      'data-action': 'toggle-sidebar',
+      title: 'Collapse sidebar',
+      'aria-label': 'Toggle sidebar visibility',
+      'aria-expanded': 'true',
+    });
 
-    const chevron = document.createElement('span');
-    chevron.className = 'review-icon-chevron';
-    chevron.textContent = '‹';
+    const chevron = createIcon('‹', 'review-icon-chevron');
     chevron.style.position = 'absolute';
     this.toggleBtn.appendChild(chevron);
 
-    const icon = document.createElement('span');
-    icon.className = 'review-icon-tools';
-    icon.textContent = '⚙️';
+    const icon = createIcon('⚙️', 'review-icon-tools');
     icon.style.position = 'absolute';
     icon.style.opacity = '0';
     icon.style.pointerEvents = 'none';
@@ -298,32 +304,37 @@ Role: ${currentUser.role}`;
    * Create Review Tools section (undo/redo, tracked changes)
    */
   private createReviewToolsSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-sidebar-section';
+    const section = createDiv('review-sidebar-section');
     section.setAttribute('data-section', 'review-tools');
 
     const title = document.createElement('h4');
     title.textContent = 'Actions';
     section.appendChild(title);
 
-    this.undoBtn = document.createElement('button');
-    this.undoBtn.className = 'review-btn review-btn-secondary review-btn-block';
-    this.undoBtn.setAttribute('data-action', 'undo');
-    this.undoBtn.setAttribute('title', 'Undo (Ctrl+Z)');
-    this.undoBtn.setAttribute('aria-label', 'Undo (Ctrl+Z)');
-    this.undoBtn.textContent = '↶ Undo';
+    this.undoBtn = createButton(
+      '↶ Undo',
+      'review-btn review-btn-secondary review-btn-block'
+    );
+    setAttributes(this.undoBtn, {
+      'data-action': 'undo',
+      title: 'Undo (Ctrl+Z)',
+      'aria-label': 'Undo (Ctrl+Z)',
+    });
     this.undoBtn.disabled = true;
     this.undoBtn.addEventListener('click', () => {
       this.onUndoCallback?.();
     });
     section.appendChild(this.undoBtn);
 
-    this.redoBtn = document.createElement('button');
-    this.redoBtn.className = 'review-btn review-btn-secondary review-btn-block';
-    this.redoBtn.setAttribute('data-action', 'redo');
-    this.redoBtn.setAttribute('title', 'Redo (Ctrl+Y)');
-    this.redoBtn.setAttribute('aria-label', 'Redo (Ctrl+Y)');
-    this.redoBtn.textContent = '↷ Redo';
+    this.redoBtn = createButton(
+      '↷ Redo',
+      'review-btn review-btn-secondary review-btn-block'
+    );
+    setAttributes(this.redoBtn, {
+      'data-action': 'redo',
+      title: 'Redo (Ctrl+Y)',
+      'aria-label': 'Redo (Ctrl+Y)',
+    });
     this.redoBtn.disabled = true;
     this.redoBtn.addEventListener('click', () => {
       this.onRedoCallback?.();
@@ -331,7 +342,7 @@ Role: ${currentUser.role}`;
     section.appendChild(this.redoBtn);
 
     // Tracked changes toggle
-    const viewDiv = document.createElement('div');
+    const viewDiv = createDiv();
     viewDiv.style.marginTop = '12px';
 
     const trackedLabel = document.createElement('label');
@@ -339,14 +350,10 @@ Role: ${currentUser.role}`;
 
     this.trackedChangesToggle = document.createElement('input');
     this.trackedChangesToggle.type = 'checkbox';
-    this.trackedChangesToggle.setAttribute(
-      'data-action',
-      'toggle-tracked-changes'
-    );
-    this.trackedChangesToggle.setAttribute(
-      'aria-label',
-      'Show tracked changes'
-    );
+    setAttributes(this.trackedChangesToggle, {
+      'data-action': 'toggle-tracked-changes',
+      'aria-label': 'Show tracked changes',
+    });
     this.trackedChangesToggle.className = 'review-sidebar-checkbox';
     this.trackedChangesToggle.addEventListener('change', (event) => {
       const target = event.target as HTMLInputElement;
@@ -369,65 +376,52 @@ Role: ${currentUser.role}`;
    * Create Export section (QMD export, Git submit)
    */
   private createExportSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-sidebar-section';
+    const section = createDiv('review-sidebar-section');
     section.setAttribute('data-section', 'export');
 
     const title = document.createElement('h4');
     title.textContent = 'Export';
     section.appendChild(title);
 
-    this.exportCleanBtn = document.createElement('button');
-    this.exportCleanBtn.className =
-      'review-btn review-btn-primary review-btn-block';
-    this.exportCleanBtn.setAttribute('data-action', 'export-qmd-clean');
-    this.exportCleanBtn.setAttribute(
-      'title',
-      'Export QMD with accepted changes applied'
+    this.exportCleanBtn = createButton(
+      '🗂 Export Clean QMD',
+      'review-btn review-btn-primary review-btn-block'
     );
-    this.exportCleanBtn.setAttribute(
-      'aria-label',
-      'Export QMD with accepted changes applied'
-    );
-    this.exportCleanBtn.textContent = '🗂 Export Clean QMD';
+    setAttributes(this.exportCleanBtn, {
+      'data-action': 'export-qmd-clean',
+      title: 'Export QMD with accepted changes applied',
+      'aria-label': 'Export QMD with accepted changes applied',
+    });
     this.exportCleanBtn.disabled = true;
     this.exportCleanBtn.addEventListener('click', () => {
       this.onExportCleanCallback?.();
     });
     section.appendChild(this.exportCleanBtn);
 
-    this.exportCriticBtn = document.createElement('button');
-    this.exportCriticBtn.className =
-      'review-btn review-btn-secondary review-btn-block';
-    this.exportCriticBtn.setAttribute('data-action', 'export-qmd-critic');
-    this.exportCriticBtn.setAttribute(
-      'title',
-      'Export QMD with CriticMarkup annotations'
+    this.exportCriticBtn = createButton(
+      '📝 Export with CriticMarkup',
+      'review-btn review-btn-secondary review-btn-block'
     );
-    this.exportCriticBtn.setAttribute(
-      'aria-label',
-      'Export QMD with CriticMarkup annotations'
-    );
-    this.exportCriticBtn.textContent = '📝 Export with CriticMarkup';
+    setAttributes(this.exportCriticBtn, {
+      'data-action': 'export-qmd-critic',
+      title: 'Export QMD with CriticMarkup annotations',
+      'aria-label': 'Export QMD with CriticMarkup annotations',
+    });
     this.exportCriticBtn.disabled = true;
     this.exportCriticBtn.addEventListener('click', () => {
       this.onExportCriticCallback?.();
     });
     section.appendChild(this.exportCriticBtn);
 
-    this.submitReviewBtn = document.createElement('button');
-    this.submitReviewBtn.className =
-      'review-btn review-btn-primary review-btn-block';
-    this.submitReviewBtn.setAttribute('data-action', 'submit-review');
-    this.submitReviewBtn.setAttribute(
-      'title',
-      'Submit review changes to the configured Git provider'
+    this.submitReviewBtn = createButton(
+      this.submitReviewLabel,
+      'review-btn review-btn-primary review-btn-block'
     );
-    this.submitReviewBtn.setAttribute(
-      'aria-label',
-      'Submit review changes to the configured Git provider'
-    );
-    this.submitReviewBtn.textContent = this.submitReviewLabel;
+    setAttributes(this.submitReviewBtn, {
+      'data-action': 'submit-review',
+      title: 'Submit review changes to the configured Git provider',
+      'aria-label': 'Submit review changes to the configured Git provider',
+    });
     this.submitReviewBtn.disabled = true;
     this.submitReviewBtn.addEventListener('click', () => {
       this.onSubmitReviewCallback?.();
@@ -443,12 +437,10 @@ Role: ${currentUser.role}`;
    * Create Comments section (collapsible list)
    */
   private createCommentsSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-sidebar-section review-comments-section';
+    const section = createDiv('review-sidebar-section review-comments-section');
     section.setAttribute('data-section', 'comments');
 
-    const header = document.createElement('div');
-    header.className = 'review-sidebar-section-header';
+    const header = createDiv('review-sidebar-section-header');
     header.style.cssText =
       'display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; cursor: pointer;';
     header.addEventListener('click', () => {
@@ -460,9 +452,10 @@ Role: ${currentUser.role}`;
     title.style.margin = '0';
     header.appendChild(title);
 
-    this.commentsSectionToggle = document.createElement('button');
-    this.commentsSectionToggle.className =
-      'review-btn review-btn-icon review-btn-sm';
+    this.commentsSectionToggle = createButton(
+      '',
+      'review-btn review-btn-icon review-btn-sm'
+    );
     this.commentsSectionToggle.setAttribute(
       'aria-label',
       'Toggle comments section'
@@ -477,8 +470,7 @@ Role: ${currentUser.role}`;
 
     section.appendChild(header);
 
-    this.commentsContent = document.createElement('div');
-    this.commentsContent.className = 'review-comments-content';
+    this.commentsContent = createDiv('review-comments-content');
     this.commentsContent.style.cssText = 'max-height: 400px; overflow-y: auto;';
     section.appendChild(this.commentsContent);
 
@@ -489,24 +481,22 @@ Role: ${currentUser.role}`;
    * Create Translation Toggle section
    */
   private createTranslationToggleSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-sidebar-section';
+    const section = createDiv('review-sidebar-section');
     section.setAttribute('data-section', 'translation-toggle');
 
     const title = document.createElement('h4');
     title.textContent = 'Translation';
     section.appendChild(title);
 
-    this.translationBtn = document.createElement('button');
-    this.translationBtn.className =
-      'review-btn review-btn-secondary review-btn-block';
-    this.translationBtn.setAttribute('data-action', 'toggle-translation');
-    this.translationBtn.setAttribute(
-      'title',
-      'Open translation UI for document translation'
+    this.translationBtn = createButton(
+      '🌐 Open Translation',
+      'review-btn review-btn-secondary review-btn-block'
     );
-    this.translationBtn.setAttribute('aria-label', 'Toggle translation UI');
-    this.translationBtn.textContent = '🌐 Open Translation';
+    setAttributes(this.translationBtn, {
+      'data-action': 'toggle-translation',
+      title: 'Open translation UI for document translation',
+      'aria-label': 'Toggle translation UI',
+    });
     this.translationBtn.disabled = true;
     this.translationBtn.addEventListener('click', () => {
       this.onToggleTranslationCallback?.();
@@ -520,18 +510,18 @@ Role: ${currentUser.role}`;
    * Create Storage section
    */
   private createStorageSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-sidebar-section';
+    const section = createDiv('review-sidebar-section');
     section.setAttribute('data-section', 'storage');
 
     const title = document.createElement('h4');
     title.textContent = 'Storage';
     section.appendChild(title);
 
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'review-btn review-btn-danger review-btn-block';
+    const clearBtn = createButton(
+      'Clear local drafts',
+      'review-btn review-btn-danger review-btn-block'
+    );
     clearBtn.setAttribute('data-action', 'clear-local-drafts');
-    clearBtn.textContent = 'Clear local drafts';
     clearBtn.addEventListener('click', () => {
       this.onClearDraftsCallback?.();
     });
@@ -544,8 +534,7 @@ Role: ${currentUser.role}`;
    * Create Translation Tools section (shown in translation mode)
    */
   private createTranslationToolsSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'review-sidebar-section';
+    const section = createDiv('review-sidebar-section');
     section.setAttribute('data-section', 'translation-tools');
 
     const title = document.createElement('h4');
@@ -553,41 +542,33 @@ Role: ${currentUser.role}`;
     section.appendChild(title);
 
     // Translate buttons
-    const translateActionsDiv = document.createElement('div');
+    const translateActionsDiv = createDiv();
     translateActionsDiv.style.marginBottom = '12px';
 
-    this.translateDocumentBtn = document.createElement('button');
-    this.translateDocumentBtn.className =
-      'review-btn review-btn-primary review-btn-block';
-    this.translateDocumentBtn.setAttribute('data-action', 'translate-document');
-    this.translateDocumentBtn.setAttribute(
-      'title',
-      'Translate entire document (Ctrl+T)'
+    this.translateDocumentBtn = createButton(
+      'Translate Document',
+      'review-btn review-btn-primary review-btn-block'
     );
-    this.translateDocumentBtn.setAttribute(
-      'aria-label',
-      'Translate entire document'
-    );
-    this.translateDocumentBtn.textContent = 'Translate Document';
+    setAttributes(this.translateDocumentBtn, {
+      'data-action': 'translate-document',
+      title: 'Translate entire document (Ctrl+T)',
+      'aria-label': 'Translate entire document',
+    });
     this.translateDocumentBtn.disabled = true;
     this.translateDocumentBtn.addEventListener('click', () => {
       this.onTranslateDocumentCallback?.();
     });
     translateActionsDiv.appendChild(this.translateDocumentBtn);
 
-    this.translateSentenceBtn = document.createElement('button');
-    this.translateSentenceBtn.className =
-      'review-btn review-btn-secondary review-btn-block';
-    this.translateSentenceBtn.setAttribute('data-action', 'translate-sentence');
-    this.translateSentenceBtn.setAttribute(
-      'title',
-      'Translate selected sentence (Ctrl+Shift+T)'
+    this.translateSentenceBtn = createButton(
+      'Translate Selected',
+      'review-btn review-btn-secondary review-btn-block'
     );
-    this.translateSentenceBtn.setAttribute(
-      'aria-label',
-      'Translate selected sentence'
-    );
-    this.translateSentenceBtn.textContent = 'Translate Selected';
+    setAttributes(this.translateSentenceBtn, {
+      'data-action': 'translate-sentence',
+      title: 'Translate selected sentence (Ctrl+Shift+T)',
+      'aria-label': 'Translate selected sentence',
+    });
     this.translateSentenceBtn.disabled = true;
     this.translateSentenceBtn.addEventListener('click', () => {
       this.onTranslateSentenceCallback?.();
@@ -604,8 +585,9 @@ Role: ${currentUser.role}`;
     section.appendChild(translateActionsDiv);
 
     // Progress container
-    const progressContainer = document.createElement('div');
-    progressContainer.className = 'review-translation-progress-container';
+    const progressContainer = createDiv(
+      'review-translation-progress-container'
+    );
     progressContainer.style.display = 'none';
     progressContainer.setAttribute('aria-live', 'polite');
     progressContainer.innerHTML = `
@@ -625,7 +607,7 @@ Role: ${currentUser.role}`;
     section.appendChild(progressContainer);
 
     // Provider selector
-    const providerDiv = document.createElement('div');
+    const providerDiv = createDiv();
     providerDiv.style.marginBottom = '12px';
 
     const providerLabel = document.createElement('label');
@@ -648,7 +630,7 @@ Role: ${currentUser.role}`;
     section.appendChild(providerDiv);
 
     // Language selectors
-    const languagesDiv = document.createElement('div');
+    const languagesDiv = createDiv();
     languagesDiv.style.marginBottom = '12px';
 
     const sourceLabel = document.createElement('label');
@@ -688,19 +670,15 @@ Role: ${currentUser.role}`;
     });
     languagesDiv.appendChild(this.targetLanguageSelector);
 
-    this.swapLanguagesBtn = document.createElement('button');
-    this.swapLanguagesBtn.className =
-      'review-btn review-btn-secondary review-btn-sm review-btn-block';
-    this.swapLanguagesBtn.setAttribute('data-action', 'swap-languages');
-    this.swapLanguagesBtn.setAttribute(
-      'title',
-      'Swap source and target languages (Ctrl+Alt+S)'
+    this.swapLanguagesBtn = createButton(
+      'Swap Languages',
+      'review-btn review-btn-secondary review-btn-sm review-btn-block'
     );
-    this.swapLanguagesBtn.setAttribute(
-      'aria-label',
-      'Swap source and target languages'
-    );
-    this.swapLanguagesBtn.textContent = 'Swap Languages';
+    setAttributes(this.swapLanguagesBtn, {
+      'data-action': 'swap-languages',
+      title: 'Swap source and target languages (Ctrl+Alt+S)',
+      'aria-label': 'Swap source and target languages',
+    });
     this.swapLanguagesBtn.style.marginTop = '6px';
     this.swapLanguagesBtn.addEventListener('click', () => {
       this.onSwapLanguagesCallback?.();
@@ -710,7 +688,7 @@ Role: ${currentUser.role}`;
     section.appendChild(languagesDiv);
 
     // Settings
-    const settingsDiv = document.createElement('div');
+    const settingsDiv = createDiv();
     settingsDiv.style.marginBottom = '12px';
 
     const autoTranslateLabel = document.createElement('label');
@@ -718,14 +696,10 @@ Role: ${currentUser.role}`;
 
     this.autoTranslateToggle = document.createElement('input');
     this.autoTranslateToggle.type = 'checkbox';
-    this.autoTranslateToggle.setAttribute(
-      'data-action',
-      'toggle-auto-translate'
-    );
-    this.autoTranslateToggle.setAttribute(
-      'aria-label',
-      'Auto-translate on edit'
-    );
+    setAttributes(this.autoTranslateToggle, {
+      'data-action': 'toggle-auto-translate',
+      'aria-label': 'Auto-translate on edit',
+    });
     this.autoTranslateToggle.className = 'review-sidebar-checkbox';
     this.autoTranslateToggle.addEventListener('change', (e) => {
       const target = e.target as HTMLInputElement;
@@ -742,47 +716,33 @@ Role: ${currentUser.role}`;
     section.appendChild(settingsDiv);
 
     // Export buttons (translation-specific)
-    const translationExportDiv = document.createElement('div');
+    const translationExportDiv = createDiv();
     translationExportDiv.style.marginBottom = '12px';
 
-    this.translationExportUnifiedBtn = document.createElement('button');
-    this.translationExportUnifiedBtn.className =
-      'review-btn review-btn-primary review-btn-block review-btn-sm';
-    this.translationExportUnifiedBtn.setAttribute(
-      'data-action',
-      'export-translation-unified'
+    this.translationExportUnifiedBtn = createButton(
+      'Export Unified',
+      'review-btn review-btn-primary review-btn-block review-btn-sm'
     );
-    this.translationExportUnifiedBtn.setAttribute(
-      'title',
-      'Export unified translation'
-    );
-    this.translationExportUnifiedBtn.setAttribute(
-      'aria-label',
-      'Export unified translation'
-    );
-    this.translationExportUnifiedBtn.textContent = 'Export Unified';
+    setAttributes(this.translationExportUnifiedBtn, {
+      'data-action': 'export-translation-unified',
+      title: 'Export unified translation',
+      'aria-label': 'Export unified translation',
+    });
     this.translationExportUnifiedBtn.disabled = true;
     this.translationExportUnifiedBtn.addEventListener('click', () => {
       this.onTranslationExportUnifiedCallback?.();
     });
     translationExportDiv.appendChild(this.translationExportUnifiedBtn);
 
-    this.translationExportSeparatedBtn = document.createElement('button');
-    this.translationExportSeparatedBtn.className =
-      'review-btn review-btn-secondary review-btn-block review-btn-sm';
-    this.translationExportSeparatedBtn.setAttribute(
-      'data-action',
-      'export-translation-separated'
+    this.translationExportSeparatedBtn = createButton(
+      'Export Separated',
+      'review-btn review-btn-secondary review-btn-block review-btn-sm'
     );
-    this.translationExportSeparatedBtn.setAttribute(
-      'title',
-      'Export separated translation'
-    );
-    this.translationExportSeparatedBtn.setAttribute(
-      'aria-label',
-      'Export separated translation'
-    );
-    this.translationExportSeparatedBtn.textContent = 'Export Separated';
+    setAttributes(this.translationExportSeparatedBtn, {
+      'data-action': 'export-translation-separated',
+      title: 'Export separated translation',
+      'aria-label': 'Export separated translation',
+    });
     this.translationExportSeparatedBtn.disabled = true;
     this.translationExportSeparatedBtn.addEventListener('click', () => {
       this.onTranslationExportSeparatedCallback?.();
@@ -791,22 +751,15 @@ Role: ${currentUser.role}`;
 
     section.appendChild(translationExportDiv);
 
-    this.clearModelCacheBtn = document.createElement('button');
-    this.clearModelCacheBtn.className =
-      'review-btn review-btn-secondary review-btn-block review-btn-sm';
-    this.clearModelCacheBtn.setAttribute(
-      'data-action',
-      'clear-local-model-cache'
+    this.clearModelCacheBtn = createButton(
+      'Clear Local Model Cache',
+      'review-btn review-btn-secondary review-btn-block review-btn-sm'
     );
-    this.clearModelCacheBtn.setAttribute(
-      'title',
-      'Clear cached local translation models'
-    );
-    this.clearModelCacheBtn.setAttribute(
-      'aria-label',
-      'Clear cached local translation models'
-    );
-    this.clearModelCacheBtn.textContent = 'Clear Local Model Cache';
+    setAttributes(this.clearModelCacheBtn, {
+      'data-action': 'clear-local-model-cache',
+      title: 'Clear cached local translation models',
+      'aria-label': 'Clear cached local translation models',
+    });
     this.clearModelCacheBtn.disabled = true;
     this.clearModelCacheBtn.addEventListener('click', () => {
       this.onClearLocalModelCacheCallback?.();
@@ -814,16 +767,15 @@ Role: ${currentUser.role}`;
     section.appendChild(this.clearModelCacheBtn);
 
     // Exit translation mode button
-    this.exitTranslationBtn = document.createElement('button');
-    this.exitTranslationBtn.className =
-      'review-btn review-btn-danger review-btn-block';
-    this.exitTranslationBtn.setAttribute('data-action', 'exit-translation');
-    this.exitTranslationBtn.setAttribute(
-      'title',
-      'Exit translation mode and merge changes'
+    this.exitTranslationBtn = createButton(
+      'Exit Translation',
+      'review-btn review-btn-danger review-btn-block'
     );
-    this.exitTranslationBtn.setAttribute('aria-label', 'Exit translation mode');
-    this.exitTranslationBtn.textContent = 'Exit Translation';
+    setAttributes(this.exitTranslationBtn, {
+      'data-action': 'exit-translation',
+      title: 'Exit translation mode and merge changes',
+      'aria-label': 'Exit translation mode',
+    });
     this.exitTranslationBtn.addEventListener('click', () => {
       this.onToggleTranslationCallback?.();
     });
@@ -836,8 +788,9 @@ Role: ${currentUser.role}`;
    * Create build info section with user status
    */
   private createBuildInfo(): HTMLElement {
-    const buildInfoSection = document.createElement('div');
-    buildInfoSection.className = 'review-sidebar-section review-build-info';
+    const buildInfoSection = createDiv(
+      'review-sidebar-section review-build-info'
+    );
     buildInfoSection.style.cssText = `
       margin-top: auto;
       padding-top: 8px;
@@ -854,7 +807,7 @@ Role: ${currentUser.role}`;
     // User info section (if authenticated)
     const currentUser = this.userModule?.getCurrentUser?.();
     if (currentUser) {
-      const userSection = document.createElement('div');
+      const userSection = createDiv();
       userSection.style.cssText = `
         display: flex;
         align-items: center;
@@ -863,8 +816,7 @@ Role: ${currentUser.role}`;
         border-right: 1px solid var(--review-border-color, #e5e7eb);
       `;
 
-      const userIcon = document.createElement('span');
-      userIcon.textContent = '👤';
+      const userIcon = createIcon('👤');
       userIcon.style.fontSize = '12px';
       userSection.appendChild(userIcon);
 
@@ -890,15 +842,14 @@ Role: ${currentUser.role}`;
     }
 
     // Build info
-    const buildSection = document.createElement('div');
+    const buildSection = createDiv();
     buildSection.style.cssText = `
       display: flex;
       align-items: center;
       gap: 4px;
     `;
 
-    const infoIcon = document.createElement('span');
-    infoIcon.textContent = 'ℹ️';
+    const infoIcon = createIcon('ℹ️');
     infoIcon.style.fontSize = '12px';
 
     const buildText = document.createElement('span');
@@ -1067,8 +1018,7 @@ Role: ${currentUser.role}`;
     snapshot: SectionCommentSnapshot,
     comment: Comment
   ): HTMLElement {
-    const item = document.createElement('div');
-    item.className = 'review-comment-item';
+    const item = createDiv('review-comment-item');
     item.dataset.elementId = snapshot.element.id;
     item.dataset.commentKey = comment.id;
 
@@ -1084,41 +1034,35 @@ Role: ${currentUser.role}`;
       this.commentsCallbacks?.onLeave();
     });
 
-    const header = document.createElement('div');
-    header.className = 'review-comment-header';
+    const header = createDiv('review-comment-header');
 
-    const author = document.createElement('div');
-    author.className = 'review-comment-author';
+    const author = createDiv('review-comment-author');
     author.textContent = comment.userId || 'Anonymous';
     header.appendChild(author);
 
-    const date = document.createElement('div');
-    date.className = 'review-comment-date';
+    const date = createDiv('review-comment-date');
     date.textContent = new Date(comment.timestamp).toLocaleDateString();
     header.appendChild(date);
 
     item.appendChild(header);
 
-    const text = document.createElement('div');
-    text.className = 'review-comment-text';
+    const text = createDiv('review-comment-text');
     text.textContent = comment.content;
     item.appendChild(text);
 
-    const actions = document.createElement('div');
-    actions.className = 'review-comment-actions';
+    const actions = createDiv('review-comment-actions');
 
-    const editBtn = document.createElement('button');
-    editBtn.className = 'review-btn review-btn-sm';
-    editBtn.textContent = 'Edit';
+    const editBtn = createButton('Edit', 'review-btn review-btn-sm');
     editBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.commentsCallbacks?.onEdit(snapshot.element.id, comment);
     });
     actions.appendChild(editBtn);
 
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'review-btn review-btn-sm review-btn-danger';
-    removeBtn.textContent = 'Remove';
+    const removeBtn = createButton(
+      'Remove',
+      'review-btn review-btn-sm review-btn-danger'
+    );
     removeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.commentsCallbacks?.onRemove(snapshot.element.id, comment);
@@ -1137,13 +1081,8 @@ Role: ${currentUser.role}`;
   setCollapsed(collapsed: boolean): void {
     if (!this.element) return;
 
-    if (collapsed) {
-      this.element.classList.add('review-sidebar-collapsed');
-      document.body.classList.add('review-sidebar-collapsed-mode');
-    } else {
-      this.element.classList.remove('review-sidebar-collapsed');
-      document.body.classList.remove('review-sidebar-collapsed-mode');
-    }
+    toggleClass(this.element, 'review-sidebar-collapsed', collapsed);
+    toggleClass(document.body, 'review-sidebar-collapsed-mode', collapsed);
 
     if (this.toggleBtn) {
       const chevron = this.toggleBtn.querySelector('.review-icon-chevron');
@@ -1165,29 +1104,22 @@ Role: ${currentUser.role}`;
         }
       }
 
-      this.toggleBtn.setAttribute(
-        'title',
-        collapsed ? 'Expand sidebar' : 'Collapse sidebar'
-      );
-      this.toggleBtn.setAttribute(
-        'aria-label',
-        collapsed ? 'Expand sidebar' : 'Collapse sidebar'
-      );
-      this.toggleBtn.setAttribute(
-        'aria-expanded',
-        collapsed ? 'false' : 'true'
-      );
+      setAttributes(this.toggleBtn, {
+        title: collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+        'aria-label': collapsed ? 'Expand sidebar' : 'Collapse sidebar',
+        'aria-expanded': collapsed ? 'false' : 'true',
+      });
     }
   }
 
   updateUndoRedoState(canUndo: boolean, canRedo: boolean): void {
     if (this.undoBtn) {
       this.undoBtn.disabled = !canUndo;
-      this.undoBtn.classList.toggle('review-btn-disabled', !canUndo);
+      toggleClass(this.undoBtn, 'review-btn-disabled', !canUndo);
     }
     if (this.redoBtn) {
       this.redoBtn.disabled = !canRedo;
-      this.redoBtn.classList.toggle('review-btn-disabled', !canRedo);
+      toggleClass(this.redoBtn, 'review-btn-disabled', !canRedo);
     }
   }
 
@@ -1199,8 +1131,12 @@ Role: ${currentUser.role}`;
   setTrackedChangesVisible(visible: boolean): void {
     if (this.trackedChangesToggle) {
       this.trackedChangesToggle.checked = visible;
-      const label = this.trackedChangesToggle.closest('.review-checkbox-label');
-      label?.classList.toggle('review-checkbox-active', visible);
+      const label = this.trackedChangesToggle.closest(
+        '.review-checkbox-label'
+      ) as HTMLElement | null;
+      if (label) {
+        toggleClass(label, 'review-checkbox-active', visible);
+      }
     }
   }
 
@@ -1298,8 +1234,12 @@ Role: ${currentUser.role}`;
   setAutoTranslateEnabled(enabled: boolean): void {
     if (this.autoTranslateToggle) {
       this.autoTranslateToggle.checked = enabled;
-      const label = this.autoTranslateToggle.closest('.review-checkbox-label');
-      label?.classList.toggle('review-checkbox-active', enabled);
+      const label = this.autoTranslateToggle.closest(
+        '.review-checkbox-label'
+      ) as HTMLElement | null;
+      if (label) {
+        toggleClass(label, 'review-checkbox-active', enabled);
+      }
     }
   }
 
@@ -1307,7 +1247,7 @@ Role: ${currentUser.role}`;
     this.translationEnabled = enabled;
     if (this.translationBtn) {
       this.translationBtn.disabled = !enabled;
-      this.translationBtn.classList.toggle('review-btn-disabled', !enabled);
+      toggleClass(this.translationBtn, 'review-btn-disabled', !enabled);
     }
   }
 
@@ -1317,14 +1257,14 @@ Role: ${currentUser.role}`;
     if (active) {
       this.translationBtn.textContent = '🌐 Close Translation';
       this.translationBtn.setAttribute('title', 'Close translation UI');
-      this.translationBtn.classList.add('review-btn-active');
+      toggleClass(this.translationBtn, 'review-btn-active', true);
     } else {
       this.translationBtn.textContent = '🌐 Open Translation';
       this.translationBtn.setAttribute(
         'title',
         'Open translation UI for document translation'
       );
-      this.translationBtn.classList.remove('review-btn-active');
+      toggleClass(this.translationBtn, 'review-btn-active', false);
     }
   }
 
@@ -1370,26 +1310,20 @@ Role: ${currentUser.role}`;
     const canClick =
       hasHandler && this.submitReviewEnabled && !this.submitReviewPending;
     this.submitReviewBtn.disabled = !canClick;
-    this.submitReviewBtn.classList.toggle('review-btn-disabled', !canClick);
+    toggleClass(this.submitReviewBtn, 'review-btn-disabled', !canClick);
   }
 
   private updateExportButtonStates(): void {
     const cleanEnabled = typeof this.onExportCleanCallback === 'function';
     if (this.exportCleanBtn) {
       this.exportCleanBtn.disabled = !cleanEnabled;
-      this.exportCleanBtn.classList.toggle(
-        'review-btn-disabled',
-        !cleanEnabled
-      );
+      toggleClass(this.exportCleanBtn, 'review-btn-disabled', !cleanEnabled);
     }
 
     const criticEnabled = typeof this.onExportCriticCallback === 'function';
     if (this.exportCriticBtn) {
       this.exportCriticBtn.disabled = !criticEnabled;
-      this.exportCriticBtn.classList.toggle(
-        'review-btn-disabled',
-        !criticEnabled
-      );
+      toggleClass(this.exportCriticBtn, 'review-btn-disabled', !criticEnabled);
     }
   }
 
@@ -1403,14 +1337,14 @@ Role: ${currentUser.role}`;
       typeof this.onExportCleanCallback === 'function'
     ) {
       this.exportCleanBtn.disabled = false;
-      this.exportCleanBtn.classList.remove('review-btn-disabled');
+      toggleClass(this.exportCleanBtn, 'review-btn-disabled', false);
     }
     if (
       this.exportCriticBtn &&
       typeof this.onExportCriticCallback === 'function'
     ) {
       this.exportCriticBtn.disabled = false;
-      this.exportCriticBtn.classList.remove('review-btn-disabled');
+      toggleClass(this.exportCriticBtn, 'review-btn-disabled', false);
     }
   }
 
@@ -1542,6 +1476,6 @@ Role: ${currentUser.role}`;
     this.onSubmitReviewCallback = null;
     this.onToggleTranslationCallback = null;
     this.commentsCallbacks = null;
-    document.body.classList.remove('review-sidebar-collapsed-mode');
+    toggleClass(document.body, 'review-sidebar-collapsed-mode', false);
   }
 }

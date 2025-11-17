@@ -8,6 +8,7 @@
  */
 
 import { createModuleLogger } from '@utils/debug';
+import { createDiv, createButton } from '@utils/dom-helpers';
 
 const logger = createModuleLogger('ContextMenu');
 
@@ -32,16 +33,16 @@ export class ContextMenu {
    * Create the context menu element
    */
   create(): HTMLElement {
-    const menu = document.createElement('div');
-    menu.className = 'review-context-menu';
+    const menu = createDiv('review-context-menu');
     menu.setAttribute('role', 'menu');
     menu.style.display = 'none';
 
     // Edit action
-    const editItem = document.createElement('button');
-    editItem.className = 'review-context-menu-item review-context-menu-edit';
+    const editItem = createButton(
+      'Edit',
+      'review-context-menu-item review-context-menu-edit'
+    );
     editItem.setAttribute('role', 'menuitem');
-    editItem.textContent = 'Edit';
     editItem.addEventListener('click', () => {
       if (this.currentSectionId && this.onEditCallback) {
         this.onEditCallback(this.currentSectionId);
@@ -51,11 +52,11 @@ export class ContextMenu {
     menu.appendChild(editItem);
 
     // Comment action
-    const commentItem = document.createElement('button');
-    commentItem.className =
-      'review-context-menu-item review-context-menu-comment';
+    const commentItem = createButton(
+      'Add Comment',
+      'review-context-menu-item review-context-menu-comment'
+    );
     commentItem.setAttribute('role', 'menuitem');
-    commentItem.textContent = 'Add Comment';
     commentItem.addEventListener('click', () => {
       if (this.currentSectionId && this.onCommentCallback) {
         this.onCommentCallback(this.currentSectionId);

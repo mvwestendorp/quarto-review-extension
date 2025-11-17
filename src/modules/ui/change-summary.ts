@@ -7,6 +7,7 @@ import type { ChangeSummaryConfig } from '@/types';
 import { escapeHtml } from './shared/utils';
 import { UI_CONSTANTS, getAnimationDuration } from './constants';
 import { createModuleLogger } from '@utils/debug';
+import { createDiv, addClass, removeClass } from '@utils/dom-helpers';
 
 const logger = createModuleLogger('ChangeSummary');
 
@@ -162,8 +163,7 @@ export class ChangeSummaryDashboard {
   renderDashboard(): HTMLElement {
     try {
       const summary = this.calculateSummary();
-      const dashboard = document.createElement('div');
-      dashboard.className = 'review-change-summary-dashboard';
+      const dashboard = createDiv('review-change-summary-dashboard');
       dashboard.setAttribute('role', 'region');
       dashboard.setAttribute('aria-label', 'Change summary statistics');
 
@@ -314,8 +314,9 @@ export class ChangeSummaryDashboard {
     } catch (error) {
       logger.error('Failed to render change summary dashboard:', error);
       // Return a fallback error dashboard
-      const errorDashboard = document.createElement('div');
-      errorDashboard.className = 'review-change-summary-dashboard review-error';
+      const errorDashboard = createDiv(
+        'review-change-summary-dashboard review-error'
+      );
       errorDashboard.innerHTML = `
         <div class="review-summary-section">
           <div class="review-summary-header">
@@ -460,15 +461,15 @@ export class ChangeSummaryDashboard {
     element.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
     // Flash highlight
-    element.classList.add('review-highlight-flash');
+    addClass(element, 'review-highlight-flash');
     setTimeout(() => {
-      element.classList.remove('review-highlight-flash');
+      removeClass(element, 'review-highlight-flash');
     }, getAnimationDuration('LONG_HIGHLIGHT'));
 
     // Show temporary focus indicator
-    element.classList.add('review-jump-target');
+    addClass(element, 'review-jump-target');
     setTimeout(() => {
-      element.classList.remove('review-jump-target');
+      removeClass(element, 'review-jump-target');
     }, getAnimationDuration('FLASH_HIGHLIGHT'));
   }
 
@@ -546,8 +547,9 @@ export class ChangeSummaryDashboard {
     message: string,
     type: 'info' | 'success' | 'error'
   ): void {
-    const notification = document.createElement('div');
-    notification.className = `review-notification review-notification-${type}`;
+    const notification = createDiv(
+      `review-notification review-notification-${type}`
+    );
     notification.textContent = message;
     notification.setAttribute('role', 'alert');
     notification.setAttribute('aria-live', 'assertive');
@@ -555,11 +557,11 @@ export class ChangeSummaryDashboard {
     document.body.appendChild(notification);
 
     setTimeout(() => {
-      notification.classList.add('review-notification-show');
+      addClass(notification, 'review-notification-show');
     }, 10);
 
     setTimeout(() => {
-      notification.classList.remove('review-notification-show');
+      removeClass(notification, 'review-notification-show');
       setTimeout(() => notification.remove(), getAnimationDuration('SLOW'));
     }, UI_CONSTANTS.NOTIFICATION_DISPLAY_DURATION_MS);
   }

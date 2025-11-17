@@ -4,6 +4,7 @@
  */
 
 import { createModuleLogger } from '@utils/debug';
+import { addClass } from '@utils/dom-helpers';
 import type { Element as ReviewElement } from '@/types';
 
 const logger = createModuleLogger('TOCBuilder');
@@ -234,7 +235,7 @@ export class TOCBuilder {
       link.textContent = entry.title;
 
       if (entry.hasChanges) {
-        li.classList.add('review-toc-changed');
+        addClass(li, 'review-toc-changed');
         const badge = document.createElement('span');
         badge.className = 'review-toc-change-badge';
         badge.setAttribute('aria-label', 'This section has changes');

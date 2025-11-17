@@ -1,5 +1,6 @@
 import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
+import { createButton, toggleClass } from '@utils/dom-helpers';
 
 export interface CommentBadgeCallbacks {
   onShowComments: (elementId: string, commentKey: string) => void;
@@ -81,10 +82,10 @@ export class CommentBadges {
     sectionId: string,
     callbacks: CommentBadgeCallbacks
   ): HTMLButtonElement {
-    const indicator = document.createElement('button');
-    indicator.type = 'button';
-    indicator.className =
-      'review-section-comment-indicator review-badge-positioned';
+    const indicator = createButton(
+      '',
+      'review-section-comment-indicator review-badge-positioned'
+    );
 
     const icon = document.createElement('span');
     icon.className = 'review-badge-icon';
@@ -141,7 +142,7 @@ export class CommentBadges {
     const countSpan = indicator.querySelector('.review-badge-count');
     if (countSpan) {
       countSpan.textContent = count > 1 ? String(count) : '1';
-      countSpan.classList.toggle('is-hidden', count <= 1);
+      toggleClass(countSpan as HTMLElement, 'is-hidden', count <= 1);
     }
 
     const commentKey = firstComment

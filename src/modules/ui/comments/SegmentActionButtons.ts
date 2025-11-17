@@ -7,6 +7,13 @@
  * Extracted to reduce UIModule complexity.
  */
 
+import {
+  createDiv,
+  createButton,
+  addClass,
+  removeClass,
+} from '@utils/dom-helpers';
+
 // import { createModuleLogger } from '@utils/debug';
 
 // const logger = createModuleLogger('SegmentActionButtons');
@@ -34,13 +41,14 @@ export class SegmentActionButtons {
    * Create action buttons container with edit and comment buttons
    */
   private createButtonsContainer(sectionId: string): HTMLDivElement {
-    const container = document.createElement('div');
-    container.className = 'review-segment-actions';
+    const container = createDiv('review-segment-actions');
     container.setAttribute('data-section-id', sectionId);
 
     // Edit button
-    const editBtn = document.createElement('button');
-    editBtn.className = 'review-segment-action-btn review-segment-action-edit';
+    const editBtn = createButton(
+      '',
+      'review-segment-action-btn review-segment-action-edit'
+    );
     editBtn.setAttribute('title', 'Edit this section (or double-click)');
     editBtn.setAttribute('aria-label', 'Edit section');
     editBtn.innerHTML = '✎'; // Pencil icon
@@ -53,9 +61,10 @@ export class SegmentActionButtons {
     container.appendChild(editBtn);
 
     // Comment button
-    const commentBtn = document.createElement('button');
-    commentBtn.className =
-      'review-segment-action-btn review-segment-action-comment';
+    const commentBtn = createButton(
+      '',
+      'review-segment-action-btn review-segment-action-comment'
+    );
     commentBtn.setAttribute('title', 'Add or edit comment');
     commentBtn.setAttribute('aria-label', 'Add comment');
     commentBtn.innerHTML = '💬'; // Comment bubble
@@ -151,12 +160,12 @@ export class SegmentActionButtons {
     let isInExtendedRowZone = false;
 
     const enableHover = () => {
-      parentElement.classList.add('review-segment-hovered');
+      addClass(parentElement, 'review-segment-hovered');
     };
 
     const disableHoverIfAllowed = () => {
       if (!hasDirectHover && !isInExtendedRowZone) {
-        parentElement.classList.remove('review-segment-hovered');
+        removeClass(parentElement, 'review-segment-hovered');
       }
     };
 
