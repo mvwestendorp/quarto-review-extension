@@ -6,8 +6,8 @@ import { TranslationModule } from '@modules/translation';
 import type { CommentsModule } from '@modules/comments';
 
 const {
-  UnifiedSidebarMock,
-  getUnifiedSidebarInstance,
+  BottomDrawerMock,
+  getBottomDrawerInstance,
   CommentControllerMock,
   CommentsSidebarMock,
   CommentComposerMock,
@@ -22,7 +22,7 @@ const {
 } = vi.hoisted(() => {
   const sidebarInstances: any[] = [];
 
-  const UnifiedSidebarMock = vi.fn(function MockUnifiedSidebar() {
+  const BottomDrawerMock = vi.fn(function MockBottomDrawer() {
     const instance: any = {
       create: vi.fn().mockImplementation(() => {
         const element = document.createElement('div');
@@ -74,7 +74,7 @@ const {
     return instance;
   });
 
-  const getUnifiedSidebarInstance = () =>
+  const getBottomDrawerInstance = () =>
     sidebarInstances[sidebarInstances.length - 1];
 
   const CommentControllerMock = vi.fn(function MockCommentController() {
@@ -232,8 +232,8 @@ const {
   }
 
   return {
-    UnifiedSidebarMock,
-    getUnifiedSidebarInstance,
+    BottomDrawerMock,
+    getBottomDrawerInstance,
     CommentControllerMock,
     CommentsSidebarMock,
     CommentComposerMock,
@@ -248,8 +248,8 @@ const {
   };
 });
 
-vi.mock('@modules/ui/sidebars/UnifiedSidebar', () => ({
-  UnifiedSidebar: UnifiedSidebarMock,
+vi.mock('@modules/ui/sidebars/BottomDrawer', () => ({
+  BottomDrawer: BottomDrawerMock,
 }));
 
 vi.mock('@modules/ui/comments/CommentController', () => ({
@@ -383,7 +383,7 @@ describe('UIModule translation toggle side-effects', () => {
 
     expect(changes.getOperations()).toHaveLength(initialOperations);
 
-    const sidebarInstance = getUnifiedSidebarInstance();
+    const sidebarInstance = getBottomDrawerInstance();
     expect(sidebarInstance?.setTranslationMode).toHaveBeenCalledWith(true);
 
     await (ui as any).toggleTranslation();

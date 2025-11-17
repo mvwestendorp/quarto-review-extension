@@ -56,7 +56,7 @@ describe('CSS Build Process', () => {
       expect(css).toContain('.review-btn');
       expect(css).toContain('.review-editor-modal');
       expect(css).toContain('.review-toolbar');
-      expect(css).toContain('.review-sidebar');
+      expect(css).toContain('.review-bottom-drawer');
       expect(css).toContain('.review-comment-item');
     });
 
@@ -101,9 +101,9 @@ describe('CSS Build Process', () => {
     it('should have reasonable file size', () => {
       const stats = fs.statSync(devCssFile);
       const sizeKB = stats.size / 1024;
-      // Should be between 50-125 KB (with all @imports including translation.css)
+      // Should be between 50-135 KB (with all @imports including translation.css and bottom-drawer.css, but not unified-sidebar.css)
       expect(sizeKB).toBeGreaterThan(50);
-      expect(sizeKB).toBeLessThan(125);
+      expect(sizeKB).toBeLessThan(135);
     });
   });
 

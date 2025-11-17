@@ -1,0 +1,408 @@
+/**
+ * Component: Bottom Drawer
+ *
+ * Expandable drawer at the bottom of the screen for review tools and comments.
+ * Provides better mobile support and dedicated space for inline comments.
+ */
+
+/* Bottom Drawer - positioned at the bottom */
+.review-bottom-drawer {
+  position: fixed !important;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(var(--review-color-primary-rgb), 0.15);
+  box-shadow:
+    0 -4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 -2px 4px -1px rgba(0, 0, 0, 0.06);
+  z-index: calc(var(--review-z-toolbar) + 2);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Header (collapsed state bar) */
+.review-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px clamp(16px, 3vw, 32px);
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.95),
+    rgba(249, 250, 251, 0.95)
+  );
+  border-bottom: 1px solid rgba(var(--review-color-primary-rgb), 0.08);
+  min-height: 48px;
+  user-select: none;
+}
+
+.review-drawer-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--review-color-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-drawer-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Expandable body */
+.review-drawer-body {
+  max-height: 70vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: rgba(255, 255, 255, 0.97);
+}
+
+.review-drawer-body-inner {
+  display: grid;
+  grid-template-columns: 280px 1fr 280px;
+  gap: 24px;
+  padding: 20px clamp(16px, 3vw, 32px);
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+/* Column styling */
+.review-drawer-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 200px;
+}
+
+.review-drawer-column-left {
+  /* Review tools and export */
+}
+
+.review-drawer-column-center {
+  /* Comments - takes available space */
+  flex: 1;
+  min-width: 0; /* Allow shrinking */
+}
+
+.review-drawer-column-right {
+  /* Translation tools and debug */
+}
+
+/* Section styling */
+.review-drawer-section {
+  background: white;
+  border: 1px solid var(--review-color-border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--review-shadow-sm);
+  transition: box-shadow 0.2s ease;
+}
+
+.review-drawer-section:hover {
+  box-shadow: var(--review-shadow-md);
+}
+
+.review-drawer-section-title {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--review-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.review-drawer-button-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.review-drawer-button-group .review-btn {
+  flex: 1;
+  min-width: max-content;
+}
+
+/* Comments section specific styles */
+.review-comments-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+}
+
+.review-comments-section .review-drawer-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.review-comments-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px;
+  background: rgba(248, 250, 252, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.review-comments-section-group {
+  margin-bottom: 16px;
+}
+
+.review-comments-section-group:last-child {
+  margin-bottom: 0;
+}
+
+.review-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.review-comment-item {
+  padding: 12px;
+  background: white;
+  border: 1px solid var(--review-color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.review-comment-item:hover {
+  background: var(--review-color-surface-alt);
+  border-color: var(--review-color-primary);
+  box-shadow: var(--review-shadow-md);
+  transform: translateY(-1px);
+}
+
+.review-comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.review-comment-author {
+  font-weight: 600;
+  color: var(--review-color-text);
+}
+
+.review-comment-date {
+  color: var(--review-color-muted);
+  font-size: 11px;
+}
+
+.review-comment-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--review-color-text);
+  margin-bottom: 8px;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.review-comment-actions {
+  display: flex;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--review-color-border);
+}
+
+.review-comment-actions .review-btn {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+/* Debug section styling */
+.review-debug-section {
+  border-color: var(--review-color-warning);
+  background: rgba(245, 158, 11, 0.02);
+}
+
+.review-debug-section .review-drawer-section-title {
+  color: var(--review-color-warning);
+}
+
+/* Build info */
+.review-build-info {
+  padding: 12px;
+  background: rgba(248, 250, 252, 0.5);
+  border: 1px solid var(--review-color-border);
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--review-color-muted);
+  margin-top: auto;
+}
+
+/* Expanded state */
+.review-bottom-drawer.review-drawer-expanded {
+  box-shadow:
+    0 -10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 -4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Chevron animation */
+.review-icon-chevron {
+  display: inline-block;
+  transition: transform 0.3s ease;
+}
+
+.review-drawer-expanded .review-icon-chevron {
+  transform: rotate(180deg);
+}
+
+/* Unsaved indicator */
+.review-unsaved-indicator {
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* Scrollbar styling */
+.review-drawer-body::-webkit-scrollbar,
+.review-comments-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.review-drawer-body::-webkit-scrollbar-track,
+.review-comments-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.review-drawer-body::-webkit-scrollbar-thumb,
+.review-comments-content::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.review-drawer-body::-webkit-scrollbar-thumb:hover,
+.review-comments-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Tablet adjustments (768px - 1024px) */
+@media (max-width: 1024px) {
+  .review-drawer-body-inner {
+    grid-template-columns: 240px 1fr 240px;
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .review-drawer-section {
+    padding: 12px;
+  }
+
+  .review-drawer-body {
+    max-height: 60vh;
+  }
+}
+
+/* Mobile landscape (640px - 768px) */
+@media (max-width: 768px) {
+  .review-drawer-body-inner {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .review-drawer-column {
+    gap: 12px;
+  }
+
+  .review-drawer-body {
+    max-height: 55vh;
+  }
+
+  .review-drawer-header {
+    padding: 10px 16px;
+  }
+
+  .review-drawer-button-group {
+    flex-direction: column;
+  }
+
+  .review-drawer-button-group .review-btn {
+    width: 100%;
+  }
+
+  .review-comments-content {
+    max-height: 200px;
+  }
+}
+
+/* Mobile portrait (< 640px) */
+@media (max-width: 640px) {
+  .review-drawer-header h3 {
+    font-size: 13px;
+  }
+
+  .review-drawer-body {
+    max-height: 50vh;
+  }
+
+  .review-drawer-section {
+    padding: 10px;
+  }
+
+  .review-drawer-section-title {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  .review-comment-item {
+    padding: 10px;
+  }
+
+  .review-comment-text {
+    font-size: 12px;
+  }
+}
+
+/* Accessibility - High contrast mode support */
+@media (prefers-contrast: high) {
+  .review-bottom-drawer {
+    border-top-width: 2px;
+  }
+
+  .review-drawer-section {
+    border-width: 2px;
+  }
+
+  .review-comment-item {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .review-bottom-drawer,
+  .review-drawer-body,
+  .review-comment-item,
+  .review-icon-chevron {
+    transition: none;
+  }
+
+  .review-unsaved-indicator {
+    animation: none;
+  }
+}
