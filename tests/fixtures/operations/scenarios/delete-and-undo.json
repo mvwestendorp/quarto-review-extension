@@ -1,0 +1,35 @@
+{
+  "description": "Test delete operation followed by undo",
+  "initialState": {
+    "elements": [
+      {
+        "id": "test.para-1",
+        "type": "Para",
+        "markdown": "Paragraph to delete"
+      },
+      {
+        "id": "test.para-2",
+        "type": "Para",
+        "markdown": "Paragraph to keep"
+      }
+    ]
+  },
+  "operations": [
+    {
+      "type": "delete",
+      "elementId": "test.para-1"
+    },
+    {
+      "type": "undo"
+    }
+  ],
+  "expectedState": {
+    "test.para-1": {
+      "currentContent": "Paragraph to delete",
+      "exists": true
+    },
+    "test.para-2": {
+      "currentContent": "Paragraph to keep"
+    }
+  }
+}

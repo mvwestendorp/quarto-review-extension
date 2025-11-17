@@ -1,0 +1,36 @@
+{
+  "description": "Test undo/redo workflow with multiple edits",
+  "initialState": {
+    "elements": [
+      {
+        "id": "test.section.para-1",
+        "type": "Para",
+        "markdown": "Original content"
+      }
+    ]
+  },
+  "operations": [
+    {
+      "type": "edit",
+      "elementId": "test.section.para-1",
+      "newContent": "First edit"
+    },
+    {
+      "type": "edit",
+      "elementId": "test.section.para-1",
+      "newContent": "Second edit"
+    },
+    {
+      "type": "undo"
+    },
+    {
+      "type": "redo"
+    }
+  ],
+  "expectedState": {
+    "test.section.para-1": {
+      "currentContent": "Second edit",
+      "trackedChanges": "should contain CriticMarkup showing changes from original"
+    }
+  }
+}

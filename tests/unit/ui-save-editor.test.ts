@@ -256,7 +256,6 @@ const createStubConfig = (
       updateComment: vi.fn().mockReturnValue(true),
       deleteComment: vi.fn().mockReturnValue(true),
     } as any,
-    inlineEditing: false,
     persistence: {
       ...persistenceMocks,
       loadDraft: vi.fn().mockResolvedValue(null),

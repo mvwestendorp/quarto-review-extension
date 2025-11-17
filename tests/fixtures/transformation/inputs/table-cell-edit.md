@@ -1,0 +1,4 @@
+| Column A | Column B |
+|----------|----------|
+| Value 1  | Value 2  |
+| Value 3  | Value 4  |

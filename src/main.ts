@@ -199,7 +199,6 @@ export class QuartoReview {
       changes: this.changes,
       markdown: this.markdown,
       comments: this.comments,
-      inlineEditing: true, // Enable inline editing mode by default
       persistence: this.localDrafts,
       exporter: this.exporter,
       reviewService: this.reviewService,

@@ -21,7 +21,6 @@ export interface EditorManagerConfig {
   changes: ChangesModule;
   comments?: CommentsModule;
   markdown: MarkdownModule;
-  inlineEditing: boolean;
   historyStorage: EditorHistoryStorage;
   notificationService: NotificationService;
   editorLifecycle: EditorLifecycle;
@@ -47,7 +46,6 @@ export interface EditorCallbacks {
   refresh: () => void;
   onEditorClosed: () => void;
   onEditorSaved: () => void;
-  createEditorModal: (content: string, type: string) => HTMLElement;
   initializeMilkdown: (
     container: HTMLElement,
     content: string,
@@ -134,61 +132,13 @@ export class EditorManager {
     this.isOperationInProgress = true;
 
     try {
-      // Check if inline editing is enabled
-      if (this.config.inlineEditing) {
-        this.openInlineEditor(targetId);
-      } else {
-        this.openModalEditor(targetId);
-      }
+      this.openInlineEditor(targetId);
     } catch (error) {
       logger.error('Failed to open editor:', error);
       this.isOperationInProgress = false;
       this.config.notificationService.error('Failed to open editor');
       throw error; // Re-throw to propagate the error to the caller
     }
-  }
-
-  /**
-   * Open modal editor
-   */
-  private openModalEditor(elementId: string): void {
-    const element = document.querySelector(`[data-review-id="${elementId}"]`);
-    if (!element) {
-      this.isOperationInProgress = false;
-      return;
-    }
-
-    this.stateStore.setEditorState({ currentElementId: elementId });
-    logger.debug('Opening modal editor for', { elementId });
-    logger.trace(
-      'Tracked changes enabled:',
-      this.stateStore.getEditorState().showTrackedChanges
-    );
-
-    // Set baseline for tracked changes calculation
-    const currentContent = this.config.changes.getElementContent(elementId);
-    this.config.changes.setElementBaseline(elementId, currentContent);
-
-    // Restore editor history if available
-    this.restoreEditorHistory(elementId);
-
-    const type = element.getAttribute('data-review-type') || 'Para';
-
-    const { plainContent, diffHighlights } = this.callbacks.createEditorSession(
-      elementId,
-      type
-    );
-
-    logger.trace('Editor content (plain):', plainContent);
-
-    const modal = this.callbacks.createEditorModal(plainContent, type);
-    document.body.appendChild(modal);
-    this.stateStore.setEditorState({ activeEditor: modal });
-
-    // Delay so DOM renders
-    requestAnimationFrame(() => {
-      this.callbacks.initializeMilkdown(modal, plainContent, diffHighlights);
-    });
   }
 
   /**
@@ -217,10 +167,15 @@ export class EditorManager {
 
     const type = element.getAttribute('data-review-type') || 'Para';
 
-    const { plainContent, diffHighlights } = this.callbacks.createEditorSession(
-      elementId,
-      type
-    );
+    const { plainContent, trackedContent, diffHighlights } =
+      this.callbacks.createEditorSession(elementId, type);
+
+    // Use tracked content if tracked changes are enabled, otherwise use plain content
+    const showTrackedChanges =
+      this.stateStore.getEditorState().showTrackedChanges;
+    const contentToDisplay = showTrackedChanges
+      ? trackedContent || plainContent
+      : plainContent;
 
     // Mark element as being edited
     element.classList.add('review-editable-editing');
@@ -260,7 +215,7 @@ export class EditorManager {
     requestAnimationFrame(() => {
       this.callbacks.initializeMilkdown(
         inlineEditor,
-        plainContent,
+        contentToDisplay,
         diffHighlights
       );
     });
@@ -281,23 +236,18 @@ export class EditorManager {
 
     this.editorLifecycle.destroy();
 
-    if (editorState.activeEditor) {
-      // For inline editing, restore the element
-      if (this.config.inlineEditing && editorState.currentElementId) {
-        const element = document.querySelector(
-          `[data-review-id="${editorState.currentElementId}"]`
-        ) as HTMLElement;
-        if (element) {
-          element.classList.remove('review-editable-editing');
-          const cachedHtml = element.getAttribute('data-review-original-html');
-          if (cachedHtml !== null) {
-            element.innerHTML = cachedHtml;
-            element.removeAttribute('data-review-original-html');
-          }
+    // Restore the element from inline editing
+    if (editorState.activeEditor && editorState.currentElementId) {
+      const element = document.querySelector(
+        `[data-review-id="${editorState.currentElementId}"]`
+      ) as HTMLElement;
+      if (element) {
+        element.classList.remove('review-editable-editing');
+        const cachedHtml = element.getAttribute('data-review-original-html');
+        if (cachedHtml !== null) {
+          element.innerHTML = cachedHtml;
+          element.removeAttribute('data-review-original-html');
         }
-      } else {
-        // For modal editing, just remove the modal
-        editorState.activeEditor.remove();
       }
     }
 

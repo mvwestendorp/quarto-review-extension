@@ -100,11 +100,10 @@ function resolveCaptionContext(
   counters: Record<FloatKind, number>
 ): CaptionContext | null {
   let container = caption.closest<HTMLElement>(
-    '.quarto-figure, .quarto-table, .quarto-float'
+    '.quarto-figure, .quarto-figure-center, .quarto-figure-container, ' +
+      '.quarto-table, .quarto-table-center, .quarto-table-container, ' +
+      '.quarto-float'
   );
-  if (!container) {
-    container = caption.closest<HTMLElement>('.quarto-float');
-  }
   if (!container) {
     return null;
   }
