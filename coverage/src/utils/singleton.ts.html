@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/modules/markdown/MarkdownRenderer.ts</title>
+    <title>Code coverage report for src/utils/singleton.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../../prettify.css" />
-    <link rel="stylesheet" href="../../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../../sort-arrow-sprite.png);
+            background-image: url(../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/modules/markdown</a> MarkdownRenderer.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/utils</a> singleton.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">20% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>18/18</span>
+                <span class='fraction'>2/10</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>4/4</span>
+                <span class='fraction'>0/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">25% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>1/4</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">20% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>18/18</span>
+                <span class='fraction'>2/10</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -127,7 +127,10 @@
 <a name='L62'></a><a href='#L62'>62</a>
 <a name='L63'></a><a href='#L63'>63</a>
 <a name='L64'></a><a href='#L64'>64</a>
-<a name='L65'></a><a href='#L65'>65</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L65'></a><a href='#L65'>65</a>
+<a name='L66'></a><a href='#L66'>66</a>
+<a name='L67'></a><a href='#L67'>67</a>
+<a name='L68'></a><a href='#L68'>68</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -140,7 +143,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -152,108 +154,115 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">266x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">243x</span>
-<span class="cline-any cline-yes">243x</span>
+<span class="cline-any cline-yes">17x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">244x</span>
-<span class="cline-any cline-yes">244x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">244x</span>
-<span class="cline-any cline-yes">244x</span>
-<span class="cline-any cline-yes">102x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">139x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">142x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { unified, type Processor } from 'unified';
-import remarkParse from 'remark-parse';
-import remarkGfm from 'remark-gfm';
-import remarkRehype from 'remark-rehype';
-import rehypeStringify from 'rehype-stringify';
-&nbsp;
-import { remarkCriticMarkup } from './remark-criticmarkup';
-&nbsp;
-export interface RendererOptions {
-  enableCriticMarkup: boolean;
-  allowRawHtml: boolean;
-}
-&nbsp;
-const DEFAULT_OPTIONS: RendererOptions = {
-  enableCriticMarkup: true,
-  allowRawHtml: false,
-};
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * Singleton factory utilities
+ * Provides a generic way to create singleton instances of classes
+ */
 &nbsp;
 /**
- * Shared renderer for markdown pipelines. Caches unified processors by option set
- * so we do not rebuild the entire chain for every render call.
+ * Creates a singleton getter function for a given class
+ * @template T - The type of the class to create a singleton for
+ * @param ClassConstructor - The class constructor
+ * @returns A function that returns the singleton instance of the class
+ *
+ * @example
+ * ```typescript
+ * class MyService {
+ *   doSomething() { ... }
+ * }
+ *
+ * export const getMyService = createSingleton(MyService);
+ *
+ * // Usage
+ * const service = getMyService();
+ * ```
  */
-type MarkdownProcessor = Processor&lt;any, any, any, any, string&gt;;
+export function createSingleton&lt;T&gt;(
+  ClassConstructor: new () =&gt; T
+): () =&gt; T {
+  let instance: T | null = null;
 &nbsp;
-export class MarkdownRenderer {
-  private readonly cache = new Map&lt;string, MarkdownProcessor&gt;();
-&nbsp;
-  render(markdown: string, options?: Partial&lt;RendererOptions&gt;): string {
-    const processor = this.getProcessor(options);
-    return String(processor.processSync(markdown));
-  }
-&nbsp;
-  renderAsync(
-    markdown: string,
-    options?: Partial&lt;RendererOptions&gt;
-  ): Promise&lt;string&gt; {
-    const processor = this.getProcessor(options);
-    return processor.process(markdown).then(String);
-  }
-&nbsp;
-  private getProcessor(partial?: Partial&lt;RendererOptions&gt;): MarkdownProcessor {
-    const opts = { ...DEFAULT_OPTIONS, ...partial };
-    const cacheKey = `${opts.enableCriticMarkup}:${opts.allowRawHtml}`;
-&nbsp;
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      return cached;
+  return function <span class="fstat-no" title="function not covered" >getInstance(): T {</span>
+<span class="cstat-no" title="statement not covered" >    if (!instance) {</span>
+<span class="cstat-no" title="statement not covered" >      instance = new ClassConstructor();</span>
     }
+<span class="cstat-no" title="statement not covered" >    return instance;</span>
+  };
+}
 &nbsp;
-    const pipeline = unified() as unknown as MarkdownProcessor;
-    pipeline.use(remarkParse).use(remarkGfm);
+/**
+ * Creates a singleton getter function for a class that requires constructor arguments
+ * @template T - The type of the class to create a singleton for
+ * @template Args - The types of the constructor arguments
+ * @param ClassConstructor - The class constructor
+ * @returns A function that accepts constructor args and returns the singleton instance
+ *
+ * @example
+ * ```typescript
+ * class ConfigService {
+ *   constructor(private config: Config) { ... }
+ * }
+ *
+ * export const getConfigService = createSingletonWithArgs(ConfigService);
+ *
+ * // Usage (first call initializes with args, subsequent calls ignore args)
+ * const service = getConfigService(myConfig);
+ * ```
+ */
+export function <span class="fstat-no" title="function not covered" >createSingletonWithArgs&lt;T, Args extends unknown[]&gt;(</span>
+  ClassConstructor: new (...args: Args) =&gt; T
+): (...args: Args) =&gt; T {
+  let instance: T | null = <span class="cstat-no" title="statement not covered" >null;</span>
 &nbsp;
-    if (opts.enableCriticMarkup) {
-      pipeline.use(remarkCriticMarkup as any);
+<span class="cstat-no" title="statement not covered" >  return function <span class="fstat-no" title="function not covered" >getInstance(...a</span>rgs: Args): T {</span>
+<span class="cstat-no" title="statement not covered" >    if (!instance) {</span>
+<span class="cstat-no" title="statement not covered" >      instance = new ClassConstructor(...args);</span>
     }
-&nbsp;
-    pipeline
-      .use(remarkRehype as any, { allowDangerousHtml: true })
-      .use(rehypeStringify as any, { allowDangerousHtml: true });
-&nbsp;
-    this.cache.set(cacheKey, pipeline as MarkdownProcessor);
-    return pipeline as MarkdownProcessor;
-  }
+<span class="cstat-no" title="statement not covered" >    return instance;</span>
+  };
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -264,14 +273,14 @@ export class MarkdownRenderer {
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2025-11-17T09:24:59.594Z
             </div>
-        <script src="../../../prettify.js"></script>
+        <script src="../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../../sorter.js"></script>
-        <script src="../../../block-navigation.js"></script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
     </body>
 </html>
     

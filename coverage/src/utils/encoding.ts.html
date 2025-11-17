@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for src/modules/markdown/MarkdownRenderer.ts</title>
+    <title>Code coverage report for src/utils/encoding.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../../prettify.css" />
-    <link rel="stylesheet" href="../../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <link rel="stylesheet" href="../../prettify.css" />
+    <link rel="stylesheet" href="../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../../sort-arrow-sprite.png);
+            background-image: url(../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,20 +19,20 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">src/modules/markdown</a> MarkdownRenderer.ts</h1>
+        <h1><a href="../../index.html">All files</a> / <a href="index.html">src/utils</a> encoding.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">45.45% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>18/18</span>
+                <span class='fraction'>5/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">25% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>4/4</span>
+                <span class='fraction'>2/8</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">45.45% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>18/18</span>
+                <span class='fraction'>5/11</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -116,18 +116,7 @@
 <a name='L51'></a><a href='#L51'>51</a>
 <a name='L52'></a><a href='#L52'>52</a>
 <a name='L53'></a><a href='#L53'>53</a>
-<a name='L54'></a><a href='#L54'>54</a>
-<a name='L55'></a><a href='#L55'>55</a>
-<a name='L56'></a><a href='#L56'>56</a>
-<a name='L57'></a><a href='#L57'>57</a>
-<a name='L58'></a><a href='#L58'>58</a>
-<a name='L59'></a><a href='#L59'>59</a>
-<a name='L60'></a><a href='#L60'>60</a>
-<a name='L61'></a><a href='#L61'>61</a>
-<a name='L62'></a><a href='#L62'>62</a>
-<a name='L63'></a><a href='#L63'>63</a>
-<a name='L64'></a><a href='#L64'>64</a>
-<a name='L65'></a><a href='#L65'>65</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L54'></a><a href='#L54'>54</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -140,7 +129,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">12x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">62x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -152,108 +158,69 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">266x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">243x</span>
-<span class="cline-any cline-yes">243x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">244x</span>
-<span class="cline-any cline-yes">244x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">244x</span>
-<span class="cline-any cline-yes">244x</span>
-<span class="cline-any cline-yes">102x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">139x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-yes">142x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { unified, type Processor } from 'unified';
-import remarkParse from 'remark-parse';
-import remarkGfm from 'remark-gfm';
-import remarkRehype from 'remark-rehype';
-import rehypeStringify from 'rehype-stringify';
-&nbsp;
-import { remarkCriticMarkup } from './remark-criticmarkup';
-&nbsp;
-export interface RendererOptions {
-  enableCriticMarkup: boolean;
-  allowRawHtml: boolean;
-}
-&nbsp;
-const DEFAULT_OPTIONS: RendererOptions = {
-  enableCriticMarkup: true,
-  allowRawHtml: false,
-};
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+ * Encoding utilities for Base64 operations
+ * Supports both browser and Node.js environments
+ */
 &nbsp;
 /**
- * Shared renderer for markdown pipelines. Caches unified processors by option set
- * so we do not rebuild the entire chain for every render call.
+ * Decodes a Base64-encoded string to UTF-8
+ * Handles Unicode characters correctly
+ * @param content - Base64-encoded string
+ * @returns Decoded UTF-8 string
+ * @throws Error if Base64 decoding is not supported in the environment
  */
-type MarkdownProcessor = Processor&lt;any, any, any, any, string&gt;;
-&nbsp;
-export class MarkdownRenderer {
-  private readonly cache = new Map&lt;string, MarkdownProcessor&gt;();
-&nbsp;
-  render(markdown: string, options?: Partial&lt;RendererOptions&gt;): string {
-    const processor = this.getProcessor(options);
-    return String(processor.processSync(markdown));
+export function decodeBase64(content: string): string {
+  // Browser environment
+  <span class="missing-if-branch" title="else path not taken" >E</span>if (typeof atob === 'function') {
+    return decodeURIComponent(
+      Array.prototype.map
+        .call(
+          atob(content),
+          (c: string) =&gt; `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
+        )
+        .join('')
+    );
   }
 &nbsp;
-  renderAsync(
-    markdown: string,
-    options?: Partial&lt;RendererOptions&gt;
-  ): Promise&lt;string&gt; {
-    const processor = this.getProcessor(options);
-    return processor.process(markdown).then(String);
+  // Node.js environment (e.g., tests)
+<span class="cstat-no" title="statement not covered" >  if (typeof Buffer !== 'undefined') {</span>
+<span class="cstat-no" title="statement not covered" >    return Buffer.from(content, 'base64').toString('utf-8');</span>
   }
 &nbsp;
-  private getProcessor(partial?: Partial&lt;RendererOptions&gt;): MarkdownProcessor {
-    const opts = { ...DEFAULT_OPTIONS, ...partial };
-    const cacheKey = `${opts.enableCriticMarkup}:${opts.allowRawHtml}`;
+<span class="cstat-no" title="statement not covered" >  throw new Error('Base64 decoding is not supported in this environment');</span>
+}
 &nbsp;
-    const cached = this.cache.get(cacheKey);
-    if (cached) {
-      return cached;
-    }
-&nbsp;
-    const pipeline = unified() as unknown as MarkdownProcessor;
-    pipeline.use(remarkParse).use(remarkGfm);
-&nbsp;
-    if (opts.enableCriticMarkup) {
-      pipeline.use(remarkCriticMarkup as any);
-    }
-&nbsp;
-    pipeline
-      .use(remarkRehype as any, { allowDangerousHtml: true })
-      .use(rehypeStringify as any, { allowDangerousHtml: true });
-&nbsp;
-    this.cache.set(cacheKey, pipeline as MarkdownProcessor);
-    return pipeline as MarkdownProcessor;
+/**
+ * Encodes a UTF-8 string to Base64
+ * Handles Unicode characters correctly
+ * @param content - UTF-8 string to encode
+ * @returns Base64-encoded string
+ * @throws Error if Base64 encoding is not supported in the environment
+ */
+export function encodeBase64(content: string): string {
+  // Browser environment
+  <span class="missing-if-branch" title="else path not taken" >E</span>if (typeof btoa === 'function') {
+    return btoa(unescape(encodeURIComponent(content)));
   }
+&nbsp;
+  // Node.js environment (e.g., tests)
+<span class="cstat-no" title="statement not covered" >  if (typeof Buffer !== 'undefined') {</span>
+<span class="cstat-no" title="statement not covered" >    return Buffer.from(content, 'utf-8').toString('base64');</span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  throw new Error('Base64 encoding is not supported in this environment');</span>
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -264,14 +231,14 @@ export class MarkdownRenderer {
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
                 at 2025-11-17T09:24:59.594Z
             </div>
-        <script src="../../../prettify.js"></script>
+        <script src="../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../../sorter.js"></script>
-        <script src="../../../block-navigation.js"></script>
+        <script src="../../sorter.js"></script>
+        <script src="../../block-navigation.js"></script>
     </body>
 </html>
     

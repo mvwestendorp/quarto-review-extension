@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">54.45% </span>
+                <span class="strong">53.19% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>55/101</span>
+                <span class='fraction'>50/94</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">43.47% </span>
+                <span class="strong">43.07% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>30/69</span>
+                <span class='fraction'>28/65</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">57.57% </span>
+                <span class="strong">53.33% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>19/33</span>
+                <span class='fraction'>16/30</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">55.55% </span>
+                <span class="strong">54.34% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>55/99</span>
+                <span class='fraction'>50/92</span>
             </div>
         
             
@@ -552,27 +552,7 @@
 <a name='L487'></a><a href='#L487'>487</a>
 <a name='L488'></a><a href='#L488'>488</a>
 <a name='L489'></a><a href='#L489'>489</a>
-<a name='L490'></a><a href='#L490'>490</a>
-<a name='L491'></a><a href='#L491'>491</a>
-<a name='L492'></a><a href='#L492'>492</a>
-<a name='L493'></a><a href='#L493'>493</a>
-<a name='L494'></a><a href='#L494'>494</a>
-<a name='L495'></a><a href='#L495'>495</a>
-<a name='L496'></a><a href='#L496'>496</a>
-<a name='L497'></a><a href='#L497'>497</a>
-<a name='L498'></a><a href='#L498'>498</a>
-<a name='L499'></a><a href='#L499'>499</a>
-<a name='L500'></a><a href='#L500'>500</a>
-<a name='L501'></a><a href='#L501'>501</a>
-<a name='L502'></a><a href='#L502'>502</a>
-<a name='L503'></a><a href='#L503'>503</a>
-<a name='L504'></a><a href='#L504'>504</a>
-<a name='L505'></a><a href='#L505'>505</a>
-<a name='L506'></a><a href='#L506'>506</a>
-<a name='L507'></a><a href='#L507'>507</a>
-<a name='L508'></a><a href='#L508'>508</a>
-<a name='L509'></a><a href='#L509'>509</a>
-<a name='L510'></a><a href='#L510'>510</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L490'></a><a href='#L490'>490</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -591,26 +571,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">14x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1100,27 +1060,7 @@ import type {
   ReviewCommentInput,
   ReviewCommentResult,
 } from '../types';
-&nbsp;
-function encodeBase64(content: string): string {
-  <span class="missing-if-branch" title="else path not taken" >E</span>if (typeof btoa === 'function') {
-    return btoa(unescape(encodeURIComponent(content)));
-  }
-<span class="cstat-no" title="statement not covered" >  return Buffer.from(content, 'utf-8').toString('base64');</span>
-}
-&nbsp;
-function decodeBase64(content: string): string {
-  <span class="missing-if-branch" title="else path not taken" >E</span>if (typeof atob === 'function') {
-    return decodeURIComponent(
-      Array.prototype.map
-        .call(
-          atob(content),
-          (c: string) =&gt; `%${`00${c.charCodeAt(0).toString(16)}`.slice(-2)}`
-        )
-        .join('')
-    );
-  }
-<span class="cstat-no" title="statement not covered" >  return Buffer.from(content, 'base64').toString('utf-8');</span>
-}
+import { decodeBase64, encodeBase64 } from '../../../utils/encoding';
 &nbsp;
 function encodePath(path: string): string {
   return encodeURIComponent(path).replace(/%2F/g, '/');
@@ -1597,7 +1537,7 @@ export default GitLabProvider;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-13T14:18:56.337Z
+                at 2025-11-17T09:24:59.594Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">75.83% </span>
+                <span class="strong">75.86% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>433/571</span>
+                <span class='fraction'>437/576</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">63.53% </span>
+                <span class="strong">63.59% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>277/436</span>
+                <span class='fraction'>276/434</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">86.02% </span>
+                <span class="strong">85.26% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>80/93</span>
+                <span class='fraction'>81/95</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">76.78% </span>
+                <span class="strong">76.95% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>430/560</span>
+                <span class='fraction'>434/564</span>
             </div>
         
             
@@ -1622,7 +1622,14 @@
 <a name='L1557'></a><a href='#L1557'>1557</a>
 <a name='L1558'></a><a href='#L1558'>1558</a>
 <a name='L1559'></a><a href='#L1559'>1559</a>
-<a name='L1560'></a><a href='#L1560'>1560</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L1560'></a><a href='#L1560'>1560</a>
+<a name='L1561'></a><a href='#L1561'>1561</a>
+<a name='L1562'></a><a href='#L1562'>1562</a>
+<a name='L1563'></a><a href='#L1563'>1563</a>
+<a name='L1564'></a><a href='#L1564'>1564</a>
+<a name='L1565'></a><a href='#L1565'>1565</a>
+<a name='L1566'></a><a href='#L1566'>1566</a>
+<a name='L1567'></a><a href='#L1567'>1567</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1727,12 +1734,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">57x</span>
+<span class="cline-any cline-yes">56x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">57x</span>
-<span class="cline-any cline-yes">57x</span>
-<span class="cline-any cline-yes">57x</span>
+<span class="cline-any cline-yes">56x</span>
+<span class="cline-any cline-yes">56x</span>
+<span class="cline-any cline-yes">56x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2804,6 +2811,13 @@
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -4338,7 +4352,7 @@ export class QmdExportService {
       const captionEl = figure.querySelector&lt;HTMLElement&gt;('figcaption');
       <span class="missing-if-branch" title="else path not taken" >E</span>if (captionEl) {
         metadata.figCaption = this.normalizeCaptionText(
-          captionEl.textContent ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>
+          this.getTextContentWithoutActionButtons(captionEl)
         );
       }
     }
@@ -4351,7 +4365,7 @@ export class QmdExportService {
       const captionEl = table.querySelector&lt;HTMLElement&gt;('figcaption, caption');
       <span class="missing-if-branch" title="else path not taken" >E</span>if (captionEl) {
         metadata.tableCaption = this.normalizeCaptionText(
-          captionEl.textContent ?? <span class="branch-1 cbranch-no" title="branch not covered" >''</span>
+          this.getTextContentWithoutActionButtons(captionEl)
         );
       }
     }
@@ -4364,6 +4378,13 @@ export class QmdExportService {
       return null;
     }
     return metadata;
+  }
+&nbsp;
+  private getTextContentWithoutActionButtons(element: HTMLElement): string {
+    const clone = element.cloneNode(true) as HTMLElement;
+    const actionButtons = clone.querySelectorAll('.review-segment-actions');
+    actionButtons.forEach(<span class="fstat-no" title="function not covered" >(b</span>tn) =&gt; <span class="cstat-no" title="statement not covered" >btn.remove())</span>;
+    return clone.textContent ?? <span class="branch-1 cbranch-no" title="branch not covered" >'';</span>
   }
 &nbsp;
   private normalizeCaptionText(text: string): string {
@@ -4747,7 +4768,7 @@ export default QmdExportService;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-13T14:18:56.337Z
+                at 2025-11-17T09:24:59.594Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
