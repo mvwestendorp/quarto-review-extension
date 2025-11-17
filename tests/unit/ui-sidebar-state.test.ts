@@ -3,14 +3,14 @@ import type { UIConfig } from '@modules/ui';
 import { UIModule } from '@modules/ui';
 
 const {
-  getUnifiedSidebarInstances,
-  getUnifiedSidebarConstructor,
-  resetUnifiedSidebarMocks,
+  getBottomDrawerInstances,
+  getBottomDrawerConstructor,
+  resetBottomDrawerMocks,
   getHistoryStorageInstances,
   resetHistoryStorageMocks,
   getHistoryStorageConstructor,
 } = vi.hoisted(() => {
-  type MockUnifiedSidebar = {
+  type MockBottomDrawer = {
     create: ReturnType<typeof vi.fn>;
     onUndo: ReturnType<typeof vi.fn>;
     onRedo: ReturnType<typeof vi.fn>;
@@ -51,14 +51,14 @@ const {
     destroy: ReturnType<typeof vi.fn>;
   };
 
-  const instances: MockUnifiedSidebar[] = [];
+  const instances: MockBottomDrawer[] = [];
   const historyInstances: any[] = [];
 
-  const constructor = vi.fn(function MockUnifiedSidebar(this: unknown) {
-    const instance: MockUnifiedSidebar = {
+  const constructor = vi.fn(function MockBottomDrawer(this: unknown) {
+    const instance: MockBottomDrawer = {
       create: vi.fn().mockImplementation(() => {
         const element = document.createElement('div');
-        element.className = 'review-toolbar review-persistent-sidebar review-unified-sidebar';
+        element.className = 'review-bottom-drawer';
         return element;
       }),
       onUndo: vi.fn(),
@@ -120,9 +120,9 @@ const {
   });
 
   return {
-    getUnifiedSidebarInstances: () => instances,
-    getUnifiedSidebarConstructor: () => constructor,
-    resetUnifiedSidebarMocks: () => {
+    getBottomDrawerInstances: () => instances,
+    getBottomDrawerConstructor: () => constructor,
+    resetBottomDrawerMocks: () => {
       instances.length = 0;
       constructor.mockClear();
     },
@@ -219,8 +219,8 @@ vi.mock('@modules/ui/comments/CommentController', () => ({
   }),
 }));
 
-vi.mock('@modules/ui/sidebars/UnifiedSidebar', () => ({
-  UnifiedSidebar: getUnifiedSidebarConstructor(),
+vi.mock('@modules/ui/sidebars/BottomDrawer', () => ({
+  BottomDrawer: getBottomDrawerConstructor(),
 }));
 
 vi.mock('@modules/ui/sidebars/ContextMenu', () => ({
@@ -307,7 +307,7 @@ describe('UIModule sidebar state handling', () => {
   let reloadSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    resetUnifiedSidebarMocks();
+    resetBottomDrawerMocks();
     resetHistoryStorageMocks();
     document.body.innerHTML = '';
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
@@ -328,10 +328,10 @@ describe('UIModule sidebar state handling', () => {
     vi.unstubAllGlobals();
   });
 
-  it('toggleSidebarCollapsed updates DOM and notifies UnifiedSidebar', () => {
+  it('toggleSidebarCollapsed updates DOM and notifies BottomDrawer', () => {
     const ui = new UIModule(createStubConfig());
-    const unifiedSidebar = getUnifiedSidebarInstances()[0];
-    expect(unifiedSidebar).toBeDefined();
+    const bottomDrawer = getBottomDrawerInstances()[0];
+    expect(bottomDrawer).toBeDefined();
 
     // Initial state is collapsed (true), so toggling makes it expanded (false)
     ui.toggleSidebarCollapsed();
@@ -344,7 +344,7 @@ describe('UIModule sidebar state handling', () => {
     expect(
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(false);
-    expect(unifiedSidebar?.setCollapsed).toHaveBeenLastCalledWith(false);
+    expect(bottomDrawer?.setCollapsed).toHaveBeenLastCalledWith(false);
     expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(false);
 
     // Toggle back to collapsed (true)
@@ -354,7 +354,7 @@ describe('UIModule sidebar state handling', () => {
     expect(
       document.body.classList.contains('review-sidebar-collapsed-mode')
     ).toBe(true);
-    expect(unifiedSidebar?.setCollapsed).toHaveBeenLastCalledWith(true);
+    expect(bottomDrawer?.setCollapsed).toHaveBeenLastCalledWith(true);
     expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(true);
   });
 
@@ -362,10 +362,10 @@ describe('UIModule sidebar state handling', () => {
     vi.useFakeTimers();
     const config = createStubConfig();
     const ui = new UIModule(config);
-    const unifiedSidebar = getUnifiedSidebarInstances()[0];
+    const bottomDrawer = getBottomDrawerInstances()[0];
     expect(unifiedSidebar).toBeDefined();
 
-    const clearCallback = unifiedSidebar?.onClearDrafts.mock.calls[0]?.[0];
+    const clearCallback = bottomDrawer?.onClearDrafts.mock.calls[0]?.[0];
     expect(clearCallback).toBeInstanceOf(Function);
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
@@ -388,10 +388,10 @@ describe('UIModule sidebar state handling', () => {
   it('does not clear local drafts when confirmation is declined', async () => {
     const config = createStubConfig();
     const ui = new UIModule(config);
-    const unifiedSidebar = getUnifiedSidebarInstances()[0];
+    const bottomDrawer = getBottomDrawerInstances()[0];
     expect(unifiedSidebar).toBeDefined();
 
-    const clearCallback = unifiedSidebar?.onClearDrafts.mock.calls[0]?.[0];
+    const clearCallback = bottomDrawer?.onClearDrafts.mock.calls[0]?.[0];
     expect(clearCallback).toBeInstanceOf(Function);
 
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
@@ -416,12 +416,12 @@ describe('UIModule sidebar state handling', () => {
 
     const config = createStubConfig({ exporter: exporter as any });
     const ui = new UIModule(config);
-    const unifiedSidebar = getUnifiedSidebarInstances()[0];
+    const bottomDrawer = getBottomDrawerInstances()[0];
 
-    expect(unifiedSidebar?.onExportClean).toHaveBeenCalledWith(expect.any(Function));
-    expect(unifiedSidebar?.onExportCritic).toHaveBeenCalledWith(expect.any(Function));
+    expect(bottomDrawer?.onExportClean).toHaveBeenCalledWith(expect.any(Function));
+    expect(bottomDrawer?.onExportCritic).toHaveBeenCalledWith(expect.any(Function));
 
-    const handler = unifiedSidebar?.onExportClean.mock.calls[0]?.[0];
+    const handler = bottomDrawer?.onExportClean.mock.calls[0]?.[0];
     expect(handler).toBeInstanceOf(Function);
 
     // Directly exercise export logic for coverage

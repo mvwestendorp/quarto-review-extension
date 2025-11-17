@@ -101,9 +101,9 @@ describe('CSS Build Process', () => {
     it('should have reasonable file size', () => {
       const stats = fs.statSync(devCssFile);
       const sizeKB = stats.size / 1024;
-      // Should be between 50-125 KB (with all @imports including translation.css)
+      // Should be between 50-140 KB (with all @imports including translation.css and bottom-drawer.css)
       expect(sizeKB).toBeGreaterThan(50);
-      expect(sizeKB).toBeLessThan(125);
+      expect(sizeKB).toBeLessThan(140);
     });
   });
 
