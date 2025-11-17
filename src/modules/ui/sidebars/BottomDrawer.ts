@@ -144,9 +144,15 @@ export class BottomDrawer {
     const bodyInner = createDiv('review-drawer-body-inner');
 
     // Create three-column layout for expanded state
-    const leftColumn = createDiv('review-drawer-column review-drawer-column-left');
-    const centerColumn = createDiv('review-drawer-column review-drawer-column-center');
-    const rightColumn = createDiv('review-drawer-column review-drawer-column-right');
+    const leftColumn = createDiv(
+      'review-drawer-column review-drawer-column-left'
+    );
+    const centerColumn = createDiv(
+      'review-drawer-column review-drawer-column-center'
+    );
+    const rightColumn = createDiv(
+      'review-drawer-column review-drawer-column-right'
+    );
 
     // Left column: Review Tools and Export
     this.reviewToolsSection = this.createReviewToolsSection();
@@ -257,10 +263,7 @@ ID: ${currentUser.id}
 Role: ${currentUser.role}`;
     userSection.title = tooltipText;
 
-    buildInfoSection.insertBefore(
-      userSection,
-      buildInfoSection.firstChild
-    );
+    buildInfoSection.insertBefore(userSection, buildInfoSection.firstChild);
 
     logger.debug('User display updated', {
       userId: currentUser.id,
@@ -321,7 +324,10 @@ Role: ${currentUser.role}`;
     const headerActions = createDiv('review-drawer-header-actions');
 
     // Debug mode toggle (small icon button)
-    const debugToggleBtn = createButton('', 'review-btn review-btn-icon review-btn-sm');
+    const debugToggleBtn = createButton(
+      '',
+      'review-btn review-btn-icon review-btn-sm'
+    );
     setAttributes(debugToggleBtn, {
       'data-action': 'toggle-debug',
       title: 'Toggle developer tools (debug mode)',
@@ -380,10 +386,7 @@ Role: ${currentUser.role}`;
 
     const buttonGroup = createDiv('review-drawer-button-group');
 
-    this.undoBtn = createButton(
-      '↶ Undo',
-      'review-btn review-btn-secondary'
-    );
+    this.undoBtn = createButton('↶ Undo', 'review-btn review-btn-secondary');
     setAttributes(this.undoBtn, {
       'data-action': 'undo',
       title: 'Undo last change (Ctrl+Z)',
@@ -395,10 +398,7 @@ Role: ${currentUser.role}`;
     });
     buttonGroup.appendChild(this.undoBtn);
 
-    this.redoBtn = createButton(
-      '↷ Redo',
-      'review-btn review-btn-secondary'
-    );
+    this.redoBtn = createButton('↷ Redo', 'review-btn review-btn-secondary');
     setAttributes(this.redoBtn, {
       'data-action': 'redo',
       title: 'Redo last undone change (Ctrl+Y)',
@@ -699,7 +699,10 @@ Role: ${currentUser.role}`;
     this.providerSelector.id = 'translation-provider-select';
     this.providerSelector.className = 'review-select';
     this.providerSelector.style.width = '100%';
-    this.providerSelector.setAttribute('title', 'Select translation provider/service');
+    this.providerSelector.setAttribute(
+      'title',
+      'Select translation provider/service'
+    );
     this.providerSelector.addEventListener('change', (e) => {
       const target = e.target as HTMLSelectElement;
       this.onProviderChangeCallback?.(target.value);
@@ -725,7 +728,10 @@ Role: ${currentUser.role}`;
     this.sourceLanguageSelector.className = 'review-select';
     this.sourceLanguageSelector.style.width = '100%';
     this.sourceLanguageSelector.style.marginBottom = '8px';
-    this.sourceLanguageSelector.setAttribute('title', 'Source language of the document');
+    this.sourceLanguageSelector.setAttribute(
+      'title',
+      'Source language of the document'
+    );
     this.sourceLanguageSelector.addEventListener('change', (e) => {
       const target = e.target as HTMLSelectElement;
       this.onSourceLanguageChangeCallback?.(target.value);
@@ -745,7 +751,10 @@ Role: ${currentUser.role}`;
     this.targetLanguageSelector.id = 'translation-target-lang-select';
     this.targetLanguageSelector.className = 'review-select';
     this.targetLanguageSelector.style.width = '100%';
-    this.targetLanguageSelector.setAttribute('title', 'Target language for translation');
+    this.targetLanguageSelector.setAttribute(
+      'title',
+      'Target language for translation'
+    );
     this.targetLanguageSelector.addEventListener('change', (e) => {
       const target = e.target as HTMLSelectElement;
       this.onTargetLanguageChangeCallback?.(target.value);
@@ -1143,7 +1152,9 @@ Role: ${currentUser.role}`;
   setExpanded(expanded: boolean): void {
     if (!this.element) return;
 
-    const body = this.element.querySelector('.review-drawer-body') as HTMLElement;
+    const body = this.element.querySelector(
+      '.review-drawer-body'
+    ) as HTMLElement;
     if (body) {
       body.style.display = expanded ? '' : 'none';
     }
@@ -1157,7 +1168,9 @@ Role: ${currentUser.role}`;
       }
 
       setAttributes(this.toggleBtn, {
-        title: expanded ? 'Collapse review tools (Alt+R)' : 'Expand review tools (Alt+R)',
+        title: expanded
+          ? 'Collapse review tools (Alt+R)'
+          : 'Expand review tools (Alt+R)',
         'aria-expanded': expanded ? 'true' : 'false',
       });
     }
@@ -1314,7 +1327,10 @@ Role: ${currentUser.role}`;
 
     if (active) {
       this.translationBtn.textContent = '🌐 Close Translation';
-      this.translationBtn.setAttribute('title', 'Close translation mode and return to review');
+      this.translationBtn.setAttribute(
+        'title',
+        'Close translation mode and return to review'
+      );
       toggleClass(this.translationBtn, 'review-btn-active', true);
     } else {
       this.translationBtn.textContent = '🌐 Translation';
