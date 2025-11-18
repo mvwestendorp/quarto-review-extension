@@ -20,9 +20,9 @@ export interface BuildInfo {
 export const BUILD_INFO: BuildInfo = {
   version: '0.1.0',
   buildNumber: 'dev',
-  buildDate: '2025-11-17T21:35:54.046Z',
-  commit: '8e9a3f2d8e548c2529e362b6034dad126f777df4',
-  branch: 'claude/enhance-translation-module-011hmQ4ihxx3fgPZTT5gZHwC',
+  buildDate: '2025-11-18T10:15:55.704Z',
+  commit: '3a75ffc6c3be4370618431d9887d946bb6bb10ac',
+  branch: 'claude/improve-ui-bottom-01SGVxt2cDzdfSsjwKCNomgB',
   pr: undefined,
   buildType: 'dev',
   buildUrl: undefined,
@@ -46,16 +46,7 @@ export function getBuildString(): string {
  * Get full build information string
  */
 export function getFullBuildInfo(): string {
-  const {
-    version,
-    buildNumber,
-    buildDate,
-    commit,
-    branch,
-    pr,
-    buildType,
-    buildUrl,
-  } = BUILD_INFO;
+  const { version, buildNumber, buildDate, commit, branch, pr, buildType, buildUrl } = BUILD_INFO;
   const parts = [
     `Version: ${version}`,
     `Build: ${buildNumber}`,

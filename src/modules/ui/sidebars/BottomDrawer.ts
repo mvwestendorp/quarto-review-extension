@@ -57,11 +57,12 @@ export class BottomDrawer {
   private submitReviewEnabled = false;
   private submitReviewPending = false;
 
-  // Comments section elements
-  private commentsSection: HTMLElement | null = null;
-  private commentsContent: HTMLElement | null = null;
-  private commentSections: SectionCommentSnapshot[] = [];
-  private commentsCallbacks: CommentsSidebarCallbacks | null = null;
+  // Developer Panel section elements (replaces comments section)
+  private developerPanelSection: HTMLElement | null = null;
+  private developerPanelContent: HTMLElement | null = null;
+  private developerPanelTabs: Map<string, HTMLButtonElement> = new Map();
+  private developerPanelPanes: Map<string, HTMLElement> = new Map();
+  private activeDeveloperTab: string = 'changes';
 
   // Translation section elements
   private translationSection: HTMLElement | null = null;
@@ -164,9 +165,9 @@ export class BottomDrawer {
     this.translationSection = this.createTranslationToggleSection();
     leftColumn.appendChild(this.translationSection);
 
-    // Center column: Comments
-    this.commentsSection = this.createCommentsSection();
-    centerColumn.appendChild(this.commentsSection);
+    // Center column: Developer Panel (tabbed interface)
+    this.developerPanelSection = this.createDeveloperPanelSection();
+    centerColumn.appendChild(this.developerPanelSection);
 
     // Right column: Translation Tools (when in translation mode) and Debug/Storage
     this.translationToolsSection = this.createTranslationToolsSection();
@@ -510,26 +511,147 @@ Role: ${currentUser.role}`;
   }
 
   /**
-   * Create Comments section
+   * Create Developer Panel section (replaces comments section)
    */
-  private createCommentsSection(): HTMLElement {
-    const section = createDiv('review-drawer-section review-comments-section');
-    section.setAttribute('data-section', 'comments');
+  private createDeveloperPanelSection(): HTMLElement {
+    const section = createDiv('review-drawer-section review-developer-panel');
+    section.setAttribute('data-section', 'developer-panel');
 
     const header = createDiv('review-drawer-section-header');
 
     const title = document.createElement('h4');
-    title.textContent = 'Comments';
+    title.textContent = 'Developer Panel';
     title.className = 'review-drawer-section-title';
     header.appendChild(title);
 
     section.appendChild(header);
 
-    this.commentsContent = createDiv('review-comments-content');
-    this.commentsContent.style.cssText = 'max-height: 250px; overflow-y: auto;';
-    section.appendChild(this.commentsContent);
+    // Create tab buttons
+    const tabBar = createDiv('review-developer-panel-tabs');
+    tabBar.style.cssText = `
+      display: flex;
+      gap: 4px;
+      border-bottom: 2px solid rgba(148, 163, 184, 0.2);
+      margin-bottom: 12px;
+    `;
+
+    const tabs = [
+      { id: 'changes', label: '📝 Changes', icon: '📝' },
+      { id: 'git', label: '🔀 Git Info', icon: '🔀' },
+      { id: 'debug', label: '🐛 Debug', icon: '🐛' },
+    ];
+
+    tabs.forEach((tab) => {
+      const tabBtn = createButton(tab.label, 'review-developer-panel-tab-btn');
+      tabBtn.dataset.tabId = tab.id;
+      tabBtn.style.cssText = `
+        flex: 1;
+        padding: 8px 12px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--review-color-muted);
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s ease;
+      `;
+
+      tabBtn.onclick = () => this.switchDeveloperTab(tab.id);
+      this.developerPanelTabs.set(tab.id, tabBtn);
+      tabBar.appendChild(tabBtn);
+    });
+
+    section.appendChild(tabBar);
+
+    // Create content area
+    this.developerPanelContent = createDiv('review-developer-panel-content');
+    this.developerPanelContent.style.cssText = 'max-height: 250px; overflow-y: auto;';
+
+    // Create panes for each tab
+    tabs.forEach((tab) => {
+      const pane = createDiv(`review-developer-panel-pane-${tab.id}`);
+      pane.dataset.paneId = tab.id;
+      pane.style.display = tab.id === this.activeDeveloperTab ? 'block' : 'none';
+
+      // Initialize with empty content
+      const emptyMsg = createDiv('review-panel-empty');
+      emptyMsg.textContent = `No ${tab.label.replace(/[^\w\s]/g, '').trim()} information yet.`;
+      emptyMsg.style.cssText = `
+        text-align: center;
+        padding: 24px 12px;
+        color: var(--review-color-muted);
+        background: rgba(248, 250, 252, 0.5);
+        border: 1px dashed rgba(148, 163, 184, 0.3);
+        border-radius: 8px;
+        font-size: 12px;
+      `;
+      pane.appendChild(emptyMsg);
+
+      this.developerPanelPanes.set(tab.id, pane);
+      this.developerPanelContent?.appendChild(pane);
+    });
+
+    if (this.developerPanelContent) {
+      section.appendChild(this.developerPanelContent);
+    }
+
+    // Set initial active tab
+    this.updateDeveloperTabStyles();
 
     return section;
+  }
+
+  /**
+   * Switch active developer panel tab
+   */
+  private switchDeveloperTab(tabId: string): void {
+    this.activeDeveloperTab = tabId;
+
+    // Update pane visibility
+    this.developerPanelPanes.forEach((pane, id) => {
+      pane.style.display = id === tabId ? 'block' : 'none';
+    });
+
+    // Update tab styles
+    this.updateDeveloperTabStyles();
+
+    logger.debug('Switched developer tab', { tabId });
+  }
+
+  /**
+   * Update tab button styles based on active tab
+   */
+  private updateDeveloperTabStyles(): void {
+    this.developerPanelTabs.forEach((btn, id) => {
+      if (id === this.activeDeveloperTab) {
+        btn.style.cssText = `
+          flex: 1;
+          padding: 8px 12px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--review-color-primary);
+          border-bottom: 2px solid var(--review-color-primary);
+          transition: all 0.2s ease;
+        `;
+      } else {
+        btn.style.cssText = `
+          flex: 1;
+          padding: 8px 12px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--review-color-muted);
+          border-bottom: 2px solid transparent;
+          transition: all 0.2s ease;
+        `;
+      }
+    });
   }
 
   /**
@@ -981,8 +1103,8 @@ Role: ${currentUser.role}`;
     if (this.exportSection) {
       this.exportSection.style.display = active ? 'none' : '';
     }
-    if (this.commentsSection) {
-      this.commentsSection.style.display = active ? 'none' : '';
+    if (this.developerPanelSection) {
+      this.developerPanelSection.style.display = active ? 'none' : '';
     }
     if (this.translationSection) {
       this.translationSection.style.display = active ? 'none' : '';
@@ -1024,125 +1146,69 @@ Role: ${currentUser.role}`;
   }
 
   /**
-   * Update comments list
+   * NOTE: Comments are now displayed in the margin.
+   * The developer panel has replaced the comments section in the bottom drawer.
+   * This method is kept for backwards compatibility but does nothing.
    */
   updateComments(
-    sections: SectionCommentSnapshot[],
-    callbacks: CommentsSidebarCallbacks
+    _sections: SectionCommentSnapshot[],
+    _callbacks: CommentsSidebarCallbacks
   ): void {
-    this.commentSections = sections;
-    this.commentsCallbacks = callbacks;
-    this.refreshComments();
+    // Comments are now in margin - this is a no-op
+    logger.debug('updateComments called but comments are now in margin');
   }
 
   /**
-   * Refresh comments display
+   * Update changes panel content
    */
-  private refreshComments(): void {
-    if (!this.commentsContent) return;
+  updateChangesPanel(changesHtml: string): void {
+    const changesPane = this.developerPanelPanes.get('changes');
+    if (!changesPane) return;
 
-    this.commentsContent.innerHTML = '';
+    changesPane.innerHTML = changesHtml;
+    logger.debug('Changes panel updated');
+  }
 
-    if (this.commentSections.length === 0) {
-      const emptyMsg = document.createElement('div');
-      emptyMsg.className = 'review-comments-empty';
-      emptyMsg.textContent = 'No comments yet. Click on text to add comments.';
-      emptyMsg.style.cssText = `
-        text-align: center;
-        padding: 24px 12px;
-        color: var(--review-color-muted);
-        background: rgba(248, 250, 252, 0.5);
-        border: 1px dashed rgba(148, 163, 184, 0.3);
-        border-radius: 8px;
-        font-size: 12px;
-      `;
-      this.commentsContent.appendChild(emptyMsg);
+  /**
+   * Update git info panel content
+   */
+  updateGitPanel(gitHtml: string): void {
+    const gitPane = this.developerPanelPanes.get('git');
+    if (!gitPane) return;
+
+    gitPane.innerHTML = gitHtml;
+    logger.debug('Git panel updated');
+  }
+
+  /**
+   * Update debug panel content
+   */
+  updateDebugPanel(debugHtml: string): void {
+    const debugPane = this.developerPanelPanes.get('debug');
+    if (!debugPane) return;
+
+    debugPane.innerHTML = debugHtml;
+    logger.debug('Debug panel updated');
+  }
+
+  /**
+   * Set developer panel content for a specific tab
+   */
+  setDeveloperPanelContent(tabId: string, content: string | HTMLElement): void {
+    const pane = this.developerPanelPanes.get(tabId);
+    if (!pane) {
+      logger.warn('Developer panel pane not found', { tabId });
       return;
     }
 
-    this.commentSections.forEach((snapshot) => {
-      const section = document.createElement('div');
-      section.className = 'review-comments-section-group';
-      section.dataset.sectionId = snapshot.element.id;
+    if (typeof content === 'string') {
+      pane.innerHTML = content;
+    } else {
+      pane.innerHTML = '';
+      pane.appendChild(content);
+    }
 
-      const list = document.createElement('div');
-      list.className = 'review-comments-list';
-
-      snapshot.comments.forEach((comment) => {
-        const item = this.renderComment(snapshot, comment);
-        list.appendChild(item);
-      });
-
-      section.appendChild(list);
-      this.commentsContent?.appendChild(section);
-    });
-
-    logger.debug('Comments refreshed', { count: this.commentSections.length });
-  }
-
-  /**
-   * Render a single comment item
-   */
-  private renderComment(
-    snapshot: SectionCommentSnapshot,
-    comment: Comment
-  ): HTMLElement {
-    const item = createDiv('review-comment-item');
-    item.dataset.elementId = snapshot.element.id;
-    item.dataset.commentKey = comment.id;
-
-    item.addEventListener('click', () => {
-      this.commentsCallbacks?.onNavigate(snapshot.element.id, comment.id);
-    });
-
-    item.addEventListener('mouseenter', () => {
-      this.commentsCallbacks?.onHover(snapshot.element.id, comment.id);
-    });
-
-    item.addEventListener('mouseleave', () => {
-      this.commentsCallbacks?.onLeave();
-    });
-
-    const header = createDiv('review-comment-header');
-
-    const author = createDiv('review-comment-author');
-    author.textContent = comment.userId || 'Anonymous';
-    header.appendChild(author);
-
-    const date = createDiv('review-comment-date');
-    date.textContent = new Date(comment.timestamp).toLocaleDateString();
-    header.appendChild(date);
-
-    item.appendChild(header);
-
-    const text = createDiv('review-comment-text');
-    text.textContent = comment.content;
-    item.appendChild(text);
-
-    const actions = createDiv('review-comment-actions');
-
-    const editBtn = createButton('✏️ Edit', 'review-btn review-btn-sm');
-    editBtn.setAttribute('title', 'Edit this comment');
-    editBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.commentsCallbacks?.onEdit(snapshot.element.id, comment);
-    });
-    actions.appendChild(editBtn);
-
-    const removeBtn = createButton(
-      '🗑 Remove',
-      'review-btn review-btn-sm review-btn-danger'
-    );
-    removeBtn.setAttribute('title', 'Delete this comment');
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.commentsCallbacks?.onRemove(snapshot.element.id, comment);
-    });
-    actions.appendChild(removeBtn);
-
-    item.appendChild(actions);
-
-    return item;
+    logger.debug('Developer panel content set', { tabId });
   }
 
   // ============================================
@@ -1536,8 +1602,10 @@ Role: ${currentUser.role}`;
     this.exportCleanBtn = null;
     this.exportCriticBtn = null;
     this.submitReviewBtn = null;
-    this.commentsSection = null;
-    this.commentsContent = null;
+    this.developerPanelSection = null;
+    this.developerPanelContent = null;
+    this.developerPanelTabs.clear();
+    this.developerPanelPanes.clear();
     this.translationSection = null;
     this.translationBtn = null;
     this.debugSection = null;
@@ -1554,6 +1622,5 @@ Role: ${currentUser.role}`;
     this.onExportCriticCallback = null;
     this.onSubmitReviewCallback = null;
     this.onToggleTranslationCallback = null;
-    this.commentsCallbacks = null;
   }
 }

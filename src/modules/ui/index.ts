@@ -15,6 +15,7 @@ import { EditorToolbar } from './editor/EditorToolbar';
 import { CommentComposer } from './comments/CommentComposer';
 import { CommentBadges } from './comments/CommentBadges';
 import { CommentController } from './comments/CommentController';
+import { MarginComments } from './comments/MarginComments';
 import { SegmentActionButtons } from './comments/SegmentActionButtons';
 import { BottomDrawer } from './sidebars/BottomDrawer';
 import { ContextMenuCoordinator } from './sidebars/ContextMenuCoordinator';
@@ -120,6 +121,7 @@ export class UIModule {
   private bottomDrawer: BottomDrawer;
   private commentComposerModule: CommentComposer | null = null;
   private commentBadgesModule: CommentBadges | null = null;
+  private marginCommentsModule: MarginComments | null = null;
   private segmentActionButtons: SegmentActionButtons | null = null;
   private contextMenuCoordinator: ContextMenuCoordinator | null = null;
   private commentController: CommentController;
@@ -168,6 +170,7 @@ export class UIModule {
     this.bottomDrawer = new BottomDrawer();
     this.commentComposerModule = new CommentComposer();
     this.commentBadgesModule = new CommentBadges();
+    this.marginCommentsModule = new MarginComments();
     this.segmentActionButtons = new SegmentActionButtons();
     this.commentController = new CommentController({
       config: {
@@ -176,7 +179,8 @@ export class UIModule {
         markdown: this.config.markdown,
       },
       commentState: this.stateStore.getCommentState() as CommentState,
-      sidebar: null, // BottomDrawer handles comments internally
+      sidebar: null, // Comments now displayed in margin
+      marginComments: this.marginCommentsModule,
       composer: this.commentComposerModule,
       badges: this.commentBadgesModule,
       callbacks: {
@@ -2584,6 +2588,13 @@ export class UIModule {
       this.bottomDrawer.setUserModule(this.userModule);
     }
 
+    // Create and append margin comments container
+    if (this.marginCommentsModule) {
+      const marginContainer = this.marginCommentsModule.create();
+      document.body.appendChild(marginContainer);
+      logger.debug('Margin comments container appended to DOM');
+    }
+
     if (!this.changeSummaryDashboard) {
       this.changeSummaryDashboard = new ChangeSummaryDashboard(this.config);
     }
@@ -2616,58 +2627,10 @@ export class UIModule {
     );
   }
 
-  private refreshCommentUI(_options: { showSidebar?: boolean } = {}): void {
-    // Get sections from CommentController
-    const sections = this.commentController.getSectionComments();
-
-    // Update BottomDrawer with comments
-    this.bottomDrawer.updateComments(sections, {
-      onNavigate: (elementId, commentKey) => {
-        this.commentController.focusCommentAnchor(elementId, commentKey);
-      },
-      onRemove: (_elementId, comment) => {
-        this.commentController.removeComment(comment.id);
-        this.commentController.clearHighlight();
-      },
-      onEdit: (elementId, comment) => {
-        void this.commentController.openComposer({
-          elementId,
-          existingComment: comment.content,
-          commentId: comment.id,
-          commentKey: `${elementId}:${comment.id}`,
-        });
-      },
-      onHover: (elementId, commentKey) => {
-        this.commentController.highlightSection(elementId, 'hover', commentKey);
-      },
-      onLeave: () => {
-        this.commentController.clearHighlight('hover');
-      },
-    });
-
-    // Sync badges
-    this.commentBadgesModule?.syncIndicators(sections, {
-      onShowComments: (elementId, commentKey) => {
-        // Sidebar is always visible in unified mode, just need to scroll to comment
-        if (commentKey) {
-          this.commentController.focusCommentAnchor(elementId, commentKey);
-        }
-      },
-      onOpenComposer: (elementId, comment) => {
-        void this.commentController.openComposer({
-          elementId,
-          existingComment: comment?.content,
-          commentId: comment?.id,
-          commentKey: comment ? `${elementId}:${comment.id}` : undefined,
-        });
-      },
-      onHover: (elementId) => {
-        this.commentController.highlightSection(elementId, 'hover', undefined);
-      },
-      onLeave: () => {
-        this.commentController.clearHighlight('hover');
-      },
-    });
+  private refreshCommentUI(options: { showSidebar?: boolean } = {}): void {
+    // CommentController now handles updating both margin comments and badges
+    // No need to update BottomDrawer since comments are now in the margin
+    this.commentController.refreshUI(options);
 
     // Sync segment action buttons for all segments, not just those with comments
     this.syncSegmentActionButtons();

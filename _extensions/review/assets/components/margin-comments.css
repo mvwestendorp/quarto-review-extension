@@ -1,0 +1,221 @@
+/**
+ * Component: Margin Comments
+ *
+ * Styles for comments displayed in the document margin (right side),
+ * similar to Quarto's margin references and notes.
+ */
+
+/* Container for all margin comments */
+.review-margin-comments-container {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 280px;
+  height: 100vh;
+  pointer-events: none;
+  z-index: calc(var(--review-z-toolbar) - 1);
+  padding-top: 80px; /* Account for header/toolbar */
+}
+
+/* Individual margin comment */
+.review-margin-comment {
+  position: absolute;
+  width: 260px;
+  margin-left: 10px;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(20px);
+  animation: review-margin-comment-slide-in 0.3s ease forwards;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+@keyframes review-margin-comment-slide-in {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Comment card styling */
+.review-margin-comment-card {
+  background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(248, 250, 252, 0.95)
+    ),
+    #ffffff;
+  border-left: 3px solid var(--review-color-primary);
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--review-color-neutral-dark);
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.review-margin-comment-card:hover {
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.15),
+    0 4px 6px -2px rgba(0, 0, 0, 0.08);
+  border-left-color: var(--review-color-primary-dark);
+  transform: translateX(-4px);
+}
+
+/* Highlighted state when associated section is focused */
+.review-margin-comment-highlight .review-margin-comment-card {
+  border-left-color: var(--review-color-warning);
+  box-shadow:
+    0 12px 20px -5px rgba(var(--review-color-warning-rgb), 0.3),
+    0 6px 10px -3px rgba(var(--review-color-warning-rgb), 0.2);
+  background: linear-gradient(
+      135deg,
+      rgba(254, 249, 195, 0.98),
+      rgba(253, 246, 178, 0.95)
+    ),
+    #ffffff;
+}
+
+/* Comment header with position indicator */
+.review-margin-comment-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.review-margin-comment-icon {
+  font-size: 14px;
+  color: var(--review-color-primary);
+}
+
+.review-margin-comment-position {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--review-color-primary);
+  background-color: rgba(var(--review-color-primary-rgb), 0.1);
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+}
+
+/* Comment text content */
+.review-margin-comment-text {
+  margin: 0 0 10px;
+  line-height: 1.5;
+  color: var(--review-color-neutral-darker);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Metadata line (author, timestamp) */
+.review-margin-comment-meta {
+  font-size: 11px;
+  color: var(--review-color-muted);
+  margin-bottom: 8px;
+  font-style: italic;
+}
+
+/* Action buttons */
+.review-margin-comment-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.review-margin-comment-action-btn {
+  padding: 4px 10px;
+  border-radius: var(--review-radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  background: rgba(248, 250, 252, 0.8);
+  color: var(--review-color-primary-contrast);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.review-margin-comment-action-btn:hover {
+  background: rgba(237, 242, 255, 0.95);
+  border-color: rgba(var(--review-color-primary-rgb), 0.4);
+  color: var(--review-color-primary-darker);
+  transform: translateY(-1px);
+}
+
+.review-margin-comment-action-btn:active {
+  transform: translateY(0);
+}
+
+.review-margin-comment-action-btn:focus-visible {
+  outline: 2px solid var(--review-color-primary);
+  outline-offset: 2px;
+}
+
+/* Connector line from comment to section */
+.review-margin-comment-connector {
+  position: absolute;
+  left: -10px;
+  top: 16px;
+  width: 10px;
+  height: 2px;
+  background: var(--review-color-primary);
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.review-margin-comment:hover .review-margin-comment-connector,
+.review-margin-comment-highlight .review-margin-comment-connector {
+  opacity: 0.6;
+}
+
+/* Empty state when no comments */
+.review-margin-comments-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  padding: 20px;
+  color: var(--review-color-muted);
+  font-size: 12px;
+  width: 220px;
+  pointer-events: auto;
+  opacity: 0.6;
+}
+
+/* Responsive: Hide margin comments on smaller screens */
+@media (max-width: 1200px) {
+  .review-margin-comments-container {
+    display: none;
+  }
+}
+
+/* When sidebar is visible, adjust margin comment position */
+body.quarto-sidebar-open .review-margin-comments-container {
+  right: 280px; /* Adjust for Quarto's default sidebar width */
+}
+
+/* Handle overlapping comments by stacking with slight offset */
+.review-margin-comment.has-collision {
+  transform: translateY(10px);
+}
+
+/* Fade out comments that are scrolled out of view */
+.review-margin-comment.out-of-view {
+  opacity: 0.3;
+  pointer-events: none;
+}
