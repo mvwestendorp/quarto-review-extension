@@ -110,13 +110,14 @@ describe('TranslationView editor integration', () => {
 
     view.loadDocument(createTranslationDocument());
 
-    // Find and click the "Edit Segment" button
-    const editButton = container.querySelector(
-      '.review-translation-edit-segment-btn'
+    // Find and double-click a sentence to trigger editing (edit buttons were removed)
+    const sentenceElement = container.querySelector(
+      '.review-translation-sentence'
     ) as HTMLElement;
-    expect(editButton).toBeTruthy();
+    expect(sentenceElement).toBeTruthy();
 
-    editButton.click();
+    // Simulate double-click
+    sentenceElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
 
     // Allow async editor initialization to complete
     await Promise.resolve();
@@ -149,13 +150,14 @@ describe('TranslationView editor integration', () => {
 
     view.loadDocument(createTranslationDocument());
 
-    // Find and click the "Edit Segment" button
-    const editButton = container.querySelector(
-      '.review-translation-edit-segment-btn'
+    // Find and double-click a sentence to trigger editing (edit buttons were removed)
+    const sentenceElement = container.querySelector(
+      '.review-translation-sentence'
     ) as HTMLElement;
-    expect(editButton).toBeTruthy();
+    expect(sentenceElement).toBeTruthy();
 
-    editButton.click();
+    // Simulate double-click
+    sentenceElement.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
 
     await Promise.resolve();
     await Promise.resolve();

@@ -694,8 +694,26 @@ export class TranslationModule implements ChangesExtension {
       return;
     }
 
-    // For target sentences, update pair metadata and sync
-    if (!isSource) {
+    if (isSource) {
+      // For source sentences, sync back to ChangesModule and mark targets out-of-sync
+      const sourceSentence = doc.sourceSentences.find(
+        (s) => s.id === sentenceId
+      );
+      if (sourceSentence) {
+        this.syncElementWithChangesModule(sourceSentence.elementId, 'source');
+
+        // Mark corresponding target sentences as out-of-sync
+        const affectedPairs = doc.correspondenceMap.pairs.filter(
+          (p) => p.sourceId === sentenceId
+        );
+        affectedPairs.forEach((pair) => {
+          this.state.updatePair(pair.id, {
+            status: 'out-of-sync',
+          });
+        });
+      }
+    } else {
+      // For target sentences, update pair metadata and sync
       const pair = doc.correspondenceMap.pairs.find(
         (p) => p.targetId === sentenceId
       );

@@ -131,19 +131,20 @@ const editorBridgeMock = {
   });
 
   it('opens Milkdown editor with review inline classes and saves target edits', async () => {
-    // Find the edit button for the target segment (should be in the target column)
+    // Find a target sentence to double-click (edit buttons were removed)
     const targetSection = host.querySelector(
       '[data-element-id="el1"][data-side="target"]'
     ) as HTMLElement | null;
     expect(targetSection).toBeTruthy();
 
-    const editButton = targetSection?.querySelector(
-      '.review-translation-edit-segment-btn'
+    const sentenceElement = targetSection?.querySelector(
+      '.review-translation-sentence'
     ) as HTMLElement | null;
 
-    expect(editButton).toBeTruthy();
+    expect(sentenceElement).toBeTruthy();
 
-    editButton?.click();
+    // Simulate double-click to trigger editing
+    sentenceElement?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
 
     // Wait for async editor initialization
     await new Promise((resolve) => setTimeout(resolve, 10));
