@@ -24,7 +24,7 @@ This programme addresses the remaining gaps between the current translation prot
 | 0 | Extension architecture blueprint | ✅ COMPLETE | [`extension-architecture.md`](extension-architecture.md) |
 | 1 | Translation ⇄ Changes integration | ✅ COMPLETE | See `TRANSLATION_REFACTORING_PROGRESS.md` (archived) |
 | 2 | Provider architecture & caching | ✅ COMPLETE | See `TRANSLATION_REFACTORING_PROGRESS.md` (archived) |
-| 3 | UX contracts & editor reliability | 🔄 IN PROGRESS (8/10 tasks) | [`phase-3-ux-stability.md`](phase-3-ux-stability.md) |
+| 3 | UX contracts & editor reliability | 🔄 IN PROGRESS (9/10 tasks) | [`phase-3-ux-stability.md`](phase-3-ux-stability.md) |
 | 4 | Observability, tests, docs | 🔄 IN PROGRESS (5/8 tasks) | [`phase-4-observability-and-quality.md`](phase-4-observability-and-quality.md) |
 | 5 | Launch readiness checklist | 📋 PLANNED | [`phase-5-launch-readiness.md`](phase-5-launch-readiness.md) |
 
