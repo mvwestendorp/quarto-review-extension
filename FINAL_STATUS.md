@@ -33,12 +33,23 @@ They are all **"Cannot find module"** errors caused by missing `node_modules/`.
 
 **Evidence:**
 ```bash
+# TypeScript errors
 error TS2307: Cannot find module 'vitest'
 error TS2307: Cannot find module '@milkdown/kit/core'
 error TS2307: Cannot find module 'diff'
+
+# Linting errors
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@eslint/js'
+
+# Test errors
+Cannot find module 'vitest'
+
+# Build errors
+Cannot find module 'unified'
 ```
 
 These are **dependency resolution failures**, not code bugs.
+**ALL errors (test, build, lint, linking) have the same root cause: missing node_modules/**
 
 ---
 
