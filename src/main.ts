@@ -224,7 +224,7 @@ export class QuartoReview {
         enabled: true,
         sourceLanguage: this.config.translation?.sourceLanguage || 'en',
         targetLanguage: this.config.translation?.targetLanguage || 'nl',
-        defaultProvider: this.config.translation?.defaultProvider || 'manual',
+        defaultProvider: this.config.translation?.defaultProvider || 'local',
         autoTranslateOnEdit:
           this.config.translation?.autoTranslateOnEdit ?? false,
         autoTranslateOnLoad:
