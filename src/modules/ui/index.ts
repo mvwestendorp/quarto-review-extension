@@ -1561,6 +1561,9 @@ export class UIModule {
     this.refreshCommentUI();
     this.syncToolbarState();
 
+    // Update developer panel with latest changes
+    this.bottomDrawer.renderChangesPanel(this.config.changes);
+
     // Re-enable export buttons after changes (they should stay enabled if callbacks exist)
     if (typeof this.bottomDrawer.enableExportButtons === 'function') {
       this.bottomDrawer.enableExportButtons();

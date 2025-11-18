@@ -1,0 +1,257 @@
+/**
+ * Component: Developer Panel
+ *
+ * Styles for the developer panel tabs (Changes, Git, Debug)
+ */
+
+/* ============================================
+   CHANGES TAB STYLES
+   ============================================ */
+
+/* Changes statistics section */
+.review-changes-stats {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(248, 250, 252, 0.9)
+  );
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.15);
+  border-radius: 8px;
+}
+
+.review-changes-stats-title {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--review-color-text-on-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.review-changes-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 10px;
+}
+
+.review-changes-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.review-changes-stat-item:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(var(--review-color-primary-rgb), 0.3);
+  transform: translateY(-1px);
+}
+
+.review-changes-stat-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.review-changes-stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.review-changes-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--review-color-neutral-darker);
+  line-height: 1;
+}
+
+.review-changes-stat-label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--review-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+/* Type-specific stat colors */
+.review-changes-stat-insert .review-changes-stat-value {
+  color: #16a34a;
+}
+
+.review-changes-stat-delete .review-changes-stat-value {
+  color: #dc2626;
+}
+
+.review-changes-stat-edit .review-changes-stat-value {
+  color: #2563eb;
+}
+
+.review-changes-stat-move .review-changes-stat-value {
+  color: #7c3aed;
+}
+
+/* Changes list section */
+.review-changes-list-container {
+  margin-top: 12px;
+}
+
+.review-changes-list-header {
+  margin-bottom: 10px;
+}
+
+.review-changes-list-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--review-color-text-on-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.review-changes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Individual change item */
+.review-change-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-left: 3px solid var(--review-color-neutral);
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.review-change-item:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateX(4px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Type-specific border colors */
+.review-change-item-insert {
+  border-left-color: #16a34a;
+}
+
+.review-change-item-delete {
+  border-left-color: #dc2626;
+}
+
+.review-change-item-edit {
+  border-left-color: #2563eb;
+}
+
+.review-change-item-move {
+  border-left-color: #7c3aed;
+}
+
+.review-change-item-icon-type {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-change-item-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.review-change-item-type {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--review-color-text-on-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.review-change-item-preview {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--review-color-neutral-dark);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.review-change-item-meta {
+  font-size: 10px;
+  color: var(--review-color-muted);
+  font-style: italic;
+}
+
+/* More changes indicator */
+.review-changes-list-more {
+  margin-top: 8px;
+  padding: 8px 12px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--review-color-muted);
+  background: rgba(248, 250, 252, 0.5);
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+}
+
+/* Empty state */
+.review-changes-empty {
+  text-align: center;
+  padding: 24px 12px;
+  color: var(--review-color-muted);
+  background: rgba(248, 250, 252, 0.5);
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+/* Scrollbar styling for changes list */
+.review-changes-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.review-changes-list::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 3px;
+}
+
+.review-changes-list::-webkit-scrollbar-thumb {
+  background: rgba(var(--review-color-primary-rgb), 0.3);
+  border-radius: 3px;
+}
+
+.review-changes-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--review-color-primary-rgb), 0.5);
+}
+
+/* ============================================
+   GIT TAB STYLES (Placeholder)
+   ============================================ */
+
+.review-git-info {
+  padding: 12px;
+}
+
+/* ============================================
+   DEBUG TAB STYLES (Placeholder)
+   ============================================ */
+
+.review-debug-info {
+  padding: 12px;
+  font-family: monospace;
+  font-size: 11px;
+}
