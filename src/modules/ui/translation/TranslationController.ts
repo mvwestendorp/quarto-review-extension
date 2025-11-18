@@ -1046,9 +1046,8 @@ export class TranslationController {
     });
 
     try {
-      // Track the edit operation in TranslationChangesModule
-      this.changesModule.editSentence(sentenceId, newContent, 'source');
-      // Update internal translation state
+      // Update internal translation state only (do NOT sync to ChangesModule)
+      // Source edits are tracked separately in translation state to preserve original markdown
       this.translationModule.updateSentence(sentenceId, newContent, true);
       this.translationModule.saveToStorageNow();
       this.showNotification('Source sentence updated', 'success');

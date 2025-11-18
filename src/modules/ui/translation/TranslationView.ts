@@ -1288,10 +1288,13 @@ export class TranslationView {
           return false;
         }
 
-        // Check if content actually changed (using captured segmentContent from closure)
-        if (segmentContent === newContent) {
-          logger.debug('No content change detected for segment edit');
-          return false;
+        // Use editor bridge to validate and check if content changed
+        if (this.editorBridge) {
+          const saved = this.editorBridge.saveSegmentEdit(elementId, newContent, side);
+          if (!saved) {
+            logger.debug('No content change or validation failed');
+            return false;
+          }
         }
 
         logger.info('Segment content changed, preparing to save', {
