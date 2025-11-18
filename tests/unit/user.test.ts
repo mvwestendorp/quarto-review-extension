@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UserModule } from '@modules/user';
 import type { User } from '@/types';
+import { SafeStorage } from '@utils/security';
 
 describe('UserModule', () => {
   let userModule: UserModule;
@@ -43,9 +44,10 @@ describe('UserModule', () => {
       const user = UserModule.createEditor('1', 'John Doe');
       userModule.login(user);
 
-      const stored = localStorage.getItem('quarto-review-user');
+      // SafeStorage stores with envelope structure, so use SafeStorage.getItem() to read
+      const stored = SafeStorage.getItem('quarto-review-user');
       expect(stored).toBeTruthy();
-      expect(JSON.parse(stored!)).toEqual(user);
+      expect(stored).toEqual(user);
     });
 
     it('should load user from localStorage', () => {
@@ -201,8 +203,9 @@ describe('UserModule', () => {
 
       userModule.updateUser({ name: 'John Doe' });
 
-      const stored = JSON.parse(localStorage.getItem('quarto-review-user')!);
-      expect(stored.name).toBe('John Doe');
+      // Use SafeStorage to read the updated user
+      const stored = SafeStorage.getItem('quarto-review-user');
+      expect(stored?.name).toBe('John Doe');
     });
   });
 

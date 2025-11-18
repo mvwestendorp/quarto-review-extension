@@ -1048,7 +1048,8 @@ export class TranslationController {
     try {
       // Update internal translation state only (do NOT sync to ChangesModule)
       // Source edits are tracked separately in translation state to preserve original markdown
-      this.translationModule.updateSentence(sentenceId, newContent, true);
+      // Pass skipSync: true to prevent syncing to ChangesModule
+      this.translationModule.updateSentence(sentenceId, newContent, true, true);
       this.translationModule.saveToStorageNow();
       this.showNotification('Source sentence updated', 'success');
 

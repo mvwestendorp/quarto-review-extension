@@ -676,16 +676,19 @@ export class TranslationModule implements ChangesExtension {
 
   /**
    * Update a sentence (source or target)
+   * @param skipSync - If true, skip syncing source edits to ChangesModule (for tracking edits separately)
    */
   updateSentence(
     sentenceId: string,
     newContent: string,
-    isSource: boolean
+    isSource: boolean,
+    skipSync = false
   ): void {
     logger.debug('Updating sentence', {
       sentenceId,
       isSource,
       contentLength: newContent.length,
+      skipSync,
     });
     this.state.updateSentence(sentenceId, newContent, isSource);
 
@@ -700,7 +703,10 @@ export class TranslationModule implements ChangesExtension {
         (s) => s.id === sentenceId
       );
       if (sourceSentence) {
-        this.syncElementWithChangesModule(sourceSentence.elementId, 'source');
+        // Only sync if not explicitly skipped (allows tracking source edits separately)
+        if (!skipSync) {
+          this.syncElementWithChangesModule(sourceSentence.elementId, 'source');
+        }
 
         // Mark corresponding target sentences as out-of-sync
         const affectedPairs = doc.correspondenceMap.pairs.filter(
