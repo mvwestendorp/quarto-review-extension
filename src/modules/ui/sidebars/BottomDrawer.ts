@@ -1992,6 +1992,20 @@ Role: ${currentUser.role}`;
   }
 
   /**
+   * Check if editor mode is currently active
+   */
+  isEditorModeActive(): boolean {
+    return this._editorModeActive;
+  }
+
+  /**
+   * Get the element ID currently being edited in drawer mode
+   */
+  getCurrentEditingElementId(): string | null {
+    return this._currentEditingElementId;
+  }
+
+  /**
    * Open editor mode in the drawer (for mobile screens)
    */
   openEditorMode(
