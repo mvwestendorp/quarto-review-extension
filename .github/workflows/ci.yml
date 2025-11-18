@@ -103,51 +103,158 @@ jobs:
           path: docs/generated/api/
           retention-days: 90
 
-  e2e:
-    name: E2E Tests
+  smoke-tests:
+    name: Smoke Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
+      - name: Check for UI changes
+        id: ui-changes
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PRs, check changed files
+            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '(src/.*\.(ts|css)|_extensions/.*\.(css|js)|example/.*\.qmd)'; then
+              echo "ui_changed=true" >> $GITHUB_OUTPUT
+            else
+              echo "ui_changed=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # For push events, always run
+            echo "ui_changed=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Setup Node.js
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         run: npm ci
 
       - name: Setup Quarto
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           version: 'pre-release'
 
       - name: Setup R
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release'
 
       - name: Install R packages
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         run: Rscript -e 'install.packages(c("knitr", "rmarkdown"), repos="https://cloud.r-project.org")'
 
       - name: Build extension
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         run: npm run build
 
       - name: Render example for E2E tests
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         run: quarto render example/
 
       - name: Install Playwright Browsers
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright tests
+      - name: Run smoke tests
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        run: npm run test:e2e -- smoke-review.spec.ts
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: failure() && steps.ui-changes.outputs.ui_changed == 'true'
+        with:
+          name: smoke-test-results
+          path: playwright-report/
+          retention-days: 7
+
+  full-e2e:
+    name: Full E2E Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for UI changes
+        id: ui-changes
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '(src/.*\.(ts|css)|_extensions/.*\.(css|js)|example/.*\.qmd|tests/e2e/)'; then
+            echo "ui_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "ui_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Node.js
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Setup Quarto
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 'pre-release'
+
+      - name: Setup R
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: 'release'
+
+      - name: Cache R packages
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-packages-${{ runner.os }}-${{ hashFiles('example/*.qmd') }}
+
+      - name: Install R packages
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        run: Rscript -e 'install.packages(c("knitr", "rmarkdown"), repos="https://cloud.r-project.org")'
+
+      - name: Build extension
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        run: npm run build
+
+      - name: Render example for E2E tests
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        run: quarto render example/
+
+      - name: Install Playwright Browsers
+        if: steps.ui-changes.outputs.ui_changed == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run full E2E test suite
+        if: steps.ui-changes.outputs.ui_changed == 'true'
         run: npm run test:e2e
 
       - name: Upload Playwright test results
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && steps.ui-changes.outputs.ui_changed == 'true'
         with:
           name: playwright-results
           path: playwright-report/
@@ -155,7 +262,7 @@ jobs:
 
       - name: Upload visual diff screenshots
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && steps.ui-changes.outputs.ui_changed == 'true'
         with:
           name: visual-diffs
           path: tests/e2e/**/*-diff.png
@@ -164,7 +271,7 @@ jobs:
 
       - name: Upload screenshot failures
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: failure() && steps.ui-changes.outputs.ui_changed == 'true'
         with:
           name: screenshot-failures
           path: test-results/

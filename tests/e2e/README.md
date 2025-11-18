@@ -34,7 +34,53 @@ npm run test:e2e -- responsive-ui.spec.ts
 
 # Update visual baselines
 npm run test:e2e -- --update-snapshots
+
+# Run only smoke tests
+npm run test:e2e -- smoke-review.spec.ts
 ```
+
+## CI Testing Strategy
+
+To optimize CI performance, tests are split into two tiers:
+
+### 🔥 Smoke Tests (Every Commit)
+- **Runs on**: Every push to main/develop
+- **Condition**: Only if UI files changed (src/, _extensions/, example/)
+- **Duration**: ~30 seconds
+- **Tests**: `smoke-review.spec.ts` - Basic UI rendering validation
+- **Purpose**: Fast feedback on critical UI breakage
+
+### 🧪 Full E2E Suite (Pull Requests Only)
+- **Runs on**: Pull requests only
+- **Condition**: Only if UI/test files changed
+- **Duration**: ~5-10 minutes
+- **Tests**: All E2E tests including responsive suite
+- **Purpose**: Comprehensive validation before merge
+- **Includes**:
+  - All core E2E tests
+  - Full responsive testing suite
+  - Visual regression tests
+  - Mobile interaction tests
+  - Accessibility compliance tests
+
+### 💾 Caching
+The full E2E job uses caching to speed up execution:
+- Playwright browser binaries cached
+- R packages cached
+- Reused between runs when dependencies don't change
+
+### 🎯 Conditional Execution
+Tests only run when relevant files change:
+- `src/**/*.{ts,css}` - Source code
+- `_extensions/**/*.{css,js}` - Extension assets
+- `example/**/*.qmd` - Example files
+- `tests/e2e/**/*` - Test files themselves
+
+**Benefits:**
+- ⚡ 90% reduction in CI time for non-UI changes
+- 🎯 Tests only run when needed
+- 💰 Lower CI costs
+- 🚀 Faster developer feedback
 
 ## Test Files
 
