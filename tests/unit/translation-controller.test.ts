@@ -202,7 +202,7 @@ describe('TranslationController integration', () => {
     controller = secondController;
   });
 
-  it('persists source sentence edits to the review document', async () => {
+  it('updates source sentences in translation state without auto-syncing to review', async () => {
     const translationModule = controller['translationModule'];
     const doc = translationModule.getDocument();
     expect(doc?.sourceSentences.length).toBeGreaterThan(0);
@@ -225,10 +225,19 @@ describe('TranslationController integration', () => {
       updatedSourceContent
     );
 
-    const updatedElement =
+    // Source edits are stored in translation state but NOT automatically synced to ChangesModule
+    // This preserves the original markdown - source edits are tracked separately
+    const updatedDoc = translationModule.getDocument();
+    const updatedSentence = updatedDoc?.sourceSentences.find(
+      (s) => s.id === sourceSentence.id
+    );
+    expect(updatedSentence?.content).toBe(updatedSourceContent);
+
+    // Original document should remain unchanged
+    const unchangedElement =
       controller['config'].translationModuleConfig.changes.getElementById(
         sourceSentence.elementId
       );
-    expect(updatedElement?.content).toContain(updatedSourceContent);
+    expect(unchangedElement?.content).toBe(ORIGINAL_CONTENT);
   });
 });
