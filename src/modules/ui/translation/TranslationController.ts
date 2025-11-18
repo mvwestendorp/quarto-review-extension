@@ -1046,13 +1046,18 @@ export class TranslationController {
     });
 
     try {
-      // Track the edit operation in TranslationChangesModule
-      this.changesModule.editSentence(sentenceId, newContent, 'source');
-      // Update internal translation state
-      this.translationModule.updateSentence(sentenceId, newContent, true);
+      // Update internal translation state only (do NOT sync to ChangesModule)
+      // Source edits are tracked separately in translation state to preserve original markdown
+      // Pass skipSync: true to prevent syncing to ChangesModule
+      this.translationModule.updateSentence(sentenceId, newContent, true, true);
       this.translationModule.saveToStorageNow();
       this.showNotification('Source sentence updated', 'success');
-      this.refreshViewFromState();
+
+      // Refresh view without syncing source sentences to ChangesModule
+      const document = this.translationModule.getDocument();
+      if (document && this.view) {
+        this.view.loadDocument(document);
+      }
 
       // Auto-retranslate if enabled
       if (this.config.translationModuleConfig.config.autoTranslateOnEdit) {
@@ -1061,7 +1066,13 @@ export class TranslationController {
         try {
           await this.translationModule.translateSentence(sentenceId);
           this.showNotification('Translation updated', 'success');
-          this.refreshViewFromState();
+
+          // Refresh view without syncing source sentences to ChangesModule
+          const document = this.translationModule.getDocument();
+          if (document && this.view) {
+            this.view.loadDocument(document);
+          }
+
           this.clearSentenceErrors([sentenceId]);
         } catch (error) {
           const message =

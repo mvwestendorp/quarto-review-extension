@@ -27,7 +27,7 @@
   --review-color-border: #cbd5e1;
   --review-color-border-subtle: rgba(100, 116, 139, 0.32);
   --review-color-muted: #64748b;
-  --review-color-subtle: #94a3b8;
+  --review-color-subtle: #64748b; /* Improved contrast for WCAG AA compliance (was #94a3b8) */
   --review-color-shadow: rgba(15, 23, 42, 0.16);
   --review-color-neutral-strong: #475569;
   --review-color-neutral-mid: #64748b;

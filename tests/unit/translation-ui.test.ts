@@ -146,8 +146,9 @@ describe('TranslationToolbar', () => {
 
     expect(select).toBeDefined();
     // Note: 'manual' is not rendered as an option, only actual providers
+    // When defaultProvider is 'manual', the first automatic provider is selected
     expect(select.options.length).toBeGreaterThanOrEqual(2);
-    expect(select.value).toBe('manual');
+    expect(select.value).toBe('local-ai'); // First automatic provider after filtering out 'manual'
   });
 
   it('triggers provider change callback', () => {

@@ -10,6 +10,7 @@ import {
   BrowserHeaderProvider,
   type IHeaderProvider,
 } from './HeaderProvider';
+import { SafeStorage } from '@utils/security';
 
 const logger = createModuleLogger('UserModule');
 
@@ -337,10 +338,10 @@ export class UserModule {
     if (!this.currentUser) return;
 
     try {
-      localStorage.setItem(
-        this.config.storageKey,
-        JSON.stringify(this.currentUser)
-      );
+      // Store user with session timeout expiration
+      SafeStorage.setItem(this.config.storageKey, this.currentUser, {
+        expiresIn: this.config.sessionTimeout,
+      });
     } catch (error) {
       logger.error('Failed to save user to storage:', error);
     }
@@ -351,9 +352,9 @@ export class UserModule {
    */
   private loadFromStorage(): void {
     try {
-      const stored = localStorage.getItem(this.config.storageKey);
+      const stored = SafeStorage.getItem(this.config.storageKey);
       if (stored) {
-        this.currentUser = JSON.parse(stored) as User;
+        this.currentUser = stored as User;
         this.startSessionTimer();
       }
     } catch (error) {
@@ -366,7 +367,7 @@ export class UserModule {
    */
   private clearStorage(): void {
     try {
-      localStorage.removeItem(this.config.storageKey);
+      SafeStorage.removeItem(this.config.storageKey);
     } catch (error) {
       logger.error('Failed to clear storage:', error);
     }

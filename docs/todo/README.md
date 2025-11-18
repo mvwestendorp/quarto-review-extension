@@ -21,6 +21,18 @@ Development roadmap and planned features for the Quarto Review Extension.
 
 ### Recently Landed
 
+- ✅ **Translation Module (Phase 3-4)** - Production-ready translation workflow
+  - Side-by-side translation view with synchronized scrolling
+  - Translation providers (OpenAI, LocalAI, Manual)
+  - Sentence segmentation and alignment
+  - Status indicators, progress feedback, error handling
+  - Export functionality (unified and separated)
+  - Translation metrics and analytics
+  - 110+ unit tests, comprehensive documentation
+- ✅ **Performance Optimizations (Phase 1 Quick Wins)**
+  - Operation history limiting to prevent memory growth
+  - Throttled scroll synchronization
+  - Performance utilities (debounce, throttle, RAF scheduler)
 - ✅ Change Summary Dashboard (statistics, export)
 - ✅ Search & Find with regex and whole-word toggles
 - ✅ Debug mode configuration surfaced via YAML
@@ -53,8 +65,12 @@ Development roadmap and planned features for the Quarto Review Extension.
 
 #### Performance Optimization (Feature #9)
 
-- **Status:** Assessment complete
-- **Next step:** Execute Phase 1 quick wins (CSS + debouncing)
+- **Status:** Phase 1 Quick Wins ✅ Complete
+- **Next steps:** Phase 2 (Medium refactoring), Phase 3 (Advanced features)
+- **Completed:**
+  - Operation history limiting (max 100 operations, max 50 redo)
+  - Scroll event throttling (16ms for 60fps)
+  - Performance utilities module (debounce, throttle, RAF, batch)
 - **Expected improvement:** 3-4x performance boost
 - **Risk Level:** Very Low
 

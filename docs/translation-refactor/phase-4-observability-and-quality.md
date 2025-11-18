@@ -1,6 +1,6 @@
 ## Phase 4 · Observability, Testing, and Documentation
 
-**Status:** 🔄 In Progress (4/8 tasks complete)
+**Status:** ✅ COMPLETE (8/8 tasks - 100%)
 **Aim:** Establish comprehensive monitoring, automated tests, and documentation to support production readiness.
 
 ### 1. Scope Overview
@@ -14,13 +14,13 @@
 | ID | Task | Outcome / Acceptance |
 | --- | --- | --- |
 | P4-T1 | **Logging taxonomy** | ✅ Comprehensive logging taxonomy defined in `docs/translation-refactor/LOGGING_TAXONOMY.md` covering all translation modules with debug scenarios and production guidelines. |
-| P4-T2 | **Metrics schema** | ☐ Emit counters for translation success/failure, cache hits, latency buckets via optional analytics hook. |
+| P4-T2 | **Metrics schema** | ✅ TranslationMetrics service implemented in `src/modules/translation/metrics/TranslationMetrics.ts` with operation metrics, cache performance tracking, provider latency percentiles (p50/p95/p99), user interaction tracking, and optional analytics hook integration (Google Analytics, Prometheus, custom backends). |
 | P4-T3 | **Vitest suites** | ✅ Extensive test coverage added: StateStore tests (16 cases), cache service tests (60+ cases), provider registry tests (50+ cases), provider adapter tests. Total: 110+ new tests. |
-| P4-T4 | **Playwright suites** | ☐ Full workflow: translate document, manual edit, undo/redo, export; include visual regression for chips. |
-| P4-T5 | **CI integration** | ☐ Update GitHub Actions to run translation test matrix (unit + e2e). |
+| P4-T4 | **Playwright suites** | ✅ Comprehensive translation E2E test suite created in `tests/e2e/translation-workflow.spec.ts` covering: enter/exit translation mode, manual editing, undo/redo, export functionality, progress tracking, scroll synchronization, keyboard shortcuts, correspondence lines, and visual regression for status chips (12 test scenarios). |
+| P4-T5 | **CI integration** | ✅ GitHub Actions CI updated in `.github/workflows/ci.yml`: enabled E2E test job with Playwright, added translation-specific unit test run, configured artifact uploads for test results and reports, added translation E2E test execution with HTML reporter. |
 | P4-T6 | **User docs** | ✅ Comprehensive user guide created in `docs/user/TRANSLATION.md` (1000+ lines) covering usage, keyboard shortcuts, troubleshooting, FAQ. |
 | P4-T7 | **Operator runbook** | ✅ Provider architecture documentation created in `docs/translation-refactor/PROVIDER_ARCHITECTURE.md` (1000+ lines) with component descriptions, lifecycle, monitoring guidance. |
-| P4-T8 | **Changelog & release notes** | ☐ Prepare release template summarising translation module improvements. |
+| P4-T8 | **Changelog & release notes** | ✅ Comprehensive release notes template created in `docs/translation-refactor/RELEASE_NOTES_TEMPLATE.md` (375+ lines) documenting all features, architecture, testing, performance metrics, accessibility compliance, migration guide, and roadmap. CHANGELOG.md updated with translation module section. |
 
 ### 3. Tooling & Implementation Notes
 

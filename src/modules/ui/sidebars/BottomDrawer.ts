@@ -11,6 +11,7 @@ import {
   setAttributes,
   toggleClass,
 } from '@utils/dom-helpers';
+import { SafeStorage } from '@utils/security';
 
 const logger = createModuleLogger('BottomDrawer');
 
@@ -312,9 +313,9 @@ Role: ${currentUser.role}`;
    * Check if debug mode should be enabled
    */
   private checkDebugMode(): boolean {
-    // Check localStorage
-    const stored = localStorage.getItem('quarto-review-debug-mode');
-    if (stored === 'true') return true;
+    // Check SafeStorage
+    const stored = SafeStorage.getItem('quarto-review-debug-mode');
+    if (stored === true) return true;
 
     // Check URL parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -328,7 +329,7 @@ Role: ${currentUser.role}`;
    */
   toggleDebugMode(): void {
     this.debugMode = !this.debugMode;
-    localStorage.setItem('quarto-review-debug-mode', String(this.debugMode));
+    SafeStorage.setItem('quarto-review-debug-mode', this.debugMode);
     this.updateDebugVisibility();
     logger.debug('Debug mode toggled', { debugMode: this.debugMode });
   }

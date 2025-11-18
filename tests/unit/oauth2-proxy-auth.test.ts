@@ -11,6 +11,7 @@ import {
   initializeOAuth2ProxyAuthAsync,
 } from '@/modules/user/oauth2-proxy-init';
 import type { UserAuthConfig } from '@/types';
+import { SafeStorage } from '@utils/security';
 
 describe('OAuth2Proxy Authentication', () => {
   let mockHeaderProvider: MockHeaderProvider;
@@ -172,12 +173,11 @@ describe('OAuth2Proxy Authentication', () => {
       const userModule = new UserModule({ userAuthConfig: authConfig });
       userModule.loginFromOAuth2ProxyHeaders();
 
-      const stored = localStorage.getItem('quarto-review-user');
-      expect(stored).toBeDefined();
-
-      const storedUser = JSON.parse(stored!);
-      expect(storedUser.id).toBe('john');
-      expect(storedUser.email).toBe('john@example.com');
+      // Use SafeStorage to read the persisted user
+      const storedUser = SafeStorage.getItem('quarto-review-user');
+      expect(storedUser).toBeDefined();
+      expect(storedUser?.id).toBe('john');
+      expect(storedUser?.email).toBe('john@example.com');
     });
   });
 
