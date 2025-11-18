@@ -1369,7 +1369,7 @@ Role: ${currentUser.role}`;
         : 'Review Tools';
     }
 
-    // Show/hide review sections
+    // Show/hide review mode sections (hidden in translation mode)
     if (this.reviewToolsSection) {
       this.reviewToolsSection.style.display = active ? 'none' : '';
     }
@@ -1377,23 +1377,25 @@ Role: ${currentUser.role}`;
       this.exportSection.style.display = active ? 'none' : '';
     }
     if (this.developerPanelSection) {
+      // Developer panel (comments replacement) should be hidden in translation mode
       this.developerPanelSection.style.display = active ? 'none' : '';
     }
     if (this.translationSection) {
       this.translationSection.style.display = active ? 'none' : '';
     }
 
-    // Show/hide translation stats panel
+    // Show/hide translation mode sections
+    // Translation stats panel (center column in translation mode)
     if (this.translationStatsPanel) {
       this.translationStatsPanel.style.display = active ? '' : 'none';
     }
 
-    // Show/hide translation tools (left column)
+    // Translation tools (left column - buttons and controls)
     if (this.translationToolsSection) {
       this.translationToolsSection.style.display = active ? '' : 'none';
     }
 
-    // Show/hide translation export section (right column)
+    // Translation export section (right column - export buttons)
     if (this.translationExportSection) {
       this.translationExportSection.style.display = active ? '' : 'none';
     }
