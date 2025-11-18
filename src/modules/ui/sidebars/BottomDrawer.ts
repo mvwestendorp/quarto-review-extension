@@ -1961,12 +1961,16 @@ Role: ${currentUser.role}`;
       this.translateDocumentBtn.textContent = busy
         ? 'Translating…'
         : this.translateDocumentDefaultLabel;
+      this.translateDocumentBtn.disabled = busy;
+      toggleClass(this.translateDocumentBtn, 'review-btn-disabled', busy);
     }
 
     if (this.translateSentenceBtn) {
       this.translateSentenceBtn.textContent = busy
         ? 'Translating…'
         : this.translateSentenceDefaultLabel;
+      this.translateSentenceBtn.disabled = busy;
+      toggleClass(this.translateSentenceBtn, 'review-btn-disabled', busy);
     }
   }
 
