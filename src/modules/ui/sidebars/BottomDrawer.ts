@@ -567,13 +567,15 @@ Role: ${currentUser.role}`;
 
     // Create content area
     this.developerPanelContent = createDiv('review-developer-panel-content');
-    this.developerPanelContent.style.cssText = 'max-height: 250px; overflow-y: auto;';
+    this.developerPanelContent.style.cssText =
+      'max-height: 250px; overflow-y: auto;';
 
     // Create panes for each tab
     tabs.forEach((tab) => {
       const pane = createDiv(`review-developer-panel-pane-${tab.id}`);
       pane.dataset.paneId = tab.id;
-      pane.style.display = tab.id === this.activeDeveloperTab ? 'block' : 'none';
+      pane.style.display =
+        tab.id === this.activeDeveloperTab ? 'block' : 'none';
 
       // Initialize with empty content
       const emptyMsg = createDiv('review-panel-empty');
@@ -1228,7 +1230,8 @@ Role: ${currentUser.role}`;
 
     if (operations.length === 0) {
       const emptyMsg = createDiv('review-changes-empty');
-      emptyMsg.textContent = 'No changes yet. Start editing to see tracked changes.';
+      emptyMsg.textContent =
+        'No changes yet. Start editing to see tracked changes.';
       emptyMsg.style.cssText = `
         text-align: center;
         padding: 24px 12px;
@@ -1318,7 +1321,10 @@ Role: ${currentUser.role}`;
    * Count words in text
    */
   private countWords(text: string): number {
-    return text.trim().split(/\s+/).filter((word) => word.length > 0).length;
+    return text
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
   }
 
   /**

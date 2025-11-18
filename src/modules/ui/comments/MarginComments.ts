@@ -76,7 +76,8 @@ export class MarginComments {
       snapshot.comments.forEach((comment) => {
         const commentKey = `${snapshot.element.id}:${comment.id}`;
         const position = positions.find(
-          (p) => p.elementId === snapshot.element.id && p.commentId === comment.id
+          (p) =>
+            p.elementId === snapshot.element.id && p.commentId === comment.id
         );
 
         if (!position) {
@@ -179,7 +180,8 @@ export class MarginComments {
       }
 
       const rect = sectionElement.getBoundingClientRect();
-      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollTop =
+        window.pageYOffset || document.documentElement.scrollTop;
       const absoluteTop = rect.top + scrollTop;
 
       // Stack multiple comments vertically for the same section
@@ -226,7 +228,9 @@ export class MarginComments {
     const sectionIndex = this.sections.findIndex(
       (s) => s.element.id === snapshot.element.id
     );
-    const commentIndex = snapshot.comments.findIndex((c) => c.id === comment.id);
+    const commentIndex = snapshot.comments.findIndex(
+      (c) => c.id === comment.id
+    );
     const position_label = createDiv('review-margin-comment-position');
     position_label.textContent = `${sectionIndex + 1}/${commentIndex + 1}`;
     header.appendChild(position_label);
@@ -359,7 +363,9 @@ export class MarginComments {
       const absoluteTop = rect.top + scrollTop;
 
       // Fade out comments that are far from viewport
-      const distanceFromViewport = Math.abs(absoluteTop - scrollTop - viewportHeight / 2);
+      const distanceFromViewport = Math.abs(
+        absoluteTop - scrollTop - viewportHeight / 2
+      );
       const threshold = viewportHeight * 1.5;
 
       if (distanceFromViewport > threshold) {
