@@ -1233,6 +1233,13 @@ export class TranslationView {
       sectionElement.appendChild(actions);
 
       // Initialize Milkdown editor with full segment content
+      if (!this.editorBridge) {
+        logger.error(
+          'Editor bridge not available for segment editor initialization'
+        );
+        throw new Error('Editor bridge not initialized');
+      }
+
       await this.editorBridge.initializeSegmentEditor(
         editorContainer,
         elementId,
@@ -1243,6 +1250,7 @@ export class TranslationView {
       logger.debug('Milkdown editor initialized for segment', {
         elementId,
         side,
+        editorBridgeId: (this.editorBridge as any).constructor.name,
       });
 
       const save = async (): Promise<boolean> => {
@@ -1255,67 +1263,60 @@ export class TranslationView {
 
         const newContent = module.getContent() || '';
 
-        // Validate using existing saveSegmentEdit method
-        const isValid = this.editorBridge?.saveSegmentEdit(
+        // Check if content actually changed (using captured segmentContent from closure)
+        if (segmentContent === newContent) {
+          logger.debug('No content change detected for segment edit');
+          return false;
+        }
+
+        logger.info('Segment content changed, preparing to save', {
           elementId,
-          newContent,
-          side
-        );
+          side,
+          oldLength: segmentContent.length,
+          newLength: newContent.length,
+        });
 
-        if (isValid) {
-          logger.info('Segment edit validated, calling controller callback', {
-            elementId,
-            side,
-            newContentLength: newContent.length,
-          });
-
-          // Call the segment edit callback - controller handles ChangesModule
-          // CRITICAL: These callbacks are async, so we must await them!
-          try {
-            if (side === 'source' && this.callbacks.onSourceSegmentEdit) {
-              await this.callbacks.onSourceSegmentEdit(elementId, newContent);
-            } else if (
-              side === 'target' &&
-              this.callbacks.onTargetSegmentEdit
-            ) {
-              await this.callbacks.onTargetSegmentEdit(elementId, newContent);
-            } else {
-              logger.warn('No callback registered for segment edit', {
-                side,
-                hasSourceCallback: Boolean(this.callbacks.onSourceSegmentEdit),
-                hasTargetCallback: Boolean(this.callbacks.onTargetSegmentEdit),
-              });
-              return false;
-            }
-          } catch (error) {
-            logger.error('Error in segment edit callback', {
-              error,
-              elementId,
+        // Call the segment edit callback - controller handles ChangesModule
+        // CRITICAL: These callbacks are async, so we must await them!
+        try {
+          if (side === 'source' && this.callbacks.onSourceSegmentEdit) {
+            await this.callbacks.onSourceSegmentEdit(elementId, newContent);
+          } else if (side === 'target' && this.callbacks.onTargetSegmentEdit) {
+            await this.callbacks.onTargetSegmentEdit(elementId, newContent);
+          } else {
+            logger.warn('No callback registered for segment edit', {
               side,
+              hasSourceCallback: Boolean(this.callbacks.onSourceSegmentEdit),
+              hasTargetCallback: Boolean(this.callbacks.onTargetSegmentEdit),
             });
             return false;
           }
 
-          // Clean up editor using existing destroy method
-          this.editorBridge?.destroy();
-          editorContainer.remove();
-          actions.remove();
-
-          // Show sentences again (they will be updated by the document reload)
-          sentenceElements.forEach((el) => {
-            (el as HTMLElement).style.display = '';
-          });
-
-          logger.debug('Segment edit saved', { elementId, side });
-          return true;
-        } else {
-          logger.warn('Segment edit validation failed', {
+          logger.debug('Segment edit callback completed successfully', {
             elementId,
             side,
-            newContentLength: newContent.length,
           });
+        } catch (error) {
+          logger.error('Error in segment edit callback', {
+            error,
+            elementId,
+            side,
+          });
+          return false;
         }
-        return false;
+
+        // Clean up editor using existing destroy method
+        this.editorBridge?.destroy();
+        editorContainer.remove();
+        actions.remove();
+
+        // Show sentences again (they will be updated by the document reload)
+        sentenceElements.forEach((el) => {
+          (el as HTMLElement).style.display = '';
+        });
+
+        logger.debug('Segment edit saved', { elementId, side });
+        return true;
       };
 
       const cancel = (): void => {

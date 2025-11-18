@@ -143,19 +143,15 @@ export class TranslationEditorBridge extends EditorLifecycle {
     newContent: string,
     side: 'source' | 'target'
   ): boolean {
-    if (!this.currentElementId || this.currentElementId !== elementId) {
+    // Validate that the element ID matches the currently edited segment
+    // Accept either the stored currentElementId or allow the caller to provide it
+    const isValidElement = this.currentElementId === elementId;
+
+    if (!isValidElement) {
       logger.warn('No matching segment editor active for save', {
         currentElementId: this.currentElementId,
         requestedElementId: elementId,
       });
-      return false;
-    }
-
-    const editor = this.getEditor();
-    const module = this.getModule();
-
-    if (!editor || !module) {
-      logger.error('Editor not initialized');
       return false;
     }
 

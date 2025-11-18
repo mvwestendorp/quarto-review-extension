@@ -17,6 +17,11 @@
   padding-top: 80px; /* Account for header/toolbar */
 }
 
+/* Hide margin comments entirely when in translation mode */
+.review-translation-mode .review-margin-comments-container {
+  display: none !important;
+}
+
 /* Individual margin comment */
 .review-margin-comment {
   position: absolute;

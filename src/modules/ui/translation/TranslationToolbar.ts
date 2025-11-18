@@ -20,6 +20,7 @@ export interface TranslationToolbarConfig {
 export interface TranslationToolbarCallbacks {
   onTranslateDocument?: () => void;
   onTranslateSentence?: () => void;
+  onCancelTranslation?: () => void;
   onProviderChange?: (provider: string) => void;
   onSourceLanguageChange?: (language: Language) => void;
   onTargetLanguageChange?: (language: Language) => void;
@@ -117,12 +118,13 @@ export class TranslationToolbar {
     });
     section.appendChild(translateSentenceBtn);
 
-    // Progress indicator
+    // Progress indicator with cancel button
     const progress = createDiv('review-translation-progress');
     progress.style.display = 'none';
     progress.innerHTML = `
       <div class="review-translation-progress-spinner"></div>
       <span class="review-translation-progress-text">Translating...</span>
+      <button class="review-btn review-btn-sm review-btn-secondary" data-action="cancel-translation" style="margin-left: 8px;">Cancel</button>
     `;
     section.appendChild(progress);
 
@@ -134,6 +136,16 @@ export class TranslationToolbar {
     translateSentenceBtn.addEventListener('click', () => {
       this.callbacks.onTranslateSentence?.();
     });
+
+    // Bind cancel translation button
+    const cancelBtn = progress.querySelector(
+      '[data-action="cancel-translation"]'
+    ) as HTMLButtonElement;
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => {
+        this.callbacks.onCancelTranslation?.();
+      });
+    }
 
     return section;
   }
@@ -153,7 +165,12 @@ export class TranslationToolbar {
     select.className = 'review-translation-provider-select';
     setAttributes(select, { 'data-setting': 'provider' });
 
-    this.config.availableProviders.forEach((provider) => {
+    // Filter out manual provider - manual translation is done by editing text
+    const automaticProviders = this.config.availableProviders.filter(
+      (provider) => provider !== 'manual'
+    );
+
+    automaticProviders.forEach((provider) => {
       const option = document.createElement('option');
       option.value = provider;
       option.textContent = this.getProviderLabel(provider);
@@ -216,8 +233,19 @@ export class TranslationToolbar {
     });
 
     sourceSelect.addEventListener('change', () => {
-      this.callbacks.onSourceLanguageChange?.(sourceSelect.value as Language);
-      logger.info('Source language changed', { language: sourceSelect.value });
+      const newLanguage = sourceSelect.value as Language;
+      // Prevent source and target from being the same
+      if (newLanguage === this.config.targetLanguage) {
+        logger.warn('Cannot set source language to same as target', {
+          sourceLanguage: newLanguage,
+          targetLanguage: this.config.targetLanguage,
+        });
+        // Revert to previous selection
+        sourceSelect.value = this.config.sourceLanguage;
+        return;
+      }
+      this.callbacks.onSourceLanguageChange?.(newLanguage);
+      logger.info('Source language changed', { language: newLanguage });
     });
 
     section.appendChild(sourceSelect);
@@ -257,8 +285,19 @@ export class TranslationToolbar {
     });
 
     targetSelect.addEventListener('change', () => {
-      this.callbacks.onTargetLanguageChange?.(targetSelect.value as Language);
-      logger.info('Target language changed', { language: targetSelect.value });
+      const newLanguage = targetSelect.value as Language;
+      // Prevent source and target from being the same
+      if (newLanguage === this.config.sourceLanguage) {
+        logger.warn('Cannot set target language to same as source', {
+          sourceLanguage: this.config.sourceLanguage,
+          targetLanguage: newLanguage,
+        });
+        // Revert to previous selection
+        targetSelect.value = this.config.targetLanguage;
+        return;
+      }
+      this.callbacks.onTargetLanguageChange?.(newLanguage);
+      logger.info('Target language changed', { language: newLanguage });
     });
 
     section.appendChild(targetSelect);
@@ -359,7 +398,12 @@ export class TranslationToolbar {
     if (!select) return;
 
     select.innerHTML = '';
-    providers.forEach((provider) => {
+    // Filter out manual provider - manual translation is done by editing text
+    const automaticProviders = providers.filter(
+      (provider) => provider !== 'manual'
+    );
+
+    automaticProviders.forEach((provider) => {
       const option = document.createElement('option');
       option.value = provider;
       option.textContent = this.getProviderLabel(provider);

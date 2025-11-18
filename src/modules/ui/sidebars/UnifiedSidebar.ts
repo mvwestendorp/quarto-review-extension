@@ -897,6 +897,9 @@ Role: ${currentUser.role}`;
   setTranslationMode(active: boolean): void {
     this.translationMode = active;
 
+    // Add/remove translation mode class to body for CSS styling
+    toggleClass(document.body, 'review-translation-mode', active);
+
     // Update sidebar title
     if (this.sidebarTitle) {
       this.sidebarTitle.textContent = active
