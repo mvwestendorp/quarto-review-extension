@@ -246,6 +246,12 @@ export class MarginComments {
     this.container = createDiv('review-margin-comments-container');
     this.container.setAttribute('role', 'complementary');
     this.container.setAttribute('aria-label', 'Document comments');
+
+    // Mount container to document body if not already mounted
+    if (!this.container.parentElement) {
+      document.body.appendChild(this.container);
+      logger.debug('Margin comments container mounted to document body');
+    }
   }
 
   /**
@@ -510,19 +516,45 @@ export class MarginComments {
   }
 
   /**
-   * Update comment visibility based on scroll position
+   * Update comment positions to stick to their sections and manage visibility
    */
   private updateCommentVisibility(): void {
     const viewportHeight = window.innerHeight;
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
 
-    this.commentElements.forEach((element) => {
-      const rect = element.getBoundingClientRect();
-      const absoluteTop = rect.top + scrollTop;
+    this.commentElements.forEach((element, commentKey) => {
+      const elementId = element.dataset.elementId;
+      if (!elementId) return;
 
-      // Fade out comments that are far from viewport
-      const distanceFromViewport = Math.abs(
-        absoluteTop - scrollTop - viewportHeight / 2
+      // Find the section element that this comment belongs to
+      const sectionElement = document.querySelector(
+        `[data-section-id="${elementId}"]`
+      ) as HTMLElement;
+
+      if (!sectionElement) return;
+
+      const sectionRect = sectionElement.getBoundingClientRect();
+      const sectionTop = sectionRect.top + scrollTop;
+      const sectionHeight = sectionRect.height;
+
+      // Get the comment's vertical position relative to its section
+      const snapshot = this.sections.find((s) => s.element.id === elementId);
+      if (!snapshot) return;
+
+      const commentIndexInSection = snapshot.comments.findIndex(
+        (c) => `${elementId}:${c.id}` === commentKey
+      );
+      if (commentIndexInSection < 0) return;
+
+      // Calculate comment position: stick it to the section it belongs to
+      const commentTop = sectionTop + commentIndexInSection * 140; // 140px spacing
+      element.style.top = `${commentTop}px`;
+
+      // Update visibility based on viewport
+      const elementBottom = sectionTop + sectionHeight;
+      const distanceFromViewport = Math.min(
+        Math.abs(sectionTop - scrollTop - viewportHeight / 2),
+        Math.abs(elementBottom - scrollTop - viewportHeight / 2)
       );
       const threshold = viewportHeight * 1.5;
 
