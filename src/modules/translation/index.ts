@@ -630,6 +630,51 @@ export class TranslationModule implements ChangesExtension {
   }
 
   /**
+   * Translate sentences sequentially with progress tracking
+   * This enables line-by-line automatic translation with visual feedback
+   *
+   * @param sentenceIds - Array of sentence IDs to translate
+   * @param providerName - Optional provider to use
+   * @param onProgress - Optional callback for progress updates
+   */
+  async translateSentencesSequentially(
+    sentenceIds: string[],
+    providerName?: string,
+    onProgress?: (current: number, total: number, sentenceId: string) => void
+  ): Promise<void> {
+    logger.info('Starting sequential sentence translation', {
+      count: sentenceIds.length,
+      provider: providerName,
+    });
+
+    for (let i = 0; i < sentenceIds.length; i++) {
+      const sentenceId = sentenceIds[i];
+      if (!sentenceId) continue;
+
+      // Notify progress before translating each sentence
+      onProgress?.(i + 1, sentenceIds.length, sentenceId);
+
+      try {
+        await this.translateSentence(sentenceId, providerName);
+        logger.debug('Sentence translated', {
+          sentenceId,
+          progress: `${i + 1}/${sentenceIds.length}`,
+        });
+      } catch (error) {
+        logger.error('Failed to translate sentence in sequential mode', {
+          sentenceId,
+          error,
+        });
+        throw error; // Re-throw to stop sequential translation on error
+      }
+    }
+
+    logger.info('Sequential sentence translation complete', {
+      count: sentenceIds.length,
+    });
+  }
+
+  /**
    * Update a sentence (source or target)
    */
   updateSentence(
