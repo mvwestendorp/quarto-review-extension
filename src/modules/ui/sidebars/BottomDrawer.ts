@@ -1,8 +1,9 @@
 import { createModuleLogger } from '@utils/debug';
 import { getBuildString, getFullBuildInfo } from '../../../version';
-import type { Comment } from '@/types';
+import type { Comment, Operation, OperationType } from '@/types';
 import type { SectionCommentSnapshot } from '../comments/CommentController';
 import type { UserModule } from '../../user';
+import type { ChangesModule } from '@modules/changes';
 import {
   createButton,
   createDiv,
@@ -57,11 +58,20 @@ export class BottomDrawer {
   private submitReviewEnabled = false;
   private submitReviewPending = false;
 
-  // Comments section elements
-  private commentsSection: HTMLElement | null = null;
-  private commentsContent: HTMLElement | null = null;
-  private commentSections: SectionCommentSnapshot[] = [];
-  private commentsCallbacks: CommentsSidebarCallbacks | null = null;
+  // Developer Panel section elements (replaces comments section)
+  private developerPanelSection: HTMLElement | null = null;
+  private developerPanelContent: HTMLElement | null = null;
+  private developerPanelTabs: Map<string, HTMLButtonElement> = new Map();
+  private developerPanelPanes: Map<string, HTMLElement> = new Map();
+  private activeDeveloperTab: string = 'changes';
+
+  // Editor Mode (for mobile/responsive editing)
+  private _editorModeActive = false;
+  private editorModeSection: HTMLElement | null = null;
+  private editorModeBody: HTMLElement | null = null;
+  private editorModeSaveBtn: HTMLButtonElement | null = null;
+  private editorModeCancelBtn: HTMLButtonElement | null = null;
+  private _currentEditingElementId: string | null = null;
 
   // Translation section elements
   private translationSection: HTMLElement | null = null;
@@ -118,6 +128,8 @@ export class BottomDrawer {
   private onTranslationExportUnifiedCallback: (() => void) | null = null;
   private onTranslationExportSeparatedCallback: (() => void) | null = null;
   private onClearLocalModelCacheCallback: (() => void) | null = null;
+  private onEditorSaveCallback: (() => void) | null = null;
+  private onEditorCancelCallback: (() => void) | null = null;
 
   /**
    * Create the bottom drawer element
@@ -164,9 +176,9 @@ export class BottomDrawer {
     this.translationSection = this.createTranslationToggleSection();
     leftColumn.appendChild(this.translationSection);
 
-    // Center column: Comments
-    this.commentsSection = this.createCommentsSection();
-    centerColumn.appendChild(this.commentsSection);
+    // Center column: Developer Panel (tabbed interface)
+    this.developerPanelSection = this.createDeveloperPanelSection();
+    centerColumn.appendChild(this.developerPanelSection);
 
     // Right column: Translation Tools (when in translation mode) and Debug/Storage
     this.translationToolsSection = this.createTranslationToolsSection();
@@ -510,26 +522,149 @@ Role: ${currentUser.role}`;
   }
 
   /**
-   * Create Comments section
+   * Create Developer Panel section (replaces comments section)
    */
-  private createCommentsSection(): HTMLElement {
-    const section = createDiv('review-drawer-section review-comments-section');
-    section.setAttribute('data-section', 'comments');
+  private createDeveloperPanelSection(): HTMLElement {
+    const section = createDiv('review-drawer-section review-developer-panel');
+    section.setAttribute('data-section', 'developer-panel');
 
     const header = createDiv('review-drawer-section-header');
 
     const title = document.createElement('h4');
-    title.textContent = 'Comments';
+    title.textContent = 'Developer Panel';
     title.className = 'review-drawer-section-title';
     header.appendChild(title);
 
     section.appendChild(header);
 
-    this.commentsContent = createDiv('review-comments-content');
-    this.commentsContent.style.cssText = 'max-height: 250px; overflow-y: auto;';
-    section.appendChild(this.commentsContent);
+    // Create tab buttons
+    const tabBar = createDiv('review-developer-panel-tabs');
+    tabBar.style.cssText = `
+      display: flex;
+      gap: 4px;
+      border-bottom: 2px solid rgba(148, 163, 184, 0.2);
+      margin-bottom: 12px;
+    `;
+
+    const tabs = [
+      { id: 'changes', label: '📝 Changes', icon: '📝' },
+      { id: 'git', label: '🔀 Git Info', icon: '🔀' },
+      { id: 'debug', label: '🐛 Debug', icon: '🐛' },
+    ];
+
+    tabs.forEach((tab) => {
+      const tabBtn = createButton(tab.label, 'review-developer-panel-tab-btn');
+      tabBtn.dataset.tabId = tab.id;
+      tabBtn.style.cssText = `
+        flex: 1;
+        padding: 8px 12px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--review-color-muted);
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s ease;
+      `;
+
+      tabBtn.onclick = () => this.switchDeveloperTab(tab.id);
+      this.developerPanelTabs.set(tab.id, tabBtn);
+      tabBar.appendChild(tabBtn);
+    });
+
+    section.appendChild(tabBar);
+
+    // Create content area
+    this.developerPanelContent = createDiv('review-developer-panel-content');
+    this.developerPanelContent.style.cssText =
+      'max-height: 250px; overflow-y: auto;';
+
+    // Create panes for each tab
+    tabs.forEach((tab) => {
+      const pane = createDiv(`review-developer-panel-pane-${tab.id}`);
+      pane.dataset.paneId = tab.id;
+      pane.style.display =
+        tab.id === this.activeDeveloperTab ? 'block' : 'none';
+
+      // Initialize with empty content
+      const emptyMsg = createDiv('review-panel-empty');
+      emptyMsg.textContent = `No ${tab.label.replace(/[^\w\s]/g, '').trim()} information yet.`;
+      emptyMsg.style.cssText = `
+        text-align: center;
+        padding: 24px 12px;
+        color: var(--review-color-muted);
+        background: rgba(248, 250, 252, 0.5);
+        border: 1px dashed rgba(148, 163, 184, 0.3);
+        border-radius: 8px;
+        font-size: 12px;
+      `;
+      pane.appendChild(emptyMsg);
+
+      this.developerPanelPanes.set(tab.id, pane);
+      this.developerPanelContent?.appendChild(pane);
+    });
+
+    if (this.developerPanelContent) {
+      section.appendChild(this.developerPanelContent);
+    }
+
+    // Set initial active tab
+    this.updateDeveloperTabStyles();
 
     return section;
+  }
+
+  /**
+   * Switch active developer panel tab
+   */
+  private switchDeveloperTab(tabId: string): void {
+    this.activeDeveloperTab = tabId;
+
+    // Update pane visibility
+    this.developerPanelPanes.forEach((pane, id) => {
+      pane.style.display = id === tabId ? 'block' : 'none';
+    });
+
+    // Update tab styles
+    this.updateDeveloperTabStyles();
+
+    logger.debug('Switched developer tab', { tabId });
+  }
+
+  /**
+   * Update tab button styles based on active tab
+   */
+  private updateDeveloperTabStyles(): void {
+    this.developerPanelTabs.forEach((btn, id) => {
+      if (id === this.activeDeveloperTab) {
+        btn.style.cssText = `
+          flex: 1;
+          padding: 8px 12px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--review-color-primary);
+          border-bottom: 2px solid var(--review-color-primary);
+          transition: all 0.2s ease;
+        `;
+      } else {
+        btn.style.cssText = `
+          flex: 1;
+          padding: 8px 12px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--review-color-muted);
+          border-bottom: 2px solid transparent;
+          transition: all 0.2s ease;
+        `;
+      }
+    });
   }
 
   /**
@@ -981,8 +1116,8 @@ Role: ${currentUser.role}`;
     if (this.exportSection) {
       this.exportSection.style.display = active ? 'none' : '';
     }
-    if (this.commentsSection) {
-      this.commentsSection.style.display = active ? 'none' : '';
+    if (this.developerPanelSection) {
+      this.developerPanelSection.style.display = active ? 'none' : '';
     }
     if (this.translationSection) {
       this.translationSection.style.display = active ? 'none' : '';
@@ -1024,29 +1159,89 @@ Role: ${currentUser.role}`;
   }
 
   /**
-   * Update comments list
+   * NOTE: Comments are now displayed in the margin.
+   * The developer panel has replaced the comments section in the bottom drawer.
+   * This method is kept for backwards compatibility but does nothing.
    */
   updateComments(
-    sections: SectionCommentSnapshot[],
-    callbacks: CommentsSidebarCallbacks
+    _sections: SectionCommentSnapshot[],
+    _callbacks: CommentsSidebarCallbacks
   ): void {
-    this.commentSections = sections;
-    this.commentsCallbacks = callbacks;
-    this.refreshComments();
+    // Comments are now in margin - this is a no-op
+    logger.debug('updateComments called but comments are now in margin');
   }
 
   /**
-   * Refresh comments display
+   * Update changes panel content
    */
-  private refreshComments(): void {
-    if (!this.commentsContent) return;
+  updateChangesPanel(changesHtml: string): void {
+    const changesPane = this.developerPanelPanes.get('changes');
+    if (!changesPane) return;
 
-    this.commentsContent.innerHTML = '';
+    changesPane.innerHTML = changesHtml;
+    logger.debug('Changes panel updated');
+  }
 
-    if (this.commentSections.length === 0) {
-      const emptyMsg = document.createElement('div');
-      emptyMsg.className = 'review-comments-empty';
-      emptyMsg.textContent = 'No comments yet. Click on text to add comments.';
+  /**
+   * Update git info panel content
+   */
+  updateGitPanel(gitHtml: string): void {
+    const gitPane = this.developerPanelPanes.get('git');
+    if (!gitPane) return;
+
+    gitPane.innerHTML = gitHtml;
+    logger.debug('Git panel updated');
+  }
+
+  /**
+   * Update debug panel content
+   */
+  updateDebugPanel(debugHtml: string): void {
+    const debugPane = this.developerPanelPanes.get('debug');
+    if (!debugPane) return;
+
+    debugPane.innerHTML = debugHtml;
+    logger.debug('Debug panel updated');
+  }
+
+  /**
+   * Set developer panel content for a specific tab
+   */
+  setDeveloperPanelContent(tabId: string, content: string | HTMLElement): void {
+    const pane = this.developerPanelPanes.get(tabId);
+    if (!pane) {
+      logger.warn('Developer panel pane not found', { tabId });
+      return;
+    }
+
+    if (typeof content === 'string') {
+      pane.innerHTML = content;
+    } else {
+      pane.innerHTML = '';
+      pane.appendChild(content);
+    }
+
+    logger.debug('Developer panel content set', { tabId });
+  }
+
+  /**
+   * Render changes panel with comprehensive change statistics and list
+   */
+  renderChangesPanel(changesModule: ChangesModule): void {
+    const operations = changesModule.getOperations();
+    const changesPane = this.developerPanelPanes.get('changes');
+
+    if (!changesPane) {
+      logger.warn('Changes pane not found');
+      return;
+    }
+
+    changesPane.innerHTML = '';
+
+    if (operations.length === 0) {
+      const emptyMsg = createDiv('review-changes-empty');
+      emptyMsg.textContent =
+        'No changes yet. Start editing to see tracked changes.';
       emptyMsg.style.cssText = `
         text-align: center;
         padding: 24px 12px;
@@ -1056,93 +1251,367 @@ Role: ${currentUser.role}`;
         border-radius: 8px;
         font-size: 12px;
       `;
-      this.commentsContent.appendChild(emptyMsg);
+      changesPane.appendChild(emptyMsg);
       return;
     }
 
-    this.commentSections.forEach((snapshot) => {
-      const section = document.createElement('div');
-      section.className = 'review-comments-section-group';
-      section.dataset.sectionId = snapshot.element.id;
+    // Calculate statistics
+    const stats = this.calculateChangeStats(operations);
 
-      const list = document.createElement('div');
-      list.className = 'review-comments-list';
+    // Create stats summary section
+    const statsSection = this.createChangeStatsSection(stats);
+    changesPane.appendChild(statsSection);
 
-      snapshot.comments.forEach((comment) => {
-        const item = this.renderComment(snapshot, comment);
-        list.appendChild(item);
-      });
+    // Create changes list
+    const changesList = this.createChangesList(operations.slice().reverse());
+    changesPane.appendChild(changesList);
 
-      section.appendChild(list);
-      this.commentsContent?.appendChild(section);
+    logger.debug('Changes panel rendered', {
+      operationCount: operations.length,
+      stats,
     });
-
-    logger.debug('Comments refreshed', { count: this.commentSections.length });
   }
 
   /**
-   * Render a single comment item
+   * Calculate change statistics from operations
    */
-  private renderComment(
-    snapshot: SectionCommentSnapshot,
-    comment: Comment
-  ): HTMLElement {
-    const item = createDiv('review-comment-item');
-    item.dataset.elementId = snapshot.element.id;
-    item.dataset.commentKey = comment.id;
+  private calculateChangeStats(operations: ReadonlyArray<Operation>): {
+    total: number;
+    inserts: number;
+    deletes: number;
+    edits: number;
+    moves: number;
+    wordsDelta: number;
+  } {
+    let inserts = 0;
+    let deletes = 0;
+    let edits = 0;
+    let moves = 0;
+    let wordsDelta = 0;
 
-    item.addEventListener('click', () => {
-      this.commentsCallbacks?.onNavigate(snapshot.element.id, comment.id);
+    operations.forEach((op) => {
+      switch (op.type) {
+        case 'insert':
+          inserts++;
+          if (op.data.type === 'insert') {
+            wordsDelta += this.countWords(op.data.content);
+          }
+          break;
+        case 'delete':
+          deletes++;
+          if (op.data.type === 'delete') {
+            wordsDelta -= this.countWords(op.data.originalContent);
+          }
+          break;
+        case 'edit':
+          edits++;
+          if (op.data.type === 'edit') {
+            wordsDelta +=
+              this.countWords(op.data.newContent) -
+              this.countWords(op.data.oldContent);
+          }
+          break;
+        case 'move':
+          moves++;
+          break;
+      }
     });
 
-    item.addEventListener('mouseenter', () => {
-      this.commentsCallbacks?.onHover(snapshot.element.id, comment.id);
-    });
+    return {
+      total: operations.length,
+      inserts,
+      deletes,
+      edits,
+      moves,
+      wordsDelta,
+    };
+  }
 
-    item.addEventListener('mouseleave', () => {
-      this.commentsCallbacks?.onLeave();
-    });
+  /**
+   * Count words in text
+   */
+  private countWords(text: string): number {
+    return text
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
+  }
 
-    const header = createDiv('review-comment-header');
+  /**
+   * Create change statistics summary section
+   */
+  private createChangeStatsSection(stats: {
+    total: number;
+    inserts: number;
+    deletes: number;
+    edits: number;
+    moves: number;
+    wordsDelta: number;
+  }): HTMLElement {
+    const section = createDiv('review-changes-stats');
 
-    const author = createDiv('review-comment-author');
-    author.textContent = comment.userId || 'Anonymous';
-    header.appendChild(author);
+    const title = document.createElement('h5');
+    title.textContent = 'Change Summary';
+    title.className = 'review-changes-stats-title';
+    section.appendChild(title);
 
-    const date = createDiv('review-comment-date');
-    date.textContent = new Date(comment.timestamp).toLocaleDateString();
-    header.appendChild(date);
+    const grid = createDiv('review-changes-stats-grid');
 
-    item.appendChild(header);
+    // Total changes
+    const totalStat = this.createStatItem('Total Changes', stats.total, '📊');
+    grid.appendChild(totalStat);
 
-    const text = createDiv('review-comment-text');
-    text.textContent = comment.content;
-    item.appendChild(text);
+    // Inserts
+    if (stats.inserts > 0) {
+      const insertStat = this.createStatItem(
+        'Insertions',
+        stats.inserts,
+        '➕',
+        'insert'
+      );
+      grid.appendChild(insertStat);
+    }
 
-    const actions = createDiv('review-comment-actions');
+    // Deletes
+    if (stats.deletes > 0) {
+      const deleteStat = this.createStatItem(
+        'Deletions',
+        stats.deletes,
+        '➖',
+        'delete'
+      );
+      grid.appendChild(deleteStat);
+    }
 
-    const editBtn = createButton('✏️ Edit', 'review-btn review-btn-sm');
-    editBtn.setAttribute('title', 'Edit this comment');
-    editBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.commentsCallbacks?.onEdit(snapshot.element.id, comment);
-    });
-    actions.appendChild(editBtn);
+    // Edits
+    if (stats.edits > 0) {
+      const editStat = this.createStatItem('Edits', stats.edits, '✏️', 'edit');
+      grid.appendChild(editStat);
+    }
 
-    const removeBtn = createButton(
-      '🗑 Remove',
-      'review-btn review-btn-sm review-btn-danger'
+    // Moves
+    if (stats.moves > 0) {
+      const moveStat = this.createStatItem('Moves', stats.moves, '↔️', 'move');
+      grid.appendChild(moveStat);
+    }
+
+    // Word delta
+    const wordDeltaStat = this.createStatItem(
+      'Words',
+      stats.wordsDelta,
+      stats.wordsDelta >= 0 ? '📈' : '📉',
+      stats.wordsDelta >= 0 ? 'insert' : 'delete'
     );
-    removeBtn.setAttribute('title', 'Delete this comment');
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.commentsCallbacks?.onRemove(snapshot.element.id, comment);
-    });
-    actions.appendChild(removeBtn);
+    grid.appendChild(wordDeltaStat);
 
-    item.appendChild(actions);
+    section.appendChild(grid);
+    return section;
+  }
+
+  /**
+   * Create a single stat item
+   */
+  private createStatItem(
+    label: string,
+    value: number,
+    icon: string,
+    type?: string
+  ): HTMLElement {
+    const item = createDiv('review-changes-stat-item');
+    if (type) {
+      item.classList.add(`review-changes-stat-${type}`);
+    }
+
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'review-changes-stat-icon';
+    iconSpan.textContent = icon;
+    item.appendChild(iconSpan);
+
+    const content = createDiv('review-changes-stat-content');
+
+    const valueSpan = document.createElement('span');
+    valueSpan.className = 'review-changes-stat-value';
+    valueSpan.textContent = value >= 0 ? `+${value}` : value.toString();
+    content.appendChild(valueSpan);
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'review-changes-stat-label';
+    labelSpan.textContent = label;
+    content.appendChild(labelSpan);
+
+    item.appendChild(content);
+    return item;
+  }
+
+  /**
+   * Create list of recent changes
+   */
+  private createChangesList(operations: ReadonlyArray<Operation>): HTMLElement {
+    const container = createDiv('review-changes-list-container');
+
+    const header = createDiv('review-changes-list-header');
+    const title = document.createElement('h5');
+    title.textContent = 'Recent Changes';
+    title.className = 'review-changes-list-title';
+    header.appendChild(title);
+    container.appendChild(header);
+
+    const list = createDiv('review-changes-list');
+
+    // Show up to 20 most recent changes
+    const recentOps = operations.slice(0, 20);
+
+    recentOps.forEach((op) => {
+      const item = this.createChangeListItem(op);
+      list.appendChild(item);
+    });
+
+    container.appendChild(list);
+
+    if (operations.length > 20) {
+      const more = createDiv('review-changes-list-more');
+      more.textContent = `and ${operations.length - 20} more changes...`;
+      container.appendChild(more);
+    }
+
+    return container;
+  }
+
+  /**
+   * Create a single change list item
+   */
+  private createChangeListItem(operation: Operation): HTMLElement {
+    const item = createDiv('review-change-item');
+    item.classList.add(`review-change-item-${operation.type}`);
+    item.dataset.operationId = operation.id;
+
+    // Icon and type
+    const iconTypeContainer = createDiv('review-change-item-icon-type');
+
+    const icon = document.createElement('span');
+    icon.className = 'review-change-item-icon';
+    icon.textContent = this.getOperationIcon(operation.type);
+    iconTypeContainer.appendChild(icon);
+
+    const type = document.createElement('span');
+    type.className = 'review-change-item-type';
+    type.textContent = this.getOperationLabel(operation.type);
+    iconTypeContainer.appendChild(type);
+
+    item.appendChild(iconTypeContainer);
+
+    // Preview text
+    const preview = createDiv('review-change-item-preview');
+    preview.textContent = this.getOperationPreview(operation);
+    item.appendChild(preview);
+
+    // Metadata
+    const meta = createDiv('review-change-item-meta');
+    const timestamp = new Date(operation.timestamp);
+    const timeStr = this.formatRelativeTime(timestamp);
+    meta.textContent = timeStr;
+    if (operation.userId) {
+      meta.textContent += ` • ${operation.userId}`;
+    }
+    item.appendChild(meta);
 
     return item;
+  }
+
+  /**
+   * Get icon for operation type
+   */
+  private getOperationIcon(type: OperationType): string {
+    switch (type) {
+      case 'insert':
+        return '➕';
+      case 'delete':
+        return '➖';
+      case 'edit':
+        return '✏️';
+      case 'move':
+        return '↔️';
+      default:
+        return '•';
+    }
+  }
+
+  /**
+   * Get label for operation type
+   */
+  private getOperationLabel(type: OperationType): string {
+    switch (type) {
+      case 'insert':
+        return 'Inserted';
+      case 'delete':
+        return 'Deleted';
+      case 'edit':
+        return 'Edited';
+      case 'move':
+        return 'Moved';
+      default:
+        return 'Changed';
+    }
+  }
+
+  /**
+   * Get preview text for operation
+   */
+  private getOperationPreview(operation: Operation): string {
+    const maxLength = 80;
+    let text = '';
+
+    switch (operation.type) {
+      case 'insert':
+        if (operation.data.type === 'insert') {
+          text = operation.data.content;
+        }
+        break;
+      case 'delete':
+        if (operation.data.type === 'delete') {
+          text = operation.data.originalContent;
+        }
+        break;
+      case 'edit':
+        if (operation.data.type === 'edit') {
+          text = operation.data.newContent;
+        }
+        break;
+      case 'move':
+        return `Moved section to new position`;
+    }
+
+    // Strip markdown formatting and truncate
+    text = text.replace(/[#*_`~[\]()]/g, '').trim();
+    if (text.length > maxLength) {
+      text = text.substring(0, maxLength) + '...';
+    }
+
+    return text || 'No preview available';
+  }
+
+  /**
+   * Format timestamp as relative time
+   */
+  private formatRelativeTime(date: Date): string {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) {
+      return 'Just now';
+    } else if (diffMin < 60) {
+      return `${diffMin} min${diffMin !== 1 ? 's' : ''} ago`;
+    } else if (diffHour < 24) {
+      return `${diffHour} hour${diffHour !== 1 ? 's' : ''} ago`;
+    } else if (diffDay < 7) {
+      return `${diffDay} day${diffDay !== 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
   }
 
   // ============================================
@@ -1522,6 +1991,175 @@ Role: ${currentUser.role}`;
     this.onClearLocalModelCacheCallback = callback ?? null;
   }
 
+  /**
+   * Check if editor mode is currently active
+   */
+  isEditorModeActive(): boolean {
+    return this._editorModeActive;
+  }
+
+  /**
+   * Get the element ID currently being edited in drawer mode
+   */
+  getCurrentEditingElementId(): string | null {
+    return this._currentEditingElementId;
+  }
+
+  /**
+   * Open editor mode in the drawer (for mobile screens)
+   */
+  openEditorMode(
+    elementId: string,
+    onSave: () => void,
+    onCancel: () => void
+  ): HTMLElement {
+    this._editorModeActive = true;
+    this._currentEditingElementId = elementId;
+    this.onEditorSaveCallback = onSave;
+    this.onEditorCancelCallback = onCancel;
+
+    // Create editor mode section if it doesn't exist
+    if (!this.editorModeSection) {
+      this.editorModeSection = this.createEditorModeSection();
+      // Insert editor mode section after the header but before other content
+      const body = this.element?.querySelector(
+        '.review-drawer-body'
+      ) as HTMLElement;
+      if (body) {
+        body.insertBefore(this.editorModeSection, body.firstChild);
+      }
+    }
+
+    // Hide developer panel and other sections
+    if (this.developerPanelSection) {
+      this.developerPanelSection.style.display = 'none';
+    }
+    if (this.reviewToolsSection) {
+      this.reviewToolsSection.style.display = 'none';
+    }
+    if (this.exportSection) {
+      this.exportSection.style.display = 'none';
+    }
+    if (this.translationSection) {
+      this.translationSection.style.display = 'none';
+    }
+
+    // Show editor mode section
+    if (this.editorModeSection) {
+      this.editorModeSection.style.display = 'flex';
+    }
+
+    // Ensure drawer is expanded
+    this.setExpanded(true);
+
+    // Update drawer title
+    if (this.drawerTitle) {
+      this.drawerTitle.textContent = '✏️ Editing Section';
+    }
+
+    logger.debug(`Editor mode opened for element ${elementId}`);
+
+    return this.editorModeBody!;
+  }
+
+  /**
+   * Close editor mode and restore developer panel
+   */
+  closeEditorMode(): void {
+    this._editorModeActive = false;
+    this._currentEditingElementId = null;
+    this.onEditorSaveCallback = null;
+    this.onEditorCancelCallback = null;
+
+    // Hide editor mode section
+    if (this.editorModeSection) {
+      this.editorModeSection.style.display = 'none';
+    }
+
+    // Restore developer panel and other sections
+    if (this.developerPanelSection) {
+      this.developerPanelSection.style.display = 'block';
+    }
+    if (this.reviewToolsSection) {
+      this.reviewToolsSection.style.display = 'block';
+    }
+    if (this.exportSection) {
+      this.exportSection.style.display = 'block';
+    }
+    if (this.translationSection) {
+      this.translationSection.style.display = 'block';
+    }
+
+    // Restore drawer title
+    if (this.drawerTitle) {
+      this.drawerTitle.textContent = 'Review Tools';
+    }
+
+    logger.debug('Editor mode closed');
+  }
+
+  /**
+   * Create editor mode section
+   */
+  private createEditorModeSection(): HTMLElement {
+    const section = createDiv('review-drawer-editor-mode');
+    section.style.display = 'none'; // Hidden by default
+    section.style.flexDirection = 'column';
+    section.style.gap = '12px';
+    section.style.flex = '1';
+    section.style.minHeight = '0';
+
+    // Editor title
+    const title = document.createElement('h4');
+    title.textContent = 'Edit Content';
+    title.className = 'review-section-title';
+    section.appendChild(title);
+
+    // Editor body (where Milkdown will be initialized)
+    this.editorModeBody = createDiv('review-drawer-editor-body');
+    this.editorModeBody.style.flex = '1';
+    this.editorModeBody.style.minHeight = '200px';
+    this.editorModeBody.style.border =
+      '1px solid var(--review-color-border, #e2e8f0)';
+    this.editorModeBody.style.borderRadius = '8px';
+    this.editorModeBody.style.padding = '12px';
+    this.editorModeBody.style.backgroundColor = '#fff';
+    this.editorModeBody.style.overflow = 'auto';
+    section.appendChild(this.editorModeBody);
+
+    // Actions (Save and Cancel buttons)
+    const actions = createDiv('review-drawer-editor-actions');
+    actions.style.display = 'flex';
+    actions.style.gap = '8px';
+    actions.style.justifyContent = 'flex-end';
+
+    this.editorModeCancelBtn = createButton(
+      'Cancel',
+      'review-btn review-btn-secondary review-btn-sm'
+    );
+    this.editorModeCancelBtn.addEventListener('click', () => {
+      if (this.onEditorCancelCallback) {
+        this.onEditorCancelCallback();
+      }
+    });
+    actions.appendChild(this.editorModeCancelBtn);
+
+    this.editorModeSaveBtn = createButton(
+      'Save',
+      'review-btn review-btn-primary review-btn-sm'
+    );
+    this.editorModeSaveBtn.addEventListener('click', () => {
+      if (this.onEditorSaveCallback) {
+        this.onEditorSaveCallback();
+      }
+    });
+    actions.appendChild(this.editorModeSaveBtn);
+
+    section.appendChild(actions);
+
+    return section;
+  }
+
   destroy(): void {
     this.element?.remove();
     this.element = null;
@@ -1536,8 +2174,10 @@ Role: ${currentUser.role}`;
     this.exportCleanBtn = null;
     this.exportCriticBtn = null;
     this.submitReviewBtn = null;
-    this.commentsSection = null;
-    this.commentsContent = null;
+    this.developerPanelSection = null;
+    this.developerPanelContent = null;
+    this.developerPanelTabs.clear();
+    this.developerPanelPanes.clear();
     this.translationSection = null;
     this.translationBtn = null;
     this.debugSection = null;
@@ -1554,6 +2194,5 @@ Role: ${currentUser.role}`;
     this.onExportCriticCallback = null;
     this.onSubmitReviewCallback = null;
     this.onToggleTranslationCallback = null;
-    this.commentsCallbacks = null;
   }
 }

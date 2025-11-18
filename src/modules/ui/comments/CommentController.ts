@@ -5,6 +5,7 @@ import type { ChangesModule } from '@modules/changes';
 import type { MarkdownModule } from '@modules/markdown';
 import type { CommentComposer } from './CommentComposer';
 import type { CommentsSidebar } from './CommentsSidebar';
+import type { MarginComments } from './MarginComments';
 import type { CommentBadges, CommentBadgeCallbacks } from './CommentBadges';
 import type { Element as ReviewElement } from '@/types';
 import { getAnimationDuration } from '../constants';
@@ -39,6 +40,7 @@ export class CommentController {
   private config: CommentControllerConfig;
   private commentState: CommentState;
   private sidebar: CommentsSidebar | null;
+  private marginComments: MarginComments | null;
   private composer: CommentComposer | null;
   private badges: CommentBadges | null;
   private callbacks: CommentControllerCallbacks;
@@ -47,6 +49,7 @@ export class CommentController {
     config: CommentControllerConfig;
     commentState: CommentState;
     sidebar: CommentsSidebar | null;
+    marginComments?: MarginComments | null;
     composer: CommentComposer | null;
     badges: CommentBadges | null;
     callbacks: CommentControllerCallbacks;
@@ -54,6 +57,7 @@ export class CommentController {
     this.config = options.config;
     this.commentState = options.commentState;
     this.sidebar = options.sidebar;
+    this.marginComments = options.marginComments ?? null;
     this.composer = options.composer;
     this.badges = options.badges;
     this.callbacks = options.callbacks;
@@ -262,15 +266,15 @@ export class CommentController {
       this.sidebar?.show();
     }
 
-    this.sidebar?.updateSections(sections, {
-      onNavigate: (elementId, commentKey) => {
+    const commentCallbacks = {
+      onNavigate: (elementId: string, commentKey: string) => {
         this.focusCommentAnchor(elementId, commentKey);
       },
-      onRemove: (_elementId, comment) => {
+      onRemove: (_elementId: string, comment: any) => {
         this.removeComment(comment.id);
         this.clearHighlight();
       },
-      onEdit: (elementId, comment) => {
+      onEdit: (elementId: string, comment: any) => {
         this.openComposer({
           elementId,
           existingComment: comment.content,
@@ -278,21 +282,31 @@ export class CommentController {
           commentKey: `${elementId}:${comment.id}`,
         });
       },
-      onHover: (elementId, commentKey) => {
+      onHover: (elementId: string, commentKey: string) => {
         this.highlightSection(elementId, 'hover', commentKey);
+        this.marginComments?.highlightComment(elementId, commentKey);
       },
       onLeave: () => {
         this.clearHighlight('hover');
+        this.marginComments?.clearHighlights();
       },
-    });
+    };
+
+    // Update sidebar (if present)
+    this.sidebar?.updateSections(sections, commentCallbacks);
+
+    // Update margin comments (if present)
+    this.marginComments?.updateSections(sections, commentCallbacks);
 
     this.badges?.syncIndicators(sections, {
       onShowComments: (elementId, commentKey) => {
         this.sidebar?.show();
         if (commentKey) {
           this.focusCommentAnchor(elementId, commentKey);
+          this.marginComments?.highlightComment(elementId, commentKey);
         } else {
           this.highlightSection(elementId, 'hover');
+          this.marginComments?.highlightComment(elementId);
         }
       },
       onOpenComposer: (elementId, comment) => {
@@ -305,9 +319,11 @@ export class CommentController {
       },
       onHover: (_elementId) => {
         this.highlightSection(_elementId, 'hover');
+        this.marginComments?.highlightComment(_elementId);
       },
       onLeave: () => {
         this.clearHighlight('hover');
+        this.marginComments?.clearHighlights();
       },
     });
   }

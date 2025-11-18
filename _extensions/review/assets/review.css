@@ -41,6 +41,8 @@
 @import './components/segment-actions.css';
 @import './components/comment-composer.css';
 @import './components/comment-items.css';
+@import './components/margin-comments.css';
+@import './components/developer-panel.css';
 @import './components/context-menu.css';
 @import './components/command-palette.css';
 @import './components/dashboard.css';

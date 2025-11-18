@@ -1,0 +1,97 @@
+---
+title: "Margin Layout Test Document"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+    reference-location: margin
+---
+
+# Introduction {#sec-intro}
+
+This document is designed to test and understand how Quarto renders margin content. We'll use this to design our margin comment system.
+
+## Main Content with Margin Notes
+
+This is a paragraph in the main body. It should take up the standard body width, leaving room for margin content on the right.
+
+::: {.column-margin}
+This is a margin note. It appears in the right margin alongside the main content.
+:::
+
+Here's another paragraph with associated margin content. The margin should align with the content vertically.
+
+::: {.column-margin}
+Another margin note that should appear aligned with this paragraph.
+:::
+
+## Lists and Margin Content
+
+Here's a list with margin annotations:
+
+- First item in the list
+- Second item with important context
+- Third item that needs explanation
+
+::: {.column-margin}
+The margin can contain explanatory notes about the list items, providing additional context without cluttering the main content.
+:::
+
+## Multiple Margin Notes
+
+This section has multiple margin notes to test vertical spacing and alignment.
+
+::: {.column-margin}
+**First margin note**: This is important context.
+:::
+
+Some content in between.
+
+::: {.column-margin}
+**Second margin note**: Additional information here.
+:::
+
+More main content.
+
+::: {.column-margin}
+**Third margin note**: Even more details.
+:::
+
+## Code Blocks
+
+Here's a code block with a margin note:
+
+```python
+def example():
+    return "Hello, World!"
+```
+
+::: {.column-margin}
+This margin note explains the code block.
+:::
+
+## Callouts and Margin Content
+
+::: {.callout-note}
+## Important Note
+
+This is a callout box with important information.
+:::
+
+::: {.column-margin}
+Margin notes can also accompany callouts.
+:::
+
+## Testing Reference Location
+
+Here's a citation to test reference-location: margin setting[^1].
+
+[^1]: This footnote should appear in the margin.
+
+## Conclusion
+
+This document demonstrates various margin layout patterns that we can use as reference for implementing margin comments in the review extension.
+
+::: {.column-margin}
+**Final note**: The margin provides excellent space for comments and annotations without disrupting the reading flow.
+:::
