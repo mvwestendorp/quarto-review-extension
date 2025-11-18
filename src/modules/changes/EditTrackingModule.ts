@@ -11,6 +11,9 @@ import type { Operation, OperationType, OperationData } from '@/types';
  * Subclasses implement specific operation handling and state reconstruction
  */
 export abstract class EditTrackingModule {
+  private static readonly MAX_OPERATIONS = 100;
+  private static readonly MAX_REDO_STACK = 50;
+
   protected operations: Operation[] = [];
   protected redoStack: Operation[] = [];
   protected saved: boolean = true;
@@ -46,6 +49,12 @@ export abstract class EditTrackingModule {
     };
 
     this.operations.push(operation);
+
+    // Limit operation history to prevent unbounded memory growth
+    if (this.operations.length > EditTrackingModule.MAX_OPERATIONS) {
+      this.operations.shift();
+    }
+
     this.redoStack = []; // Clear redo stack on new operation
     this.saved = false;
     this.onOperationAdded(operation);
@@ -83,6 +92,12 @@ export abstract class EditTrackingModule {
     const operation = this.operations.pop();
     if (operation) {
       this.redoStack.push(operation);
+
+      // Limit redo stack to prevent unbounded memory growth
+      if (this.redoStack.length > EditTrackingModule.MAX_REDO_STACK) {
+        this.redoStack.shift();
+      }
+
       this.saved = false;
       this.onOperationUndone(operation);
       this.reconstructState();

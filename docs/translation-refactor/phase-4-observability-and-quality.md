@@ -1,6 +1,6 @@
 ## Phase 4 · Observability, Testing, and Documentation
 
-**Status:** 🔄 In Progress (4/8 tasks complete)
+**Status:** 🔄 In Progress (5/8 tasks complete)
 **Aim:** Establish comprehensive monitoring, automated tests, and documentation to support production readiness.
 
 ### 1. Scope Overview
@@ -14,7 +14,7 @@
 | ID | Task | Outcome / Acceptance |
 | --- | --- | --- |
 | P4-T1 | **Logging taxonomy** | ✅ Comprehensive logging taxonomy defined in `docs/translation-refactor/LOGGING_TAXONOMY.md` covering all translation modules with debug scenarios and production guidelines. |
-| P4-T2 | **Metrics schema** | ☐ Emit counters for translation success/failure, cache hits, latency buckets via optional analytics hook. |
+| P4-T2 | **Metrics schema** | ✅ TranslationMetrics service implemented in `src/modules/translation/metrics/TranslationMetrics.ts` with operation metrics, cache performance tracking, provider latency percentiles (p50/p95/p99), user interaction tracking, and optional analytics hook integration (Google Analytics, Prometheus, custom backends). |
 | P4-T3 | **Vitest suites** | ✅ Extensive test coverage added: StateStore tests (16 cases), cache service tests (60+ cases), provider registry tests (50+ cases), provider adapter tests. Total: 110+ new tests. |
 | P4-T4 | **Playwright suites** | ☐ Full workflow: translate document, manual edit, undo/redo, export; include visual regression for chips. |
 | P4-T5 | **CI integration** | ☐ Update GitHub Actions to run translation test matrix (unit + e2e). |

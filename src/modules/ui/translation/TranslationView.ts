@@ -20,6 +20,7 @@ import {
   setAttributes,
   toggleClass,
 } from '@utils/dom-helpers';
+import { throttle, createRAFScheduler } from '@utils/performance';
 
 const logger = createModuleLogger('TranslationView');
 
@@ -1105,23 +1106,24 @@ export class TranslationView {
       this.targetPane.removeEventListener('scroll', this.targetScrollHandler);
     }
 
-    this.sourceScrollHandler = () => {
+    // Use throttled scroll handlers to improve performance (50ms throttle)
+    this.sourceScrollHandler = throttle(() => {
       if (this.syncScrollLock || !this.sourcePane || !this.targetPane) {
         return;
       }
       this.syncScrollLock = true;
       this.targetPane.scrollTop = this.sourcePane.scrollTop;
       this.syncScrollLock = false;
-    };
+    }, 16); // ~60fps
 
-    this.targetScrollHandler = () => {
+    this.targetScrollHandler = throttle(() => {
       if (this.syncScrollLock || !this.sourcePane || !this.targetPane) {
         return;
       }
       this.syncScrollLock = true;
       this.sourcePane.scrollTop = this.targetPane.scrollTop;
       this.syncScrollLock = false;
-    };
+    }, 16); // ~60fps
 
     this.sourcePane.addEventListener('scroll', this.sourceScrollHandler);
     this.targetPane.addEventListener('scroll', this.targetScrollHandler);
