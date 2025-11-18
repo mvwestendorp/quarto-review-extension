@@ -78,6 +78,15 @@ export class BottomDrawer {
   private translationBtn: HTMLButtonElement | null = null;
   private translationEnabled = false;
 
+  // Translation statistics panel (center column in translation mode)
+  private translationStatsPanel: HTMLElement | null = null;
+  private translationStatsTotal: HTMLElement | null = null;
+  private translationStatsTranslated: HTMLElement | null = null;
+  private translationStatsProgress: HTMLElement | null = null;
+  private translationStatsAuto: HTMLElement | null = null;
+  private translationStatsManual: HTMLElement | null = null;
+  private translationSegmentStatusList: HTMLElement | null = null;
+
   // Translation Tools elements
   private translationToolsSection: HTMLElement | null = null;
   private translateDocumentBtn: HTMLButtonElement | null = null;
@@ -176,9 +185,14 @@ export class BottomDrawer {
     this.translationSection = this.createTranslationToggleSection();
     leftColumn.appendChild(this.translationSection);
 
-    // Center column: Developer Panel (tabbed interface)
+    // Center column: Developer Panel (tabbed interface) OR Translation Stats (in translation mode)
     this.developerPanelSection = this.createDeveloperPanelSection();
     centerColumn.appendChild(this.developerPanelSection);
+
+    // Translation stats panel (hidden by default, shown in translation mode)
+    const translationStatsPanel = this.createTranslationStatsPanel();
+    translationStatsPanel.style.display = 'none';
+    centerColumn.appendChild(translationStatsPanel);
 
     // Right column: Translation Tools (when in translation mode) and Debug/Storage
     this.translationToolsSection = this.createTranslationToolsSection();
@@ -698,6 +712,229 @@ Role: ${currentUser.role}`;
   }
 
   /**
+   * Create Translation Statistics Panel (center column in translation mode)
+   */
+  private createTranslationStatsPanel(): HTMLElement {
+    const section = createDiv(
+      'review-drawer-section review-translation-stats-section'
+    );
+    section.setAttribute('data-section', 'translation-stats');
+
+    const title = document.createElement('h4');
+    title.textContent = 'Translation Status';
+    title.className = 'review-drawer-section-title';
+    section.appendChild(title);
+
+    // Stats grid
+    const statsGrid = createDiv('review-translation-stats-grid');
+    statsGrid.style.cssText = `
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    `;
+
+    // Total count
+    const totalStat = createDiv('review-translation-stat-card');
+    const totalLabel = document.createElement('div');
+    totalLabel.className = 'review-translation-stat-label';
+    totalLabel.textContent = 'Total';
+    this.translationStatsTotal = document.createElement('div');
+    this.translationStatsTotal.className = 'review-translation-stat-value';
+    this.translationStatsTotal.textContent = '0';
+    totalStat.appendChild(totalLabel);
+    totalStat.appendChild(this.translationStatsTotal);
+    statsGrid.appendChild(totalStat);
+
+    // Translated count
+    const translatedStat = createDiv('review-translation-stat-card');
+    const translatedLabel = document.createElement('div');
+    translatedLabel.className = 'review-translation-stat-label';
+    translatedLabel.textContent = 'Translated';
+    this.translationStatsTranslated = document.createElement('div');
+    this.translationStatsTranslated.className = 'review-translation-stat-value';
+    this.translationStatsTranslated.textContent = '0';
+    translatedStat.appendChild(translatedLabel);
+    translatedStat.appendChild(this.translationStatsTranslated);
+    statsGrid.appendChild(translatedStat);
+
+    // Progress
+    const progressStat = createDiv('review-translation-stat-card');
+    const progressLabel = document.createElement('div');
+    progressLabel.className = 'review-translation-stat-label';
+    progressLabel.textContent = 'Progress';
+    this.translationStatsProgress = document.createElement('div');
+    this.translationStatsProgress.className = 'review-translation-stat-value';
+    this.translationStatsProgress.textContent = '0%';
+    progressStat.appendChild(progressLabel);
+    progressStat.appendChild(this.translationStatsProgress);
+    statsGrid.appendChild(progressStat);
+
+    // Auto vs Manual
+    const autoManualStat = createDiv('review-translation-stat-card');
+    const autoManualLabel = document.createElement('div');
+    autoManualLabel.className = 'review-translation-stat-label';
+    autoManualLabel.textContent = 'Types';
+    const autoManualValue = createDiv();
+    autoManualValue.className = 'review-translation-stat-types';
+    autoManualValue.style.cssText = `
+      display: flex;
+      gap: 8px;
+      font-size: 12px;
+    `;
+    const autoCount = document.createElement('span');
+    autoCount.innerHTML =
+      '<span style="color: var(--review-color-info);">🤖</span> ';
+    this.translationStatsAuto = document.createElement('span');
+    this.translationStatsAuto.textContent = '0';
+    autoCount.appendChild(this.translationStatsAuto);
+    const manualCount = document.createElement('span');
+    manualCount.innerHTML =
+      '<span style="color: var(--review-color-warning);">✍️</span> ';
+    this.translationStatsManual = document.createElement('span');
+    this.translationStatsManual.textContent = '0';
+    manualCount.appendChild(this.translationStatsManual);
+    autoManualValue.appendChild(autoCount);
+    autoManualValue.appendChild(manualCount);
+    autoManualStat.appendChild(autoManualLabel);
+    autoManualStat.appendChild(autoManualValue);
+    statsGrid.appendChild(autoManualStat);
+
+    section.appendChild(statsGrid);
+
+    // Segment status list
+    this.translationSegmentStatusList = createDiv(
+      'review-translation-segment-list'
+    );
+    this.translationSegmentStatusList.style.cssText = `
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--review-color-border);
+      border-radius: 8px;
+      padding: 8px;
+      background: rgba(248, 250, 252, 0.5);
+    `;
+    this.translationSegmentStatusList.innerHTML = `
+      <div style="text-align: center; padding: 24px 12px; color: var(--review-color-muted); font-size: 12px;">
+        No segments loaded yet
+      </div>
+    `;
+    section.appendChild(this.translationSegmentStatusList);
+
+    this.translationStatsPanel = section;
+    return section;
+  }
+
+  /**
+   * Update translation statistics panel with current data
+   */
+  updateTranslationStats(
+    total: number,
+    translated: number,
+    autoCount: number,
+    manualCount: number
+  ): void {
+    if (!this.translationStatsPanel) return;
+
+    if (this.translationStatsTotal) {
+      this.translationStatsTotal.textContent = total.toString();
+    }
+
+    if (this.translationStatsTranslated) {
+      this.translationStatsTranslated.textContent = translated.toString();
+    }
+
+    if (this.translationStatsProgress) {
+      const percentage = total > 0 ? Math.round((translated / total) * 100) : 0;
+      this.translationStatsProgress.textContent = `${percentage}%`;
+    }
+
+    if (this.translationStatsAuto) {
+      this.translationStatsAuto.textContent = autoCount.toString();
+    }
+
+    if (this.translationStatsManual) {
+      this.translationStatsManual.textContent = manualCount.toString();
+    }
+
+    logger.debug('Translation stats updated', {
+      total,
+      translated,
+      autoCount,
+      manualCount,
+    });
+  }
+
+  /**
+   * Update segment status list
+   */
+  updateSegmentStatusList(
+    segments: Array<{
+      elementId: string;
+      label: string;
+      status:
+        | 'auto-translated'
+        | 'manual'
+        | 'edited'
+        | 'out-of-sync'
+        | 'untranslated';
+    }>
+  ): void {
+    if (!this.translationSegmentStatusList) return;
+
+    if (segments.length === 0) {
+      this.translationSegmentStatusList.innerHTML = `
+        <div style="text-align: center; padding: 24px 12px; color: var(--review-color-muted); font-size: 12px;">
+          No segments loaded yet
+        </div>
+      `;
+      return;
+    }
+
+    this.translationSegmentStatusList.innerHTML = '';
+
+    const statusIcons: Record<string, string> = {
+      'auto-translated': '🤖',
+      manual: '✍️',
+      edited: '✏️',
+      'out-of-sync': '⚠️',
+      untranslated: '⭕',
+    };
+
+    segments.forEach((segment) => {
+      const item = createDiv('review-translation-segment-item');
+      item.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      `;
+      item.dataset.elementId = segment.elementId;
+
+      const icon = document.createElement('span');
+      icon.textContent = statusIcons[segment.status] || '•';
+      icon.style.fontSize = '14px';
+
+      const label = document.createElement('span');
+      label.textContent = segment.label;
+      label.style.flex = '1';
+      label.style.whiteSpace = 'nowrap';
+      label.style.overflow = 'hidden';
+      label.style.textOverflow = 'ellipsis';
+
+      item.appendChild(icon);
+      item.appendChild(label);
+      this.translationSegmentStatusList!.appendChild(item);
+    });
+
+    logger.debug('Segment status list updated', { count: segments.length });
+  }
+
+  /**
    * Create Debug section (only visible when debug mode is enabled)
    */
   private createDebugSection(): HTMLElement {
@@ -1121,6 +1358,11 @@ Role: ${currentUser.role}`;
     }
     if (this.translationSection) {
       this.translationSection.style.display = active ? 'none' : '';
+    }
+
+    // Show/hide translation stats panel
+    if (this.translationStatsPanel) {
+      this.translationStatsPanel.style.display = active ? '' : 'none';
     }
 
     // Show/hide translation tools

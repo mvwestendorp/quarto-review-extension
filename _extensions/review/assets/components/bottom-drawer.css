@@ -435,12 +435,126 @@
   }
 }
 
+/* Translation Statistics Panel */
+.review-translation-stats-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.review-translation-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.review-translation-stat-card {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.05), rgba(99, 102, 241, 0.05));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.review-translation-stat-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+}
+.review-translation-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--review-color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.review-translation-stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--review-color-primary);
+}
+/* Translation Segment List */
+.review-translation-segment-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--review-color-border);
+  border-radius: 8px;
+  padding: 8px;
+  background: rgba(248, 250, 252, 0.5);
+}
+.review-translation-segment-list::-webkit-scrollbar {
+  width: 6px;
+}
+.review-translation-segment-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+.review-translation-segment-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+}
+.review-translation-segment-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+.review-translation-segment-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s, padding-left 0.2s;
+}
+.review-translation-segment-item:hover {
+  background-color: rgba(99, 102, 241, 0.1);
+  border-left: 3px solid var(--review-color-primary);
+  padding-left: 5px;
+}
+.review-translation-segment-item span:first-child {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.review-translation-segment-item span:last-child {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--review-color-text);
+}
+@media (max-width: 1024px) {
+  .review-translation-stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .review-translation-segment-list {
+    max-height: 150px;
+  }
+}
+@media (max-width: 768px) {
+  .review-translation-stats-grid {
+    gap: 8px;
+  }
+  .review-translation-stat-card {
+    padding: 10px;
+  }
+  .review-translation-stat-value {
+    font-size: 18px;
+  }
+  .review-translation-segment-list {
+    max-height: 120px;
+    font-size: 11px;
+  }
+  .review-translation-segment-item {
+    padding: 6px;
+  }
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .review-bottom-drawer,
   .review-drawer-body,
   .review-comment-item,
-  .review-icon-chevron {
+  .review-icon-chevron,
+  .review-translation-stat-card,
+  .review-translation-segment-item {
     transition: none;
   }
 
