@@ -101,9 +101,9 @@ describe('CSS Build Process', () => {
     it('should have reasonable file size', () => {
       const stats = fs.statSync(devCssFile);
       const sizeKB = stats.size / 1024;
-      // Should be between 50-135 KB (with all @imports including translation.css and bottom-drawer.css, but not unified-sidebar.css)
+      // Should be between 50-140 KB (with all @imports including translation.css, bottom-drawer.css, margin-comments.css, and developer-panel.css)
       expect(sizeKB).toBeGreaterThan(50);
-      expect(sizeKB).toBeLessThan(135);
+      expect(sizeKB).toBeLessThan(140);
     });
   });
 

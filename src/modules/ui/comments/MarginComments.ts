@@ -339,15 +339,17 @@ export class MarginComments {
 
     window.addEventListener('scroll', this.scrollHandler, { passive: true });
 
-    // Also observe document height changes
-    this.resizeObserver = new ResizeObserver(() => {
-      // Recalculate positions when document size changes
-      this.refresh();
-    });
+    // Also observe document height changes (if ResizeObserver is available)
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(() => {
+        // Recalculate positions when document size changes
+        this.refresh();
+      });
 
-    const mainContent = document.querySelector('main');
-    if (mainContent) {
-      this.resizeObserver.observe(mainContent);
+      const mainContent = document.querySelector('main');
+      if (mainContent) {
+        this.resizeObserver.observe(mainContent);
+      }
     }
   }
 
