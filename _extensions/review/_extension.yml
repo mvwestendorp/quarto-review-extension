@@ -7,7 +7,7 @@ contributes:
     - review-modular.lua
   formats:
     html:
-      css: assets/review.css
+      css: assets/dist/review.css
       include-after-body:
         - text: |
             <script type="module" src="assets/review.js"></script>
