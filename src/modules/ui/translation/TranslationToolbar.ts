@@ -208,6 +208,8 @@ export class TranslationToolbar {
 
   /**
    * Create language selection section
+   * NOTE: Source language is detected from document and read-only.
+   * Only target language can be changed by the user.
    */
   private createLanguageSection(): HTMLElement {
     const section = createDiv('review-translation-toolbar-section');
@@ -217,38 +219,12 @@ export class TranslationToolbar {
     label.textContent = 'Languages:';
     section.appendChild(label);
 
-    // Source language select
-    const sourceSelect = document.createElement('select');
-    sourceSelect.className = 'review-translation-lang-select';
-    setAttributes(sourceSelect, { 'data-setting': 'source-language' });
-
-    this.config.availableLanguages.forEach((lang) => {
-      const option = document.createElement('option');
-      option.value = lang;
-      option.textContent = this.getLanguageLabel(lang);
-      if (lang === this.config.sourceLanguage) {
-        option.selected = true;
-      }
-      sourceSelect.appendChild(option);
-    });
-
-    sourceSelect.addEventListener('change', () => {
-      const newLanguage = sourceSelect.value as Language;
-      // Prevent source and target from being the same
-      if (newLanguage === this.config.targetLanguage) {
-        logger.warn('Cannot set source language to same as target', {
-          sourceLanguage: newLanguage,
-          targetLanguage: this.config.targetLanguage,
-        });
-        // Revert to previous selection
-        sourceSelect.value = this.config.sourceLanguage;
-        return;
-      }
-      this.callbacks.onSourceLanguageChange?.(newLanguage);
-      logger.info('Source language changed', { language: newLanguage });
-    });
-
-    section.appendChild(sourceSelect);
+    // Source language display (read-only)
+    const sourceLabel = document.createElement('span');
+    sourceLabel.className = 'review-translation-lang-label';
+    sourceLabel.textContent = `From: ${this.getLanguageLabel(this.config.sourceLanguage)}`;
+    sourceLabel.style.fontWeight = '500';
+    section.appendChild(sourceLabel);
 
     // Swap languages button
     const swapBtn = createButton('', 'review-btn review-btn-icon');
@@ -269,35 +245,30 @@ export class TranslationToolbar {
 
     section.appendChild(swapBtn);
 
-    // Target language select
+    // Target language select - this is the only one users can change
     const targetSelect = document.createElement('select');
     targetSelect.className = 'review-translation-lang-select';
     setAttributes(targetSelect, { 'data-setting': 'target-language' });
 
-    this.config.availableLanguages.forEach((lang) => {
-      const option = document.createElement('option');
-      option.value = lang;
-      option.textContent = this.getLanguageLabel(lang);
-      if (lang === this.config.targetLanguage) {
-        option.selected = true;
-      }
-      targetSelect.appendChild(option);
-    });
+    // Filter out source language from target options
+    this.config.availableLanguages
+      .filter((lang) => lang !== this.config.sourceLanguage)
+      .forEach((lang) => {
+        const option = document.createElement('option');
+        option.value = lang;
+        option.textContent = `To: ${this.getLanguageLabel(lang)}`;
+        if (lang === this.config.targetLanguage) {
+          option.selected = true;
+        }
+        targetSelect.appendChild(option);
+      });
 
     targetSelect.addEventListener('change', () => {
       const newLanguage = targetSelect.value as Language;
-      // Prevent source and target from being the same
-      if (newLanguage === this.config.sourceLanguage) {
-        logger.warn('Cannot set target language to same as source', {
-          sourceLanguage: this.config.sourceLanguage,
-          targetLanguage: newLanguage,
-        });
-        // Revert to previous selection
-        targetSelect.value = this.config.targetLanguage;
-        return;
-      }
-      this.callbacks.onTargetLanguageChange?.(newLanguage);
       logger.info('Target language changed', { language: newLanguage });
+      // Update config immediately
+      this.config.targetLanguage = newLanguage;
+      this.callbacks.onTargetLanguageChange?.(newLanguage);
     });
 
     section.appendChild(targetSelect);

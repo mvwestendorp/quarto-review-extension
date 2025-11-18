@@ -570,6 +570,16 @@ export class TranslationView {
 
     if (pairs.length === 0) return 'untranslated';
 
+    // ✅ For target sentences, check if content is empty
+    if (side === 'target') {
+      const sentence = this.document.targetSentences.find(
+        (s) => s.id === sentenceId
+      );
+      if (sentence && !sentence.content.trim()) {
+        return 'untranslated'; // Show as untranslated if empty, not "out-of-sync"
+      }
+    }
+
     // Return the most relevant status
     const statuses = pairs.map((p) => p.status);
     if (statuses.includes('out-of-sync')) return 'out-of-sync';
@@ -723,7 +733,7 @@ export class TranslationView {
 
       const elementId = sectionElement.dataset.elementId;
 
-      // Get all sentences in this section for this side
+      // Get all sentences in this section for the clicked side (source or target)
       const sectionSentences = Array.from(
         sectionElement.querySelectorAll(
           `.review-translation-sentence[data-side="${side}"]`
@@ -732,11 +742,9 @@ export class TranslationView {
         .map((el) => {
           const id = (el as HTMLElement).dataset.sentenceId;
           if (!id || !this.document) return null;
-          return (
-            this.document[
-              side === 'source' ? 'sourceSentences' : 'targetSentences'
-            ].find((s) => s.id === id) || null
-          );
+          return side === 'source'
+            ? this.document.sourceSentences.find((s) => s.id === id) || null
+            : this.document.targetSentences.find((s) => s.id === id) || null;
         })
         .filter((s): s is Sentence => s !== null);
 
@@ -745,10 +753,12 @@ export class TranslationView {
           sectionElement,
           elementId,
           sectionSentences,
-          side
+          side // Use the actual side (source or target)
         );
       } else {
-        logger.warn('No sentences found for segment edit', { elementId, side });
+        logger.warn(`No ${side} sentences found for segment edit`, {
+          elementId,
+        });
       }
     });
   }
@@ -1262,6 +1272,19 @@ export class TranslationView {
         }
 
         const newContent = module.getContent() || '';
+
+        // Validate that we're not saving empty content
+        if (!newContent || newContent.trim().length === 0) {
+          logger.error(
+            'Cannot save empty content - editor appears to have lost content',
+            {
+              elementId,
+              side,
+              contentLength: newContent.length,
+            }
+          );
+          return false;
+        }
 
         // Check if content actually changed (using captured segmentContent from closure)
         if (segmentContent === newContent) {

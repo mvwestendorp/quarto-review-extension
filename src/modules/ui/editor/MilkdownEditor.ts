@@ -82,9 +82,35 @@ export class MilkdownEditor extends ModuleEventEmitter {
   }
 
   /**
-   * Get current editor content
+   * Get current editor content from the editor instance
+   * Falls back to cached content if editor is not available
    */
   getContent(): string {
+    // Try to get content directly from editor if available
+    if (this.instance) {
+      try {
+        // Milkdown editor has a getMarkdown() method that returns current markdown
+        const markdown = (this.instance as any).getMarkdown?.();
+        if (typeof markdown === 'string' && markdown.length > 0) {
+          return markdown;
+        }
+        // If getMarkdown returned empty, try falling back to cached
+        if (typeof markdown === 'string') {
+          logger.debug('Editor returned empty markdown, using cached content', {
+            cachedLength: this.currentContent.length,
+          });
+          return this.currentContent;
+        }
+      } catch (error) {
+        logger.debug(
+          'Failed to get markdown from editor, using cached content',
+          {
+            error,
+          }
+        );
+      }
+    }
+    // Fallback to cached content if no editor instance
     return this.currentContent;
   }
 

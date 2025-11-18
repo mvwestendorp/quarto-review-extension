@@ -229,6 +229,12 @@ body.translation-mode .review-toolbar {
 }
 
 /* ===========================
+   Source and Target Panes (both editable, changes go to appropriate places)
+   =========================== */
+
+/* Both panes are normally interactive and editable */
+
+/* ===========================
    Translation Sections
    =========================== */
 

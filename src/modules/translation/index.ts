@@ -682,7 +682,11 @@ export class TranslationModule implements ChangesExtension {
     newContent: string,
     isSource: boolean
   ): void {
-    logger.debug('Updating sentence', { sentenceId, isSource, newContent });
+    logger.debug('Updating sentence', {
+      sentenceId,
+      isSource,
+      contentLength: newContent.length,
+    });
     this.state.updateSentence(sentenceId, newContent, isSource);
 
     const doc = this.state.getDocument();
@@ -690,50 +694,37 @@ export class TranslationModule implements ChangesExtension {
       return;
     }
 
-    if (isSource) {
-      const sourceSentence = doc.sourceSentences.find(
-        (s) => s.id === sentenceId
+    // For target sentences, update pair metadata and sync
+    if (!isSource) {
+      const pair = doc.correspondenceMap.pairs.find(
+        (p) => p.targetId === sentenceId
       );
-      if (sourceSentence) {
-        this.syncElementWithChangesModule(sourceSentence.elementId, 'source');
+
+      if (pair) {
+        const trimmed = newContent.trim();
+        const status = trimmed.length > 0 ? 'manual' : 'untranslated';
+        logger.debug('Updating pair metadata after target edit', {
+          pairId: pair.id,
+          status,
+          trimmedLength: trimmed.length,
+        });
+        this.state.updatePair(pair.id, {
+          status,
+          targetText: newContent,
+          method: status === 'manual' ? 'manual' : pair.method,
+          provider: status === 'manual' ? 'manual' : pair.provider,
+          isManuallyEdited: status === 'manual',
+        });
+
+        const targetSentence = doc.targetSentences.find(
+          (s) => s.id === sentenceId
+        );
+        if (!targetSentence) {
+          return;
+        }
+
+        this.syncElementWithChangesModule(targetSentence.elementId, 'target');
       }
-
-      if (this.config.config.autoTranslateOnEdit) {
-        // Re-translate affected target sentences asynchronously
-        void this.retranslateAffectedSentences(sentenceId);
-      }
-
-      return;
-    }
-
-    const pair = doc.correspondenceMap.pairs.find(
-      (p) => p.targetId === sentenceId
-    );
-
-    if (pair) {
-      const trimmed = newContent.trim();
-      const status = trimmed.length > 0 ? 'manual' : 'untranslated';
-      logger.debug('Updating pair metadata after target edit', {
-        pairId: pair.id,
-        status,
-        trimmedLength: trimmed.length,
-      });
-      this.state.updatePair(pair.id, {
-        status,
-        targetText: newContent,
-        method: status === 'manual' ? 'manual' : pair.method,
-        provider: status === 'manual' ? 'manual' : pair.provider,
-        isManuallyEdited: status === 'manual',
-      });
-
-      const targetSentence = doc.targetSentences.find(
-        (s) => s.id === sentenceId
-      );
-      if (!targetSentence) {
-        return;
-      }
-
-      this.syncElementWithChangesModule(targetSentence.elementId, 'target');
     }
 
     this.emitTranslationEvent('translation:state-updated', {
@@ -791,21 +782,18 @@ export class TranslationModule implements ChangesExtension {
       newSentenceCount: newSentences.length,
     });
 
-    // Replace sentences for this element
+    // Replace sentences for this element in internal state
     if (role === 'source') {
       this.replaceSourceSentencesForElement(elementId, newSentences);
-
-      // Mark corresponding target sentences as out-of-sync
+      // Mark corresponding target sentences as out-of-sync since source changed
       this.markTargetSentencesOutOfSync(elementId);
     } else {
       this.replaceTargetSentencesForElement(elementId, newSentences);
-
       // Update correspondence pairs
       this.updateCorrespondenceForElement(elementId);
+      // Sync target changes back to changes module
+      this.syncElementWithChangesModule(elementId, 'target');
     }
-
-    // Sync back to changes module
-    this.syncElementWithChangesModule(elementId, role);
 
     // Emit translation-specific event
     this.emitTranslationEvent('translation:state-updated', {
@@ -946,7 +934,7 @@ export class TranslationModule implements ChangesExtension {
     const segments = this.getSegmentsForElement(elementId, role);
 
     if (segments.length === 0) {
-      logger.debug('No target sentences for element when syncing', {
+      logger.debug('No sentences for element when syncing', {
         elementId,
         role,
       });
@@ -995,7 +983,13 @@ export class TranslationModule implements ChangesExtension {
       }
       return a.id.localeCompare(b.id);
     });
-    return ordered.map((segment) => segment.content).join('\n\n');
+    const merged = ordered.map((segment) => segment.content).join('\n\n');
+    logger.debug('Merged segments content', {
+      segmentCount: segments.length,
+      mergedLength: merged.length,
+      orderedIds: ordered.map((s) => s.id),
+    });
+    return merged;
   }
 
   public on<E extends TranslationExtensionEvent>(
@@ -1215,6 +1209,7 @@ export class TranslationModule implements ChangesExtension {
 
     logger.debug('Re-segmented element content', {
       elementId,
+      role: isSourceElement ? 'source' : 'target',
       oldSentenceCount: isSourceElement
         ? doc.sourceSentences.filter((s) => s.elementId === elementId).length
         : doc.targetSentences.filter((s) => s.elementId === elementId).length,
@@ -1224,12 +1219,10 @@ export class TranslationModule implements ChangesExtension {
     // Replace sentences for this element in internal state
     if (isSourceElement) {
       this.replaceSourceSentencesForElement(elementId, newSentences);
-
       // Mark corresponding target sentences as out-of-sync
       this.markTargetSentencesOutOfSync(elementId);
     } else {
       this.replaceTargetSentencesForElement(elementId, newSentences);
-
       // Update correspondence pairs if needed
       this.updateCorrespondenceForElement(elementId);
     }
@@ -1262,6 +1255,56 @@ export class TranslationModule implements ChangesExtension {
     // Add new sentences
     this.state.addSourceSentences(newSentences);
 
+    // CRITICAL: Create correspondence pairs for new source sentences that don't have pairs
+    // This ensures that after re-segmentation, new source sentences are properly linked to target sentences
+    const updatedDoc = this.state.getDocument();
+    if (updatedDoc) {
+      const targetSentencesForElement = updatedDoc.targetSentences.filter(
+        (s) => s.elementId === elementId
+      );
+
+      newSentences.forEach((sourceSentence) => {
+        // Check if this source sentence already has a correspondence pair
+        const existingPair = updatedDoc.correspondenceMap.pairs.find(
+          (p) => p.sourceId === sourceSentence.id
+        );
+
+        if (!existingPair && targetSentencesForElement.length > 0) {
+          // Create a new pair linking this source sentence to the corresponding target sentence
+          // Use simple 1:1 mapping based on order
+          const targetIndex = sourceSentence.order ?? 0;
+          const targetSentence = targetSentencesForElement[targetIndex];
+
+          if (targetSentence) {
+            const newPair = this.mapper.createMapping(
+              [sourceSentence],
+              [targetSentence],
+              'automatic'
+            )[0];
+
+            if (newPair) {
+              this.state.addTranslationPair({
+                ...newPair,
+                status: 'out-of-sync', // Mark as out-of-sync since source changed
+                method: 'automatic',
+                provider: 'unknown',
+                isManuallyEdited: false,
+              });
+
+              logger.debug(
+                'Created correspondence pair for new source sentence',
+                {
+                  elementId,
+                  sourceId: sourceSentence.id,
+                  targetId: targetSentence.id,
+                }
+              );
+            }
+          }
+        }
+      });
+    }
+
     logger.debug('Replaced source sentences for element', {
       elementId,
       removedCount: existingSentenceIds.length,
@@ -1290,6 +1333,56 @@ export class TranslationModule implements ChangesExtension {
 
     // Add new sentences
     this.state.addTargetSentences(newSentences);
+
+    // CRITICAL: Create correspondence pairs for new target sentences that don't have pairs
+    // This ensures that after re-segmentation, new target sentences are properly linked to source sentences
+    const updatedDoc = this.state.getDocument();
+    if (updatedDoc) {
+      const sourceSentencesForElement = updatedDoc.sourceSentences.filter(
+        (s) => s.elementId === elementId
+      );
+
+      newSentences.forEach((targetSentence) => {
+        // Check if this target sentence already has a correspondence pair
+        const existingPair = updatedDoc.correspondenceMap.pairs.find(
+          (p) => p.targetId === targetSentence.id
+        );
+
+        if (!existingPair && sourceSentencesForElement.length > 0) {
+          // Create a new pair linking this target sentence to the corresponding source sentence
+          // Use simple 1:1 mapping based on order
+          const sourceIndex = targetSentence.order ?? 0;
+          const sourceSentence = sourceSentencesForElement[sourceIndex];
+
+          if (sourceSentence) {
+            const newPair = this.mapper.createManualPair(
+              sourceSentence,
+              targetSentence
+            );
+
+            if (newPair) {
+              const hasContent = targetSentence.content.trim().length > 0;
+              this.state.addTranslationPair({
+                ...newPair,
+                status: hasContent ? 'manual' : 'untranslated',
+                method: hasContent ? 'manual' : 'automatic',
+                provider: hasContent ? 'manual' : 'unknown',
+                isManuallyEdited: hasContent,
+              });
+
+              logger.debug(
+                'Created correspondence pair for new target sentence',
+                {
+                  elementId,
+                  targetId: targetSentence.id,
+                  sourceId: sourceSentence.id,
+                }
+              );
+            }
+          }
+        }
+      });
+    }
 
     logger.debug('Replaced target sentences for element', {
       elementId,
@@ -1372,6 +1465,10 @@ export class TranslationModule implements ChangesExtension {
   /**
    * Merge translation edits back to review mode
    * Reconstructs element content from translated sentences and returns updates
+   *
+   * NOTE: This method returns only TARGET translations to be merged back.
+   * Source edits are stored via ChangesModule operations and the original markdown is preserved.
+   * This is how the translation UI works - edits are recorded but the original source is kept.
    */
   mergeToElements(): Map<string, string> {
     const doc = this.state.getDocument();
@@ -1387,7 +1484,7 @@ export class TranslationModule implements ChangesExtension {
       statusByTargetId.set(pair.targetId, pair.status);
     });
 
-    // Group target sentences by element ID
+    // Group target sentences by element ID for merging
     const sentencesByElement = new Map<
       string,
       { sentences: Sentence[]; meaningfulStatuses: Set<string> }
@@ -1409,7 +1506,7 @@ export class TranslationModule implements ChangesExtension {
       }
     });
 
-    // Reconstruct element content by merging translated sentences
+    // Reconstruct element content by merging target sentences
     sentencesByElement.forEach((data, elementId) => {
       const ordered = [...data.sentences].sort((a, b) => {
         if (a.order !== b.order) {
