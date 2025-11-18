@@ -1,7 +1,6 @@
 import { createModuleLogger } from '@utils/debug';
 import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
-import { escapeHtml } from '../shared';
 import { createDiv, createButton } from '@utils/dom-helpers';
 import { CommentEditor } from './CommentEditor';
 
@@ -15,6 +14,12 @@ export interface MarginCommentsCallbacks {
   onCancelEdit: () => void;
   onHover: (elementId: string, commentKey: string) => void;
   onLeave: () => void;
+  onSaveInlineEdit?: (
+    elementId: string,
+    comment: Comment,
+    newContent: string
+  ) => void;
+  onCancelInlineEdit?: (elementId: string, commentKey: string) => void;
 }
 
 interface CommentPosition {
@@ -34,8 +39,8 @@ export class MarginComments {
   private commentElements: Map<string, HTMLElement> = new Map();
   private scrollHandler: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
-  private activeEditor: CommentEditor | null = null;
   private editingCommentKey: string | null = null;
+  private activeEditor: CommentEditor | null = null;
 
   constructor() {
     this.ensureContainerCreated();
@@ -214,6 +219,11 @@ export class MarginComments {
   }
 
   destroy(): void {
+    // Exit edit mode if active
+    if (this.editingCommentKey) {
+      this.exitEditMode();
+    }
+
     if (this.scrollHandler) {
       window.removeEventListener('scroll', this.scrollHandler);
       this.scrollHandler = null;
@@ -330,14 +340,30 @@ export class MarginComments {
 
     card.appendChild(header);
 
-    // Comment text
+    // Comment text (or edit field)
     const text = createDiv('review-margin-comment-text');
-    text.innerHTML = escapeHtml(comment.content);
+    text.textContent = comment.content;
     card.appendChild(text);
 
+    // Edit field (hidden by default)
+    const editField = document.createElement('textarea');
+    editField.className = 'review-margin-comment-edit-field';
+    editField.value = comment.content;
+    editField.style.display = 'none';
+    editField.style.width = '100%';
+    editField.style.minHeight = '80px';
+    editField.style.padding = '8px';
+    editField.style.borderRadius = '4px';
+    editField.style.border = '1px solid var(--review-color-border)';
+    editField.style.fontFamily = 'inherit';
+    editField.style.fontSize = '13px';
+    editField.style.lineHeight = '1.5';
+    editField.style.marginBottom = '8px';
+    card.appendChild(editField);
+
     // Metadata (userId, timestamp)
+    const meta = createDiv('review-margin-comment-meta');
     if (comment.userId || comment.timestamp) {
-      const meta = createDiv('review-margin-comment-meta');
       const parts: string[] = [];
       if (comment.userId) parts.push(comment.userId);
       if (comment.timestamp) {
@@ -345,8 +371,8 @@ export class MarginComments {
         parts.push(date.toLocaleDateString());
       }
       meta.textContent = parts.join(' • ');
-      card.appendChild(meta);
     }
+    card.appendChild(meta);
 
     // Action buttons
     const actions = createDiv('review-margin-comment-actions');
@@ -520,7 +546,7 @@ export class MarginComments {
    */
   private updateCommentVisibility(): void {
     const viewportHeight = window.innerHeight;
-    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const containerTop = 80; // Account for header/toolbar padding in CSS
 
     this.commentElements.forEach((element, commentKey) => {
       const elementId = element.dataset.elementId;
@@ -533,8 +559,9 @@ export class MarginComments {
 
       if (!sectionElement) return;
 
+      // Get section position relative to viewport
       const sectionRect = sectionElement.getBoundingClientRect();
-      const sectionTop = sectionRect.top + scrollTop;
+      const sectionViewportTop = sectionRect.top;
       const sectionHeight = sectionRect.height;
 
       // Get the comment's vertical position relative to its section
@@ -546,16 +573,19 @@ export class MarginComments {
       );
       if (commentIndexInSection < 0) return;
 
-      // Calculate comment position: stick it to the section it belongs to
-      const commentTop = sectionTop + commentIndexInSection * 140; // 140px spacing
+      // Calculate comment position relative to viewport
+      // Since container is fixed with top: 0, we need viewport-relative positioning
+      const commentTop = Math.max(
+        containerTop, // Don't go above header
+        sectionViewportTop + commentIndexInSection * 140
+      );
       element.style.top = `${commentTop}px`;
 
       // Update visibility based on viewport
-      const elementBottom = sectionTop + sectionHeight;
-      const distanceFromViewport = Math.min(
-        Math.abs(sectionTop - scrollTop - viewportHeight / 2),
-        Math.abs(elementBottom - scrollTop - viewportHeight / 2)
-      );
+      // Comment is out of view if section is far from center of viewport
+      const sectionCenter = sectionViewportTop + sectionHeight / 2;
+      const viewportCenter = viewportHeight / 2;
+      const distanceFromViewport = Math.abs(sectionCenter - viewportCenter);
       const threshold = viewportHeight * 1.5;
 
       if (distanceFromViewport > threshold) {

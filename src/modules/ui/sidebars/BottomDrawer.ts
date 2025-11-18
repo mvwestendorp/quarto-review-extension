@@ -87,7 +87,7 @@ export class BottomDrawer {
   private translationStatsManual: HTMLElement | null = null;
   private translationSegmentStatusList: HTMLElement | null = null;
 
-  // Translation Tools elements
+  // Translation Tools elements (left column - buttons and controls)
   private translationToolsSection: HTMLElement | null = null;
   private translateDocumentBtn: HTMLButtonElement | null = null;
   private translateSentenceBtn: HTMLButtonElement | null = null;
@@ -96,15 +96,18 @@ export class BottomDrawer {
   private targetLanguageSelector: HTMLSelectElement | null = null;
   private swapLanguagesBtn: HTMLButtonElement | null = null;
   private autoTranslateToggle: HTMLInputElement | null = null;
-  private translationExportUnifiedBtn: HTMLButtonElement | null = null;
-  private translationExportSeparatedBtn: HTMLButtonElement | null = null;
-  private exitTranslationBtn: HTMLButtonElement | null = null;
-  private clearModelCacheBtn: HTMLButtonElement | null = null;
   private translationProgressContainer: HTMLElement | null = null;
   private translationProgressBar: HTMLElement | null = null;
   private translationProgressText: HTMLElement | null = null;
   private translateDocumentDefaultLabel = 'Translate Document';
   private translateSentenceDefaultLabel = 'Translate Selected';
+
+  // Translation Export section (right column - export buttons)
+  private translationExportSection: HTMLElement | null = null;
+  private translationExportUnifiedBtn: HTMLButtonElement | null = null;
+  private translationExportSeparatedBtn: HTMLButtonElement | null = null;
+  private exitTranslationBtn: HTMLButtonElement | null = null;
+  private clearModelCacheBtn: HTMLButtonElement | null = null;
 
   // Storage/Debug section
   private debugSection: HTMLElement | null = null;
@@ -175,15 +178,18 @@ export class BottomDrawer {
       'review-drawer-column review-drawer-column-right'
     );
 
-    // Left column: Review Tools and Export
+    // Left column: Review Tools / Translation Buttons
     this.reviewToolsSection = this.createReviewToolsSection();
     leftColumn.appendChild(this.reviewToolsSection);
 
-    this.exportSection = this.createExportSection();
-    leftColumn.appendChild(this.exportSection);
-
     this.translationSection = this.createTranslationToggleSection();
     leftColumn.appendChild(this.translationSection);
+
+    // Translation buttons section (only shown in translation mode)
+    const translationButtonsSection = this.createTranslationButtonsSection();
+    translationButtonsSection.style.display = 'none';
+    leftColumn.appendChild(translationButtonsSection);
+    this.translationToolsSection = translationButtonsSection;
 
     // Center column: Developer Panel (tabbed interface) OR Translation Stats (in translation mode)
     this.developerPanelSection = this.createDeveloperPanelSection();
@@ -194,10 +200,15 @@ export class BottomDrawer {
     translationStatsPanel.style.display = 'none';
     centerColumn.appendChild(translationStatsPanel);
 
-    // Right column: Translation Tools (when in translation mode) and Debug/Storage
-    this.translationToolsSection = this.createTranslationToolsSection();
-    this.translationToolsSection.style.display = 'none';
-    rightColumn.appendChild(this.translationToolsSection);
+    // Right column: Export / Translation Export
+    this.exportSection = this.createExportSection();
+    rightColumn.appendChild(this.exportSection);
+
+    // Translation export section (only shown in translation mode)
+    const translationExportSection = this.createTranslationExportSection();
+    translationExportSection.style.display = 'none';
+    rightColumn.appendChild(translationExportSection);
+    this.translationExportSection = translationExportSection;
 
     this.debugSection = this.createDebugSection();
     rightColumn.appendChild(this.debugSection);
@@ -978,9 +989,10 @@ Role: ${currentUser.role}`;
   }
 
   /**
-   * Create Translation Tools section
+   * Create Translation Buttons section (left column)
+   * Contains: Translate Document, Translate Selected, Provider, Languages, Settings
    */
-  private createTranslationToolsSection(): HTMLElement {
+  private createTranslationButtonsSection(): HTMLElement {
     const section = createDiv('review-drawer-section');
     section.setAttribute('data-section', 'translation-tools');
 
@@ -1179,10 +1191,23 @@ Role: ${currentUser.role}`;
     settingsDiv.appendChild(autoTranslateLabel);
     section.appendChild(settingsDiv);
 
-    // Export and exit buttons
-    const actionsDiv = createDiv();
-    actionsDiv.style.marginTop = '12px';
+    return section;
+  }
 
+  /**
+   * Create Translation Export section (right column)
+   * Contains: Export Unified, Export Separated, Clear Cache, Exit Translation
+   */
+  private createTranslationExportSection(): HTMLElement {
+    const section = createDiv('review-drawer-section');
+    section.setAttribute('data-section', 'translation-export');
+
+    const title = document.createElement('h4');
+    title.textContent = 'Export';
+    title.className = 'review-drawer-section-title';
+    section.appendChild(title);
+
+    // Export buttons
     const exportGroup = createDiv('review-drawer-button-group');
 
     this.translationExportUnifiedBtn = createButton(
@@ -1215,7 +1240,7 @@ Role: ${currentUser.role}`;
     });
     exportGroup.appendChild(this.translationExportSeparatedBtn);
 
-    actionsDiv.appendChild(exportGroup);
+    section.appendChild(exportGroup);
 
     this.clearModelCacheBtn = createButton(
       'Clear Model Cache',
@@ -1231,7 +1256,7 @@ Role: ${currentUser.role}`;
     this.clearModelCacheBtn.addEventListener('click', () => {
       this.onClearLocalModelCacheCallback?.();
     });
-    actionsDiv.appendChild(this.clearModelCacheBtn);
+    section.appendChild(this.clearModelCacheBtn);
 
     this.exitTranslationBtn = createButton(
       'Exit Translation',
@@ -1246,9 +1271,7 @@ Role: ${currentUser.role}`;
     this.exitTranslationBtn.addEventListener('click', () => {
       this.onToggleTranslationCallback?.();
     });
-    actionsDiv.appendChild(this.exitTranslationBtn);
-
-    section.appendChild(actionsDiv);
+    section.appendChild(this.exitTranslationBtn);
 
     return section;
   }
@@ -1365,9 +1388,14 @@ Role: ${currentUser.role}`;
       this.translationStatsPanel.style.display = active ? '' : 'none';
     }
 
-    // Show/hide translation tools
+    // Show/hide translation tools (left column)
     if (this.translationToolsSection) {
       this.translationToolsSection.style.display = active ? '' : 'none';
+    }
+
+    // Show/hide translation export section (right column)
+    if (this.translationExportSection) {
+      this.translationExportSection.style.display = active ? '' : 'none';
     }
 
     // Update undo/redo button handlers for translation mode
@@ -2424,6 +2452,11 @@ Role: ${currentUser.role}`;
     this.translationBtn = null;
     this.debugSection = null;
     this.translationToolsSection = null;
+    this.translationExportSection = null;
+    this.translationExportUnifiedBtn = null;
+    this.translationExportSeparatedBtn = null;
+    this.clearModelCacheBtn = null;
+    this.exitTranslationBtn = null;
     // Clear all callbacks
     this.onUndoCallback = null;
     this.onRedoCallback = null;
