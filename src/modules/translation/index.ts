@@ -1235,6 +1235,7 @@ export class TranslationModule implements ChangesExtension {
 
   /**
    * Replace all source sentences for an element
+   * CRITICAL: This also recreates correspondence pairs to prevent orphaned targets
    */
   private replaceSourceSentencesForElement(
     elementId: string,
@@ -1243,7 +1244,20 @@ export class TranslationModule implements ChangesExtension {
     const doc = this.state.getDocument();
     if (!doc) return;
 
-    // Remove all existing source sentences for this element
+    // STEP 1: Save existing target sentences for this element BEFORE removing sources
+    // This is critical because removing source sentences also removes their correspondence pairs
+    const existingTargetSentences = doc.targetSentences.filter(
+      (s) => s.elementId === elementId
+    );
+
+    logger.debug('Replacing source sentences for element', {
+      elementId,
+      existingTargetCount: existingTargetSentences.length,
+      newSourceCount: newSentences.length,
+    });
+
+    // STEP 2: Remove all existing source sentences for this element
+    // Note: This also removes their correspondence pairs via TranslationState.removeSentence
     const existingSentenceIds = doc.sourceSentences
       .filter((s) => s.elementId === elementId)
       .map((s) => s.id);
@@ -1252,57 +1266,49 @@ export class TranslationModule implements ChangesExtension {
       this.state.removeSentence(id, true);
     });
 
-    // Add new sentences
+    // STEP 3: Add new source sentences (these have NEW IDs from re-segmentation)
     this.state.addSourceSentences(newSentences);
 
-    // CRITICAL: Create correspondence pairs for new source sentences that don't have pairs
-    // This ensures that after re-segmentation, new source sentences are properly linked to target sentences
-    const updatedDoc = this.state.getDocument();
-    if (updatedDoc) {
-      const targetSentencesForElement = updatedDoc.targetSentences.filter(
-        (s) => s.elementId === elementId
+    // STEP 4: Recreate correspondence pairs between new sources and existing targets
+    // This is the CRITICAL step that was missing - without it, targets become orphaned!
+    if (existingTargetSentences.length > 0 && newSentences.length > 0) {
+      logger.debug('Recreating correspondence pairs after source replacement', {
+        elementId,
+        sourceCount: newSentences.length,
+        targetCount: existingTargetSentences.length,
+      });
+
+      // Create new pairs using the mapper
+      // The mapper will align sentences by order/position
+      const newPairs = this.mapper.createMapping(
+        newSentences,
+        existingTargetSentences,
+        'automatic'
       );
 
-      newSentences.forEach((sourceSentence) => {
-        // Check if this source sentence already has a correspondence pair
-        const existingPair = updatedDoc.correspondenceMap.pairs.find(
-          (p) => p.sourceId === sourceSentence.id
-        );
-
-        if (!existingPair && targetSentencesForElement.length > 0) {
-          // Create a new pair linking this source sentence to the corresponding target sentence
-          // Use simple 1:1 mapping based on order
-          const targetIndex = sourceSentence.order ?? 0;
-          const targetSentence = targetSentencesForElement[targetIndex];
-
-          if (targetSentence) {
-            const newPair = this.mapper.createMapping(
-              [sourceSentence],
-              [targetSentence],
-              'automatic'
-            )[0];
-
-            if (newPair) {
-              this.state.addTranslationPair({
-                ...newPair,
-                status: 'out-of-sync', // Mark as out-of-sync since source changed
-                method: 'automatic',
-                provider: 'unknown',
-                isManuallyEdited: false,
-              });
-
-              logger.debug(
-                'Created correspondence pair for new source sentence',
-                {
-                  elementId,
-                  sourceId: sourceSentence.id,
-                  targetId: targetSentence.id,
-                }
-              );
-            }
-          }
-        }
+      // Add all new pairs with 'out-of-sync' status since source changed
+      newPairs.forEach((pair) => {
+        this.state.addTranslationPair({
+          ...pair,
+          status: 'out-of-sync',
+          isManuallyEdited: false,
+          lastModified: Date.now(),
+        });
       });
+
+      logger.info('Correspondence pairs recreated after source replacement', {
+        elementId,
+        pairCount: newPairs.length,
+      });
+    } else if (existingTargetSentences.length > 0) {
+      // Targets exist but no new sources - log warning
+      logger.warn(
+        'Target sentences exist but no source sentences after replacement',
+        {
+          elementId,
+          targetCount: existingTargetSentences.length,
+        }
+      );
     }
 
     logger.debug('Replaced source sentences for element', {
@@ -1314,6 +1320,7 @@ export class TranslationModule implements ChangesExtension {
 
   /**
    * Replace all target sentences for an element
+   * CRITICAL: This also recreates correspondence pairs to prevent orphaned sources
    */
   private replaceTargetSentencesForElement(
     elementId: string,
@@ -1322,7 +1329,20 @@ export class TranslationModule implements ChangesExtension {
     const doc = this.state.getDocument();
     if (!doc) return;
 
-    // Remove all existing target sentences for this element
+    // STEP 1: Save existing source sentences for this element BEFORE removing targets
+    // This is critical because removing target sentences also removes their correspondence pairs
+    const existingSourceSentences = doc.sourceSentences.filter(
+      (s) => s.elementId === elementId
+    );
+
+    logger.debug('Replacing target sentences for element', {
+      elementId,
+      existingSourceCount: existingSourceSentences.length,
+      newTargetCount: newSentences.length,
+    });
+
+    // STEP 2: Remove all existing target sentences for this element
+    // Note: This also removes their correspondence pairs via TranslationState.removeSentence
     const existingSentenceIds = doc.targetSentences
       .filter((s) => s.elementId === elementId)
       .map((s) => s.id);
@@ -1331,57 +1351,57 @@ export class TranslationModule implements ChangesExtension {
       this.state.removeSentence(id, false);
     });
 
-    // Add new sentences
+    // STEP 3: Add new target sentences (these have NEW IDs from re-segmentation)
     this.state.addTargetSentences(newSentences);
 
-    // CRITICAL: Create correspondence pairs for new target sentences that don't have pairs
-    // This ensures that after re-segmentation, new target sentences are properly linked to source sentences
-    const updatedDoc = this.state.getDocument();
-    if (updatedDoc) {
-      const sourceSentencesForElement = updatedDoc.sourceSentences.filter(
-        (s) => s.elementId === elementId
+    // STEP 4: Recreate correspondence pairs between existing sources and new targets
+    // This is the CRITICAL step that was missing - without it, sources become orphaned!
+    if (existingSourceSentences.length > 0 && newSentences.length > 0) {
+      logger.debug('Recreating correspondence pairs after target replacement', {
+        elementId,
+        sourceCount: existingSourceSentences.length,
+        targetCount: newSentences.length,
+      });
+
+      // Create new pairs using the mapper
+      // The mapper will align sentences by order/position
+      const newPairs = this.mapper.createMapping(
+        existingSourceSentences,
+        newSentences,
+        'manual' // Target was manually edited
       );
 
-      newSentences.forEach((targetSentence) => {
-        // Check if this target sentence already has a correspondence pair
-        const existingPair = updatedDoc.correspondenceMap.pairs.find(
-          (p) => p.targetId === targetSentence.id
-        );
+      // Add all new pairs with 'manual' status since target was edited
+      newPairs.forEach((pair) => {
+        // Determine status based on target content
+        const targetSentence = newSentences.find((s) => s.id === pair.targetId);
+        const status = targetSentence?.content.trim()
+          ? 'manual'
+          : 'untranslated';
 
-        if (!existingPair && sourceSentencesForElement.length > 0) {
-          // Create a new pair linking this target sentence to the corresponding source sentence
-          // Use simple 1:1 mapping based on order
-          const sourceIndex = targetSentence.order ?? 0;
-          const sourceSentence = sourceSentencesForElement[sourceIndex];
-
-          if (sourceSentence) {
-            const newPair = this.mapper.createManualPair(
-              sourceSentence,
-              targetSentence
-            );
-
-            if (newPair) {
-              const hasContent = targetSentence.content.trim().length > 0;
-              this.state.addTranslationPair({
-                ...newPair,
-                status: hasContent ? 'manual' : 'untranslated',
-                method: hasContent ? 'manual' : 'automatic',
-                provider: hasContent ? 'manual' : 'unknown',
-                isManuallyEdited: hasContent,
-              });
-
-              logger.debug(
-                'Created correspondence pair for new target sentence',
-                {
-                  elementId,
-                  targetId: targetSentence.id,
-                  sourceId: sourceSentence.id,
-                }
-              );
-            }
-          }
-        }
+        this.state.addTranslationPair({
+          ...pair,
+          status,
+          method: status === 'manual' ? 'manual' : pair.method,
+          provider: status === 'manual' ? 'manual' : pair.provider,
+          isManuallyEdited: status === 'manual',
+          lastModified: Date.now(),
+        });
       });
+
+      logger.info('Correspondence pairs recreated after target replacement', {
+        elementId,
+        pairCount: newPairs.length,
+      });
+    } else if (existingSourceSentences.length > 0) {
+      // Sources exist but no new targets - log warning
+      logger.warn(
+        'Source sentences exist but no target sentences after replacement',
+        {
+          elementId,
+          sourceCount: existingSourceSentences.length,
+        }
+      );
     }
 
     logger.debug('Replaced target sentences for element', {

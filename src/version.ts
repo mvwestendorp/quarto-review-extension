@@ -46,16 +46,7 @@ export function getBuildString(): string {
  * Get full build information string
  */
 export function getFullBuildInfo(): string {
-  const {
-    version,
-    buildNumber,
-    buildDate,
-    commit,
-    branch,
-    pr,
-    buildType,
-    buildUrl,
-  } = BUILD_INFO;
+  const { version, buildNumber, buildDate, commit, branch, pr, buildType, buildUrl } = BUILD_INFO;
   const parts = [
     `Version: ${version}`,
     `Build: ${buildNumber}`,
