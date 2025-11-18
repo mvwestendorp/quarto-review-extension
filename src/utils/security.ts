@@ -96,9 +96,15 @@ function sanitizeKey(key: string): string {
 
 /**
  * Get prefixed storage key
+ * Avoids double-prefixing if key already starts with application prefix
  */
 function getPrefixedKey(key: string): string {
-  return `${STORAGE_PREFIX}${sanitizeKey(key)}`;
+  const sanitized = sanitizeKey(key);
+  // Don't add prefix if key already starts with it (prevents quarto-review:quarto-review-user)
+  if (sanitized.startsWith(STORAGE_PREFIX.replace(':', ''))) {
+    return sanitized;
+  }
+  return `${STORAGE_PREFIX}${sanitized}`;
 }
 
 /**
@@ -198,31 +204,36 @@ export const SafeStorage = {
         return null;
       }
 
-      // Parse envelope
-      const envelope = JSON.parse(stored);
+      // Parse stored value
+      const parsed = JSON.parse(stored);
 
-      // Validate envelope structure
-      if (!envelope.data || !envelope.timestamp) {
-        logger.warn('Invalid storage envelope', { key });
-        localStorage.removeItem(prefixedKey);
-        return null;
+      // Check if this is an envelope structure or legacy plain JSON
+      // Envelope has: { data, timestamp, expiresAt?, version? }
+      // Legacy has: any direct JSON value
+      if (parsed && typeof parsed === 'object' && 'data' in parsed && 'timestamp' in parsed) {
+        // This is an envelope structure
+        const envelope = parsed;
+
+        // Check expiration
+        if (envelope.expiresAt && Date.now() > envelope.expiresAt) {
+          logger.debug('Storage item expired', { key });
+          localStorage.removeItem(prefixedKey);
+          return null;
+        }
+
+        // Parse actual data from envelope
+        if (!isValidJSON(envelope.data)) {
+          logger.warn('Invalid JSON in envelope data', { key });
+          localStorage.removeItem(prefixedKey);
+          return null;
+        }
+
+        return JSON.parse(envelope.data) as T;
+      } else {
+        // Legacy plain JSON - return as-is for backward compatibility
+        logger.debug('Reading legacy plain JSON from storage', { key });
+        return parsed as T;
       }
-
-      // Check expiration
-      if (envelope.expiresAt && Date.now() > envelope.expiresAt) {
-        logger.debug('Storage item expired', { key });
-        localStorage.removeItem(prefixedKey);
-        return null;
-      }
-
-      // Parse actual data
-      if (!isValidJSON(envelope.data)) {
-        logger.warn('Invalid JSON in envelope data', { key });
-        localStorage.removeItem(prefixedKey);
-        return null;
-      }
-
-      return JSON.parse(envelope.data) as T;
     } catch (error) {
       logger.error('Failed to get storage item', { key, error });
       return null;
@@ -244,7 +255,7 @@ export const SafeStorage = {
 
   /**
    * Clear all application storage
-   * Only removes items with our prefix
+   * Only removes items with our prefix or application namespace
    */
   clear(): void {
     try {
@@ -252,7 +263,8 @@ export const SafeStorage = {
       let removed = 0;
 
       for (const key of keys) {
-        if (key.startsWith(STORAGE_PREFIX)) {
+        // Remove keys with prefix or keys that start with 'quarto-review'
+        if (key.startsWith(STORAGE_PREFIX) || key.startsWith('quarto-review')) {
           localStorage.removeItem(key);
           removed++;
         }

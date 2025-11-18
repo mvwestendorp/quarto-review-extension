@@ -1051,7 +1051,12 @@ export class TranslationController {
       this.translationModule.updateSentence(sentenceId, newContent, true);
       this.translationModule.saveToStorageNow();
       this.showNotification('Source sentence updated', 'success');
-      this.refreshViewFromState();
+
+      // Refresh view without syncing source sentences to ChangesModule
+      const document = this.translationModule.getDocument();
+      if (document && this.view) {
+        this.view.loadDocument(document);
+      }
 
       // Auto-retranslate if enabled
       if (this.config.translationModuleConfig.config.autoTranslateOnEdit) {
@@ -1060,7 +1065,13 @@ export class TranslationController {
         try {
           await this.translationModule.translateSentence(sentenceId);
           this.showNotification('Translation updated', 'success');
-          this.refreshViewFromState();
+
+          // Refresh view without syncing source sentences to ChangesModule
+          const document = this.translationModule.getDocument();
+          if (document && this.view) {
+            this.view.loadDocument(document);
+          }
+
           this.clearSentenceErrors([sentenceId]);
         } catch (error) {
           const message =
