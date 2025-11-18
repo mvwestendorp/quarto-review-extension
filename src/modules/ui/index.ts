@@ -48,6 +48,7 @@ import type { UserModule } from '@modules/user';
 // CriticMarkup components are now handled by MilkdownEditor module
 import { ChangeSummaryDashboard } from './change-summary';
 import { createModuleLogger } from '@utils/debug';
+import { SecureTokenStorage, SafeStorage } from '@utils/security';
 import { initializeDebugTools } from '@utils/debug-tools';
 import type { ChangesModule } from '@modules/changes';
 import type { MarkdownModule } from '@modules/markdown';
@@ -1408,7 +1409,7 @@ export class UIModule {
     }
     try {
       const key = this.getPatStorageKey();
-      return key ? window.localStorage.getItem(key) : null;
+      return key ? SecureTokenStorage.getToken(key) : null;
     } catch {
       return null;
     }
@@ -1423,7 +1424,8 @@ export class UIModule {
       return;
     }
     try {
-      window.localStorage.setItem(key, token);
+      // Store token with 1 hour expiration (3600000ms)
+      SecureTokenStorage.setToken(key, token, 3600000);
     } catch {
       // Ignore storage failures
     }
@@ -1454,9 +1456,8 @@ export class UIModule {
     const key = this.getGitSessionStorageKey();
     if (!key) return null;
     try {
-      const raw = window.localStorage.getItem(key);
-      if (!raw) return null;
-      return JSON.parse(raw) as GitReviewSession;
+      const session = SafeStorage.getItem(key);
+      return session as GitReviewSession | null;
     } catch {
       return null;
     }
@@ -1494,7 +1495,8 @@ export class UIModule {
       return;
     }
     try {
-      window.localStorage.setItem(key, JSON.stringify(session));
+      // Store session with 24 hour expiration
+      SafeStorage.setItem(key, session, { expiresIn: 86400000 });
     } catch {
       // Ignore storage errors
     }
@@ -1513,7 +1515,7 @@ export class UIModule {
       return;
     }
     try {
-      window.localStorage.removeItem(key);
+      SafeStorage.removeItem(key);
     } catch {
       // noop
     }

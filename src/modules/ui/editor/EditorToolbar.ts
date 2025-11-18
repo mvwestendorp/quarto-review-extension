@@ -18,6 +18,7 @@ import {
   addClass,
   toggleClass,
 } from '@utils/dom-helpers';
+import { SafeStorage } from '@utils/security';
 
 /**
  * Editor toolbar action types
@@ -354,24 +355,21 @@ export class EditorToolbar {
    */
   private loadContextModePreference(): boolean {
     try {
-      const saved = localStorage.getItem('review-toolbar-context-mode');
-      return saved ? JSON.parse(saved) : true;
+      const saved = SafeStorage.getItem('review-toolbar-context-mode');
+      return saved !== null ? (saved as boolean) : true;
     } catch {
       return true; // Default to context mode on error
     }
   }
 
   /**
-   * Save context mode preference to localStorage
+   * Save context mode preference to SafeStorage
    */
   private saveContextModePreference(): void {
     try {
-      localStorage.setItem(
-        'review-toolbar-context-mode',
-        JSON.stringify(this.useContextMode)
-      );
+      SafeStorage.setItem('review-toolbar-context-mode', this.useContextMode);
     } catch {
-      // Silently fail if localStorage unavailable
+      // Silently fail if storage unavailable
     }
   }
 

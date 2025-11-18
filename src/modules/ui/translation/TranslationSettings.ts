@@ -7,6 +7,7 @@
 
 import { createModuleLogger } from '@utils/debug';
 import type { Language } from '@modules/translation/types';
+import { SafeStorage } from '@utils/security';
 
 const logger = createModuleLogger('TranslationSettings');
 const STORAGE_KEY = 'quarto-review-translation-settings';
@@ -29,13 +30,13 @@ export class TranslationSettings {
   }
 
   /**
-   * Load settings from LocalStorage
+   * Load settings from SafeStorage
    */
   private loadSettings(): void {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
+      const stored = SafeStorage.getItem(STORAGE_KEY);
       if (stored) {
-        this.settings = JSON.parse(stored);
+        this.settings = stored as TranslationUserSettings;
         logger.debug('Loaded translation settings from storage', this.settings);
       }
     } catch (error) {
@@ -45,11 +46,11 @@ export class TranslationSettings {
   }
 
   /**
-   * Save settings to LocalStorage
+   * Save settings to SafeStorage
    */
   private saveSettings(): void {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.settings));
+      SafeStorage.setItem(STORAGE_KEY, this.settings);
       logger.debug('Saved translation settings to storage', this.settings);
     } catch (error) {
       logger.warn('Failed to save translation settings to storage', error);
@@ -101,7 +102,7 @@ export class TranslationSettings {
   clearAll(): void {
     this.settings = {};
     try {
-      localStorage.removeItem(STORAGE_KEY);
+      SafeStorage.removeItem(STORAGE_KEY);
       logger.info('Cleared all translation settings');
     } catch (error) {
       logger.warn('Failed to clear translation settings', error);
