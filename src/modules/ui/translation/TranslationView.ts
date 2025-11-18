@@ -20,7 +20,7 @@ import {
   setAttributes,
   toggleClass,
 } from '@utils/dom-helpers';
-import { throttle, createRAFScheduler } from '@utils/performance';
+import { throttle } from '@utils/performance';
 
 const logger = createModuleLogger('TranslationView');
 
