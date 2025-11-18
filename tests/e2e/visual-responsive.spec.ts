@@ -73,6 +73,7 @@ test.describe('Visual Regression - Mobile Viewports', () => {
       await page.evaluate(() => {
         const drawer = document.createElement('div');
         drawer.className = 'review-bottom-drawer';
+        drawer.id = 'visual-test-drawer'; // Unique ID for test element
         drawer.style.position = 'fixed';
         drawer.style.bottom = '0';
         drawer.style.left = '0';
@@ -91,7 +92,7 @@ test.describe('Visual Regression - Mobile Viewports', () => {
 
       await page.waitForTimeout(200);
 
-      const drawer = page.locator('.review-bottom-drawer');
+      const drawer = page.locator('#visual-test-drawer');
       await expect(drawer).toHaveScreenshot(`bottom-drawer-${viewport.name.replace(/\s/g, '-').toLowerCase()}.png`);
     });
 

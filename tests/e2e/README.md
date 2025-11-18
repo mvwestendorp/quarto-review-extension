@@ -191,13 +191,60 @@ const meetsWCAG = await meetsTouchTargetSize(page, '#button', 44);
 
 ## Visual Regression Testing
 
-### How It Works
+Visual regression tests compare screenshots against baseline images.
+
+### First Time Setup
+
+Visual regression tests **will fail on the first run** because baseline screenshots don't exist yet. This is expected behavior.
+
+**To generate baseline screenshots locally:**
+
+```bash
+# Build and render
+npm run build
+quarto render example/
+
+# Run visual tests to generate baselines (they will "fail" creating baselines)
+npm run test:e2e -- visual-responsive.spec.ts
+
+# The baselines are now in tests/e2e/visual-responsive.spec.ts-snapshots/
+# Commit these baseline images to git
+git add tests/e2e/visual-responsive.spec.ts-snapshots/
+git commit -m "Add visual regression baselines"
+```
+
+### Updating Baselines
+
+When you intentionally change the UI:
+
+```bash
+# Update all baselines
+npm run test:e2e -- visual-responsive --update-snapshots
+
+# Review the changes
+git diff tests/e2e/visual-responsive.spec.ts-snapshots/
+
+# Commit if changes are intentional
+git add tests/e2e/visual-responsive.spec.ts-snapshots/
+git commit -m "Update visual regression baselines for [feature]"
+```
+
+### Skipping Visual Tests
+
+Visual regression tests can be skipped in CI if baselines aren't ready:
+
+```bash
+# Run all tests except visual regression
+npm run test:e2e -- --grep-invert "Visual Regression"
+```
+
+### How Visual Regression Works
 
 1. First run creates baseline screenshots
 2. Subsequent runs compare against baselines
 3. Failures generate diff images showing changes
 
-### Managing Baselines
+### Managing Baseline Screenshots
 
 ```bash
 # Update all baselines (after intentional UI changes)
