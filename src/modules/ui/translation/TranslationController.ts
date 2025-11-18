@@ -948,7 +948,11 @@ export class TranslationController {
 
     try {
       // Update segment content with re-segmentation
-      this.translationModule.updateSegmentContent(elementId, newContent, 'source');
+      this.translationModule.updateSegmentContent(
+        elementId,
+        newContent,
+        'source'
+      );
       this.translationModule.saveToStorageNow();
       this.showNotification('Source segment updated', 'success');
       this.refreshViewFromState();
@@ -1013,7 +1017,11 @@ export class TranslationController {
 
     try {
       // Update segment content with re-segmentation
-      this.translationModule.updateSegmentContent(elementId, newContent, 'target');
+      this.translationModule.updateSegmentContent(
+        elementId,
+        newContent,
+        'target'
+      );
       this.translationModule.saveToStorageNow();
       this.showNotification('Target segment updated', 'success');
       this.refreshViewFromState();
