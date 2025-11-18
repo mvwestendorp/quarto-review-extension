@@ -65,6 +65,14 @@ export class BottomDrawer {
   private developerPanelPanes: Map<string, HTMLElement> = new Map();
   private activeDeveloperTab: string = 'changes';
 
+  // Editor Mode (for mobile/responsive editing)
+  private _editorModeActive = false;
+  private editorModeSection: HTMLElement | null = null;
+  private editorModeBody: HTMLElement | null = null;
+  private editorModeSaveBtn: HTMLButtonElement | null = null;
+  private editorModeCancelBtn: HTMLButtonElement | null = null;
+  private _currentEditingElementId: string | null = null;
+
   // Translation section elements
   private translationSection: HTMLElement | null = null;
   private translationBtn: HTMLButtonElement | null = null;
@@ -120,6 +128,8 @@ export class BottomDrawer {
   private onTranslationExportUnifiedCallback: (() => void) | null = null;
   private onTranslationExportSeparatedCallback: (() => void) | null = null;
   private onClearLocalModelCacheCallback: (() => void) | null = null;
+  private onEditorSaveCallback: (() => void) | null = null;
+  private onEditorCancelCallback: (() => void) | null = null;
 
   /**
    * Create the bottom drawer element
@@ -1979,6 +1989,161 @@ Role: ${currentUser.role}`;
 
   onClearLocalModelCache(callback?: () => void): void {
     this.onClearLocalModelCacheCallback = callback ?? null;
+  }
+
+  /**
+   * Open editor mode in the drawer (for mobile screens)
+   */
+  openEditorMode(
+    elementId: string,
+    onSave: () => void,
+    onCancel: () => void
+  ): HTMLElement {
+    this._editorModeActive = true;
+    this._currentEditingElementId = elementId;
+    this.onEditorSaveCallback = onSave;
+    this.onEditorCancelCallback = onCancel;
+
+    // Create editor mode section if it doesn't exist
+    if (!this.editorModeSection) {
+      this.editorModeSection = this.createEditorModeSection();
+      // Insert editor mode section after the header but before other content
+      const body = this.element?.querySelector(
+        '.review-drawer-body'
+      ) as HTMLElement;
+      if (body) {
+        body.insertBefore(this.editorModeSection, body.firstChild);
+      }
+    }
+
+    // Hide developer panel and other sections
+    if (this.developerPanelSection) {
+      this.developerPanelSection.style.display = 'none';
+    }
+    if (this.reviewToolsSection) {
+      this.reviewToolsSection.style.display = 'none';
+    }
+    if (this.exportSection) {
+      this.exportSection.style.display = 'none';
+    }
+    if (this.translationSection) {
+      this.translationSection.style.display = 'none';
+    }
+
+    // Show editor mode section
+    if (this.editorModeSection) {
+      this.editorModeSection.style.display = 'flex';
+    }
+
+    // Ensure drawer is expanded
+    this.setExpanded(true);
+
+    // Update drawer title
+    if (this.drawerTitle) {
+      this.drawerTitle.textContent = '✏️ Editing Section';
+    }
+
+    logger.debug(`Editor mode opened for element ${elementId}`);
+
+    return this.editorModeBody!;
+  }
+
+  /**
+   * Close editor mode and restore developer panel
+   */
+  closeEditorMode(): void {
+    this._editorModeActive = false;
+    this._currentEditingElementId = null;
+    this.onEditorSaveCallback = null;
+    this.onEditorCancelCallback = null;
+
+    // Hide editor mode section
+    if (this.editorModeSection) {
+      this.editorModeSection.style.display = 'none';
+    }
+
+    // Restore developer panel and other sections
+    if (this.developerPanelSection) {
+      this.developerPanelSection.style.display = 'block';
+    }
+    if (this.reviewToolsSection) {
+      this.reviewToolsSection.style.display = 'block';
+    }
+    if (this.exportSection) {
+      this.exportSection.style.display = 'block';
+    }
+    if (this.translationSection) {
+      this.translationSection.style.display = 'block';
+    }
+
+    // Restore drawer title
+    if (this.drawerTitle) {
+      this.drawerTitle.textContent = 'Review Tools';
+    }
+
+    logger.debug('Editor mode closed');
+  }
+
+  /**
+   * Create editor mode section
+   */
+  private createEditorModeSection(): HTMLElement {
+    const section = createDiv('review-drawer-editor-mode');
+    section.style.display = 'none'; // Hidden by default
+    section.style.flexDirection = 'column';
+    section.style.gap = '12px';
+    section.style.flex = '1';
+    section.style.minHeight = '0';
+
+    // Editor title
+    const title = document.createElement('h4');
+    title.textContent = 'Edit Content';
+    title.className = 'review-section-title';
+    section.appendChild(title);
+
+    // Editor body (where Milkdown will be initialized)
+    this.editorModeBody = createDiv('review-drawer-editor-body');
+    this.editorModeBody.style.flex = '1';
+    this.editorModeBody.style.minHeight = '200px';
+    this.editorModeBody.style.border =
+      '1px solid var(--review-color-border, #e2e8f0)';
+    this.editorModeBody.style.borderRadius = '8px';
+    this.editorModeBody.style.padding = '12px';
+    this.editorModeBody.style.backgroundColor = '#fff';
+    this.editorModeBody.style.overflow = 'auto';
+    section.appendChild(this.editorModeBody);
+
+    // Actions (Save and Cancel buttons)
+    const actions = createDiv('review-drawer-editor-actions');
+    actions.style.display = 'flex';
+    actions.style.gap = '8px';
+    actions.style.justifyContent = 'flex-end';
+
+    this.editorModeCancelBtn = createButton(
+      'Cancel',
+      'review-btn review-btn-secondary review-btn-sm'
+    );
+    this.editorModeCancelBtn.addEventListener('click', () => {
+      if (this.onEditorCancelCallback) {
+        this.onEditorCancelCallback();
+      }
+    });
+    actions.appendChild(this.editorModeCancelBtn);
+
+    this.editorModeSaveBtn = createButton(
+      'Save',
+      'review-btn review-btn-primary review-btn-sm'
+    );
+    this.editorModeSaveBtn.addEventListener('click', () => {
+      if (this.onEditorSaveCallback) {
+        this.onEditorSaveCallback();
+      }
+    });
+    actions.appendChild(this.editorModeSaveBtn);
+
+    section.appendChild(actions);
+
+    return section;
   }
 
   destroy(): void {

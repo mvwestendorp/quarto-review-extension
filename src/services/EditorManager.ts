@@ -59,6 +59,12 @@ export interface EditorCallbacks {
     trackedContent?: string;
     diffHighlights?: DiffHighlightRange[];
   };
+  openDrawerEditor?: (
+    elementId: string,
+    content: string,
+    diffHighlights?: DiffHighlightRange[]
+  ) => void;
+  closeDrawerEditor?: () => void;
 }
 
 /**
@@ -99,6 +105,13 @@ export class EditorManager {
   }
 
   /**
+   * Check if device is mobile-sized (should use drawer editor)
+   */
+  private isMobileScreen(): boolean {
+    return window.innerWidth < 1024;
+  }
+
+  /**
    * Open editor for an element
    */
   public openEditor(elementId: string): void {
@@ -132,13 +145,69 @@ export class EditorManager {
     this.isOperationInProgress = true;
 
     try {
-      this.openInlineEditor(targetId);
+      // Use drawer editor on mobile screens, inline editor on desktop
+      if (this.isMobileScreen() && this.callbacks.openDrawerEditor) {
+        this.openDrawerEditorMode(targetId);
+      } else {
+        this.openInlineEditor(targetId);
+      }
     } catch (error) {
       logger.error('Failed to open editor:', error);
       this.isOperationInProgress = false;
       this.config.notificationService.error('Failed to open editor');
       throw error; // Re-throw to propagate the error to the caller
     }
+  }
+
+  /**
+   * Open drawer editor (for mobile screens)
+   */
+  private openDrawerEditorMode(elementId: string): void {
+    // Close any existing editor
+    this.closeEditor();
+
+    this.stateStore.setEditorState({ currentElementId: elementId });
+
+    // Set baseline for tracked changes calculation
+    const currentContent = this.config.changes.getElementContent(elementId);
+    this.config.changes.setElementBaseline(elementId, currentContent);
+
+    // Restore editor history if available
+    this.restoreEditorHistory(elementId);
+
+    const element = document.querySelector(
+      `[data-review-id="${elementId}"]`
+    ) as HTMLElement;
+    const type = element?.getAttribute('data-review-type') || 'Para';
+
+    const { plainContent, trackedContent, diffHighlights } =
+      this.callbacks.createEditorSession(elementId, type);
+
+    // Use tracked content if tracked changes are enabled, otherwise use plain content
+    const showTrackedChanges =
+      this.stateStore.getEditorState().showTrackedChanges;
+    const contentToDisplay = showTrackedChanges
+      ? trackedContent || plainContent
+      : plainContent;
+
+    // Mark element as being edited (visual indicator in document)
+    if (element) {
+      element.classList.add('review-editable-editing');
+    }
+
+    // Store that we're in drawer mode
+    this.stateStore.setEditorState({ activeEditor: 'drawer' as any });
+
+    // Open drawer editor via callback
+    if (this.callbacks.openDrawerEditor) {
+      this.callbacks.openDrawerEditor(
+        elementId,
+        contentToDisplay,
+        diffHighlights
+      );
+    }
+
+    logger.debug(`Opened drawer editor for element ${elementId}`);
   }
 
   /**
@@ -236,17 +305,37 @@ export class EditorManager {
 
     this.editorLifecycle.destroy();
 
-    // Restore the element from inline editing
-    if (editorState.activeEditor && editorState.currentElementId) {
-      const element = document.querySelector(
-        `[data-review-id="${editorState.currentElementId}"]`
-      ) as HTMLElement;
-      if (element) {
-        element.classList.remove('review-editable-editing');
-        const cachedHtml = element.getAttribute('data-review-original-html');
-        if (cachedHtml !== null) {
-          element.innerHTML = cachedHtml;
-          element.removeAttribute('data-review-original-html');
+    // Check if we're in drawer mode or inline mode
+    const isDrawerMode = editorState.activeEditor === ('drawer' as any);
+
+    if (isDrawerMode) {
+      // Close drawer editor
+      if (this.callbacks.closeDrawerEditor) {
+        this.callbacks.closeDrawerEditor();
+      }
+
+      // Remove editing class from element
+      if (editorState.currentElementId) {
+        const element = document.querySelector(
+          `[data-review-id="${editorState.currentElementId}"]`
+        ) as HTMLElement;
+        if (element) {
+          element.classList.remove('review-editable-editing');
+        }
+      }
+    } else {
+      // Restore the element from inline editing
+      if (editorState.activeEditor && editorState.currentElementId) {
+        const element = document.querySelector(
+          `[data-review-id="${editorState.currentElementId}"]`
+        ) as HTMLElement;
+        if (element) {
+          element.classList.remove('review-editable-editing');
+          const cachedHtml = element.getAttribute('data-review-original-html');
+          if (cachedHtml !== null) {
+            element.innerHTML = cachedHtml;
+            element.removeAttribute('data-review-original-html');
+          }
         }
       }
     }

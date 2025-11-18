@@ -322,6 +322,9 @@ export class UIModule {
         this.initializeMilkdown(container, content, diffHighlights ?? []),
       createEditorSession: (elementId, type) =>
         this.createEditorSession(elementId, type),
+      openDrawerEditor: (elementId, content, diffHighlights) =>
+        this.openDrawerEditor(elementId, content, diffHighlights),
+      closeDrawerEditor: () => this.closeDrawerEditor(),
     };
 
     this.editorManager = new EditorManager(
@@ -992,6 +995,37 @@ export class UIModule {
   public closeEditor(): void {
     // Delegate to EditorManager
     this.editorManager.closeEditor();
+  }
+
+  /**
+   * Open drawer editor for mobile screens
+   */
+  private openDrawerEditor(
+    elementId: string,
+    content: string,
+    diffHighlights?: DiffHighlightRange[]
+  ): void {
+    logger.debug(`Opening drawer editor for element ${elementId}`);
+
+    // Open editor mode in bottom drawer
+    const editorContainer = this.bottomDrawer.openEditorMode(
+      elementId,
+      () => this.editorManager.saveEditor(),
+      () => this.editorManager.closeEditor()
+    );
+
+    // Initialize Milkdown in the drawer editor container
+    requestAnimationFrame(() => {
+      this.initializeMilkdown(editorContainer, content, diffHighlights ?? []);
+    });
+  }
+
+  /**
+   * Close drawer editor
+   */
+  private closeDrawerEditor(): void {
+    logger.debug('Closing drawer editor');
+    this.bottomDrawer.closeEditorMode();
   }
 
   private handleEditorSaved(): void {

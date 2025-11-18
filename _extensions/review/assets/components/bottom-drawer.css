@@ -243,6 +243,48 @@
   margin-top: auto;
 }
 
+/* Editor Mode (for responsive/mobile editing) */
+.review-drawer-editor-mode {
+  padding: 16px clamp(16px, 3vw, 32px);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.review-drawer-editor-body {
+  position: relative;
+  background: white;
+  overflow-y: auto;
+}
+
+.review-drawer-editor-body .milkdown {
+  background: white;
+  padding: 12px;
+}
+
+.review-drawer-editor-body .milkdown .ProseMirror {
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.review-drawer-editor-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+/* Mobile editor mode */
+@media (max-width: 1024px) {
+  .review-drawer-editor-mode {
+    padding: 12px;
+  }
+
+  .review-drawer-editor-body .milkdown .ProseMirror {
+    max-height: 300px;
+  }
+}
+
 /* Expanded state */
 .review-bottom-drawer.review-drawer-expanded {
   box-shadow:
