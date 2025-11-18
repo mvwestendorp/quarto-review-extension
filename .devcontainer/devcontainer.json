@@ -14,7 +14,8 @@
         "ms-playwright.playwright",
         "vitest.explorer",
         "streetsidesoftware.code-spell-checker",
-        "Continue.continue"
+        "Continue.continue",
+        "openai.chatgpt"
       ],
       "settings": {
         "editor.defaultFormatter": "esbenp.prettier-vscode",

@@ -124,7 +124,7 @@ function Meta(meta)
     -- Build initialization config
     local init_config = {
       autoSave = false,
-      enableTranslation = config_module.has_translation_support()
+      enableTranslation = config_module.has_translation_support(config.enableTranslation)
     }
 
     -- Add debug config if present

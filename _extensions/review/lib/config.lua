@@ -82,7 +82,11 @@ function M.build_debug_config(meta)
 end
 
 -- Check if translation support is available
-function M.has_translation_support()
+-- If enabled explicitly set in config, use that value; otherwise default to true
+function M.has_translation_support(enable_translation)
+  if enable_translation ~= nil then
+    return enable_translation
+  end
   return true
 end
 
@@ -134,6 +138,9 @@ function M.load_config(meta, config)
     end
     if meta.review.debug ~= nil then
       config.debug = meta.review.debug
+    end
+    if meta.review.enableTranslation ~= nil then
+      config.enableTranslation = meta.review.enableTranslation
     end
   end
 

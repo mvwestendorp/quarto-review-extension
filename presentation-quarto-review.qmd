@@ -1,8 +1,6 @@
-Bugs
+## Bugs
 
-- Consistency in configuring review
-    - Git means git everywhere, not for single document
-- Document PAT permissions
+- Consistency in configuring review: git means git everywhere, not for single document
 - Adding a new segment/section does not show up in the html/Milkdown formatting as a change
 - Update documentation
     - Have clear separation between user and developer documentation
@@ -15,21 +13,21 @@ Bugs
 - Collapsing/expanding the sidebars should not influence the horizontal size of the document if there is sufficient room available for all windows
 - The arrow button is in the wrong direction on the collapsed comments window
 - Restructure the interface: Review on the right, configuration on the left.
-- Lists have different html formatting when being edited.
+- Lists have different html formatting after being edited.
 - Add summary on the number of changes and comment in the export UI
 
 ## Export
 
-- For code blocks that show in the document or have tables or figures, the export should reconstruct the label, caption and other option given by the #| label: fig-this-is-a-codeblock-for-a-figure
-- Translation export should also export the complete Quarto project.
+- For code blocks that show in the document or have tables or figures, the export should reconstruct the label, caption and other option given by the #| label: fig-this-is-a-codeblock-for-a-figure. Check that this was implemented
 
 
 ## Milkdown
 
-- Editing comments can use the Milkdown editor too for formatting. CriticMarkup should be disabled.
+- Editing comments can use the Milkdown editor to for formatting. CriticMarkup should be disabled.
 - CriticMarkup is not shown consistently. Pre-existing criticmarkup in the original markdown only shows in the html after an edit. Adding CriticMarkup syntax manually shows up in the html, but only for the characters of the syntax itself, which are shown as whitespaces with a green line. Reopening the editor does show the expected formatting in Milkdown.
 - An important improvement is to edit the markdown including the changes in the editor window. So if text is deleted, it should show up with strikethrough markings when opening it for editing again. Now the resulting text is shown without any markings related to CriticMarkup. Adding CriticMarkup syntax manually is now seen as an addition of those characters.
 - When adding text which forms a new section, the formatting doesn't show that this is an addition using the green line. It also doesn't show up with CriticMarkup in the export.
+- If there is bold or italic text at the beginning of a segment and a space is inserted, the formatting becomes markdown in the editor, it only dissapears when reapply the formatting at the end of the word. A space does not need to be added at the start of a segment because it has no function.
 
 ## Translation
 
@@ -38,15 +36,12 @@ Bugs
 - The labelling/visuals for original, vs manual vs automatic translation should be on a sentence and word level. 
 - The messages in the top right overlap when there are multiple messages.
 - The markdown formatting is not in automatically translated text. E.g. headings etc should be reapplied. The editing experience should be the same as in the review mode.
+- Translation export should also export the complete Quarto project.
 
 ## UI
 
 - Do UI integration in the review module, to show which section have a translation, what type and whether it is up to date by using some visual per segment in the top right. Make the translation module available on a segment level.
 - Bug where comment visual UI element are not consistently restored. For example, I have made a comment for two sections but after refreshing I only see the visual in the corner of the section for one comment. The two comments are visible in the sidebar.
-
-## Structure
-
-Use same terminology throughout the applications
 
 ## Tests
 

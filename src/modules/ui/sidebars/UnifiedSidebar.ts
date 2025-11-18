@@ -1245,6 +1245,9 @@ Role: ${currentUser.role}`;
 
   setTranslationEnabled(enabled: boolean): void {
     this.translationEnabled = enabled;
+    if (this.translationSection) {
+      this.translationSection.style.display = enabled ? '' : 'none';
+    }
     if (this.translationBtn) {
       this.translationBtn.disabled = !enabled;
       toggleClass(this.translationBtn, 'review-btn-disabled', !enabled);

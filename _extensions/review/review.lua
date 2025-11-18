@@ -488,6 +488,9 @@ function load_config(meta)
     if meta.review.debug ~= nil then
       config.debug = meta.review.debug
     end
+    if meta.review.enableTranslation ~= nil then
+      config.enableTranslation = meta.review.enableTranslation
+    end
   end
 
   if not config.document_prefix_applied then
@@ -628,8 +631,11 @@ function build_debug_config(meta)
 end
 
 -- Translation module is always available since it's built into the extension
--- This marker simply indicates that translation support should be initialized
-function has_translation_support()
+-- If enabled explicitly set in config, use that value; otherwise default to true
+function has_translation_support(enable_translation)
+  if enable_translation ~= nil then
+    return enable_translation
+  end
   return true
 end
 
@@ -1181,7 +1187,7 @@ function Meta(meta)
     local init_config = {
       autoSave = false,
       -- Translation module is always available since it's built into the extension
-      enableTranslation = has_translation_support()
+      enableTranslation = has_translation_support(config.enableTranslation)
     }
 
     -- Add debug config if present
