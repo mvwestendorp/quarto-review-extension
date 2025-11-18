@@ -219,3 +219,70 @@ body.quarto-sidebar-open .review-margin-comments-container {
   opacity: 0.3;
   pointer-events: none;
 }
+
+/* Editing mode styles */
+.review-margin-comment-editing .review-margin-comment-card {
+  background: linear-gradient(
+      135deg,
+      rgba(255, 248, 225, 0.98),
+      rgba(255, 251, 235, 0.95)
+    ),
+    #ffffff;
+  border-left-color: var(--review-color-warning);
+  box-shadow:
+    0 12px 20px -5px rgba(var(--review-color-warning-rgb), 0.3),
+    0 6px 10px -3px rgba(var(--review-color-warning-rgb), 0.2);
+}
+
+.review-margin-comment-edit-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--review-color-warning);
+  background-color: rgba(var(--review-color-warning-rgb), 0.15);
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Editor container for inline editing */
+.review-margin-comment-editor-container {
+  min-height: 120px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 8px 0;
+  border: 1px solid rgba(var(--review-color-warning-rgb), 0.3);
+  border-radius: var(--review-radius-sm);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px;
+}
+
+/* Milkdown editor styles within margin comment */
+.review-margin-comment-editor-container .milkdown {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.review-margin-comment-editor-container .milkdown .editor {
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* Primary action button (Save) */
+.review-margin-comment-action-primary {
+  background: var(--review-color-primary);
+  color: white;
+  border-color: var(--review-color-primary-dark);
+  font-weight: 600;
+}
+
+.review-margin-comment-action-primary:hover {
+  background: var(--review-color-primary-dark);
+  border-color: var(--review-color-primary-darker);
+  color: white;
+}

@@ -3,6 +3,7 @@ import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 import { escapeHtml } from '../shared';
 import { createDiv, createButton } from '@utils/dom-helpers';
+import { CommentEditor } from './CommentEditor';
 
 const logger = createModuleLogger('MarginComments');
 
@@ -10,6 +11,8 @@ export interface MarginCommentsCallbacks {
   onNavigate: (elementId: string, commentKey: string) => void;
   onRemove: (elementId: string, comment: Comment) => void;
   onEdit: (elementId: string, comment: Comment) => void;
+  onSaveEdit: (elementId: string, commentId: string, content: string) => void;
+  onCancelEdit: () => void;
   onHover: (elementId: string, commentKey: string) => void;
   onLeave: () => void;
 }
@@ -31,6 +34,8 @@ export class MarginComments {
   private commentElements: Map<string, HTMLElement> = new Map();
   private scrollHandler: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private activeEditor: CommentEditor | null = null;
+  private editingCommentKey: string | null = null;
 
   constructor() {
     this.ensureContainerCreated();
@@ -85,7 +90,10 @@ export class MarginComments {
           return;
         }
 
-        const commentElement = this.renderComment(snapshot, comment, position);
+        const isEditing = this.editingCommentKey === commentKey;
+        const commentElement = isEditing
+          ? this.renderCommentEditMode(snapshot, comment, position)
+          : this.renderComment(snapshot, comment, position);
         this.commentElements.set(commentKey, commentElement);
         this.container?.appendChild(commentElement);
       });
@@ -132,6 +140,79 @@ export class MarginComments {
     });
   }
 
+  /**
+   * Enter edit mode for a specific comment
+   */
+  async enterEditMode(elementId: string, comment: Comment): Promise<void> {
+    // Exit any existing edit mode
+    if (this.editingCommentKey) {
+      await this.exitEditMode();
+    }
+
+    this.editingCommentKey = `${elementId}:${comment.id}`;
+    this.refresh();
+
+    // Initialize the editor after refresh
+    const commentKey = this.editingCommentKey;
+    const editorContainer = this.container?.querySelector(
+      `[data-comment-key="${commentKey}"] .review-margin-comment-editor-container`
+    ) as HTMLElement | null;
+
+    if (editorContainer) {
+      this.activeEditor = new CommentEditor();
+      await this.activeEditor.initialize(editorContainer, comment.content);
+      this.activeEditor.focus();
+      logger.debug('Entered edit mode', { commentKey });
+    }
+  }
+
+  /**
+   * Exit edit mode without saving
+   */
+  async exitEditMode(): Promise<void> {
+    if (this.activeEditor) {
+      this.activeEditor.destroy();
+      this.activeEditor = null;
+    }
+
+    this.editingCommentKey = null;
+    this.refresh();
+    logger.debug('Exited edit mode');
+  }
+
+  /**
+   * Save the edited comment
+   */
+  async saveEdit(): Promise<void> {
+    if (!this.activeEditor || !this.editingCommentKey) {
+      return;
+    }
+
+    const content = this.activeEditor.getContent().trim();
+    const [elementId, commentId] = this.editingCommentKey.split(':');
+
+    if (!elementId || !commentId) {
+      logger.warn('Invalid comment key format');
+      return;
+    }
+
+    if (!content) {
+      logger.warn('Cannot save empty comment');
+      return;
+    }
+
+    this.callbacks?.onSaveEdit(elementId, commentId, content);
+    await this.exitEditMode();
+  }
+
+  /**
+   * Cancel editing
+   */
+  async cancelEdit(): Promise<void> {
+    await this.exitEditMode();
+    this.callbacks?.onCancelEdit();
+  }
+
   destroy(): void {
     if (this.scrollHandler) {
       window.removeEventListener('scroll', this.scrollHandler);
@@ -143,6 +224,11 @@ export class MarginComments {
       this.resizeObserver = null;
     }
 
+    if (this.activeEditor) {
+      this.activeEditor.destroy();
+      this.activeEditor = null;
+    }
+
     if (this.container) {
       this.container.remove();
       this.container = null;
@@ -151,6 +237,7 @@ export class MarginComments {
     this.sections = [];
     this.callbacks = null;
     this.commentElements.clear();
+    this.editingCommentKey = null;
   }
 
   private ensureContainerCreated(): void {
@@ -268,9 +355,9 @@ export class MarginComments {
 
     const editBtn = createButton('Edit', 'review-margin-comment-action-btn');
     editBtn.title = 'Edit comment';
-    editBtn.onclick = (e) => {
+    editBtn.onclick = async (e) => {
       e.stopPropagation();
-      this.callbacks?.onEdit(snapshot.element.id, comment);
+      await this.enterEditMode(snapshot.element.id, comment);
     };
     actions.appendChild(editBtn);
 
@@ -296,6 +383,72 @@ export class MarginComments {
     commentWrapper.addEventListener('mouseleave', () => {
       this.callbacks?.onLeave();
     });
+
+    return commentWrapper;
+  }
+
+  /**
+   * Render a comment in edit mode
+   */
+  private renderCommentEditMode(
+    snapshot: SectionCommentSnapshot,
+    comment: Comment,
+    position: CommentPosition
+  ): HTMLElement {
+    const commentKey = `${snapshot.element.id}:${comment.id}`;
+    const commentWrapper = createDiv('review-margin-comment');
+    commentWrapper.classList.add('review-margin-comment-editing');
+    commentWrapper.style.top = `${position.top}px`;
+    commentWrapper.dataset.commentKey = commentKey;
+    commentWrapper.dataset.elementId = snapshot.element.id;
+
+    // Connector line (visual indicator)
+    const connector = createDiv('review-margin-comment-connector');
+    commentWrapper.appendChild(connector);
+
+    // Comment card
+    const card = createDiv('review-margin-comment-card');
+
+    // Header with icon
+    const header = createDiv('review-margin-comment-header');
+    const icon = document.createElement('span');
+    icon.className = 'review-margin-comment-icon';
+    icon.textContent = '✏️';
+    header.appendChild(icon);
+
+    const editLabel = document.createElement('span');
+    editLabel.className = 'review-margin-comment-edit-label';
+    editLabel.textContent = 'Editing';
+    header.appendChild(editLabel);
+
+    card.appendChild(header);
+
+    // Editor container
+    const editorContainer = createDiv('review-margin-comment-editor-container');
+    card.appendChild(editorContainer);
+
+    // Action buttons (Save & Cancel)
+    const actions = createDiv('review-margin-comment-actions');
+
+    const saveBtn = createButton('Save', 'review-margin-comment-action-btn');
+    saveBtn.classList.add('review-margin-comment-action-primary');
+    saveBtn.title = 'Save comment';
+    saveBtn.onclick = async (e) => {
+      e.stopPropagation();
+      await this.saveEdit();
+    };
+    actions.appendChild(saveBtn);
+
+    const cancelBtn = createButton('Cancel', 'review-margin-comment-action-btn');
+    cancelBtn.title = 'Cancel editing';
+    cancelBtn.onclick = async (e) => {
+      e.stopPropagation();
+      await this.cancelEdit();
+    };
+    actions.appendChild(cancelBtn);
+
+    card.appendChild(actions);
+    commentWrapper.appendChild(card);
 
     return commentWrapper;
   }

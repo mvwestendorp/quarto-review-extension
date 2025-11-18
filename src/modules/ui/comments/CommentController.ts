@@ -275,12 +275,24 @@ export class CommentController {
         this.clearHighlight();
       },
       onEdit: (elementId: string, comment: any) => {
-        this.openComposer({
-          elementId,
-          existingComment: comment.content,
-          commentId: comment.id,
-          commentKey: `${elementId}:${comment.id}`,
-        });
+        // Use inline editing for MarginComments, fallback to composer for sidebar
+        if (this.marginComments) {
+          // Inline editing handled by MarginComments itself
+          // No need to call anything here as it's triggered directly from the component
+        } else {
+          this.openComposer({
+            elementId,
+            existingComment: comment.content,
+            commentId: comment.id,
+            commentKey: `${elementId}:${comment.id}`,
+          });
+        }
+      },
+      onSaveEdit: (_elementId: string, commentId: string, content: string) => {
+        this.updateSectionComment(commentId, content);
+      },
+      onCancelEdit: () => {
+        // Nothing special needed on cancel
       },
       onHover: (elementId: string, commentKey: string) => {
         this.highlightSection(elementId, 'hover', commentKey);
