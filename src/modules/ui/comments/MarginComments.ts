@@ -439,7 +439,10 @@ export class MarginComments {
     };
     actions.appendChild(saveBtn);
 
-    const cancelBtn = createButton('Cancel', 'review-margin-comment-action-btn');
+    const cancelBtn = createButton(
+      'Cancel',
+      'review-margin-comment-action-btn'
+    );
     cancelBtn.title = 'Cancel editing';
     cancelBtn.onclick = async (e) => {
       e.stopPropagation();
