@@ -422,30 +422,8 @@ export class TranslationView {
         sectionElement.dataset.elementId = elementId;
         sectionElement.dataset.side = side;
 
-        // Add section header with edit button
+        // Section header (edit via double-click on sentences)
         const sectionHeader = createDiv('review-translation-section-header');
-
-        const editButton = createButton(
-          '',
-          'review-translation-edit-segment-btn'
-        );
-        editButton.type = 'button';
-        setAttributes(editButton, {
-          title: `Edit ${side} segment`,
-          'aria-label': `Edit ${side} segment`,
-        });
-        editButton.innerHTML = `<span class="edit-icon">✏️</span> Edit Segment`;
-
-        editButton.addEventListener('click', () => {
-          void this.enableSegmentEdit(
-            sectionElement,
-            elementId,
-            sectionSentences,
-            side
-          );
-        });
-
-        sectionHeader.appendChild(editButton);
         sectionElement.appendChild(sectionHeader);
 
         // Render sentences within the section (with visual status indicators)
@@ -727,8 +705,52 @@ export class TranslationView {
       });
     }
 
-    // NOTE: Double-click editing removed - editing now happens at segment level
-    // via the "Edit Segment" button on the section container
+    // Double-click to edit segment (entire section)
+    element.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Find the section element (parent with data-element-id attribute)
+      let sectionElement: HTMLElement | null = element;
+      while (sectionElement && !sectionElement.dataset.elementId) {
+        sectionElement = sectionElement.parentElement;
+      }
+
+      if (!sectionElement || !sectionElement.dataset.elementId) {
+        logger.warn('Could not find section element for double-click edit');
+        return;
+      }
+
+      const elementId = sectionElement.dataset.elementId;
+
+      // Get all sentences in this section for this side
+      const sectionSentences = Array.from(
+        sectionElement.querySelectorAll(
+          `.review-translation-sentence[data-side="${side}"]`
+        )
+      )
+        .map((el) => {
+          const id = (el as HTMLElement).dataset.sentenceId;
+          if (!id || !this.document) return null;
+          return (
+            this.document[
+              side === 'source' ? 'sourceSentences' : 'targetSentences'
+            ].find((s) => s.id === id) || null
+          );
+        })
+        .filter((s): s is Sentence => s !== null);
+
+      if (sectionSentences.length > 0) {
+        void this.enableSegmentEdit(
+          sectionElement,
+          elementId,
+          sectionSentences,
+          side
+        );
+      } else {
+        logger.warn('No sentences found for segment edit', { elementId, side });
+      }
+    });
   }
 
   /**
