@@ -1572,7 +1572,7 @@ Role: ${currentUser.role}`;
     }
 
     // Strip markdown formatting and truncate
-    text = text.replace(/[#*_`~\[\]()]/g, '').trim();
+    text = text.replace(/[#*_`~[\]()]/g, '').trim();
     if (text.length > maxLength) {
       text = text.substring(0, maxLength) + '...';
     }
