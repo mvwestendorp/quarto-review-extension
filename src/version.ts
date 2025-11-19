@@ -20,9 +20,9 @@ export interface BuildInfo {
 export const BUILD_INFO: BuildInfo = {
   version: '0.1.0',
   buildNumber: 'dev',
-  buildDate: '2025-11-18T19:36:57.728Z',
-  commit: '236d454c594673f138b867081a740e606cb37143',
-  branch: 'claude/review-docs-plans-01YAyiSTY4jDBnYg5Twp6AJ7',
+  buildDate: '2025-11-19T15:12:10.000Z',
+  commit: '08d63fd8ff2e44af9b3ad1a6ee362a5f8e10ae37',
+  branch: 'claude/automate-responsive-tests-012dJyiCbqM3vBfubY29Pq8j',
   pr: undefined,
   buildType: 'dev',
   buildUrl: undefined,
