@@ -1290,7 +1290,11 @@ export class TranslationView {
 
         // Use editor bridge to validate and check if content changed
         if (this.editorBridge) {
-          const saved = this.editorBridge.saveSegmentEdit(elementId, newContent, side);
+          const saved = this.editorBridge.saveSegmentEdit(
+            elementId,
+            newContent,
+            side
+          );
           if (!saved) {
             logger.debug('No content change or validation failed');
             return false;

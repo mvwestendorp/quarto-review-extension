@@ -4,6 +4,25 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Check if example/_output exists
+if [ ! -d "$ROOT_DIR/example/_output" ]; then
+  echo "❌ Error: example/_output directory not found"
+  echo ""
+  echo "E2E tests require the example to be built first."
+  echo "Please run the following commands:"
+  echo ""
+  echo "  1. Build the extension:"
+  echo "     npm run build"
+  echo ""
+  echo "  2. Render the example:"
+  echo "     cd example && quarto render && cd .."
+  echo ""
+  echo "  3. Then run e2e tests:"
+  echo "     npm run test:e2e"
+  echo ""
+  exit 1
+fi
+
 if [ -z "${PLAYWRIGHT_BROWSERS_PATH:-}" ]; then
   export PLAYWRIGHT_BROWSERS_PATH="$ROOT_DIR/node_modules/.cache/playwright"
 fi

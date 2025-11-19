@@ -1,6 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import { execSync } from 'child_process';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 /**
  * Translation Workflow E2E Tests
@@ -12,6 +13,9 @@ import path from 'path';
  * - Export functionality
  * - Visual regression for status chips
  */
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const EXAMPLE_PROJECT = path.join(
   __dirname,

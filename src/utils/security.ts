@@ -39,7 +39,9 @@ const STORAGE_PREFIX = 'quarto-review:';
 function xorEncrypt(data: string, key: string): string {
   let result = '';
   for (let i = 0; i < data.length; i++) {
-    result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    result += String.fromCharCode(
+      data.charCodeAt(i) ^ key.charCodeAt(i % key.length)
+    );
   }
   return btoa(result); // Base64 encode
 }
@@ -49,7 +51,9 @@ function xorDecrypt(encrypted: string, key: string): string {
     const data = atob(encrypted); // Base64 decode
     let result = '';
     for (let i = 0; i < data.length; i++) {
-      result += String.fromCharCode(data.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+      result += String.fromCharCode(
+        data.charCodeAt(i) ^ key.charCodeAt(i % key.length)
+      );
     }
     return result;
   } catch (error) {
@@ -160,7 +164,10 @@ export const SafeStorage = {
       }
 
       localStorage.setItem(prefixedKey, finalValue);
-      logger.debug('Storage item set', { key: prefixedKey, encrypted: options.encrypt });
+      logger.debug('Storage item set', {
+        key: prefixedKey,
+        encrypted: options.encrypt,
+      });
       return true;
     } catch (error) {
       logger.error('Failed to set storage item', { key, error });
@@ -210,7 +217,12 @@ export const SafeStorage = {
       // Check if this is an envelope structure or legacy plain JSON
       // Envelope has: { data, timestamp, expiresAt?, version? }
       // Legacy has: any direct JSON value
-      if (parsed && typeof parsed === 'object' && 'data' in parsed && 'timestamp' in parsed) {
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'data' in parsed &&
+        'timestamp' in parsed
+      ) {
         // This is an envelope structure
         const envelope = parsed;
 
@@ -415,7 +427,9 @@ export const InputSanitizer = {
       const allowedProtocols = ['http:', 'https:', 'mailto:'];
 
       if (!allowedProtocols.includes(parsed.protocol)) {
-        logger.warn('Blocked unsafe URL protocol', { protocol: parsed.protocol });
+        logger.warn('Blocked unsafe URL protocol', {
+          protocol: parsed.protocol,
+        });
         return '';
       }
 
@@ -525,10 +539,15 @@ export const CSP = {
    */
   areInlineScriptsAllowed(): boolean {
     try {
-      const metaTags = document.querySelectorAll('meta[http-equiv="Content-Security-Policy"]');
+      const metaTags = document.querySelectorAll(
+        'meta[http-equiv="Content-Security-Policy"]'
+      );
       for (const tag of Array.from(metaTags)) {
         const content = tag.getAttribute('content') || '';
-        if (content.includes("script-src") && !content.includes("'unsafe-inline'")) {
+        if (
+          content.includes('script-src') &&
+          !content.includes("'unsafe-inline'")
+        ) {
           return false;
         }
       }
@@ -581,10 +600,15 @@ export class RateLimiter {
     const attempts = this.attempts.get(key) || [];
 
     // Remove old attempts outside the window
-    const recentAttempts = attempts.filter((time) => now - time < this.windowMs);
+    const recentAttempts = attempts.filter(
+      (time) => now - time < this.windowMs
+    );
 
     if (recentAttempts.length >= this.maxAttempts) {
-      logger.warn('Rate limit exceeded', { key, attempts: recentAttempts.length });
+      logger.warn('Rate limit exceeded', {
+        key,
+        attempts: recentAttempts.length,
+      });
       return false;
     }
 

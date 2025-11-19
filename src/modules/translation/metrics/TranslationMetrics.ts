@@ -222,9 +222,7 @@ export class TranslationMetrics {
   /**
    * Track translation operation completed
    */
-  public trackTranslationCompleted(
-    metrics: TranslationOperationMetrics
-  ): void {
+  public trackTranslationCompleted(metrics: TranslationOperationMetrics): void {
     this.counters.translationCompleted++;
 
     // Track latency for provider
@@ -262,7 +260,10 @@ export class TranslationMetrics {
   /**
    * Track translation operation cancelled
    */
-  public trackTranslationCancelled(provider: string, sentenceCount: number): void {
+  public trackTranslationCancelled(
+    provider: string,
+    sentenceCount: number
+  ): void {
     this.counters.translationCancelled++;
     this.recordEvent('translation.cancelled', { provider, sentenceCount });
   }
@@ -341,7 +342,8 @@ export class TranslationMetrics {
     const hitRate = total > 0 ? this.counters.cacheHits / total : 0;
     const avgLookupTime =
       this.cacheLookupTimes.length > 0
-        ? this.cacheLookupTimes.reduce((a, b) => a + b, 0) / this.cacheLookupTimes.length
+        ? this.cacheLookupTimes.reduce((a, b) => a + b, 0) /
+          this.cacheLookupTimes.length
         : 0;
 
     return {
@@ -471,11 +473,15 @@ export class TranslationMetrics {
    * Export metrics as JSON
    */
   public export(): string {
-    return JSON.stringify({
-      counters: this.counters,
-      summary: this.getSummary(),
-      recentEvents: this.getRecentEvents(50),
-    }, null, 2);
+    return JSON.stringify(
+      {
+        counters: this.counters,
+        summary: this.getSummary(),
+        recentEvents: this.getRecentEvents(50),
+      },
+      null,
+      2
+    );
   }
 }
 

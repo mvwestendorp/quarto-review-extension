@@ -28,11 +28,9 @@ export function debounce<T extends (...args: any[]) => any>(
   let timeout: ReturnType<typeof setTimeout> | null = null;
 
   return function executedFunction(this: any, ...args: Parameters<T>) {
-    const context = this;
-
     const later = () => {
       timeout = null;
-      if (!immediate) func.apply(context, args);
+      if (!immediate) func.apply(this, args);
     };
 
     const callNow = immediate && !timeout;
@@ -40,7 +38,7 @@ export function debounce<T extends (...args: any[]) => any>(
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(later, wait);
 
-    if (callNow) func.apply(context, args);
+    if (callNow) func.apply(this, args);
   };
 }
 
@@ -66,18 +64,19 @@ export function throttle<T extends (...args: any[]) => any>(
   let lastTime: number;
 
   return function executedFunction(this: any, ...args: Parameters<T>) {
-    const context = this;
-
     if (!inThrottle) {
-      func.apply(context, args);
+      func.apply(this, args);
       lastTime = Date.now();
       inThrottle = true;
 
-      setTimeout(() => {
-        if (Date.now() - lastTime >= wait) {
-          inThrottle = false;
-        }
-      }, Math.max(wait - (Date.now() - lastTime), 0));
+      setTimeout(
+        () => {
+          if (Date.now() - lastTime >= wait) {
+            inThrottle = false;
+          }
+        },
+        Math.max(wait - (Date.now() - lastTime), 0)
+      );
     }
   };
 }
