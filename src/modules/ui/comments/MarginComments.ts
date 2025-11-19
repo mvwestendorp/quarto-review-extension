@@ -3,6 +3,7 @@ import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 import { createDiv, createButton } from '@utils/dom-helpers';
 import { CommentEditor } from './CommentEditor';
+import { throttle } from '@utils/performance';
 
 const logger = createModuleLogger('MarginComments');
 
@@ -272,7 +273,7 @@ export class MarginComments {
 
     this.sections.forEach((snapshot) => {
       const sectionElement = document.querySelector(
-        `[data-section-id="${snapshot.element.id}"]`
+        `[data-review-id="${snapshot.element.id}"]`
       ) as HTMLElement;
 
       if (!sectionElement) {
@@ -521,9 +522,10 @@ export class MarginComments {
    * Setup scroll synchronization to update comment visibility
    */
   private setupScrollSync(): void {
-    this.scrollHandler = () => {
+    // Throttle scroll handler to improve performance (max 60fps)
+    this.scrollHandler = throttle(() => {
       this.updateCommentVisibility();
-    };
+    }, 16);
 
     window.addEventListener('scroll', this.scrollHandler, { passive: true });
 
@@ -554,7 +556,7 @@ export class MarginComments {
 
       // Find the section element that this comment belongs to
       const sectionElement = document.querySelector(
-        `[data-section-id="${elementId}"]`
+        `[data-review-id="${elementId}"]`
       ) as HTMLElement;
 
       if (!sectionElement) return;
