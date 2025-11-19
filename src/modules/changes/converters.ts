@@ -411,6 +411,13 @@ function formatLine(line: string, kind: ChangeKind): string {
   const { prefix, body } = splitListPrefix(content);
 
   if (prefix) {
+    // FIXED: When deleting an entire list item, wrap the whole line including marker and newline
+    // This prevents empty list items from remaining after accepting changes
+    if (kind === 'deletion') {
+      // Wrap the entire line including newline in a single deletion marker
+      return `${wrapWithMarkup(content + newline, kind)}`;
+    }
+
     // Keep list markers outside CriticMarkup so Markdown still recognizes the list
     // Fall back to wrapping the full line when the body is empty (e.g. placeholder items)
     if (body.trim().length === 0) {
