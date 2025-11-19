@@ -34,8 +34,9 @@ export default defineConfig({
   webServer: {
     command: 'npm run serve:e2e',
     url: 'http://127.0.0.1:5173',
-    reuseExistingServer: true,
-    timeout: 60000, // Static server should boot quickly
-    readyTimeout: 5000,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000, // 2 minutes - allow more time in CI environments
+    stdout: 'pipe',
+    stderr: 'pipe',
   },
 });
