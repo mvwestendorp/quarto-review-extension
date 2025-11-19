@@ -232,24 +232,30 @@ export class CommentsSidebar {
     container.appendChild(body);
 
     const actions = createDiv('review-comment-item-actions');
-    actions.innerHTML = `
-      <button class="review-comment-action-btn" data-action="goto">View</button>
-      <button class="review-comment-action-btn" data-action="remove">Remove</button>
-    `;
+
+    // Create buttons directly instead of innerHTML + querySelector for better performance
+    const gotoBtn = document.createElement('button');
+    gotoBtn.className = 'review-comment-action-btn';
+    gotoBtn.textContent = 'View';
+    gotoBtn.setAttribute('data-action', 'goto');
+    actions.appendChild(gotoBtn);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'review-comment-action-btn';
+    removeBtn.textContent = 'Remove';
+    removeBtn.setAttribute('data-action', 'remove');
+    actions.appendChild(removeBtn);
+
     container.appendChild(actions);
 
     if (this.callbacks) {
-      container
-        .querySelector('[data-action="goto"]')
-        ?.addEventListener('click', () => {
-          this.callbacks?.onNavigate(elementId, commentKey);
-        });
+      gotoBtn.addEventListener('click', () => {
+        this.callbacks?.onNavigate(elementId, commentKey);
+      });
 
-      container
-        .querySelector('[data-action="remove"]')
-        ?.addEventListener('click', () => {
-          this.callbacks?.onRemove(elementId, comment);
-        });
+      removeBtn.addEventListener('click', () => {
+        this.callbacks?.onRemove(elementId, comment);
+      });
 
       container.addEventListener('mouseenter', () => {
         this.callbacks?.onHover(elementId, commentKey);
