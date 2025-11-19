@@ -3,7 +3,7 @@ Project Detection Module
 Handles project root detection and source file collection
 ]]--
 
-local path_utils = require('_extensions.review.lib.path-utils')
+local path_utils = require('path-utils')
 
 local M = {}
 

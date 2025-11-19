@@ -3,8 +3,8 @@ Element Wrapping Module
 Handles wrapping of elements for review functionality
 ]]--
 
-local string_utils = require('_extensions.review.lib.string-utils')
-local markdown_conversion = require('_extensions.review.lib.markdown-conversion')
+local string_utils = require('string-utils')
+local markdown_conversion = require('markdown-conversion')
 
 local M = {}
 

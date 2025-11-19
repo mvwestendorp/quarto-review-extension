@@ -3,8 +3,8 @@ Configuration Module
 Handles configuration loading and document identification
 ]]--
 
-local string_utils = require('_extensions.review.lib.string-utils')
-local project_detection = require('_extensions.review.lib.project-detection')
+local string_utils = require('string-utils')
+local project_detection = require('project-detection')
 
 local M = {}
 
