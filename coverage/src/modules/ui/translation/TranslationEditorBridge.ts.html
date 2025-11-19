@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16.36% </span>
+                <span class="strong">16.98% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>18/110</span>
+                <span class='fraction'>18/106</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">5% </span>
+                <span class="strong">5.55% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>3/60</span>
+                <span class='fraction'>3/54</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">16.36% </span>
+                <span class="strong">16.98% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>18/110</span>
+                <span class='fraction'>18/106</span>
             </div>
         
             
@@ -446,11 +446,7 @@
 <a name='L381'></a><a href='#L381'>381</a>
 <a name='L382'></a><a href='#L382'>382</a>
 <a name='L383'></a><a href='#L383'>383</a>
-<a name='L384'></a><a href='#L384'>384</a>
-<a name='L385'></a><a href='#L385'>385</a>
-<a name='L386'></a><a href='#L386'>386</a>
-<a name='L387'></a><a href='#L387'>387</a>
-<a name='L388'></a><a href='#L388'>388</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L384'></a><a href='#L384'>384</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -467,7 +463,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">11x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -595,19 +591,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -982,19 +974,15 @@ export class TranslationEditorBridge extends EditorLifecycle {
     newContent: string,
     side: 'source' | 'target'
   ): boolean {
-<span class="cstat-no" title="statement not covered" >    if (!this.currentElementId || this.currentElementId !== elementId) {</span>
+    // Validate that the element ID matches the currently edited segment
+    // Accept either the stored currentElementId or allow the caller to provide it
+    const isValidElement = <span class="cstat-no" title="statement not covered" >this.currentElementId === elementId;</span>
+&nbsp;
+<span class="cstat-no" title="statement not covered" >    if (!isValidElement) {</span>
 <span class="cstat-no" title="statement not covered" >      logger.warn('No matching segment editor active for save', {</span>
         currentElementId: this.currentElementId,
         requestedElementId: elementId,
       });
-<span class="cstat-no" title="statement not covered" >      return false;</span>
-    }
-&nbsp;
-    const editor = <span class="cstat-no" title="statement not covered" >this.getEditor();</span>
-    const module = <span class="cstat-no" title="statement not covered" >this.getModule();</span>
-&nbsp;
-<span class="cstat-no" title="statement not covered" >    if (!editor || !module) {</span>
-<span class="cstat-no" title="statement not covered" >      logger.error('Editor not initialized');</span>
 <span class="cstat-no" title="statement not covered" >      return false;</span>
     }
 &nbsp;
@@ -1231,7 +1219,7 @@ export class TranslationEditorBridge extends EditorLifecycle {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-18T17:36:35.235Z
+                at 2025-11-19T07:29:54.092Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

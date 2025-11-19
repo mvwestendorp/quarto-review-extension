@@ -8,6 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Translation Module (Phase 3-4)** - Comprehensive translation workflow with production-ready features
+  - Side-by-side translation view with synchronized scrolling (optimized with throttling)
+  - Sentence segmentation and alignment algorithms
+  - Double-click editing for source and target segments
+  - Translation status indicators with accessibility labels (🤖 auto, ✍️ manual, ✏️ edited, ⚠️ out-of-sync)
+  - Inline progress feedback with ARIA-busy semantics
+  - Translation providers: OpenAI, LocalAI (WebGPU), Manual mode
+  - Provider registry with pluggable architecture
+  - Translation cache service for performance optimization
+  - Keyboard shortcuts (Ctrl/Cmd+S save, Ctrl/Cmd+T translate, Ctrl/Cmd+Z undo/redo)
+  - Error states with inline banners and retry affordances
+  - Export functionality (unified and separated formats)
+  - TranslationChangesModule for edit tracking with undo/redo
+  - Plugin lifecycle with ReviewUIPlugin interface
+  - StateStore integration for cross-component state management
+  - Comprehensive logging taxonomy (179 logging statements across translation modules)
+  - Translation metrics system with optional analytics hooks
+    - Operation metrics (success/failure rates, duration tracking)
+    - Cache performance metrics (hit/miss ratios, lookup times)
+    - Provider performance metrics (latency percentiles: p50, p95, p99)
+    - User interaction tracking (manual edits, auto-translations, exports)
+    - Analytics integration support (Google Analytics, Prometheus, custom backends)
+  - 110+ unit tests covering all translation workflows
+  - User documentation (1000+ line comprehensive guide)
+  - Operator runbook with provider architecture documentation
+
+- **Performance Optimizations**
+  - Operation history limiting (max 100 operations, max 50 redo stack) to prevent unbounded memory growth
+  - Throttled scroll synchronization (16ms for 60fps) in translation view
+  - Performance utilities (debounce, throttle, RAF scheduler, batch execution)
+  - Optimized event listener management
+
 - Initial release of Quarto Review Extension
 - In-browser markdown editing with live preview
 - Deterministic element ID mapping via Lua filter

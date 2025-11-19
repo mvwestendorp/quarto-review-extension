@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>7/8</span>
+                <span class='fraction'>0/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>7/8</span>
+                <span class='fraction'>0/8</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>2/2</span>
+                <span class='fraction'>0/2</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>7/8</span>
+                <span class='fraction'>0/8</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -113,17 +113,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -131,7 +131,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -143,31 +143,31 @@ export type AppendSectionComments = (
   commentMarkup: string
 ) =&gt; string;
 &nbsp;
-export function mergeSectionCommentIntoSegments(
+export function <span class="fstat-no" title="function not covered" >mergeSectionCommentIntoSegments(</span>
   segments: { content: string; metadata: ElementMetadata | undefined }[],
   commentMarkup: string | null,
   fallbackMetadata: ElementMetadata,
   appendSectionComments: AppendSectionComments
 ): void {
-  if (!commentMarkup || segments.length === 0) {
-    return;
-  }
-&nbsp;
-  const lastIndex = segments.length - 1;
-  const lastSegment = segments[lastIndex];
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (!lastSegment) {
+<span class="cstat-no" title="statement not covered" >  if (!commentMarkup || segments.length === 0) {</span>
 <span class="cstat-no" title="statement not covered" >    return;</span>
   }
 &nbsp;
-  segments[lastIndex] = {
+  const lastIndex = <span class="cstat-no" title="statement not covered" >segments.length - 1;</span>
+  const lastSegment = <span class="cstat-no" title="statement not covered" >segments[lastIndex];</span>
+<span class="cstat-no" title="statement not covered" >  if (!lastSegment) {</span>
+<span class="cstat-no" title="statement not covered" >    return;</span>
+  }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >  segments[lastIndex] = {</span>
     ...lastSegment,
     content: appendSectionComments(lastSegment.content, commentMarkup),
     metadata: lastSegment.metadata ?? fallbackMetadata,
   };
 }
 &nbsp;
-export function normalizeContentForComparison(str: string): string {
-  return normalizeListMarkers(str.replace(/\r\n/g, '\n'))
+export function <span class="fstat-no" title="function not covered" >normalizeContentForComparison(s</span>tr: string): string {
+<span class="cstat-no" title="statement not covered" >  return normalizeListMarkers(str.replace(/\r\n/g, '\n'))</span>
     .replace(/[ \t]+$/gm, '')
     .trim();
 }
@@ -178,7 +178,7 @@ export function normalizeContentForComparison(str: string): string {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-11-18T17:36:35.235Z
+                at 2025-11-19T07:29:54.092Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
