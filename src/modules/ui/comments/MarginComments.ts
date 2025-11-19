@@ -3,7 +3,7 @@ import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 import { createDiv, createButton } from '@utils/dom-helpers';
 import { CommentEditor } from './CommentEditor';
-import { throttle } from '@utils/performance';
+import { throttle, debounce } from '@utils/performance';
 
 const logger = createModuleLogger('MarginComments');
 
@@ -531,9 +531,14 @@ export class MarginComments {
 
     // Also observe document height changes (if ResizeObserver is available)
     if (typeof ResizeObserver !== 'undefined') {
+      // Debounce resize handler to avoid excessive recalculations during animations
+      const debouncedRefresh = debounce(() => {
+        this.refresh();
+      }, 150);
+
       this.resizeObserver = new ResizeObserver(() => {
         // Recalculate positions when document size changes
-        this.refresh();
+        debouncedRefresh();
       });
 
       const mainContent = document.querySelector('main');

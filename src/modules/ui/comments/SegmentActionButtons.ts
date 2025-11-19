@@ -13,6 +13,7 @@ import {
   addClass,
   removeClass,
 } from '@utils/dom-helpers';
+import { throttle } from '@utils/performance';
 
 // import { createModuleLogger } from '@utils/debug';
 
@@ -194,6 +195,9 @@ export class SegmentActionButtons {
       }
     };
 
+    // Throttle mousemove handler to improve performance (max ~30fps)
+    const throttledMouseMoveHandler = throttle(mouseMoveHandler, 33);
+
     // Standard hover for the segment itself
     parentElement.addEventListener('mouseenter', enterHandler);
     parentElement.addEventListener('mouseleave', leaveHandler);
@@ -203,7 +207,7 @@ export class SegmentActionButtons {
     buttonContainer.addEventListener('mouseleave', leaveHandler);
 
     // Track mouse move for extended zone
-    document.addEventListener('mousemove', mouseMoveHandler);
+    document.addEventListener('mousemove', throttledMouseMoveHandler);
   }
 
   /**
