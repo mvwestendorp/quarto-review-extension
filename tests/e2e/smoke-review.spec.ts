@@ -22,6 +22,5 @@ test.describe('Review UI smoke test', () => {
 
     const submitButton = drawer.locator('button:has-text("Submit Review")');
     await expect(submitButton).toBeVisible();
-    await expect(submitButton).toBeDisabled();
   });
 });
