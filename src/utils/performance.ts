@@ -69,11 +69,14 @@ export function throttle<T extends (...args: any[]) => any>(
       lastTime = Date.now();
       inThrottle = true;
 
-      setTimeout(() => {
-        if (Date.now() - lastTime >= wait) {
-          inThrottle = false;
-        }
-      }, Math.max(wait - (Date.now() - lastTime), 0));
+      setTimeout(
+        () => {
+          if (Date.now() - lastTime >= wait) {
+            inThrottle = false;
+          }
+        },
+        Math.max(wait - (Date.now() - lastTime), 0)
+      );
     }
   };
 }
