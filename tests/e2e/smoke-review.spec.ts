@@ -11,9 +11,13 @@ test.describe('Review UI smoke test', () => {
     const drawer = page.locator('.review-bottom-drawer');
     await expect(drawer).toBeVisible();
 
-    const exportButton = drawer.locator(
-      'button:has-text("Export Clean QMD")'
-    );
+    // Expand the drawer by clicking the toggle button
+    const toggleBtn = drawer.locator('button[data-action="toggle-drawer"]');
+    await toggleBtn.click();
+    await page.waitForTimeout(500); // Wait for expand animation
+
+    // Check for export buttons with actual text from BottomDrawer
+    const exportButton = drawer.locator('button:has-text("Clean QMD")');
     await expect(exportButton).toBeVisible();
 
     const submitButton = drawer.locator('button:has-text("Submit Review")');
