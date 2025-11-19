@@ -3,13 +3,26 @@ Quarto Review Extension - Main Filter (Modularized)
 Adds deterministic IDs to elements for review functionality
 ]]--
 
--- Require all modules
-local path_utils = require('_extensions.review.lib.path-utils')
-local project_detection = require('_extensions.review.lib.project-detection')
-local string_utils = require('_extensions.review.lib.string-utils')
-local markdown_conversion = require('_extensions.review.lib.markdown-conversion')
-local config_module = require('_extensions.review.lib.config')
-local element_wrapping = require('_extensions.review.lib.element-wrapping')
+-- Set up the module path to find our library files
+local function setup_module_path()
+  -- Get the directory where this script is located
+  local script_path = PANDOC_SCRIPT_FILE or ''
+  local script_dir = script_path:match("^(.*[/\\])[^/\\]*$") or ''
+
+  -- Add the lib directory to the package path
+  local lib_path = script_dir .. 'lib/?.lua'
+  package.path = lib_path .. ';' .. package.path
+end
+
+setup_module_path()
+
+-- Require all modules using simple names now that package.path is set
+local path_utils = require('path-utils')
+local project_detection = require('project-detection')
+local string_utils = require('string-utils')
+local markdown_conversion = require('markdown-conversion')
+local config_module = require('config')
+local element_wrapping = require('element-wrapping')
 
 -- Global configuration
 local config = {
