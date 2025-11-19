@@ -6,9 +6,9 @@ This document describes known limitations in the text transformation pipeline an
 
 ### 1. List Item Deletion
 
-**Status**: ⚠️ Known Limitation
+**Status**: ✅ FIXED
 
-**Issue**: When deleting an entire list item, the diff algorithm generates markup that leaves an empty list item after accepting changes.
+**Issue**: When deleting an entire list item, the diff algorithm previously generated markup that left an empty list item after accepting changes.
 
 **Example**:
 ```markdown
@@ -23,22 +23,17 @@ Edit (delete "Second item"):
 
 CriticMarkup generated:
 - First item
-- {--Second item--}
-- Third item
+{--- Second item
+--}- Third item
 
 After accepting changes:
 - First item
--                    ← Empty list item remains
 - Third item
 ```
 
-**Root Cause**: The line-based diff algorithm doesn't understand Markdown structure. It marks the text "Second item" for deletion but not the entire line including the list marker.
+**Fix Applied**: Modified `formatLine()` function in `src/modules/changes/converters.ts` to wrap the entire list line (including marker and newline) in deletion markers when deleting a list item. This ensures the entire line is removed when changes are accepted.
 
-**Workaround**: Manually clean up empty list items after accepting changes, or avoid using the diff algorithm for structural changes like list item deletion.
-
-**Affected Tests**: `list-delete-item` (skipped)
-
-**Future Fix**: Implement structure-aware diffing that understands Markdown syntax.
+**Affected Tests**: `list-delete-item` (now passing)
 
 ---
 
@@ -209,8 +204,8 @@ If you discover a new limitation:
 
 ## Summary
 
-**Active Limitations**: 4 (list deletion, trailing spaces, modal test, large docs)
+**Active Limitations**: 3 (trailing spaces, modal test, large docs)
 **By Design**: 2 (CriticMarkup format, caption format)
-**Fixed**: Multiple (see git history)
+**Fixed**: List item deletion (2025-11-19)
 
 Most limitations are edge cases that don't affect typical usage. The core functionality - tracking changes, rendering CriticMarkup, and managing document operations - works correctly for the vast majority of use cases.

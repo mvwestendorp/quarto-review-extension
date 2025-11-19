@@ -28,13 +28,11 @@ describe('Text Transformation Pipeline', () => {
     /**
      * KNOWN LIMITATIONS:
      *
-     * - list-delete-item: Line-based diff algorithm leaves empty list items
-     *   when deleting entire list items. See KNOWN_LIMITATIONS.md #1.
-     *
-     * To fix: Implement structure-aware diffing that understands Markdown syntax
+     * - list-delete-item: FIXED - Now properly deletes entire list items
+     *   including markers. See converters.ts formatLine() function.
      */
     const knownIssues = new Set([
-      'list-delete-item',
+      // 'list-delete-item', // FIXED
     ]);
 
     testCases.forEach((testCase) => {
@@ -335,12 +333,11 @@ describe('Text Transformation Pipeline', () => {
 
   describe('Mixed Content Types', () => {
     /**
-     * KNOWN LIMITATION: Trailing space artifacts
+     * KNOWN LIMITATION: Trailing space artifacts (ACCEPTABLE)
      *
-     * The diff algorithm adds trailing spaces to lines near modified content.
+     * The diff algorithm may add trailing spaces to lines near modified content.
+     * This is acceptable behavior. Tests comparing rejected content should use .trim().
      * See KNOWN_LIMITATIONS.md #2 for details.
-     *
-     * To fix: Implement post-processing to strip trailing whitespace
      */
     it.skip('should handle documents with mixed elements', () => {
       const original = `# Heading
