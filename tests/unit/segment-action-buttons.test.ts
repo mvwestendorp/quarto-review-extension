@@ -4,10 +4,12 @@ import { SegmentActionButtons } from '@/modules/ui/comments/SegmentActionButtons
 describe('SegmentActionButtons extended hover zone', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
   });
 
   it('keeps buttons visible while the pointer stays in the same row', () => {
@@ -32,13 +34,18 @@ describe('SegmentActionButtons extended hover zone', () => {
     const buttons = new SegmentActionButtons();
     buttons.syncButtons(['segment-1']);
 
+    // First mousemove within the row range
     document.dispatchEvent(new MouseEvent('mousemove', { clientY: 120 }));
+    vi.advanceTimersByTime(33); // Advance past throttle delay
     expect(segment.classList.contains('review-segment-hovered')).toBe(true);
 
+    // Mouse leaves the segment but stays in row range
     segment.dispatchEvent(new Event('mouseleave'));
     expect(segment.classList.contains('review-segment-hovered')).toBe(true);
 
+    // Mouse moves outside the row range
     document.dispatchEvent(new MouseEvent('mousemove', { clientY: 20 }));
+    vi.advanceTimersByTime(33); // Advance past throttle delay
     expect(segment.classList.contains('review-segment-hovered')).toBe(false);
   });
 });
