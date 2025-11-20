@@ -411,3 +411,209 @@ section.review-editable-editing:hover {
 .review-inline-editor-body .milkdown p:last-child {
   margin-bottom: 0;
 }
+
+/* ============================================
+   Review Extension Editor UI Improvements
+   Consolidated Toolbar & Actions Row Layout
+   ============================================ */
+
+/* Merge toolbar and actions into unified bottom bar */
+.review-editor-content {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.review-editor-toolbar-container {
+  position: static !important;
+  top: auto !important;
+  right: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+  order: 2 !important;
+}
+
+.review-editor-toolbar {
+  position: static !important;
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 4px !important;
+  padding: 12px !important;
+  background: #f9fafb !important;
+  border: none !important;
+  border-top: 1px solid #e5e7eb !important;
+  box-shadow: none !important;
+  width: 100% !important;
+  height: auto !important;
+  grid-auto-flow: row !important;
+  grid-template-columns: unset !important;
+  align-items: center !important;
+  margin: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Style toolbar buttons to match actions row */
+.review-editor-toolbar-btn {
+  min-width: 32px !important;
+  height: 32px !important;
+  padding: 4px 8px !important;
+  border: 1px solid #d1d5db !important;
+  background-color: white !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+  transition: all 0.15s ease !important;
+  box-shadow: none !important;
+}
+
+.review-editor-toolbar-btn:hover {
+  background-color: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+}
+
+.review-editor-toolbar-btn:active {
+  background-color: #e5e7eb !important;
+}
+
+/* Hide toggle buttons when consolidated */
+.review-editor-toolbar-toggle,
+.review-editor-toolbar-context-toggle {
+  display: none !important;
+}
+
+/* Undo/Redo buttons styling */
+.review-editor-toolbar-undo-redo {
+  position: static !important;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  padding: 4px !important;
+  border-radius: 4px !important;
+  border: 1px solid #d1d5db !important;
+  background: white !important;
+  color: #374151 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  margin: 0 !important;
+}
+
+.review-editor-toolbar-undo-redo:hover:not(:disabled) {
+  background: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+}
+
+.review-editor-toolbar-undo-redo:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  background: #f9fafb !important;
+  border-color: #e5e7eb !important;
+}
+
+/* Hide toolbar groups separator */
+.review-editor-toolbar-group {
+  display: contents !important;
+}
+
+/* Move actions row into editor content container styling */
+.review-inline-editor-body {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+}
+
+/* Consolidate actions row - unified with toolbar */
+.review-inline-editor-actions {
+  display: flex !important;
+  gap: 8px !important;
+  padding: 0 12px 12px 12px !important;
+  background-color: #f9fafb !important;
+  border: none !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
+  margin: 0 !important;
+  margin-top: 0 !important;
+  order: 3 !important;
+}
+
+/* Primary action buttons (Cancel/Save) on the right */
+.review-inline-editor-actions > button,
+.review-inline-editor-actions > .btn {
+  flex-shrink: 0;
+  margin: 0 !important;
+  padding: 6px 16px !important;
+  border-radius: 4px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  border: 1px solid #d1d5db !important;
+  background-color: white !important;
+  color: #374151 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.review-inline-editor-actions > button:hover,
+.review-inline-editor-actions > .btn:hover {
+  background-color: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+}
+
+/* Primary Save button in blue */
+.review-inline-editor-actions > button:last-child,
+.review-inline-editor-actions > button[data-action="save"],
+.review-inline-editor-actions > .btn-primary {
+  background-color: #0284c7 !important;
+  color: white !important;
+  border-color: #0284c7 !important;
+}
+
+.review-inline-editor-actions > button:last-child:hover,
+.review-inline-editor-actions > button[data-action="save"]:hover,
+.review-inline-editor-actions > .btn-primary:hover {
+  background-color: #0369a1 !important;
+  border-color: #0369a1 !important;
+}
+
+/* Responsive: Mobile layout */
+@media (max-width: 640px) {
+  .review-inline-editor-actions {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .review-inline-editor-actions > button,
+  .review-inline-editor-actions > .btn {
+    width: 100% !important;
+  }
+
+  .review-editor-toolbar {
+    width: 100% !important;
+    margin-bottom: 8px !important;
+  }
+}
+
+/* Responsive: Tablet layout */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .review-inline-editor-actions {
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    scrollbar-width: thin !important;
+  }
+
+  .review-inline-editor-actions::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .review-inline-editor-actions::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 2px;
+  }
+}
+

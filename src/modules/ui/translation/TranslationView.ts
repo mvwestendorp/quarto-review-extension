@@ -1242,7 +1242,9 @@ export class TranslationView {
 
       // Add editor to section
       sectionElement.appendChild(editorContainer);
-      sectionElement.appendChild(actions);
+
+      // Add actions to the editor body (so they're inside the proper layout hierarchy)
+      editorBody.appendChild(actions);
 
       // Initialize Milkdown editor with full segment content
       if (!this.editorBridge) {
