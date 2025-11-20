@@ -9,6 +9,9 @@ export class SentenceSegmenter {
   /**
    * Split text into sentences using simple regex-based approach
    * For production, consider using a library like 'compromise' for better accuracy
+   *
+   * NOTE: Lists (ordered and unordered) are NOT segmented - they are kept as single units
+   * to preserve structure when editing in translation mode.
    */
   segmentText(
     text: string,
@@ -20,6 +23,22 @@ export class SentenceSegmenter {
     }
 
     const sentences: Sentence[] = [];
+
+    // Check if text is a list - if so, keep it as a single sentence
+    if (this.isListBlock(text)) {
+      const trimmed = text.trim();
+      sentences.push({
+        id: this.generateSentenceId(trimmed, 0),
+        elementId,
+        content: trimmed,
+        language,
+        order: 0,
+        startOffset: 0,
+        endOffset: text.length,
+        hash: this.hashContent(trimmed),
+      });
+      return sentences;
+    }
 
     // Split on sentence boundaries (., !, ?)
     // This is a simplified approach - for better accuracy, use NLP libraries
@@ -48,6 +67,28 @@ export class SentenceSegmenter {
     });
 
     return sentences;
+  }
+
+  /**
+   * Check if text is a list block (ordered or unordered)
+   * Lists should NOT be segmented into individual sentences
+   */
+  private isListBlock(text: string): boolean {
+    const trimmed = text.trim();
+
+    // Check for ordered list (1., 2., 3., etc.)
+    const orderedListPattern = /^\s*\d+[.)]\s+/m;
+    if (orderedListPattern.test(trimmed)) {
+      return true;
+    }
+
+    // Check for unordered list (-, *, +)
+    const unorderedListPattern = /^\s*[-*+]\s+/m;
+    if (unorderedListPattern.test(trimmed)) {
+      return true;
+    }
+
+    return false;
   }
 
   /**
