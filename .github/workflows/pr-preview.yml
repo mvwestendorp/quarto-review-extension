@@ -296,7 +296,7 @@ jobs:
           script: |
             const prNumber = ${{ steps.pr_version.outputs.PR_NUMBER }};
             const version = '${{ steps.pr_version.outputs.VERSION }}';
-            const releaseTag = 'pr-${prNumber}-build-${{ github.run_number }}';
+            const releaseTag = `pr-${prNumber}-build-${{ github.run_number }}`;
             const releaseUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/releases/tag/${releaseTag}`;
 
             // Find existing comment
