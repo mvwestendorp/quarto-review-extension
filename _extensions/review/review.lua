@@ -987,12 +987,9 @@ function Header(elem)
   -- Add current section
   context.section_stack[level] = identifier
 
-  -- Reset element counters for deeper levels
-  for key, _ in pairs(context.element_counters) do
-    if not key:match("^header") then
-      context.element_counters[key] = 0
-    end
-  end
+  -- Note: Element counters are NOT reset here anymore
+  -- All counters are document-wide to ensure unique data-review-id values
+  -- across the entire document, not just within sections
 
   return make_editable(elem, 'Header', level)
 end

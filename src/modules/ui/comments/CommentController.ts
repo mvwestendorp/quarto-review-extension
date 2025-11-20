@@ -466,8 +466,9 @@ export class CommentController {
     commentKey: string | undefined,
     source: 'hover' | 'composer'
   ): void {
+    // Only query items that are currently highlighted for better performance
     document
-      .querySelectorAll<HTMLElement>('.review-comment-item')
+      .querySelectorAll<HTMLElement>('.review-comment-item-highlight')
       .forEach((item) => removeClass(item, 'review-comment-item-highlight'));
 
     if (!elementId) {

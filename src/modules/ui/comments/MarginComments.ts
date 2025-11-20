@@ -3,6 +3,7 @@ import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 import { createDiv, createButton } from '@utils/dom-helpers';
 import { CommentEditor } from './CommentEditor';
+import { throttle, debounce } from '@utils/performance';
 
 const logger = createModuleLogger('MarginComments');
 
@@ -41,6 +42,8 @@ export class MarginComments {
   private resizeObserver: ResizeObserver | null = null;
   private editingCommentKey: string | null = null;
   private activeEditor: CommentEditor | null = null;
+  // Cache section elements to avoid repeated querySelector calls
+  private sectionElementCache: Map<string, HTMLElement> = new Map();
 
   constructor() {
     this.ensureContainerCreated();
@@ -71,6 +74,8 @@ export class MarginComments {
 
     this.container.innerHTML = '';
     this.commentElements.clear();
+    // Clear section element cache on refresh to ensure fresh queries
+    this.sectionElementCache.clear();
 
     if (this.sections.length === 0) {
       // Optional: Show empty state
@@ -247,6 +252,7 @@ export class MarginComments {
     this.sections = [];
     this.callbacks = null;
     this.commentElements.clear();
+    this.sectionElementCache.clear();
     this.editingCommentKey = null;
   }
 
@@ -265,15 +271,32 @@ export class MarginComments {
   }
 
   /**
+   * Get or cache a section element by ID
+   */
+  private getSectionElement(elementId: string): HTMLElement | null {
+    if (this.sectionElementCache.has(elementId)) {
+      return this.sectionElementCache.get(elementId)!;
+    }
+
+    const element = document.querySelector(
+      `[data-review-id="${elementId}"]`
+    ) as HTMLElement | null;
+
+    if (element) {
+      this.sectionElementCache.set(elementId, element);
+    }
+
+    return element;
+  }
+
+  /**
    * Calculate vertical positions for all comments based on their associated sections
    */
   private calculateCommentPositions(): CommentPosition[] {
     const positions: CommentPosition[] = [];
 
     this.sections.forEach((snapshot) => {
-      const sectionElement = document.querySelector(
-        `[data-section-id="${snapshot.element.id}"]`
-      ) as HTMLElement;
+      const sectionElement = this.getSectionElement(snapshot.element.id);
 
       if (!sectionElement) {
         logger.warn('Section element not found for comment positioning', {
@@ -494,15 +517,19 @@ export class MarginComments {
   private resolveCollisions(): void {
     const commentArray = Array.from(this.commentElements.values());
 
+    // Cache all getBoundingClientRect calls to avoid O(n²) layout reflows
+    const rects = commentArray.map((comment) =>
+      comment ? comment.getBoundingClientRect() : null
+    );
+
     for (let i = 0; i < commentArray.length; i++) {
       for (let j = i + 1; j < commentArray.length; j++) {
         const comment1 = commentArray[i];
         const comment2 = commentArray[j];
+        const rect1 = rects[i];
+        const rect2 = rects[j];
 
-        if (!comment1 || !comment2) continue;
-
-        const rect1 = comment1.getBoundingClientRect();
-        const rect2 = comment2.getBoundingClientRect();
+        if (!comment1 || !comment2 || !rect1 || !rect2) continue;
 
         // Check for vertical overlap
         if (
@@ -521,17 +548,23 @@ export class MarginComments {
    * Setup scroll synchronization to update comment visibility
    */
   private setupScrollSync(): void {
-    this.scrollHandler = () => {
+    // Throttle scroll handler to improve performance (max 60fps)
+    this.scrollHandler = throttle(() => {
       this.updateCommentVisibility();
-    };
+    }, 16);
 
     window.addEventListener('scroll', this.scrollHandler, { passive: true });
 
     // Also observe document height changes (if ResizeObserver is available)
     if (typeof ResizeObserver !== 'undefined') {
+      // Debounce resize handler to avoid excessive recalculations during animations
+      const debouncedRefresh = debounce(() => {
+        this.refresh();
+      }, 150);
+
       this.resizeObserver = new ResizeObserver(() => {
         // Recalculate positions when document size changes
-        this.refresh();
+        debouncedRefresh();
       });
 
       const mainContent = document.querySelector('main');
@@ -552,10 +585,8 @@ export class MarginComments {
       const elementId = element.dataset.elementId;
       if (!elementId) return;
 
-      // Find the section element that this comment belongs to
-      const sectionElement = document.querySelector(
-        `[data-section-id="${elementId}"]`
-      ) as HTMLElement;
+      // Find the section element that this comment belongs to (cached)
+      const sectionElement = this.getSectionElement(elementId);
 
       if (!sectionElement) return;
 
