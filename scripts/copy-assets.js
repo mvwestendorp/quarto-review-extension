@@ -22,8 +22,8 @@ const files = [
     dest: join(rootDir, '_extensions/review/assets/review.js.map'),
   },
   {
-    src: join(rootDir, '_extensions/review/assets/review.css'),
-    dest: join(rootDir, 'example/_extensions/review/assets/review.css'),
+    src: join(rootDir, '_extensions/review/assets/dist/review.css'),
+    dest: join(rootDir, 'example/_extensions/review/assets/dist/review.css'),
   },
 ];
 

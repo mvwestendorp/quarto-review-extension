@@ -26,7 +26,6 @@ const EXAMPLE_PROJECT = path.join(
 );
 
 test.describe('Translation Workflow E2E', () => {
-  let serverProcess: any;
   let page: Page;
 
   test.beforeAll(async () => {
