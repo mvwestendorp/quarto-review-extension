@@ -46,7 +46,8 @@ local config = {
 local context = {
   section_stack = {},
   section_counters = {},
-  element_counters = {}
+  element_counters = {},
+  list_depth = 0
 }
 
 -- Calculate the correct relative path to the extension assets from the output file
@@ -124,6 +125,7 @@ function Meta(meta)
   context.section_stack = {}
   context.section_counters = {}
   context.element_counters = {}
+  context.list_depth = 0
 
   config_module.load_config(meta, config)
 

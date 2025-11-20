@@ -122,24 +122,29 @@ function M.create_filter_functions(config, context)
       return elem
     end
 
-    -- Check if we're already processing a list (this would be nested)
-    if context.processing_list then
+    -- Initialize list nesting depth counter
+    if not context.list_depth then
+      context.list_depth = 0
+    end
+
+    -- Only wrap top-level lists, skip nested lists (that are inside list items)
+    if context.list_depth > 0 then
       if config.debug then
-        print("DEBUG: Skipping nested BulletList")
+        print("DEBUG: Skipping nested BulletList (depth=" .. context.list_depth .. ")")
       end
       return elem
     end
 
-    -- Mark that we're processing a list
-    context.processing_list = true
+    -- Mark that we're processing a list and increment depth
+    context.list_depth = context.list_depth + 1
     if config.debug then
-      print("DEBUG: Wrapping BulletList")
+      print("DEBUG: Wrapping BulletList (depth=" .. context.list_depth .. ")")
     end
 
     local result = M.make_editable(elem, 'BulletList', nil, config, context)
 
-    -- Reset flag after wrapping
-    context.processing_list = false
+    -- Reset depth after wrapping
+    context.list_depth = context.list_depth - 1
 
     return result
   end
@@ -149,24 +154,29 @@ function M.create_filter_functions(config, context)
       return elem
     end
 
-    -- Check if we're already processing a list (this would be nested)
-    if context.processing_list then
+    -- Initialize list nesting depth counter
+    if not context.list_depth then
+      context.list_depth = 0
+    end
+
+    -- Only wrap top-level lists, skip nested lists (that are inside list items)
+    if context.list_depth > 0 then
       if config.debug then
-        print("DEBUG: Skipping nested OrderedList")
+        print("DEBUG: Skipping nested OrderedList (depth=" .. context.list_depth .. ")")
       end
       return elem
     end
 
-    -- Mark that we're processing a list
-    context.processing_list = true
+    -- Mark that we're processing a list and increment depth
+    context.list_depth = context.list_depth + 1
     if config.debug then
-      print("DEBUG: Wrapping OrderedList")
+      print("DEBUG: Wrapping OrderedList (depth=" .. context.list_depth .. ")")
     end
 
     local result = M.make_editable(elem, 'OrderedList', nil, config, context)
 
-    -- Reset flag after wrapping
-    context.processing_list = false
+    -- Reset depth after wrapping
+    context.list_depth = context.list_depth - 1
 
     return result
   end
