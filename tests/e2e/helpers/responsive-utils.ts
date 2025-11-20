@@ -221,12 +221,14 @@ export async function hasIOSZoomPrevention(
 
 /**
  * Get all elements that fail touch target size requirements
+ * @param filterPrefix - Only check elements with classes starting with this prefix (e.g., 'review-')
  */
 export async function getFailedTouchTargets(
   page: Page,
-  minSize: number = 44
+  minSize: number = 44,
+  filterPrefix?: string
 ): Promise<string[]> {
-  return await page.evaluate((size) => {
+  return await page.evaluate(({ size, prefix }) => {
     const interactiveSelectors = [
       'button',
       'a',
@@ -243,6 +245,15 @@ export async function getFailedTouchTargets(
     interactiveSelectors.forEach((selector) => {
       const elements = document.querySelectorAll(selector);
       elements.forEach((el) => {
+        // If filterPrefix is provided, only check elements with classes that start with that prefix
+        if (prefix) {
+          const classList = (el as HTMLElement).className.split(' ');
+          const hasMatchingClass = classList.some(cls => cls.startsWith(prefix));
+          if (!hasMatchingClass) {
+            return; // Skip this element
+          }
+        }
+
         const rect = el.getBoundingClientRect();
         if (rect.width < size || rect.height < size) {
           const id = (el as HTMLElement).id;
@@ -258,7 +269,7 @@ export async function getFailedTouchTargets(
     });
 
     return failed;
-  }, minSize);
+  }, { size: minSize, prefix: filterPrefix });
 }
 
 /**

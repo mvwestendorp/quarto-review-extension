@@ -62,10 +62,10 @@ test.describe('Responsive Accessibility - Touch Target Size (WCAG 2.5.5)', () =>
       document.body.appendChild(container);
     });
 
-    // Check all interactive elements
-    const failedTargets = await getFailedTouchTargets(page, 44);
+    // Check only review extension interactive elements (ignore Quarto template elements)
+    const failedTargets = await getFailedTouchTargets(page, 44, 'review-');
 
-    // Should have no failed targets
+    // Should have no failed targets in our review extension elements
     if (failedTargets.length > 0) {
       console.log('Failed touch targets:', failedTargets);
     }
