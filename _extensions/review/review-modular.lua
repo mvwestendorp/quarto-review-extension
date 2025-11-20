@@ -46,7 +46,8 @@ local config = {
 local context = {
   section_stack = {},
   section_counters = {},
-  element_counters = {}
+  element_counters = {},
+  processing_list = false
 }
 
 -- Calculate the correct relative path to the extension assets from the output file
@@ -124,6 +125,7 @@ function Meta(meta)
   context.section_stack = {}
   context.section_counters = {}
   context.element_counters = {}
+  context.processing_list = false
 
   config_module.load_config(meta, config)
 
@@ -240,14 +242,23 @@ function unwrap_nested_editable(elem)
       local result = pandoc.List()
       for _, block in ipairs(blocks) do
         if block.t == "Div" and block.classes:includes("review-editable") then
-          -- Unwrap inner div
+          -- Unwrap inner div (remove the wrapper but keep the content)
           for _, inner_block in ipairs(block.content) do
             result:insert(inner_block)
           end
         else
-          -- Recurse if block has content
+          -- Recurse into block content to find deeply nested review-editable divs
           if block.content and type(block.content) == "table" then
-            block.content = unwrap_in_blocks(block.content)
+            -- For Lists (BulletList, OrderedList), content is a list of list items
+            -- Each list item is itself a list of blocks that may contain nested divs
+            if block.t == "BulletList" or block.t == "OrderedList" then
+              for i, list_item in ipairs(block.content) do
+                block.content[i] = unwrap_in_blocks(list_item)
+              end
+            else
+              -- For other block types (Div, BlockQuote, etc.), recurse normally
+              block.content = unwrap_in_blocks(block.content)
+            end
           end
           result:insert(block)
         end
@@ -255,18 +266,9 @@ function unwrap_nested_editable(elem)
       return result
     end
 
-    -- Only apply unwrapping if the content contains nested editable divs
-    local contains_nested_editable = false
-    for _, block in ipairs(elem.content) do
-      if block.t == "Div" and block.classes:includes("review-editable") then
-        contains_nested_editable = true
-        break
-      end
-    end
-
-    if contains_nested_editable then
-      elem.content = unwrap_in_blocks(elem.content)
-    end
+    -- Always recursively process content to find and unwrap nested divs
+    -- (they may be buried deep inside list items, not just at the top level)
+    elem.content = unwrap_in_blocks(elem.content)
   end
 
   return elem
