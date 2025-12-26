@@ -19,6 +19,7 @@ import { MarginComments } from './comments/MarginComments';
 import { SegmentActionButtons } from './comments/SegmentActionButtons';
 import { BottomDrawer } from './sidebars/BottomDrawer';
 import { ContextMenuCoordinator } from './sidebars/ContextMenuCoordinator';
+import { UIStateManager } from './UIStateManager';
 import {
   normalizeListMarkers,
   trimLineStart,
@@ -26,8 +27,6 @@ import {
   isSetextUnderline,
   isWhitespaceChar,
   type CommentState,
-  type EditorState,
-  type UIState,
 } from './shared';
 import { normalizeContentForComparison } from './shared/editor-content';
 import { EditorHistoryStorage } from './editor/EditorHistoryStorage';
@@ -105,6 +104,9 @@ export class UIModule {
   // Central state store (replaces individual state objects)
   private stateStore: StateStore;
 
+  // State management (TDD refactoring - Phase 1)
+  private stateManager: UIStateManager;
+
   // Cache and utility maps
   private headingReferenceLookup = new Map<string, HeadingReferenceInfo>();
   private activeHeadingReferenceCache = new Map<string, HeadingReferenceInfo>();
@@ -152,9 +154,6 @@ export class UIModule {
     // Initialize central state store
     this.stateStore = new StateStore();
 
-    // Set up reactive listeners for state changes
-    this.setupStateListeners();
-
     // Initialize services
     this.notificationService = new NotificationService();
     this.loadingService = new LoadingService();
@@ -169,6 +168,11 @@ export class UIModule {
     this.editorLifecycle = new EditorLifecycle();
     this.editorToolbarModule = new EditorToolbar();
     this.bottomDrawer = new BottomDrawer();
+
+    // Initialize state management (TDD refactoring - Phase 1)
+    // Set up reactive listeners for state changes
+    this.stateManager = new UIStateManager(this.stateStore, this.bottomDrawer);
+
     this.commentComposerModule = new CommentComposer();
     this.commentBadgesModule = new CommentBadges();
     this.marginCommentsModule = new MarginComments();
@@ -417,58 +421,6 @@ export class UIModule {
     } else {
       this.getOrCreateToolbar();
     }
-  }
-
-  /**
-   * Set up reactive listeners for state changes
-   * Automatically updates UI when state changes occur
-   */
-  private setupStateListeners(): void {
-    // Listen for editor state changes
-    this.stateStore.on<EditorState>('editor:changed', (editorState) => {
-      logger.debug('Editor state changed', editorState);
-
-      // When showTrackedChanges changes, update the sidebar UI
-      // Note: refresh() is already called when toggleTrackedChanges is invoked,
-      // so we only need to ensure the sidebar reflects the current state
-      this.bottomDrawer.setTrackedChangesVisible(
-        editorState.showTrackedChanges
-      );
-    });
-
-    // Listen for UI state changes
-    this.stateStore.on<UIState>('ui:changed', (uiState) => {
-      logger.debug('UI state changed', uiState);
-
-      // Update sidebar collapsed state in the UI
-      const toolbar = document.querySelector(
-        '.review-toolbar'
-      ) as HTMLElement | null;
-      if (toolbar) {
-        toggleClass(
-          toolbar,
-          'review-sidebar-collapsed',
-          uiState.isSidebarCollapsed
-        );
-        if (document.body) {
-          toggleClass(
-            document.body,
-            'review-sidebar-collapsed-mode',
-            uiState.isSidebarCollapsed
-          );
-        }
-        this.bottomDrawer.setCollapsed(uiState.isSidebarCollapsed);
-      }
-    });
-
-    // Listen for comment state changes
-    this.stateStore.on('comment:changed', (commentState) => {
-      logger.debug('Comment state changed', commentState);
-      // Comment state changes are handled by CommentController
-      // which already has a reference to the state
-    });
-
-    logger.info('State listeners initialized - UI will react to state changes');
   }
 
   public toggleSidebarCollapsed(force?: boolean): void {
@@ -2791,6 +2743,9 @@ export class UIModule {
 
   public destroy(): void {
     this.closeEditor();
+
+    // Clean up state manager (TDD refactoring - Phase 1)
+    this.stateManager.dispose();
 
     // Clean up state store listeners
     this.stateStore.destroy();
