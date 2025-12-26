@@ -11,3 +11,7 @@
 export { BottomDrawer } from './BottomDrawer';
 export { ContextMenu } from './ContextMenu';
 export type { MenuPosition } from './ContextMenu';
+export type {
+  CommentsSidebarCallbacks,
+  TranslationDrawerProgress,
+} from '../types/sidebar-types';

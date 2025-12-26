@@ -3,16 +3,9 @@ import type { Comment } from '@/types';
 import type { SectionCommentSnapshot } from './CommentController';
 import { escapeHtml } from '../shared';
 import { createDiv, createButton, setAttributes } from '@utils/dom-helpers';
+import type { CommentsSidebarCallbacks } from '../types/sidebar-types';
 
 const logger = createModuleLogger('CommentsSidebar');
-
-export interface CommentsSidebarCallbacks {
-  onNavigate: (elementId: string, commentKey: string) => void;
-  onRemove: (elementId: string, comment: Comment) => void;
-  onEdit: (elementId: string, comment: Comment) => void;
-  onHover: (elementId: string, commentKey: string) => void;
-  onLeave: () => void;
-}
 
 /**
  * CommentsSidebar manages the sidebar UI for viewing and managing comments.

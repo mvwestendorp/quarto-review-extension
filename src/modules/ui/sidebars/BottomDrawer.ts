@@ -1,6 +1,6 @@
 import { createModuleLogger } from '@utils/debug';
 import { getBuildString, getFullBuildInfo } from '../../../version';
-import type { Comment, Operation, OperationType } from '@/types';
+import type { Operation, OperationType } from '@/types';
 import type { SectionCommentSnapshot } from '../comments/CommentController';
 import type { UserModule } from '../../user';
 import type { ChangesModule } from '@modules/changes';
@@ -12,22 +12,12 @@ import {
   toggleClass,
 } from '@utils/dom-helpers';
 import { SafeStorage } from '@utils/security';
+import type {
+  CommentsSidebarCallbacks,
+  TranslationDrawerProgress,
+} from '../types/sidebar-types';
 
 const logger = createModuleLogger('BottomDrawer');
-
-interface TranslationDrawerProgress {
-  phase: 'idle' | 'running' | 'success' | 'error';
-  message: string;
-  percent?: number;
-}
-
-export interface CommentsSidebarCallbacks {
-  onNavigate: (elementId: string, commentKey: string) => void;
-  onRemove: (elementId: string, comment: Comment) => void;
-  onEdit: (elementId: string, comment: Comment) => void;
-  onHover: (elementId: string, commentKey: string) => void;
-  onLeave: () => void;
-}
 
 /**
  * BottomDrawer consolidates review tools, comments, and translation tools
