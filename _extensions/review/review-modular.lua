@@ -237,6 +237,15 @@ end
 
 -- Post-processor to unwrap nested review-editable divs
 function unwrap_nested_editable(elem)
+  -- Skip Quarto cell divs entirely - they need special handling by Quarto's internal filters
+  if elem.t == "Div" and elem.classes then
+    for _, class in ipairs(elem.classes) do
+      if class == 'cell' or class:match('^cell%-') then
+        return elem
+      end
+    end
+  end
+
   if elem.t == "Div" and elem.classes:includes("review-editable") then
     local function unwrap_in_blocks(blocks)
       local result = pandoc.List()

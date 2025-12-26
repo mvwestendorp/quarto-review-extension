@@ -25,30 +25,35 @@ function M.make_editable(elem, elem_type, level, config, context)
   local markdown_elem = has_clone and pandoc.utils.clone(elem) or string_utils.deepcopy(elem)
 
   -- Recursively strip review-editable divs from the markdown clone
-  local function strip_review_divs(el)
-    local found_nested = false
-    local result = el:walk {
-      Div = function(div)
-        if div.classes:includes("review-editable") then
-          found_nested = true
-          if config.debug then
-            print(string.format("DEBUG: Found nested review-editable div in %s, stripping it", elem_type))
-          end
-          -- Recursively strip review divs inside this div's content
-          local inner = pandoc.Div(div.content)
-          local cleaned = strip_review_divs(inner)
-          -- Return the cleaned content blocks without wrapping div
-          return pandoc.Blocks(cleaned.content)
-        end
-      end
-    }
-    if not found_nested and config.debug then
-      print(string.format("DEBUG: No nested review-editable divs found in %s", elem_type))
-    end
-    return result
-  end
+  -- Skip this for leaf elements (CodeBlock, Str, etc.) that can't contain nested divs
+  local clean_elem = markdown_elem
 
-  local clean_elem = strip_review_divs(markdown_elem)
+  if elem.content ~= nil then
+    local function strip_review_divs(el)
+      local found_nested = false
+      local result = el:walk {
+        Div = function(div)
+          if div.classes:includes("review-editable") then
+            found_nested = true
+            if config.debug then
+              print(string.format("DEBUG: Found nested review-editable div in %s, stripping it", elem_type))
+            end
+            -- Recursively strip review divs inside this div's content
+            local inner = pandoc.Div(div.content)
+            local cleaned = strip_review_divs(inner)
+            -- Return the cleaned content blocks without wrapping div
+            return pandoc.Blocks(cleaned.content)
+          end
+        end
+      }
+      if not found_nested and config.debug then
+        print(string.format("DEBUG: No nested review-editable divs found in %s", elem_type))
+      end
+      return result
+    end
+
+    clean_elem = strip_review_divs(markdown_elem)
+  end
 
   -- Convert clean element to markdown
   local markdown = markdown_conversion.element_to_markdown(clean_elem)
@@ -78,6 +83,24 @@ end
 -- Create filter functions for each element type
 function M.create_filter_functions(config, context)
   local filters = {}
+
+  -- Handle Div elements - skip Quarto computational cells
+  filters.Div = function(elem)
+    -- Skip Quarto cell divs (code cells, computational output, etc.)
+    -- These need special handling by Quarto's internal filters
+    if elem.classes then
+      for _, class in ipairs(elem.classes) do
+        if class == 'cell' or class:match('^cell%-') then
+          if config.debug then
+            print(string.format("DEBUG: Skipping Div with class '%s' (Quarto computational cell)", class))
+          end
+          return elem
+        end
+      end
+    end
+    -- Don't wrap other Divs, just pass them through
+    return elem
+  end
 
   filters.Para = function(elem)
     if not config.enabled or not config.editable_elements.Para then
@@ -114,6 +137,21 @@ function M.create_filter_functions(config, context)
     if not config.enabled or not config.editable_elements.CodeBlock then
       return elem
     end
+
+    -- Skip code blocks that are part of executable cells or have special Quarto features
+    -- These will be wrapped in cell divs by Quarto and should not be wrapped by us
+    if elem.classes and #elem.classes > 0 then
+      for _, class in ipairs(elem.classes) do
+        -- cell-code indicates this is an executable code cell
+        if class == 'cell-code' then
+          if config.debug then
+            print("DEBUG: Skipping CodeBlock with cell-code class (executable cell)")
+          end
+          return elem
+        end
+      end
+    end
+
     return M.make_editable(elem, 'CodeBlock', nil, config, context)
   end
 
