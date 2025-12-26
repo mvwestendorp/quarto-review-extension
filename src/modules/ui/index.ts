@@ -20,6 +20,7 @@ import { SegmentActionButtons } from './comments/SegmentActionButtons';
 import { BottomDrawer } from './sidebars/BottomDrawer';
 import { ContextMenuCoordinator } from './sidebars/ContextMenuCoordinator';
 import { UIStateManager } from './UIStateManager';
+import { UIPluginManager } from './UIPluginManager';
 import {
   normalizeListMarkers,
   trimLineStart,
@@ -135,7 +136,7 @@ export class UIModule {
   private commentsImportedFromStorage = false;
   private translationController: TranslationController | null = null;
   private translationModule?: TranslationModule;
-  private pluginHandles = new Map<string, PluginHandle>();
+  private pluginManager: UIPluginManager;
   private translationPlugin: TranslationPlugin | null = null;
   private notificationService: NotificationService;
   private loadingService: LoadingService;
@@ -172,6 +173,9 @@ export class UIModule {
     // Initialize state management (TDD refactoring - Phase 1)
     // Set up reactive listeners for state changes
     this.stateManager = new UIStateManager(this.stateStore, this.bottomDrawer);
+
+    // Initialize plugin management (TDD refactoring - Phase 2)
+    this.pluginManager = new UIPluginManager();
 
     this.commentComposerModule = new CommentComposer();
     this.commentBadgesModule = new CommentBadges();
@@ -451,23 +455,13 @@ export class UIModule {
     plugin: ReviewUIPlugin,
     context: ReviewUIContext
   ): PluginHandle {
-    this.unmountUIPlugin(plugin.id);
-    const handle = plugin.mount(context);
-    this.pluginHandles.set(plugin.id, handle);
-    return handle;
+    // Delegate to plugin manager (TDD refactoring - Phase 2)
+    return this.pluginManager.mountPlugin(plugin, context);
   }
 
   private unmountUIPlugin(id: string): void {
-    const handle = this.pluginHandles.get(id);
-    if (!handle) {
-      return;
-    }
-    try {
-      handle.dispose();
-    } catch (error) {
-      logger.warn('Failed to dispose UI plugin', { id, error });
-    }
-    this.pluginHandles.delete(id);
+    // Delegate to plugin manager (TDD refactoring - Phase 2)
+    this.pluginManager.unmountPlugin(id);
   }
 
   private ensureTranslationPlugin(): TranslationPlugin {
