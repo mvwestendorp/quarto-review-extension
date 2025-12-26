@@ -1,21 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UnifiedSidebar } from '@modules/ui/sidebars/UnifiedSidebar';
+import { BottomDrawer } from '@modules/ui/sidebars/BottomDrawer';
 import { CommentComposer } from '@modules/ui/comments/CommentComposer';
 import LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import { EmbeddedSourceStore } from '@modules/git/fallback';
 
 describe('UI Regression Tests', () => {
   describe('Export QMD Buttons State', () => {
-    let sidebar: UnifiedSidebar;
+    let bottomDrawer: BottomDrawer;
 
     beforeEach(() => {
       document.body.innerHTML = '';
-      sidebar = new UnifiedSidebar();
-      sidebar.create();
+      bottomDrawer = new BottomDrawer();
+      bottomDrawer.create();
     });
 
     afterEach(() => {
-      sidebar.destroy();
+      bottomDrawer.destroy();
       document.body.innerHTML = '';
     });
 
@@ -31,10 +31,10 @@ describe('UI Regression Tests', () => {
       expect(exportCriticBtn?.disabled).toBe(true);
 
       // Register callbacks
-      sidebar.onExportClean(() => {
+      bottomDrawer.onExportClean(() => {
         // Export clean
       });
-      sidebar.onExportCritic(() => {
+      bottomDrawer.onExportCritic(() => {
         // Export critic
       });
 
@@ -52,10 +52,10 @@ describe('UI Regression Tests', () => {
       ) as HTMLButtonElement | null;
 
       // Register callbacks
-      sidebar.onExportClean(() => {
+      bottomDrawer.onExportClean(() => {
         // Export clean
       });
-      sidebar.onExportCritic(() => {
+      bottomDrawer.onExportCritic(() => {
         // Export critic
       });
 
@@ -79,10 +79,10 @@ describe('UI Regression Tests', () => {
       ) as HTMLButtonElement | null;
 
       // Register callbacks
-      sidebar.onExportClean(() => {
+      bottomDrawer.onExportClean(() => {
         // Export clean
       });
-      sidebar.onExportCritic(() => {
+      bottomDrawer.onExportCritic(() => {
         // Export critic
       });
 
@@ -90,8 +90,8 @@ describe('UI Regression Tests', () => {
       expect(exportCriticBtn?.disabled).toBe(false);
 
       // Clear callbacks
-      sidebar.onExportClean(undefined);
-      sidebar.onExportCritic(undefined);
+      bottomDrawer.onExportClean(undefined);
+      bottomDrawer.onExportCritic(undefined);
 
       // Buttons should be disabled
       expect(exportCleanBtn?.disabled).toBe(true);
@@ -100,25 +100,25 @@ describe('UI Regression Tests', () => {
   });
 
   describe('Submit Review Button State', () => {
-    let sidebar: UnifiedSidebar;
+    let bottomDrawer: BottomDrawer;
 
     beforeEach(() => {
       document.body.innerHTML = '';
-      sidebar = new UnifiedSidebar();
+      bottomDrawer = new BottomDrawer();
     });
 
     afterEach(() => {
-      sidebar.destroy();
+      bottomDrawer.destroy();
       document.body.innerHTML = '';
     });
 
     it('enables submit review button when handler registered before create()', () => {
-      sidebar.onSubmitReview(() => {
+      bottomDrawer.onSubmitReview(() => {
         // Submit action
       });
-      sidebar.setSubmitReviewEnabled(true);
+      bottomDrawer.setSubmitReviewEnabled(true);
 
-      sidebar.create();
+      bottomDrawer.create();
 
       const submitBtn = document.querySelector(
         '[data-action="submit-review"]'
@@ -143,19 +143,19 @@ describe('UI Regression Tests', () => {
     });
 
     it('should display save button with correct text when adding new comment', async () => {
-      const sidebarBody = document.createElement('div');
-      sidebarBody.className = 'review-sidebar-body';
-      document.body.appendChild(sidebarBody);
+      const bottomDrawerBody = document.createElement('div');
+      bottomDrawerBody.className = 'review-bottomDrawer-body';
+      document.body.appendChild(bottomDrawerBody);
 
       const composerElement = composer.create();
-      sidebarBody.appendChild(composerElement);
+      bottomDrawerBody.appendChild(composerElement);
 
       const context = {
         elementId: 'test-elem-1',
         sectionId: 'test-section-1',
       };
 
-      await composer.open(context, sidebarBody);
+      await composer.open(context, bottomDrawerBody);
 
       const saveBtn = composerElement.querySelector(
         '[data-action="save"]'
@@ -167,12 +167,12 @@ describe('UI Regression Tests', () => {
     });
 
     it('should display update button with correct text when editing comment', async () => {
-      const sidebarBody = document.createElement('div');
-      sidebarBody.className = 'review-sidebar-body';
-      document.body.appendChild(sidebarBody);
+      const bottomDrawerBody = document.createElement('div');
+      bottomDrawerBody.className = 'review-bottomDrawer-body';
+      document.body.appendChild(bottomDrawerBody);
 
       const composerElement = composer.create();
-      sidebarBody.appendChild(composerElement);
+      bottomDrawerBody.appendChild(composerElement);
 
       const context = {
         elementId: 'test-elem-1',
@@ -181,7 +181,7 @@ describe('UI Regression Tests', () => {
         commentId: 'comment-123',
       };
 
-      await composer.open(context, sidebarBody);
+      await composer.open(context, bottomDrawerBody);
 
       const saveBtn = composerElement.querySelector(
         '[data-action="save"]'
@@ -193,12 +193,12 @@ describe('UI Regression Tests', () => {
     });
 
     it('should have functioning save button that is clickable', async () => {
-      const sidebarBody = document.createElement('div');
-      sidebarBody.className = 'review-sidebar-body';
-      document.body.appendChild(sidebarBody);
+      const bottomDrawerBody = document.createElement('div');
+      bottomDrawerBody.className = 'review-bottomDrawer-body';
+      document.body.appendChild(bottomDrawerBody);
 
       const composerElement = composer.create();
-      sidebarBody.appendChild(composerElement);
+      bottomDrawerBody.appendChild(composerElement);
 
       const context = {
         elementId: 'test-elem-1',
@@ -206,7 +206,7 @@ describe('UI Regression Tests', () => {
       };
 
       let submitCalled = false;
-      await composer.open(context, sidebarBody, () => {
+      await composer.open(context, bottomDrawerBody, () => {
         submitCalled = true;
       });
 
