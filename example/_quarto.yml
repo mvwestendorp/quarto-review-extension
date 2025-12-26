@@ -14,24 +14,24 @@ website:
         file: doc-translation.qmd
       - text: 'Features'
         menu:
-          - text: 'Text Formatting'
-            file: features-text-formatting.qmd
-          - text: 'Code Execution'
-            file: features-code.qmd
-          - text: 'Figures & Tables'
-            file: features-figures-tables.qmd
-          - text: 'Layout'
-            file: features-layout.qmd
-          - text: 'Callouts & Cross-Refs'
-            file: features-callouts-crossrefs.qmd
-          - text: 'Diagrams & Media'
-            file: features-diagrams-media.qmd
-          - text: 'Citations & Scholarly'
-            file: features-citations-scholarly.qmd
-          - text: 'Advanced'
-            file: features-advanced.qmd
-          - text: 'Interactive'
-            file: features-interactive.qmd
+          - text: '01. Text & Formatting'
+            file: 01-text-and-formatting.qmd
+          - text: '02. Layout & Structure'
+            file: 02-layout-and-structure.qmd
+          - text: '03. Advanced Features'
+            file: 03-advanced-features.qmd
+          - text: '04. Code Execution'
+            file: 04-code-execution.qmd
+          - text: '05. Citations & References'
+            file: 05-citations-and-references.qmd
+          - text: '06. Callouts & Cross-Refs'
+            file: 06-callouts-and-crossrefs.qmd
+          - text: '07. Figures & Tables'
+            file: 07-figures-and-tables.qmd
+          - text: '08. Diagrams & Media'
+            file: 08-diagrams-and-media.qmd
+          - text: '09. Interactive Content'
+            file: 09-interactive-content.qmd
 
 format:
   html:
