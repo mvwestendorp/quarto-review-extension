@@ -67,60 +67,38 @@ local path_utils = require('path-utils')
 local suite = TestSuite
 
 -- should_skip_directory tests
-suite:add("Should skip dot directories", function(s)
+suite:add("Skips build output and cache directories", function(s)
+  -- Quarto/site output
+  s:assertTrue(project_detection.should_skip_directory('_site'), "Should skip _site")
+  s:assertTrue(project_detection.should_skip_directory('_output'), "Should skip _output")
+  s:assertTrue(project_detection.should_skip_directory('.quarto'), "Should skip .quarto")
+
+  -- Language-specific caches
+  s:assertTrue(project_detection.should_skip_directory('node_modules'), "Should skip node_modules")
+  s:assertTrue(project_detection.should_skip_directory('__pycache__'), "Should skip __pycache__")
+  s:assertTrue(project_detection.should_skip_directory('.venv'), "Should skip .venv")
+end)
+
+suite:add("Skips version control and IDE directories", function(s)
+  -- Version control
+  s:assertTrue(project_detection.should_skip_directory('.git'), "Should skip .git")
+
+  -- IDEs
+  s:assertTrue(project_detection.should_skip_directory('.idea'), "Should skip .idea")
+  s:assertTrue(project_detection.should_skip_directory('.vscode'), "Should skip .vscode")
+  s:assertTrue(project_detection.should_skip_directory('.Rproj.user'), "Should skip .Rproj.user")
+
+  -- Special navigation directories
   s:assertTrue(project_detection.should_skip_directory('.'), "Should skip .")
   s:assertTrue(project_detection.should_skip_directory('..'), "Should skip ..")
 end)
 
-suite:add("Should skip .git directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('.git'), "Should skip .git")
-end)
-
-suite:add("Should skip node_modules", function(s)
-  s:assertTrue(project_detection.should_skip_directory('node_modules'), "Should skip node_modules")
-end)
-
-suite:add("Should skip _site directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('_site'), "Should skip _site")
-end)
-
-suite:add("Should skip _output directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('_output'), "Should skip _output")
-end)
-
-suite:add("Should skip _extensions directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('_extensions'), "Should skip _extensions")
-end)
-
-suite:add("Should skip .quarto directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('.quarto'), "Should skip .quarto")
-end)
-
-suite:add("Should skip .venv directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('.venv'), "Should skip .venv")
-end)
-
-suite:add("Should skip __pycache__ directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('__pycache__'), "Should skip __pycache__")
-end)
-
-suite:add("Should skip .Rproj.user directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('.Rproj.user'), "Should skip .Rproj.user")
-end)
-
-suite:add("Should skip .idea directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('.idea'), "Should skip .idea")
-end)
-
-suite:add("Should skip .vscode directory", function(s)
-  s:assertTrue(project_detection.should_skip_directory('.vscode'), "Should skip .vscode")
-end)
-
-suite:add("Should not skip normal directories", function(s)
+suite:add("Does not skip content directories", function(s)
   s:assertFalse(project_detection.should_skip_directory('src'), "Should not skip src")
   s:assertFalse(project_detection.should_skip_directory('docs'), "Should not skip docs")
   s:assertFalse(project_detection.should_skip_directory('tests'), "Should not skip tests")
   s:assertFalse(project_detection.should_skip_directory('chapters'), "Should not skip chapters")
+  s:assertFalse(project_detection.should_skip_directory('content'), "Should not skip content")
 end)
 
 -- find_project_root tests

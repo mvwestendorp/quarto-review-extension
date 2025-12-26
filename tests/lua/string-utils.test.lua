@@ -183,29 +183,169 @@ suite:add("Handles empty table in JSON", function(s)
 end)
 
 -- generate_id tests
-suite:add("Generates non-empty ID", function(s)
-  local id = string_utils.generate_id()
-  s:assertTrue(id ~= nil and #id > 0, "Should generate non-empty ID")
+suite:add("Generates ID with all components", function(s)
+  local counters = {}
+  local id = string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
+  s:assertEqual(id, "doc.para-1", "Should generate ID with prefix and counter")
+  s:assertEqual(counters["Para"], 1, "Should increment counter")
 end)
 
-suite:add("Generates unique IDs", function(s)
-  local id1 = string_utils.generate_id()
-  local id2 = string_utils.generate_id()
-  s:assertTrue(id1 ~= id2, "Should generate different IDs")
+suite:add("Generates IDs with section stack", function(s)
+  local counters = {}
+  local id = string_utils.generate_id("doc", ".", {"intro", "background"}, counters, "Para", nil)
+  s:assertEqual(id, "doc.intro.background.para-1", "Should include section hierarchy")
 end)
 
-suite:add("Generates IDs with prefix", function(s)
-  local id = string_utils.generate_id("test")
-  s:assertContains(id, "test", "Should include prefix")
+suite:add("Generates IDs with level", function(s)
+  local counters = {}
+  local id = string_utils.generate_id("doc", ".", {}, counters, "Header", 2)
+  s:assertEqual(id, "doc.header-1", "Should generate header ID")
+  s:assertEqual(counters["Header-2"], 1, "Should use level in counter key")
 end)
 
-suite:add("Generates multiple unique IDs", function(s)
-  local ids = {}
-  for i = 1, 50 do
-    local id = string_utils.generate_id()
-    s:assertFalse(ids[id] ~= nil, "Should not generate duplicate: " .. tostring(id))
-    ids[id] = true
-  end
+suite:add("Increments counters correctly", function(s)
+  local counters = {}
+  local id1 = string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
+  local id2 = string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
+  local id3 = string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
+  s:assertEqual(id1, "doc.para-1", "First para should be para-1")
+  s:assertEqual(id2, "doc.para-2", "Second para should be para-2")
+  s:assertEqual(id3, "doc.para-3", "Third para should be para-3")
+  s:assertEqual(counters["Para"], 3, "Counter should be 3")
+end)
+
+suite:add("Uses custom separator", function(s)
+  local counters = {}
+  local id = string_utils.generate_id("doc", "-", {"section"}, counters, "Para", nil)
+  s:assertEqual(id, "doc-section-para-1", "Should use custom separator")
+end)
+
+suite:add("Handles empty prefix", function(s)
+  local counters = {}
+  local id = string_utils.generate_id("", ".", {}, counters, "Para", nil)
+  s:assertEqual(id, ".para-1", "Should work with empty prefix")
+end)
+
+suite:add("Different element types have separate counters", function(s)
+  local counters = {}
+  string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
+  string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
+  string_utils.generate_id("doc", ".", {}, counters, "Header", 1)
+  string_utils.generate_id("doc", ".", {}, counters, "CodeBlock", nil)
+
+  s:assertEqual(counters["Para"], 2, "Para counter should be 2")
+  s:assertEqual(counters["Header-1"], 1, "Header counter should be 1")
+  s:assertEqual(counters["CodeBlock"], 1, "CodeBlock counter should be 1")
+end)
+
+-- meta_to_json tests (with mocking for pandoc dependency)
+suite:add("Converts nil to nil", function(s)
+  local result = string_utils.meta_to_json(nil)
+  s:assertEqual(result, nil, "Should return nil")
+end)
+
+suite:add("Converts boolean values", function(s)
+  local result_true = string_utils.meta_to_json(true)
+  local result_false = string_utils.meta_to_json(false)
+  s:assertEqual(result_true, true, "Should return true")
+  s:assertEqual(result_false, false, "Should return false")
+end)
+
+suite:add("Converts string values", function(s)
+  local result = string_utils.meta_to_json("test string")
+  s:assertEqual(result, "test string", "Should return string unchanged")
+end)
+
+suite:add("Converts MetaBool", function(s)
+  -- Mock pandoc.utils.stringify
+  if not pandoc then pandoc = {} end
+  if not pandoc.utils then pandoc.utils = {} end
+  pandoc.utils.stringify = function(v) return tostring(v) end
+
+  local meta_bool = {t = 'MetaBool', bool = true}
+  local result = string_utils.meta_to_json(meta_bool)
+  s:assertEqual(result, true, "Should extract bool value from MetaBool")
+end)
+
+suite:add("Converts MetaString using stringify", function(s)
+  -- Mock pandoc.utils.stringify
+  if not pandoc then pandoc = {} end
+  if not pandoc.utils then pandoc.utils = {} end
+  pandoc.utils.stringify = function(v) return "stringified" end
+
+  local meta_string = {t = 'MetaString', text = "test"}
+  local result = string_utils.meta_to_json(meta_string)
+  s:assertEqual(result, "stringified", "Should use stringify for MetaString")
+end)
+
+suite:add("Converts MetaList recursively", function(s)
+  -- Mock pandoc.utils.stringify
+  if not pandoc then pandoc = {} end
+  if not pandoc.utils then pandoc.utils = {} end
+  pandoc.utils.stringify = function(v) return "item" end
+
+  local meta_list = {
+    t = 'MetaList',
+    [1] = "first",
+    [2] = "second",
+    [3] = "third"
+  }
+  local result = string_utils.meta_to_json(meta_list)
+  s:assertEqual(type(result), "table", "Should return table")
+  s:assertEqual(#result, 3, "Should have 3 items")
+  s:assertEqual(result[1], "first", "First item should be converted")
+  s:assertEqual(result[2], "second", "Second item should be converted")
+  s:assertEqual(result[3], "third", "Third item should be converted")
+end)
+
+suite:add("Converts MetaMap recursively", function(s)
+  -- Mock pandoc.utils.stringify
+  if not pandoc then pandoc = {} end
+  if not pandoc.utils then pandoc.utils = {} end
+  pandoc.utils.stringify = function(v) return "value" end
+
+  local meta_map = {
+    t = 'MetaMap',
+    key1 = "value1",
+    key2 = "value2"
+  }
+  local result = string_utils.meta_to_json(meta_map)
+  s:assertEqual(type(result), "table", "Should return table")
+  s:assertEqual(result.key1, "value1", "Should convert key1")
+  s:assertEqual(result.key2, "value2", "Should convert key2")
+end)
+
+suite:add("Converts plain array tables with strings", function(s)
+  local array = {"first", "second", "third"}
+  local result = string_utils.meta_to_json(array)
+  s:assertEqual(type(result), "table", "Should return table")
+  s:assertEqual(#result, 3, "Should have 3 items")
+  s:assertEqual(result[1], "first", "First item correct")
+  s:assertEqual(result[2], "second", "Second item correct")
+  s:assertEqual(result[3], "third", "Third item correct")
+end)
+
+suite:add("Converts plain map tables with string values", function(s)
+  local map = {a = "value1", b = "value2"}
+  local result = string_utils.meta_to_json(map)
+  s:assertEqual(type(result), "table", "Should return table")
+  s:assertEqual(result.a, "value1", "Key a should be converted")
+  s:assertEqual(result.b, "value2", "Key b should be converted")
+end)
+
+suite:add("Handles nested structures in meta_to_json", function(s)
+  local nested = {
+    outer = {
+      inner = {
+        value = "test"
+      }
+    }
+  }
+  local result = string_utils.meta_to_json(nested)
+  s:assertEqual(type(result), "table", "Should return table")
+  s:assertEqual(type(result.outer), "table", "Outer should be table")
+  s:assertEqual(type(result.outer.inner), "table", "Inner should be table")
+  s:assertEqual(result.outer.inner.value, "test", "Nested value should be preserved")
 end)
 
 -- Edge cases

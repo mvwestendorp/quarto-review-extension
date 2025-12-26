@@ -65,151 +65,6 @@ local element_wrapping = require('element-wrapping')
 -- Tests
 local suite = TestSuite
 
--- Module structure tests
-suite:add("Module exports make_editable function", function(s)
-  s:assertEqual(type(element_wrapping.make_editable), 'function', "Should export make_editable")
-end)
-
-suite:add("Module exports create_filter_functions", function(s)
-  s:assertEqual(type(element_wrapping.create_filter_functions), 'function', "Should export create_filter_functions")
-end)
-
--- create_filter_functions tests
-suite:add("create_filter_functions returns table", function(s)
-  local config = {
-    enabled = true,
-    debug = false,
-    id_prefix = "test",
-    id_separator = ".",
-    editable_elements = {}
-  }
-  local context = {
-    section_stack = {},
-    element_counters = {},
-    processing_list = false
-  }
-  local filters = element_wrapping.create_filter_functions(config, context)
-  s:assertEqual(type(filters), 'table', "Should return table")
-end)
-
-suite:add("create_filter_functions creates Para filter", function(s)
-  local config = {
-    enabled = true,
-    debug = false,
-    id_prefix = "test",
-    id_separator = ".",
-    editable_elements = {}
-  }
-  local context = {
-    section_stack = {},
-    element_counters = {},
-    processing_list = false
-  }
-  local filters = element_wrapping.create_filter_functions(config, context)
-  s:assertEqual(type(filters.Para), 'function', "Should have Para filter")
-end)
-
-suite:add("create_filter_functions creates Header filter", function(s)
-  local config = {
-    enabled = true,
-    debug = false,
-    id_prefix = "test",
-    id_separator = ".",
-    editable_elements = {}
-  }
-  local context = {
-    section_stack = {},
-    element_counters = {},
-    processing_list = false
-  }
-  local filters = element_wrapping.create_filter_functions(config, context)
-  s:assertEqual(type(filters.Header), 'function', "Should have Header filter")
-end)
-
-suite:add("create_filter_functions creates CodeBlock filter", function(s)
-  local config = {
-    enabled = true,
-    debug = false,
-    id_prefix = "test",
-    id_separator = ".",
-    editable_elements = {}
-  }
-  local context = {
-    section_stack = {},
-    element_counters = {},
-    processing_list = false
-  }
-  local filters = element_wrapping.create_filter_functions(config, context)
-  s:assertEqual(type(filters.CodeBlock), 'function', "Should have CodeBlock filter")
-end)
-
-suite:add("create_filter_functions creates BulletList filter", function(s)
-  local config = {
-    enabled = true,
-    debug = false,
-    id_prefix = "test",
-    id_separator = ".",
-    editable_elements = {}
-  }
-  local context = {
-    section_stack = {},
-    element_counters = {},
-    processing_list = false
-  }
-  local filters = element_wrapping.create_filter_functions(config, context)
-  s:assertEqual(type(filters.BulletList), 'function', "Should have BulletList filter")
-end)
-
-suite:add("create_filter_functions creates OrderedList filter", function(s)
-  local config = {
-    enabled = true,
-    debug = false,
-    id_prefix = "test",
-    id_separator = ".",
-    editable_elements = {}
-  }
-  local context = {
-    section_stack = {},
-    element_counters = {},
-    processing_list = false
-  }
-  local filters = element_wrapping.create_filter_functions(config, context)
-  s:assertEqual(type(filters.OrderedList), 'function', "Should have OrderedList filter")
-end)
-
-suite:add("create_filter_functions creates BlockQuote filter", function(s)
-  local config = {
-    enabled = true,
-    debug = false,
-    id_prefix = "test",
-    id_separator = ".",
-    editable_elements = {}
-  }
-  local context = {
-    section_stack = {},
-    element_counters = {},
-    processing_list = false
-  }
-  local filters = element_wrapping.create_filter_functions(config, context)
-  s:assertEqual(type(filters.BlockQuote), 'function', "Should have BlockQuote filter")
-end)
-
-suite:add("create_filter_functions creates Table filter", function(s)
-  local config = {
-    enabled = true,
-    debug = false,
-    id_prefix = "test",
-    id_separator = ".",
-    editable_elements = {}
-  }
-  local context = {
-    section_stack = {},
-    element_counters = {},
-    processing_list = false
-  }
-  local filters = element_wrapping.create_filter_functions(config, context)
-  s:assertEqual(type(filters.Table), 'function', "Should have Table filter")
-end)
 
 -- Configuration tests
 suite:add("Respects enabled flag", function(s)
@@ -620,6 +475,500 @@ suite:add("Handles config with missing editable_elements fields", function(s)
     element_wrapping.create_filter_functions(config, context)
   end)
   s:assertTrue(success, "Should handle missing element fields")
+end)
+
+-- Code-annotations and Quarto cell tests
+suite:add("CodeBlock filter skips cells with cell-code class", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {
+      CodeBlock = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Create a mock CodeBlock with cell-code class (executable cell)
+  local elem = {
+    t = "CodeBlock",
+    classes = {"cell-code", "python"},
+    text = "print('hello')",
+    attr = {
+      classes = {"cell-code", "python"}
+    }
+  }
+
+  -- The filter should return the element unchanged (not wrapped)
+  local result = filters.CodeBlock(elem)
+  s:assertEqual(result.t, "CodeBlock", "Should return CodeBlock unchanged")
+  s:assertEqual(result.text, "print('hello')", "Should not modify text")
+end)
+
+suite:add("CodeBlock filter wraps regular code blocks without cell-code class", function(s)
+  -- Test that the filter logic identifies regular code blocks for wrapping
+  -- (doesn't skip them like it does for cell-code blocks)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {
+      CodeBlock = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  -- Mock make_editable to avoid pandoc dependency
+  local make_editable_called = false
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
+    make_editable_called = true
+    return {t = "Div", content = {elem}}  -- Mock wrapped result
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- CodeBlock with just language class, no cell-code
+  local elem = {
+    t = "CodeBlock",
+    classes = {"javascript"},
+    text = "console.log('hello')",
+    attr = {
+      classes = {"javascript"}
+    }
+  }
+
+  local result = filters.CodeBlock(elem)
+
+  -- Restore original
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertTrue(make_editable_called, "Should call make_editable for regular code blocks")
+end)
+
+suite:add("CodeBlock filter respects CodeBlock disabled in config", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {
+      CodeBlock = false  -- Disabled
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  local elem = {
+    t = "CodeBlock",
+    classes = {"python"},
+    text = "print('hello')",
+    attr = {
+      classes = {"python"}
+    }
+  }
+
+  -- Should return element unchanged when disabled
+  local result = filters.CodeBlock(elem)
+  s:assertEqual(result.t, "CodeBlock", "Should return unchanged when disabled")
+  s:assertEqual(result.text, "print('hello')", "Should not modify element")
+end)
+
+suite:add("Div filter skips cell divs", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {}
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Mock cell div (Quarto computational cell)
+  local elem = {
+    t = "Div",
+    classes = {
+      includes = function(self, class)
+        for _, c in ipairs(self) do
+          if c == class then return true end
+        end
+        return false
+      end,
+      "cell"
+    },
+    content = {}
+  }
+
+  -- Should return unchanged
+  local result = filters.Div(elem)
+  s:assertEqual(result.t, "Div", "Should return Div unchanged")
+end)
+
+suite:add("Div filter skips cell-output divs", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {}
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Mock cell-output div
+  local elem = {
+    t = "Div",
+    classes = {
+      includes = function(self, class)
+        for _, c in ipairs(self) do
+          if c == class then return true end
+        end
+        return false
+      end,
+      "cell-output"
+    },
+    content = {}
+  }
+
+  -- Should return unchanged
+  local result = filters.Div(elem)
+  s:assertEqual(result.t, "Div", "Should return Div unchanged")
+end)
+
+suite:add("Div filter passes through non-cell divs", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {}
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Regular div without cell classes
+  local elem = {
+    t = "Div",
+    classes = {
+      includes = function(self, class)
+        for _, c in ipairs(self) do
+          if c == class then return true end
+        end
+        return false
+      end,
+      "callout-note"
+    },
+    content = {}
+  }
+
+  -- Should return unchanged (not wrapped, just passed through)
+  local result = filters.Div(elem)
+  s:assertEqual(result.t, "Div", "Should pass through regular divs")
+end)
+
+suite:add("CodeBlock with empty classes array is wrapped", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {
+      CodeBlock = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  -- Mock make_editable
+  local make_editable_called = false
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
+    make_editable_called = true
+    return {t = "Div", content = {elem}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- CodeBlock with no classes
+  local elem = {
+    t = "CodeBlock",
+    classes = {},
+    text = "plain code",
+    attr = {
+      classes = {}
+    }
+  }
+
+  local result = filters.CodeBlock(elem)
+
+  -- Restore original
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertTrue(make_editable_called, "Should wrap CodeBlock with empty classes")
+end)
+
+suite:add("CodeBlock with nil classes is wrapped", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {
+      CodeBlock = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  -- Mock make_editable
+  local make_editable_called = false
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
+    make_editable_called = true
+    return {t = "Div", content = {elem}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- CodeBlock with nil classes
+  local elem = {
+    t = "CodeBlock",
+    classes = nil,
+    text = "plain code",
+    attr = {}
+  }
+
+  local result = filters.CodeBlock(elem)
+
+  -- Restore original
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertTrue(make_editable_called, "Should wrap CodeBlock with nil classes")
+end)
+
+-- make_editable behavior tests (using mocks due to pandoc dependency)
+suite:add("make_editable generates unique IDs for elements", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "doc",
+    id_separator = ".",
+    editable_elements = { Para = true }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  -- Track generated IDs
+  local generated_ids = {}
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
+    local string_utils = require('string-utils')
+    local id = string_utils.generate_id(
+      cfg.id_prefix,
+      cfg.id_separator,
+      ctx.section_stack,
+      ctx.element_counters,
+      elem_type,
+      level
+    )
+    table.insert(generated_ids, id)
+    return {t = "Div", content = {elem}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Create multiple paragraphs
+  filters.Para({t = "Para", content = {}})
+  filters.Para({t = "Para", content = {}})
+  filters.Para({t = "Para", content = {}})
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertEqual(#generated_ids, 3, "Should generate 3 IDs")
+  s:assertEqual(generated_ids[1], "doc.para-1", "First ID should be doc.para-1")
+  s:assertEqual(generated_ids[2], "doc.para-2", "Second ID should be doc.para-2")
+  s:assertEqual(generated_ids[3], "doc.para-3", "Third ID should be doc.para-3")
+end)
+
+suite:add("make_editable includes element type in wrapper", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = { Para = true, Header = true }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  local captured_types = {}
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
+    table.insert(captured_types, elem_type)
+    return {t = "Div", content = {elem}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+  filters.Para({t = "Para", content = {}})
+  filters.Header({t = "Header", level = 1, content = {}, identifier = "sec-1"})
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertEqual(captured_types[1], "Para", "First call should be for Para")
+  s:assertEqual(captured_types[2], "Header", "Second call should be for Header")
+end)
+
+suite:add("make_editable includes level for headers", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = { Header = true }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  local captured_levels = {}
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
+    table.insert(captured_levels, level)
+    return {t = "Div", content = {elem}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+  filters.Header({t = "Header", level = 1, content = {}, identifier = "sec-1"})
+  filters.Header({t = "Header", level = 2, content = {}, identifier = "sec-2"})
+  filters.Header({t = "Header", level = 3, content = {}, identifier = "sec-3"})
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertEqual(captured_levels[1], 1, "First header level should be 1")
+  s:assertEqual(captured_levels[2], 2, "Second header level should be 2")
+  s:assertEqual(captured_levels[3], 3, "Third header level should be 3")
+end)
+
+suite:add("make_editable uses section stack for nested IDs", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "doc",
+    id_separator = ".",
+    editable_elements = { Para = true, Header = true }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  local generated_ids = {}
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
+    local string_utils = require('string-utils')
+    local id = string_utils.generate_id(
+      cfg.id_prefix,
+      cfg.id_separator,
+      ctx.section_stack,
+      ctx.element_counters,
+      elem_type,
+      level
+    )
+    table.insert(generated_ids, id)
+    return {t = "Div", content = {elem}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Add a header (updates section_stack)
+  filters.Header({t = "Header", level = 1, content = {}, identifier = "intro"})
+  -- Add a para under that section
+  filters.Para({t = "Para", content = {}})
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertEqual(generated_ids[1], "doc.intro.header-1", "Header ID should include its own identifier: doc.intro.header-1")
+  s:assertEqual(generated_ids[2], "doc.intro.para-1", "Para ID should include section: doc.intro.para-1")
+end)
+
+suite:add("make_editable passes config to ID generation", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "custom-prefix",
+    id_separator = "-",
+    editable_elements = { Para = true }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  local generated_id = nil
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
+    local string_utils = require('string-utils')
+    generated_id = string_utils.generate_id(
+      cfg.id_prefix,
+      cfg.id_separator,
+      ctx.section_stack,
+      ctx.element_counters,
+      elem_type,
+      level
+    )
+    return {t = "Div", content = {elem}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+  filters.Para({t = "Para", content = {}})
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertEqual(generated_id, "custom-prefix-para-1", "Should use custom prefix and separator")
 end)
 
 -- Run the test suite
