@@ -39,10 +39,18 @@
     }
   },
   "features": {
-    "ghcr.io/devcontainers/features/python:1": {},
+    "ghcr.io/devcontainers/features/python:1": {
+      "version": "3.11",
+      "installJupyterlab": true,
+      "installTools": true
+    },
     "ghcr.io/rocker-org/devcontainer-features/r-apt:0": {
       "installRMarkdown": true,
-      ""
+      "vscodeRSupport": "full"
+    },
+    "ghcr.io/rocker-org/devcontainer-features/r-packages:1": {
+      "packages": "reticulate,ggplot2,JuliaCall",
+      "installSystemRequirements": true
     },
     "ghcr.io/rocker-org/devcontainer-features/quarto-cli:1": {}
   },
@@ -61,7 +69,11 @@
       "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "npm install && bash -c 'julia -e \"using Pkg; Pkg.add([\\\"Suppressor\\\", \\\"RCall\\\", \\\"DataFrames\\\"])\" && R -q -e \"library(reticulate); py_config()\" && /home/node/.cache/R/reticulate/uv/bin/uv pip install --python /home/node/.cache/R/reticulate/uv/cache/archive-v0/*/bin/python matplotlib pandas numpy tabulate || true'",
+  "remoteEnv": {
+    "LC_ALL": "C.UTF-8",
+    "LANG": "C.UTF-8"
+  },
   "remoteUser": "node",
   "mounts": [
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/node/.ssh,readonly,type=bind,consistency=cached"
