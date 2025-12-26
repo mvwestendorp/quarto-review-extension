@@ -1,0 +1,269 @@
+---
+title: "Citations and Scholarly Features"
+author: "Quarto Review Team"
+date: today
+abstract: "This document demonstrates Quarto's scholarly features including citations, bibliographies, appendices, and rich metadata."
+keywords:
+  - Quarto
+  - Citations
+  - Scholarly publishing
+  - Academic writing
+citation:
+  type: software
+  title: "Quarto Review Extension"
+  author:
+    - name: "M. Westendorp"
+  publisher: "GitHub"
+  issued: 2024
+license: CC BY 4.0
+format:
+  html:
+    toc: true
+    reference-location: document
+    citation-location: document
+bibliography: references.bib
+csl: chicago-author-date.csl
+---
+
+# Citations and Scholarly Features
+
+This document demonstrates Quarto's comprehensive support for academic and scholarly writing.
+
+## Citing Sources
+
+### Parenthetical Citations
+
+This is a parenthetical citation [@knuth1984]. Multiple citations work too [@knuth1984; @einstein1905].
+
+### Narrative Citations
+
+As noted by @wickham2015, data visualization is essential.
+
+### Citations with Locators
+
+The concept is discussed extensively [@knuth1984, pp. 33-35]. You can also use chapters [@knuth1984, ch. 2] or sections [@einstein1905, sec. 3].
+
+### Citations with Prefixes and Suffixes
+
+[See @knuth1984 for more details; also @einstein1905].
+
+Contrary to @wickham2015, some researchers argue otherwise.
+
+### Custom Text with Citation
+
+[As discussed in the original paper](@knuth1984).
+
+## In-Text References
+
+### Author-Year Format
+
+@knuth1984 presented the seminal work on algorithms.
+
+### Numbered Format
+
+If your CSL uses numbered format, citations appear as [1], [2], etc.
+
+## Appendices
+
+## Acknowledgments {.appendix}
+
+We thank the Quarto team for creating an excellent publishing platform.
+
+This acknowledgment appears in the appendix section automatically.
+
+## Methodology {.appendix}
+
+### Data Collection
+
+The data was collected using standard survey methodology.
+
+### Statistical Analysis
+
+All analyses were performed using R version 4.0 and Python 3.9.
+
+## Supplementary Materials {.appendix}
+
+Additional figures and tables are available in this appendix section.
+
+::: {.callout-note}
+## Appendix Sections
+
+Any heading with the `.appendix` class automatically moves to the document's appendix at the end.
+:::
+
+## Author Metadata
+
+The document uses rich author and publication metadata:
+
+```yaml
+author: "Quarto Review Team"
+date: today
+abstract: "Document abstract"
+keywords:
+  - keyword1
+  - keyword2
+citation: "Citation information"
+license: CC BY 4.0
+```
+
+## Citation Metadata
+
+### Citation Information
+
+Documents can include structured citation information:
+
+```yaml
+citation:
+  type: article
+  container-title: "Journal Name"
+  volume: 10
+  issue: 5
+  pages: 123-145
+  DOI: "10.1234/example"
+```
+
+### DOI
+
+This document has DOI information in its metadata, enabling citation tracking.
+
+## Bibliography Format
+
+The bibliography at the end of this document uses the Chicago Manual of Style (author-date) format, as specified by the `csl` metadata field.
+
+Different citation styles available:
+- Chicago Manual of Style (author-date)
+- Chicago Manual of Style (notes-bibliography)
+- American Psychological Association (APA)
+- Modern Language Association (MLA)
+- IEEE
+- And many others via the Zotero Style Repository
+
+## Uncited References
+
+### Using `nocite`
+
+To include references in the bibliography without citing them in the text, use the `nocite` metadata:
+
+```yaml
+nocite: |
+  @item1, @item2
+```
+
+This is useful for including related work or recommended reading.
+
+## License Information
+
+This document is licensed under Creative Commons Attribution 4.0 (CC BY 4.0). License information appears automatically in the appendix when specified in front matter.
+
+## Date Handling
+
+### Special Date Keywords
+
+The document front matter can use:
+- `date: today` - Current date
+- `date: now` - Current date and time
+- `date: last-modified` - File modification date
+
+All dates are automatically formatted according to locale settings.
+
+## Title Block Features
+
+### Banner Title Block
+
+To use a banner-style title, add to front matter:
+
+```yaml
+title-block-style: default
+title-block-banner: "#f0f0f0"
+title-block-banner-color: "black"
+```
+
+Options:
+- `default`: Standard title block with styled grouping
+- `plain`: Simple undecorated title block
+- `none`: No title block processing
+
+## DOI and Citation
+
+Documents with DOI information can be made citeable through services like CrossRef.
+
+Required metadata:
+```yaml
+citation:
+  DOI: "10.1234/example"
+  container-title: "Journal Name"
+  volume: 10
+  issue: 5
+  pages: 123-145
+```
+
+## Reference Location Options
+
+### Margin References
+
+With `reference-location: margin`, footnotes and citations appear in the document margins, keeping the main text clean.
+
+### Document References
+
+With `reference-location: document`, citations appear in the bibliography at the document end (current setting).
+
+### Block References
+
+With `reference-location: block`, citations appear in a section before each block.
+
+## Scholarly Metadata Tags
+
+Front matter supports extensive scholarly metadata:
+
+```yaml
+author:
+  - name: "First Author"
+    email: "first@example.com"
+    orcid: "0000-0000-0000-0000"
+    affiliation:
+      name: "Institution"
+      address: "Street, City, State"
+      url: "https://institution.edu"
+
+keywords:
+  - keyword 1
+  - keyword 2
+
+abstract: |
+  Long abstract text here.
+```
+
+## Creating Citeable Articles
+
+To make an article suitable for indexing and citation:
+
+1. Include DOI in metadata
+2. Add proper author and affiliation information
+3. Include abstract and keywords
+4. Use appropriate title block styling
+5. Generate citations for publication in services like CrossRef
+
+## Quoting and Block Quotes
+
+> "Quoting is a way to attribute ideas to original sources while strengthening your own arguments." — Citation Style Guide
+
+Blockquotes preserve attribution and can reference sources.
+
+## Conclusion
+
+Quarto's scholarly features enable:
+
+- Flexible citation formatting using CSL styles
+- Multiple citation syntax options
+- Automatic bibliography generation
+- Structured author and publication metadata
+- License tracking and attribution
+- Appendix organization
+- Support for various reference locations
+- Integration with academic indexing services
+
+These features make Quarto suitable for academic papers, research articles, and scholarly publications.
+
+## References {.unlisted}
+
+The bibliography will appear below, automatically formatted according to the selected CSL style.

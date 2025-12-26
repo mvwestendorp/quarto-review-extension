@@ -1,0 +1,160 @@
+---
+title: "Text Formatting Features"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+---
+
+# Text Formatting Features
+
+This document demonstrates all text formatting capabilities supported by Quarto.
+
+## Basic Emphasis
+
+You can apply various text emphasis styles:
+
+- *Italic text* using `*text*`
+- **Bold text** using `**text**`
+- ***Bold and italic text*** using `***text***`
+- ~~Strikethrough text~~ using `~~text~~`
+
+## Superscript and Subscript
+
+- Superscript: E=mc^2^ using `text^2^`
+- Subscript: H~2~O using `text~2~`
+- Combined: x^2^ + y^2^ = z^2^
+
+## Inline Code and Links
+
+- Inline code: `function_name()` using backticks
+- [Link to Quarto](https://quarto.org)
+- [Link with title](https://quarto.org "Visit Quarto")
+- Automatic link: <https://quarto.org>
+
+## Blockquotes
+
+> This is a blockquote. It can span multiple lines and contain other formatting.
+>
+> You can also have multiple paragraphs in a blockquote.
+
+> "A blockquote with attribution"
+> — Author Name
+
+## Footnotes
+
+Here's a footnote reference[^1] and another one[^2].
+
+You can also use inline footnotes[^inline] directly in the text.
+
+[^1]: This is the first footnote content.
+[^2]: This is the second footnote content with more details.
+[^inline]: This footnote appears inline without a reference number.
+
+## Definition Lists
+
+Term 1
+:   The definition of the first term goes here. It can contain multiple lines and formatting.
+
+Term 2
+:   The definition of the second term.
+:   Multiple definitions are also supported.
+
+## Task Lists
+
+- [x] Completed task
+- [ ] Incomplete task
+- [x] Another completed task with **bold** text
+- [ ] Task with [a link](https://quarto.org)
+
+## Headings
+
+Quarto supports six levels of headings:
+
+# Heading Level 1
+
+## Heading Level 2
+
+### Heading Level 3
+
+#### Heading Level 4
+
+##### Heading Level 5
+
+###### Heading Level 6
+
+## Lists
+
+### Unordered Lists
+
+- First item
+- Second item
+  - Nested item 1
+  - Nested item 2
+    - Deeply nested item
+- Third item with **bold** and *italic* text
+- Item with [a link](https://quarto.org)
+
+### Ordered Lists
+
+1. First item
+2. Second item
+   a. Sub-item A
+   b. Sub-item B
+3. Third item
+4. Item with code: use `function()` here
+
+### Mixed Lists
+
+1. Ordered item
+   - Unordered sub-item
+   - Another sub-item
+     1. Nested ordered item
+     2. Another nested ordered
+2. Back to ordered item
+
+## Line Breaks and Horizontal Rules
+
+You can create hard line breaks using two spaces at the end of a line.
+This line appears on a new line.
+
+Horizontal rules can be created with:
+
+---
+
+Multiple dashes, asterisks, or underscores work.
+
+***
+
+## Special Characters
+
+Quarto supports smart typography:
+
+- "Curly quotes" instead of "straight quotes"
+- 'Single quotes' work too
+- Dashes: em—dash, en–dash, and hyphen-word
+- Ellipsis...
+
+## Raw Inline Content
+
+You can include raw HTML: <mark>highlighted text</mark>
+
+Or LaTeX commands: $\LaTeX$
+
+## Unicode and Emoji Support
+
+- Mathematical symbols: ∑ ∫ ∂ ∇
+- Currency symbols: € £ ¥ ₹
+- Arrows: ← → ↑ ↓
+- Other: © ® ™ § ¶
+
+## Spans with Attributes
+
+[This text has a CSS class]{.highlight}
+
+[Red text]{style="color: red;"}
+
+## Conclusion
+
+These text formatting features form the foundation of document authoring in Quarto. Try editing these elements in the review extension to see how they behave!

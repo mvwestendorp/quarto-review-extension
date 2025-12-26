@@ -1,0 +1,293 @@
+---
+title: "Diagrams and Media Features"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+---
+
+# Diagrams and Media
+
+This document demonstrates Quarto's support for diagrams, equations, videos, and multimedia content.
+
+## Mermaid Diagrams
+
+### Flowchart {#fig-flowchart}
+
+```{mermaid}
+flowchart TD
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Process A]
+    B -->|No| D[Process B]
+    C --> E[End]
+    D --> E
+    E --> F[Done]
+```
+
+Caption: Example flowchart diagram
+
+### Sequence Diagram {#fig-sequence}
+
+```{mermaid}
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Server
+
+    User->>Browser: Click button
+    Browser->>Server: Send request
+    Server->>Server: Process data
+    Server-->>Browser: Return response
+    Browser->>Browser: Update DOM
+    Browser-->>User: Show result
+```
+
+Caption: Client-server interaction sequence
+
+### State Diagram {#fig-state}
+
+```{mermaid}
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Loading: load()
+    Loading --> Processing: process()
+    Processing --> Idle: complete()
+    Processing --> Error: error()
+    Error --> Idle: retry()
+    Idle --> [*]
+```
+
+Caption: State machine diagram
+
+### Class Diagram
+
+```{mermaid}
+classDiagram
+    class Animal {
+        +String name
+        +Int age
+        +makeSound()
+    }
+
+    class Dog {
+        +bark()
+    }
+
+    class Cat {
+        +meow()
+    }
+
+    Animal <|-- Dog
+    Animal <|-- Cat
+```
+
+Caption: Class inheritance diagram
+
+### Gantt Chart
+
+```{mermaid}
+gantt
+    title Project Timeline
+    dateFormat YYYY-MM-DD
+
+    section Planning
+    Requirements :req, 2024-01-01, 30d
+    Design :des, after req, 30d
+
+    section Development
+    Frontend :front, 2024-02-15, 45d
+    Backend :back, 2024-02-15, 60d
+
+    section Testing
+    Testing :test, after front back, 30d
+
+    section Deployment
+    Release :rel, after test, 7d
+```
+
+Caption: Project timeline using Gantt chart
+
+### Pie Chart
+
+```{mermaid}
+pie title Browser Market Share
+    "Chrome": 65
+    "Safari": 20
+    "Firefox": 10
+    "Others": 5
+```
+
+Caption: Market share distribution
+
+## Graphviz Diagrams
+
+### Simple DOT Graph
+
+```{dot}
+digraph {
+    rankdir=LR;
+    node [shape=box];
+
+    A [label="Start"];
+    B [label="Process"];
+    C [label="Decision"];
+    D [label="Action 1"];
+    E [label="Action 2"];
+    F [label="End"];
+
+    A -> B -> C;
+    C -> D [label="Yes"];
+    C -> E [label="No"];
+    D -> F;
+    E -> F;
+}
+```
+
+Caption: Graphviz flowchart
+
+### Network Diagram
+
+```{dot}
+digraph Network {
+    node [shape=circle];
+
+    Router [label="Router", shape=box];
+    PC1 [label="PC 1"];
+    PC2 [label="PC 2"];
+    Printer [label="Printer"];
+    Server [label="Server"];
+
+    Router -> PC1;
+    Router -> PC2;
+    Router -> Printer;
+    Router -> Server;
+}
+```
+
+Caption: Network topology diagram
+
+## Equations
+
+### Inline Equations
+
+The equation $\sum_{i=1}^{n} i = \frac{n(n+1)}{2}$ is a fundamental formula.
+
+### Display Equations
+
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$
+
+### Numbered Equations
+
+$$
+\mathcal{L} = -\frac{1}{4}F_{\mu\nu}F^{\mu\nu} - \frac{1}{2}(\partial_\mu \phi)^2 - V(\phi)
+$$ {#eq-lagrangian}
+
+Reference: @eq-lagrangian (Lagrangian density)
+
+### Multi-line Equations
+
+$$
+\begin{align}
+f(x) &= x^2 + 2x + 1 \\
+     &= (x+1)^2
+\end{align}
+$$
+
+## Video Embedding
+
+### YouTube Videos
+
+{{< video https://www.youtube.com/embed/vn7PrNl8YfI >}}
+
+### Vimeo Videos
+
+{{< video https://vimeo.com/548291670 >}}
+
+### Video with Custom Options
+
+{{< video https://www.youtube.com/embed/vn7PrNl8YfI width="100%" height="400" title="Video player" >}}
+
+## Shortcodes for Dynamic Content
+
+### Keyboard Keys
+
+Use the {{< kbd Ctrl+C >}} shortcode to display: {{< kbd Ctrl+C >}}
+
+More keyboard examples: {{< kbd Alt+F4 >}}, {{< kbd Shift+Enter >}}
+
+### Placeholder Images
+
+{{< placeholder width=400 height=300 >}}
+
+Caption: Auto-generated placeholder image
+
+### Placeholder Text (Lipsum)
+
+{{< lipsum 2 >}}
+
+This generates 2 paragraphs of lorem ipsum placeholder text.
+
+## Including Other Content
+
+### Include External File
+
+The `include` shortcode can include content from another markdown file:
+
+```
+{{{{< include path/to/file.md >}}}}
+```
+
+This is useful for modular documentation and avoiding duplication.
+
+## Combining Multiple Elements
+
+::: {.callout-note}
+## Diagrams and Media in Documents
+
+Quarto supports:
+- Mermaid diagrams (flowcharts, sequences, state, class, gantt, pie)
+- Graphviz diagrams (DOT format)
+- Mathematical equations (LaTeX)
+- Video embedding (YouTube, Vimeo, local files)
+- Keyboard shortcode references
+- Placeholder content generation
+- File inclusion for modularity
+:::
+
+## Advanced Diagram Features
+
+### Styling and Colors in Mermaid
+
+```{mermaid}
+flowchart TD
+    A[Start]:::startStyle
+    B{Decision}
+    C[Success]:::successStyle
+    D[Failure]:::errorStyle
+
+    A --> B
+    B -->|Pass| C
+    B -->|Fail| D
+
+    classDef startStyle fill:#90EE90
+    classDef successStyle fill:#87CEEB
+    classDef errorStyle fill:#FFB6C6
+```
+
+Caption: Styled flowchart with custom colors
+
+## Summary
+
+This document demonstrates Quarto's comprehensive support for:
+
+- **Mermaid diagrams**: Flowcharts, sequence, state, class, gantt, pie charts
+- **Graphviz diagrams**: Network topology, complex graphs
+- **Mathematical equations**: Inline and display, with numbering
+- **Video embedding**: YouTube, Vimeo, local video files
+- **Dynamic content**: Keyboard shortcuts, placeholders, text generation
+- **File inclusion**: Modular content and code reuse
+- **Styling**: Custom colors and appearance for diagrams
+
+All of these elements are editable through the Quarto Review extension!

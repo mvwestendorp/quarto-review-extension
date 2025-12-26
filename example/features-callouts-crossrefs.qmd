@@ -1,0 +1,284 @@
+---
+title: "Callouts and Cross-References"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+---
+
+# Callouts and Cross-References
+
+This document demonstrates Quarto's callout system and cross-referencing capabilities.
+
+## Callout Types
+
+### Note Callout {#nte-example}
+
+::: {.callout-note}
+## This is a note
+
+This is a standard informational callout. Use it for general information that readers should be aware of but might not be critical to understanding.
+
+The note includes an icon and colored styling to distinguish it from regular text.
+:::
+
+### Tip Callout {#tip-example}
+
+::: {.callout-tip}
+## Pro Tip
+
+This is a tip callout. Use it for helpful suggestions, best practices, and advice that will make the reader's life easier.
+
+Tips are often marked with a lightbulb icon.
+:::
+
+### Warning Callout {#wrn-example}
+
+::: {.callout-warning}
+## Warning
+
+This is a warning callout. Use it to alert readers to potential problems or things they should be careful about.
+
+Warnings have a distinct visual style to grab attention.
+:::
+
+### Important Callout {#imp-example}
+
+::: {.callout-important}
+## Important Information
+
+This is an important callout. Use it for critical information that users absolutely must know before proceeding.
+
+Important callouts use prominent styling and colors.
+:::
+
+### Caution Callout {#cau-example}
+
+::: {.callout-caution}
+## Caution
+
+This is a caution callout. It's similar to warning but used for more specific hazards or dangerous situations.
+
+Use this when there's potential for significant negative consequences.
+:::
+
+## Callout Styles
+
+### Default Style
+
+::: {.callout-note appearance="default"}
+This uses the default appearance with colored header and icon.
+:::
+
+### Simple Style
+
+::: {.callout-note appearance="simple"}
+## Simplified Callout
+
+This uses the simple appearance - minimal styling without the colored header.
+:::
+
+### Minimal Style
+
+::: {.callout-note appearance="minimal"}
+## Minimal Callout
+
+This uses minimal styling with just a left border and no background color.
+:::
+
+## Collapsible Callouts
+
+### Collapsed by Default
+
+::: {.callout-note collapse="true"}
+## Click to expand
+
+This callout is collapsed by default. Click the arrow to reveal the content. Useful for less critical information or to keep the document less cluttered.
+
+The content here will be hidden until clicked.
+:::
+
+### Expanded by Default
+
+::: {.callout-warning collapse="false"}
+## This is expanded
+
+This warning is expanded by default, showing all content immediately. This is useful for critical warnings that should be immediately visible.
+:::
+
+## Callout without Icon
+
+::: {.callout-note icon=false}
+This callout has no icon, just the styling and border.
+:::
+
+## Custom Callout Title
+
+::: {.callout-tip title="Custom Title"}
+You can provide a custom title using the `title` attribute instead of a markdown heading.
+
+This gives more control over the callout presentation.
+:::
+
+## Cross-References
+
+### Cross-Referencing Sections
+
+This document has several sections. For example:
+
+- See @sec-callout-types for information about callout types
+- See @sec-callout-styles for style variations
+- See @sec-code-examples for code examples
+
+### Cross-Referencing Figures
+
+Here's a figure:
+
+```{python}
+#| label: fig-example-plot
+#| fig-cap: "Example scatter plot for cross-referencing"
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+np.random.seed(42)
+x = np.random.randn(50)
+y = 2*x + np.random.randn(50) * 0.5
+
+plt.figure(figsize=(8, 5))
+plt.scatter(x, y, alpha=0.6)
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.title('Example Scatter Plot')
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+You can reference this figure: see @fig-example-plot
+
+### Cross-Referencing Tables
+
+| ID | Name | Value |
+|----|----|-------|
+| 1 | Item A | 100 |
+| 2 | Item B | 200 |
+| 3 | Item C | 300 |
+
+: Sample table for cross-referencing {#tbl-example}
+
+Reference the table: see @tbl-example
+
+### Cross-Referencing Equations
+
+The Pythagorean theorem:
+
+$$
+a^2 + b^2 = c^2
+$$ {#eq-pythagoras}
+
+Reference: @eq-pythagoras
+
+Or with custom text: [the Pythagorean theorem](@eq-pythagoras)
+
+### Cross-Referencing Callouts
+
+You can reference callouts that have custom IDs:
+
+- See @nte-example for the note example
+- See @tip-example for the tip example
+- See @wrn-example for the warning example
+- See @imp-example for the important example
+- See @cau-example for the caution example
+
+### Multiple Cross-References
+
+You can reference multiple items at once:
+
+"As shown in @fig-example-plot and @tbl-example, we can see the relationship..."
+
+Or with custom formatting:
+
+"The data in @fig-example-plot, @tbl-example, and @eq-pythagoras demonstrates..."
+
+## Cross-Reference Syntax Variants
+
+Different syntax styles for the same reference:
+
+- `@fig-example-plot` produces: @fig-example-plot
+- `@Fig-example-plot` produces: @Fig-example-plot (capitalized)
+- `[Figure @fig-example-plot]` produces: [Figure @fig-example-plot]
+- `[-@fig-example-plot]` produces: [-@fig-example-plot] (number only)
+
+## Code Examples {#sec-code-examples}
+
+### Python Code Example
+
+```{python}
+#| label: fig-python-example
+#| fig-cap: "Python visualization"
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 2*np.pi, 100)
+y1 = np.sin(x)
+y2 = np.cos(x)
+
+plt.figure(figsize=(10, 5))
+plt.plot(x, y1, label='sin(x)', linewidth=2)
+plt.plot(x, y2, label='cos(x)', linewidth=2)
+plt.xlabel('x')
+plt.ylabel('y')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+Reference: @fig-python-example
+
+### R Code Example
+
+```{r}
+#| label: tbl-r-example
+#| tbl-cap: "R table example"
+
+# Create a simple data frame
+df <- data.frame(
+  x = 1:5,
+  y = c(2, 4, 6, 8, 10),
+  group = c("A", "A", "B", "B", "B")
+)
+
+knitr::kable(df)
+```
+
+Reference: @tbl-r-example
+
+## Combining Callouts and Cross-References
+
+::: {.callout-note}
+## Related Content
+
+For more details, see:
+- @fig-example-plot for the visualization
+- @tbl-example for the data
+- @eq-pythagoras for the mathematical formula
+:::
+
+## Summary
+
+This document demonstrates:
+
+- Five callout types (note, tip, warning, important, caution)
+- Three appearance styles (default, simple, minimal)
+- Collapsible functionality
+- Cross-references for:
+  - Sections (@sec-name)
+  - Figures (@fig-name)
+  - Tables (@tbl-name)
+  - Equations (@eq-name)
+  - Callouts (@id)
+- Different reference syntax options
+- Integration of callouts with cross-references

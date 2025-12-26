@@ -1,0 +1,372 @@
+---
+title: "Advanced Features"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+---
+
+# Advanced Features
+
+This document demonstrates advanced Quarto features for power users.
+
+## Shortcodes
+
+### Environment Variables
+
+The current working directory: `{{< env PWD >}}`
+
+Home directory: `{{< env HOME >}}`
+
+### Metadata Access
+
+The document title: `{{< meta title >}}`
+
+The author: `{{< meta author >}}`
+
+### Quarto Version
+
+Current Quarto CLI version: `{{< version >}}`
+
+### Keyboard Shortcut Display
+
+Common keyboard shortcuts:
+
+- Save file: {{< kbd Ctrl+S >}}
+- Copy: {{< kbd Ctrl+C >}}
+- Paste: {{< kbd Ctrl+V >}}
+- Undo: {{< kbd Ctrl+Z >}}
+
+### Placeholder Content
+
+#### Placeholder Image
+
+{{< placeholder width=400 height=200 text="Custom placeholder" >}}
+
+#### Lorem Ipsum Placeholder
+
+{{< lipsum 1 >}}
+
+### Page Break
+
+{{< pagebreak >}}
+
+This content appears on a new page in PDF output.
+
+## Conditional Content
+
+### Show Only in HTML
+
+::: {.content-visible when-format="html"}
+This content is only visible in HTML output.
+:::
+
+### Hide in HTML
+
+::: {.content-hidden when-format="html"}
+This content is hidden in HTML output but visible in other formats.
+:::
+
+### Based on Metadata
+
+::: {.content-visible when-meta="draft"}
+This shows if draft: true is in the front matter.
+:::
+
+### Unless Format Condition
+
+::: {.content-visible unless-format="pdf"}
+This content appears in all formats except PDF.
+:::
+
+## Code Annotations
+
+### Annotation Types
+
+```{python}
+#| code-annotations: hover
+
+def calculate_mean(numbers):     # <1>
+    """Calculate the mean."""
+    total = sum(numbers)         # <2>
+    count = len(numbers)         # <2>
+    return total / count         # <3>
+
+result = calculate_mean([1, 2, 3, 4, 5])
+```
+
+1. Function definition
+2. Calculate both total and count
+3. Return the mean value
+
+### Select Annotation Style
+
+```{python}
+#| code-annotations: select
+
+class DataProcessor:              # <1>
+    def __init__(self, data):     # <2>
+        self.data = data          # <2>
+
+    def process(self):            # <3>
+        return [x * 2 for x in self.data]
+```
+
+1. Class definition
+2. Constructor and data initialization
+3. Processing method
+
+### Below Annotation Style
+
+```{javascript}
+//| code-annotations: below
+
+function processData(input) {     // <1>
+    const validated = validate(input);  // <2>
+    return transform(validated);   // <3>
+}
+```
+
+1. Define the main function
+2. Validate input data
+3. Transform and return
+
+## Code Cell Options
+
+### Setting Code Cell Parameters
+
+Code cells can be customized with YAML options at the top:
+
+```{python}
+#| eval: true
+#| echo: true
+#| output: true
+#| warning: false
+#| error: false
+
+# This code will execute and show output
+x = [1, 2, 3, 4, 5]
+print(f"Sum: {sum(x)}")
+```
+
+### Common Code Cell Options
+
+- `eval`: Execute the code (true/false)
+- `echo`: Show the code (true/false)
+- `output`: Show output (true/false/asis)
+- `include`: Show anything at all (true/false)
+- `warning`: Show warnings (true/false)
+- `error`: Show errors (true/false)
+- `cache`: Cache results (true/false)
+
+### Figure Options
+
+```{python}
+#| fig-width: 10
+#| fig-height: 6
+#| fig-dpi: 100
+#| fig-format: png
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+x = np.linspace(0, 10, 100)
+plt.plot(x, np.sin(x), label='sin(x)')
+plt.plot(x, np.cos(x), label='cos(x)')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
+```
+
+## Notebook Embedding
+
+### Embedding Quarto Documents
+
+You can embed content from other Quarto documents using the `embed` shortcode:
+
+```
+{{{{< embed path/to/document.qmd#cell-label >}}}}
+```
+
+This is useful for modular documentation where you want to reuse computed results.
+
+### Embedding Jupyter Notebooks
+
+```
+{{{{< embed path/to/notebook.ipynb#cell-name >}}}}
+```
+
+The cell must have a label for embedding.
+
+## Divs and Spans
+
+### Custom Divs
+
+::: {.custom-style}
+This is a div with custom styling. You can apply classes and attributes to containers.
+:::
+
+### Custom Spans
+
+This is a [custom span with styling]{.highlight} in the middle of text.
+
+[Colored text]{style="color: red; font-weight: bold;"}
+
+## Raw Content
+
+### Raw HTML
+
+:::{.raw}
+<div style="background: lightblue; padding: 10px; border-radius: 5px;">
+  This is raw HTML embedded in the document.
+</div>
+:::
+
+### Raw LaTeX
+
+```{=latex}
+\textbf{This is bold text in LaTeX format}
+```
+
+## Variables and Metadata
+
+### Using `_variables.yml`
+
+Create a `_variables.yml` file in your project:
+
+```yaml
+author-email: "contact@example.com"
+institution: "Example University"
+```
+
+Then reference in documents:
+
+```
+Author email: {{{{< var author-email >}}}}
+Institution: {{{{< var institution >}}}}
+```
+
+## Include External Files
+
+### Include Markdown Files
+
+The `include` shortcode embeds content from another file:
+
+```
+{{{{< include path/to/content.md >}}}}
+```
+
+This is useful for:
+- Shared content across documents
+- Modular documentation
+- Keeping files organized
+
+### Include Code Files
+
+```
+{{{{< include path/to/script.py >}}}}
+```
+
+## Output Options
+
+### Output as Markdown (asis)
+
+```{python}
+#| output: asis
+
+print("""
+### Generated Heading
+
+This is generated markdown content that will be processed as markdown.
+""")
+```
+
+### Output Suppression
+
+```{python}
+#| output: false
+
+# This runs but output is not shown
+def expensive_computation():
+    return sum(range(1000000))
+
+result = expensive_computation()
+```
+
+## Filters and Extensions
+
+Quarto supports extending functionality through:
+
+1. **Lua Filters**: Custom document transformations
+2. **Extensions**: Pre-built packages for additional features
+3. **Shortcodes**: Custom shortcode definitions
+
+Example filter configuration in `_quarto.yml`:
+
+```yaml
+filters:
+  - review  # The review extension used here
+```
+
+## Advanced Layout Control
+
+### Landscape Orientation
+
+::: {.landscape}
+This section is in landscape orientation. Works best with PDF output.
+
+Wide tables fit better in landscape mode:
+
+| Column 1 | Column 2 | Column 3 | Column 4 | Column 5 |
+|----------|----------|----------|----------|----------|
+| A | B | C | D | E |
+| F | G | H | I | J |
+:::
+
+### Tabset Panels
+
+::: {.panel-tabset}
+
+## Tab 1
+
+Content of the first tab.
+
+## Tab 2
+
+Content of the second tab.
+
+## Tab 3
+
+Content of the third tab.
+
+:::
+
+## Title Block Customization
+
+This document uses default title block styling. You can customize with:
+
+```yaml
+title-block-style: default
+date-format: "MMMM YYYY"
+author-title: "Written by"
+abstract-title: "Overview"
+```
+
+## Summary of Advanced Features
+
+This document covered:
+
+- **Shortcodes**: Version, variables, metadata, environment, keyboard, placeholders
+- **Conditional content**: Format-based and metadata-based visibility control
+- **Code annotations**: Different display styles (hover, select, below)
+- **Code cell options**: Fine-grained control over code execution and output
+- **Notebook embedding**: Reusing computational results
+- **Custom styling**: Divs, spans, and inline styling
+- **Raw content**: HTML and LaTeX embedding
+- **Variables**: Reusable values across documents
+- **File inclusion**: Modular document composition
+- **Advanced layouts**: Landscape, tabsets, panels
+- **Output formats**: Markdown generation and suppression
+- **Filters**: Extending Quarto with custom logic
+
+These advanced features enable sophisticated document workflows and automation.

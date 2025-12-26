@@ -1,0 +1,256 @@
+---
+title: "Figures and Tables Features"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+    lightbox: true
+    code-fold: true
+---
+
+# Figures and Tables
+
+This document demonstrates all figure and table capabilities in Quarto.
+
+## Basic Figures
+
+### Simple Image
+
+![A sample image for testing](/workspace/example/images/sample.png){#fig-sample width=300}
+
+See @fig-sample for a basic image with caption and cross-reference.
+
+### Image with Alt Text
+
+![A decorative image](/workspace/example/images/sample.png){fig-alt="A sample test image with accessibility alt text"}
+
+### Image with Link
+
+[![Clickable image](/workspace/example/images/sample.png)](/workspace/example)
+
+## Figure Sizing and Alignment
+
+### Width Control
+
+![Image with 50% width](/workspace/example/images/sample.png){width="50%"}
+
+### Height Control
+
+![Image with fixed height](/workspace/example/images/sample.png){height="200"}
+
+### Center Alignment
+
+![Centered image](/workspace/example/images/sample.png){fig-align="center" width="60%"}
+
+## Subfigures (Multiple Figures)
+
+::: {#fig-subfigures layout-ncol=2}
+![First subfigure](/workspace/example/images/sample.png){#fig-sub1}
+
+![Second subfigure](/workspace/example/images/sample.png){#fig-sub2}
+
+Multiple subfigures with individual captions
+:::
+
+You can reference: @fig-subfigures (the group), @fig-sub1 (individual figures)
+
+## Complex Figure Layouts
+
+::: {#fig-complex layout="[[1,1], [1]]"}
+![Top left](/workspace/example/images/sample.png){#fig-tl}
+
+![Top right](/workspace/example/images/sample.png){#fig-tr}
+
+![Bottom full width](/workspace/example/images/sample.png){#fig-bottom}
+
+Complex layout with 2x1 arrangement
+:::
+
+## Lightbox Galleries
+
+::: {.column-margin}
+Note: The `lightbox: true` option in the format settings enables lightbox functionality for all images.
+:::
+
+```{python}
+#| label: fig-lightbox-gallery
+#| fig-cap: "Gallery of plots that open in lightbox"
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+
+# Plot 1: Line plot
+x = np.linspace(0, 10, 100)
+axes[0, 0].plot(x, np.sin(x))
+axes[0, 0].set_title("Sine Wave")
+
+# Plot 2: Scatter plot
+axes[0, 1].scatter(np.random.randn(50), np.random.randn(50))
+axes[0, 1].set_title("Scatter Plot")
+
+# Plot 3: Histogram
+axes[1, 0].hist(np.random.randn(1000), bins=30)
+axes[1, 0].set_title("Histogram")
+
+# Plot 4: Bar chart
+axes[1, 1].bar(['A', 'B', 'C'], [10, 24, 36])
+axes[1, 1].set_title("Bar Chart")
+
+plt.tight_layout()
+plt.show()
+```
+
+Click on the image above to open it in the lightbox viewer!
+
+## Markdown Tables
+
+### Basic Markdown Table
+
+| Name | Age | City |
+|------|-----|------|
+| Alice | 25 | NYC |
+| Bob | 30 | LA |
+| Charlie | 35 | Chicago |
+
+### Aligned Markdown Table
+
+| Left | Center | Right |
+|:-----|:--------:|------:|
+| L1 | C1 | R1 |
+| L2 | C2 | R2 |
+
+### Table with Caption and Reference
+
+| Feature | HTML | PDF | Word |
+|---------|:----:|:---:|:----:|
+| Basic table | ✅ | ✅ | ✅ |
+| Striped rows | ✅ | ❌ | ❌ |
+| Hover effect | ✅ | ❌ | ❌ |
+| Responsive | ✅ | ❌ | ❌ |
+
+: Support matrix for different output formats {#tbl-support}
+
+See @tbl-support for a feature support matrix.
+
+## Grid Tables
+
+Grid tables support complex content including lists and code:
+
++-------+-------+---+
+| Left  | Mid   | Right |
++=======+=======+===+
+| First | Cell  | C |
+|       |       | 1 |
++-------+-------+---+
+| Second| B     | - |
+|       |       |   |
+|       | - a   |   |
+|       | - b   |   |
++-------+-------+---+
+
+## Table with Column Widths
+
+| Small | Medium | Large |
+|:--|:--|:--|
+| Text | More text | Lorem ipsum dolor sit amet |
+| A | B | C |
+
+## Computational Tables from R
+
+```{r}
+#| label: tbl-mtcars
+#| tbl-cap: "First 10 rows of mtcars dataset"
+
+knitr::kable(head(mtcars, 10))
+```
+
+See @tbl-mtcars for R-generated table output.
+
+## Computational Tables from Python
+
+```{python}
+#| label: tbl-python
+#| tbl-cap: "Sample data from Python"
+
+import pandas as pd
+
+data = {
+    'Name': ['Alice', 'Bob', 'Charlie', 'Diana'],
+    'Score': [95, 87, 92, 88],
+    'Grade': ['A', 'B', 'A', 'B']
+}
+
+df = pd.DataFrame(data)
+print(df.to_markdown(index=False))
+```
+
+## Equations
+
+### Inline Equations
+
+The quadratic formula is $ax^2 + bx + c = 0$ where $a \neq 0$.
+
+### Display Equations
+
+$$
+x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}
+$$
+
+### Numbered Equations
+
+$$
+E = mc^2
+$$ {#eq-einstein}
+
+Reference: @eq-einstein
+
+### Multiple-line Equations
+
+$$
+\begin{align}
+y &= mx + b \\
+m &= \frac{y_2 - y_1}{x_2 - x_1} \\
+b &= y - mx
+\end{align}
+$$
+
+## Panels and Figure Grouping
+
+::: {.column-margin}
+Use the `layout-ncol` and `layout-nrow` options to arrange multiple elements.
+:::
+
+## Table with Bootstrap Classes
+
+| Class | Effect |
+|-------|--------|
+| `.striped` | Alternating row colors |
+| `.hover` | Highlight on hover |
+| `.bordered` | Add borders |
+| `.responsive` | Make scrollable |
+
+{.striped .hover}
+
+## Captions and Cross-References
+
+All figures and tables in this document that have `#id-` prefixes are cross-referenceable using `@id-` syntax in the text.
+
+Key features:
+- Figures use `#fig-` prefix
+- Tables use `#tbl-` prefix
+- Equations use `#eq-` prefix
+- Sections use `#sec-` prefix
+
+## Summary
+
+This document demonstrates Quarto's comprehensive figure and table handling:
+
+- Basic image insertion with sizing and alignment
+- Subfigures and complex layouts
+- Lightbox gallery functionality
+- Multiple table formats (markdown, grid, computational)
+- Cross-references and captions
+- Equation display and numbering
+- Language-specific table generation

@@ -1,0 +1,293 @@
+---
+title: "Code Execution and Display Features"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+    code-fold: true
+    code-line-numbers: true
+execute:
+  daemon: false
+---
+
+# Code Execution and Display
+
+This document demonstrates code execution, display options, and language support in Quarto.
+
+## Python Code {#sec-python}
+
+### Basic Python Code Block
+
+```{python}
+#| label: fig-python-basic
+#| fig-cap: "Python code execution output"
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Generate sample data
+x = np.linspace(0, 10, 100)
+y = np.sin(x)
+
+# Create plot
+plt.figure(figsize=(10, 5))
+plt.plot(x, y, 'b-', linewidth=2)
+plt.scatter(x[::10], y[::10], color='red', s=100)
+plt.title('Sine Wave')
+plt.xlabel('X')
+plt.ylabel('Y')
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+### Python with Code Annotations
+
+```{python}
+#| code-annotations: below
+
+data = {              # <1>
+    'name': ['Alice', 'Bob', 'Charlie'],
+    'age': [25, 30, 35],
+    'city': ['NYC', 'LA', 'Chicago']
+}
+
+for person in data['name']:  # <2>
+    print(f'Hello, {person}!')
+```
+
+1. Create a dictionary with sample data
+2. Iterate through each person in the data
+
+### Python with Code Folding
+
+```{python}
+#| code-fold: show
+#| code-summary: "Show the calculation"
+
+# Calculate statistics
+numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+mean = sum(numbers) / len(numbers)
+variance = sum((x - mean) ** 2 for x in numbers) / len(numbers)
+std_dev = variance ** 0.5
+
+print(f"Mean: {mean}")
+print(f"Variance: {variance}")
+print(f"Standard Deviation: {std_dev}")
+```
+
+## R Code
+
+### R Code Block
+
+```{r}
+#| label: fig-r-plot
+#| fig-cap: "R ggplot2 example"
+
+# Install and load ggplot2
+library(ggplot2)
+
+# Create sample data
+df <- data.frame(
+  x = 1:10,
+  y = rnorm(10, mean = 5, sd = 2),
+  group = rep(c("A", "B"), each = 5)
+)
+
+# Create plot
+ggplot(df, aes(x = x, y = y, color = group)) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme_minimal() +
+  labs(title = "Random Data with Groups",
+       x = "X Axis",
+       y = "Y Axis")
+```
+
+### R with Output Options
+
+```{r}
+#| eval: true
+#| echo: true
+#| output: true
+
+# R code that shows both code and output
+x <- c(1, 2, 3, 4, 5)
+y <- x^2
+
+data.frame(x = x, y = y)
+```
+
+## Julia Code
+
+::: {.callout-note}
+Julia code execution via JuliaCall is disabled in this environment due to compatibility issues in containers. The code examples below show syntax but are not executed.
+:::
+
+### Julia Code Block
+
+```julia
+using Plots, Random
+
+# Set random seed for reproducibility
+Random.seed!(42)
+
+# Generate sample data
+x = range(0, 2π, length=100)
+y1 = sin.(x)
+y2 = cos.(x)
+
+# Create plot
+plot(x, [y1 y2],
+     label=["sin(x)" "cos(x)"],
+     title="Trigonometric Functions",
+     xlabel="x",
+     ylabel="y",
+     legend=:topright)
+```
+
+### Julia Computation
+
+```julia
+# Simple Julia computation
+function fibonacci(n)
+    if n <= 1
+        return n
+    else
+        return fibonacci(n-1) + fibonacci(n-2)
+    end
+end
+
+# Calculate Fibonacci numbers
+fib_sequence = [fibonacci(i) for i in 0:10]
+println("Fibonacci sequence: ", fib_sequence)
+```
+
+## Observable JavaScript
+
+### Observable JS Reactive Code
+
+```{ojs}
+// Define a slider input
+viewof x = Inputs.range([0, 10], {step: 0.1, label: "x"})
+
+// Define a function
+y = Math.sin(x)
+
+// Display results
+html`<p>x = ${x.toFixed(2)}, y = ${y.toFixed(4)}</p>`
+```
+
+## Code Display Options
+
+### Code with Line Numbers
+
+```{python}
+#| code-line-numbers: true
+
+def greet(name):
+    """A simple greeting function."""
+    message = f"Hello, {name}!"
+    return message
+
+result = greet("World")
+print(result)
+```
+
+### Code with Filename Display
+
+```{python}
+#| filename: "example.py"
+
+#!/usr/bin/env python3
+"""
+This is a Python script with a filename displayed.
+"""
+
+def main():
+    print("Hello from a named file!")
+
+if __name__ == "__main__":
+    main()
+```
+
+### Code Without Code Folding
+
+```{python}
+#| code-fold: false
+
+# This code is always visible, not folded
+print("This code will not be folded")
+```
+
+### Code with Copy Button
+
+Code blocks automatically include a copy button on hover. Try hovering over any code block!
+
+```javascript
+// JavaScript example with copy button
+const greeting = "Hello, Quarto!";
+console.log(greeting);
+```
+
+## Code Execution Options
+
+### Eval: False (Show Code Only)
+
+```{python}
+#| eval: false
+
+# This code is shown but not executed
+result = very_expensive_computation()
+print(result)
+```
+
+### Echo: False (Show Output Only)
+
+```{python}
+#| echo: false
+
+# This code runs but isn't shown
+import json
+data = {"key": "value", "number": 42}
+print(json.dumps(data, indent=2))
+```
+
+### Hidden Code Block
+
+```{python}
+#| include: false
+
+# This code runs silently in the background
+x = 10
+y = 20
+z = x + y
+```
+
+## Inline Code Execution
+
+Python inline code: `{python} 2 + 2`
+
+R inline code: `{r} nrow(mtcars)`
+
+## Code with Warnings and Errors
+
+```{python}
+#| warning: true
+
+import warnings
+warnings.warn("This is a demonstration warning")
+
+# Code continues after warning
+print("Code still runs after warning")
+```
+
+## Summary
+
+This document demonstrates Quarto's comprehensive code execution and display features including:
+
+- Code in multiple languages (Python, R, Julia, Observable JS)
+- Execution control (eval, echo, include)
+- Display options (code folding, line numbers, annotations)
+- Interactive elements and visualizations
+- Code copy buttons and filenames

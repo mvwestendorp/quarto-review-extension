@@ -1,0 +1,288 @@
+---
+title: "Interactive Features"
+author: "Quarto Review Team"
+format:
+  html:
+    toc: true
+---
+
+# Interactive Features
+
+This document demonstrates Quarto's interactive capabilities using Observable JS.
+
+## Observable JS Basics
+
+### Simple Variable and Display
+
+```{ojs}
+name = "Quarto"
+message = `Hello, ${name}!`
+html`<p>${message}</p>`
+```
+
+### Interactive Slider Input
+
+```{ojs}
+viewof value = Inputs.range([0, 100], {
+  value: 50,
+  step: 1,
+  label: "Adjust this slider:"
+})
+
+html`<p>Current value: <strong>${value}</strong></p>`
+```
+
+### Select Input
+
+```{ojs}
+viewof language = Inputs.select(
+  ["Python", "R", "Julia", "JavaScript"],
+  { value: "Python", label: "Choose a language:" }
+)
+
+html`<p>You selected: <strong>${language}</strong></p>`
+```
+
+### Checkbox Input
+
+```{ojs}
+viewof enableFeature = Inputs.checkbox(["Enable advanced features"], {
+  label: "Options:"
+})
+
+html`<p>Advanced features: ${enableFeature.includes("Enable advanced features") ? "ON" : "OFF"}</p>`
+```
+
+## Interactive Visualization
+
+### Dynamic Plot Based on Input
+
+```{ojs}
+//| echo: false
+import {Plot} from "@observablehq/plot"
+```
+
+```{ojs}
+//| echo: false
+d3 = require("d3")
+```
+
+```{ojs}
+// Generate data
+generateData = function(count) {
+  return d3.range(count).map(i => ({
+    x: i,
+    y: Math.sin(i * 0.1) + Math.random() * 0.5
+  }));
+}
+
+viewof dataCount = Inputs.range([10, 200], {
+  value: 50,
+  step: 10,
+  label: "Number of data points:"
+})
+```
+
+```{ojs}
+data = generateData(dataCount)
+
+Plot.plot({
+  title: "Dynamic Data Visualization",
+  width: 800,
+  marks: [
+    Plot.dot(data, {x: "x", y: "y"}),
+    Plot.line(data, {x: "x", y: "y", stroke: "steelblue"})
+  ]
+})
+```
+
+## Text Input
+
+```{ojs}
+viewof userInput = Inputs.text({
+  placeholder: "Type something...",
+  label: "Enter text:"
+})
+
+html`<p>You typed: <strong>${userInput || "(nothing yet)"}</strong></p>`
+```
+
+## Button and Event Handling
+
+```{ojs}
+mutable clickCount = 0
+
+viewof resetButton = Inputs.button("Click me!", {
+  value: 0,
+  reduce: () => ++mutable clickCount
+})
+
+html`<p>You've clicked ${clickCount} times</p>`
+```
+
+## Reactive Computation
+
+```{ojs}
+// Define inputs
+viewof a = Inputs.number({value: 3, label: "a:"})
+viewof b = Inputs.number({value: 4, label: "b:"})
+
+// Reactive computation
+c_squared = a * a + b * b
+c = Math.sqrt(c_squared)
+
+html`
+<div>
+  <p>a² + b² = ${a}² + ${b}² = ${a*a} + ${b*b} = <strong>${c_squared}</strong></p>
+  <p>c = √${c_squared} = <strong>${c.toFixed(2)}</strong></p>
+  <p>This is the Pythagorean theorem in action!</p>
+</div>
+`
+```
+
+## Observable Data Tables
+
+```{ojs}
+Inputs.table(
+  [
+    {name: "Alice", score: 92, grade: "A"},
+    {name: "Bob", score: 85, grade: "B"},
+    {name: "Charlie", score: 78, grade: "C"},
+    {name: "Diana", score: 95, grade: "A"}
+  ],
+  {
+    columns: ["name", "score", "grade"],
+    layout: "auto"
+  }
+)
+```
+
+## Search and Filter
+
+```{ojs}
+students = [
+  {id: 1, name: "Alice", major: "CS", year: 2024},
+  {id: 2, name: "Bob", major: "Physics", year: 2025},
+  {id: 3, name: "Charlie", major: "CS", year: 2023},
+  {id: 4, name: "Diana", major: "Math", year: 2024}
+]
+
+viewof search = Inputs.text({
+  placeholder: "Search by name...",
+  label: "Filter students:"
+})
+
+filtered = students.filter(s =>
+  s.name.toLowerCase().includes(search.toLowerCase())
+)
+
+Inputs.table(filtered)
+```
+
+## Slider with Multiple Values
+
+```{ojs}
+viewof range = Inputs.range([0, 100], {
+  value: [25, 75],
+  step: 1,
+  label: "Select range:"
+})
+
+html`<p>Range: ${range[0]} to ${range[1]}</p>`
+```
+
+## Combining Multiple Inputs
+
+```{ojs}
+viewof operation = Inputs.radio(
+  ["Add", "Subtract", "Multiply", "Divide"],
+  { label: "Operation:", value: "Add" }
+)
+
+viewof num1 = Inputs.number({value: 10, label: "Number 1:"})
+viewof num2 = Inputs.number({value: 5, label: "Number 2:"})
+
+result = {
+  switch(operation) {
+    case "Add": return num1 + num2;
+    case "Subtract": return num1 - num2;
+    case "Multiply": return num1 * num2;
+    case "Divide": return num1 / num2;
+  }
+}
+
+html`
+<div>
+  <h3>Result</h3>
+  <p><strong>${num1} ${operation.toLowerCase()} ${num2} = ${result}</strong></p>
+</div>
+`
+```
+
+## Progress and Feedback
+
+```{ojs}
+viewof progress = Inputs.range([0, 100], {
+  value: 65,
+  step: 5,
+  label: "Progress:"
+})
+
+html`
+<div style="width: 100%; background: #eee; border-radius: 5px; overflow: hidden;">
+  <div style="width: ${progress}%; background: #4CAF50; padding: 5px; text-align: center; color: white;">
+    ${progress}%
+  </div>
+</div>
+`
+```
+
+## Conditional Display
+
+```{ojs}
+viewof showDetails = Inputs.toggle({label: "Show details", value: false})
+
+html`
+${showDetails ? `
+  <div style="background: #f0f0f0; padding: 10px; border-radius: 5px;">
+    <h4>Details</h4>
+    <p>These details are conditionally displayed based on the toggle above.</p>
+  </div>
+` : ""}
+`
+```
+
+## Recommendations for Interactivity
+
+::: {.callout-note}
+## When to Use Interactive Elements
+
+Observable JS is ideal for:
+- **Real-time calculations** that update based on user input
+- **Data exploration** with sliders and filters
+- **Visualizations** that respond to user choices
+- **Interactive learning** with immediate feedback
+- **Parameter exploration** for models and equations
+
+Observable JS is client-side and doesn't require a server, making it perfect for static site deployment.
+:::
+
+## Observable JS Resources
+
+- **Inputs Library**: Pre-built UI components (inputs, buttons, tables)
+- **Plot Library**: Grammar of graphics visualization
+- **D3.js**: Low-level data visualization
+- **Lodash**: Utility functions
+- **Apache Arrow**: Large data handling
+
+## Summary
+
+Observable JS in Quarto provides:
+
+- **Reactive programming**: Values update automatically based on dependencies
+- **Interactive inputs**: Sliders, buttons, text fields, dropdowns, checkboxes
+- **Dynamic visualization**: Charts and plots that respond to user input
+- **No server required**: All computation happens in the browser
+- **Easy integration**: Seamlessly embedded in Quarto documents
+
+These interactive elements make documents more engaging and enable exploratory analysis without requiring separate applications or web servers.

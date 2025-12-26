@@ -12,12 +12,37 @@ website:
         file: debug-example.qmd
       - text: 'Translation'
         file: doc-translation.qmd
+      - text: 'Features'
+        menu:
+          - text: 'Text Formatting'
+            file: features-text-formatting.qmd
+          - text: 'Code Execution'
+            file: features-code.qmd
+          - text: 'Figures & Tables'
+            file: features-figures-tables.qmd
+          - text: 'Layout'
+            file: features-layout.qmd
+          - text: 'Callouts & Cross-Refs'
+            file: features-callouts-crossrefs.qmd
+          - text: 'Diagrams & Media'
+            file: features-diagrams-media.qmd
+          - text: 'Citations & Scholarly'
+            file: features-citations-scholarly.qmd
+          - text: 'Advanced'
+            file: features-advanced.qmd
+          - text: 'Interactive'
+            file: features-interactive.qmd
 
 format:
   html:
     theme: cosmo
     css: styles.css
     toc: true
+    code-fold: true
+    code-line-numbers: true
+    lightbox: true
+    code-tools: true
+    code-copy: hover
 
 review:
   enabled: true
