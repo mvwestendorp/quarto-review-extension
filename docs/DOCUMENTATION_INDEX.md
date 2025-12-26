@@ -21,8 +21,7 @@ End-user guides and tutorials for using the Quarto Review extension.
 - **[Features](user/FEATURES.md)** - Complete feature overview
 - **[Keyboard Shortcuts](user/KEYBOARD_SHORTCUTS.md)** - All available shortcuts
 - **[FAQ](user/FAQ.md)** - Frequently asked questions
-- **[Troubleshooting](user/TROUBLESHOOTING.md)** - Common issues and solutions
-- **[Debug Mode](user/DEBUG.md)** - Debug configuration and tools
+- **[Debug & Troubleshooting](user/DEBUG_AND_TROUBLESHOOTING.md)** - Debug configuration, troubleshooting, and common issues
 
 ### **Developer Documentation** (`docs/dev/`)
 
@@ -58,35 +57,18 @@ Test coverage and quality metrics.
 Root-level design and implementation documentation:
 
 ### **Architecture & Design**
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Overall system architecture
 - **[BUNDLE_OPTIMIZATION.md](BUNDLE_OPTIMIZATION.md)** - Bundle size optimization strategy
 
-### **Git Integration**
-- **[git-review-workflow.md](git-review-workflow.md)** - Git review workflow documentation
-- **[GITHUB_PAGES_SETUP.md](GITHUB_PAGES_SETUP.md)** - GitHub Pages configuration guide
-
 ### **Translation Module**
-- **[TRANSLATION_MODULE_IMPLEMENTATION_PLAN.md](TRANSLATION_MODULE_IMPLEMENTATION_PLAN.md)** - Translation system design
-- **[TRANSLATION_INTEGRATION.md](TRANSLATION_INTEGRATION.md)** - Integration details
-- **[TRANSLATION_INTERACTIVE_DEMO.md](TRANSLATION_INTERACTIVE_DEMO.md)** - Demo documentation
 - **[LOCAL_TRANSLATION_OPTIONS.md](LOCAL_TRANSLATION_OPTIONS.md)** - Local translation providers
 
 ### **Translation Refactor** (`docs/translation-refactor/`)
 Detailed phase-by-phase translation module refactoring documentation:
 
 - **[README.md](translation-refactor/README.md)** - Refactor overview
-- **[extension-architecture.md](translation-refactor/extension-architecture.md)** - Extension architecture
 - **[SEGMENT_BASED_UI_REFACTOR.md](translation-refactor/SEGMENT_BASED_UI_REFACTOR.md)** - UI refactoring
 - **[phase-1-translation-sync.md](translation-refactor/phase-1-translation-sync.md)** - Phase 1 details
 - **[phase-2-provider-architecture.md](translation-refactor/phase-2-provider-architecture.md)** - Phase 2 details
-- **[phase-3-ux-stability.md](translation-refactor/phase-3-ux-stability.md)** - Phase 3 details
-- **[phase-4-observability-and-quality.md](translation-refactor/phase-4-observability-and-quality.md)** - Phase 4 details
-- **[phase-5-launch-readiness.md](translation-refactor/phase-5-launch-readiness.md)** - Phase 5 details
-- Various task-specific documents (p3-t4, p3-t5, p3-t6, p3-t10)
-
-### **Testing & Quality**
-- **[TEST_COVERAGE_PLAN.md](TEST_COVERAGE_PLAN.md)** - Coverage improvement plan
-- **[review-fixture-workflow.md](review-fixture-workflow.md)** - Test fixture workflow
 
 
 ---
@@ -107,10 +89,11 @@ Future feature plans and implementation roadmaps:
 
 Historical documentation and legacy notes (not published to GitHub Pages):
 
-- Implementation notes from various development phases
-- Bug fix documentation
-- Legacy design decisions
-- See `docs/archive/README.md` for details
+- **[Archive README](archive/README.md)** - Overview of archived documentation
+- **GitHub Pages Setup** (`archive/github-pages/`) - GitHub Pages deployment documentation
+- **Translation Planning** (`archive/translation-planning/`) - Historical translation module plans
+
+See [archive/README.md](archive/README.md) for complete details.
 
 ---
 
@@ -187,14 +170,14 @@ Current documentation status:
 
 | Category | Coverage | Status |
 |----------|----------|---------|
-| User Guides | 7 docs | ✅ Complete |
+| User Guides | 6 docs | ✅ Complete |
 | Developer Guides | 6 docs | ✅ Complete |
 | API Reference | Auto-gen | ✅ Automated |
 | Test Coverage | Auto-gen | ✅ Automated |
-| Architecture | 15+ docs | ✅ Comprehensive |
+| Architecture | Active docs | ✅ Streamlined |
 | Feature Plans | 5 docs | 🚧 In Progress |
 
 ---
 
-**Last Updated**: 2025-11-05
+**Last Updated**: 2025-12-26
 **Documentation Version**: 0.1.0
