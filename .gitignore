@@ -27,6 +27,8 @@ _extensions/review/assets/review.js
 _extensions/review/assets/review.js.map
 _extensions/review/assets/*.umd.cjs
 _extensions/review/assets/dist/
+_extensions/review/assets/*.css.map
+_extensions/review/assets/*.prod.css
 
 # Environment files
 .env
@@ -47,6 +49,10 @@ Thumbs.db
 # Temporary files
 *.tmp
 .cache/
+test-*.js
+tests/fixtures/*.sh
+tests/fixtures/*.mjs
+tests/fixtures/*.json
 
 # Local tooling
 .claude/
