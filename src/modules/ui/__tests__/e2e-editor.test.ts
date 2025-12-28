@@ -62,7 +62,7 @@ describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
 
     // Initialize modules
     changes = new ChangesModule();
-    markdown = new MarkdownModule({ enableCriticMarkup: true });
+    markdown = new MarkdownModule();
     comments = new CommentsModule();
 
     // Initialize changes from DOM

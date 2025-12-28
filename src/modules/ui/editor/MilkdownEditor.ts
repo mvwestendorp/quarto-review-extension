@@ -25,17 +25,8 @@ import {
   MODULE_EVENTS,
   ModuleEventEmitter,
   normalizeListMarkers,
+  formatMarkdownWithPrettier,
 } from '../shared';
-import {
-  criticMarkupRemarkPlugin,
-  criticAddition,
-  criticDeletion,
-  criticHighlight,
-  criticComment,
-  criticSubstitution,
-  criticKeymap,
-  criticMarkupPlugin,
-} from '../criticmarkup';
 import { $prose } from '@milkdown/utils';
 import { EditorToolbar } from './EditorToolbar';
 
@@ -84,6 +75,9 @@ export class MilkdownEditor extends ModuleEventEmitter {
   /**
    * Get current editor content from the editor instance
    * Falls back to cached content if editor is not available
+   *
+   * Note: This is a synchronous method that returns cached content.
+   * For formatted content, use getFormattedContent() instead.
    */
   getContent(): string {
     // Try to get content directly from editor if available
@@ -112,6 +106,21 @@ export class MilkdownEditor extends ModuleEventEmitter {
     }
     // Fallback to cached content if no editor instance
     return this.currentContent;
+  }
+
+  /**
+   * Get current editor content and format it with Prettier
+   *
+   * This fixes Milkdown's markdown serialization issues including:
+   * - Missing line breaks between list items (Issue #343)
+   * - Inconsistent indentation
+   * - Whitespace normalization
+   *
+   * @returns Formatted markdown content
+   */
+  async getFormattedContent(): Promise<string> {
+    const rawContent = this.getContent();
+    return formatMarkdownWithPrettier(rawContent);
   }
 
   /**
@@ -198,17 +207,7 @@ export class MilkdownEditor extends ModuleEventEmitter {
         .use(commonmark)
         .use(gfm)
         .use(listener)
-        .use(history)
-        // CriticMarkup support - plugins are properly exported from milkdown-marks.ts
-        // They are all proper MilkdownPlugin descriptors created with Milkdown helpers
-        .use(criticMarkupRemarkPlugin)
-        .use(criticAddition)
-        .use(criticDeletion)
-        .use(criticHighlight)
-        .use(criticComment)
-        .use(criticSubstitution)
-        .use(criticKeymap)
-        .use(criticMarkupPlugin);
+        .use(history);
 
       if (diffHighlights.length > 0) {
         editorBuilder.use(this.createTrackedHighlightPlugin(diffHighlights));
