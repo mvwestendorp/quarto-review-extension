@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { MilkdownEditor } from '../MilkdownEditor';
+import { MilkdownEditor } from '@modules/ui/editor/MilkdownEditor';
 
 describe('MilkdownEditor', () => {
   let container: HTMLElement;

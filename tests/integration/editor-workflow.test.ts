@@ -17,7 +17,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ChangesModule } from '@modules/changes';
 import { MarkdownModule } from '@modules/markdown';
 import { CommentsModule } from '@modules/comments';
-import { UIModule } from '../index';
+import { UIModule } from '@modules/ui';
 
 describe('E2E: Editor Workflow - List Editing with Bold Text', () => {
   let container: HTMLElement;
