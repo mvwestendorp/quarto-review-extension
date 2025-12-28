@@ -1,9 +1,10 @@
 import { createModuleLogger } from '@utils/debug';
-import { getBuildString, getFullBuildInfo } from '../../../version';
+import { getBuildString, BUILD_INFO } from '../../../version';
 import type { Operation, OperationType } from '@/types';
 import type { SectionCommentSnapshot } from '../comments/CommentController';
 import type { UserModule } from '../../user';
 import type { ChangesModule } from '@modules/changes';
+import type { MarkdownModule } from '@modules/markdown';
 import {
   createButton,
   createDiv,
@@ -1341,7 +1342,7 @@ Role: ${currentUser.role}`;
 
     buildDiv.appendChild(infoIcon);
     buildDiv.appendChild(buildText);
-    buildDiv.title = getFullBuildInfo();
+    buildDiv.title = `Version: ${BUILD_INFO.version}\nBuild: ${BUILD_INFO.buildNumber}\nType: ${BUILD_INFO.buildType}\nBranch: ${BUILD_INFO.branch || 'unknown'}\nCommit: ${BUILD_INFO.commit?.substring(0, 8) || 'unknown'}`;
 
     buildInfoSection.appendChild(buildDiv);
 
@@ -1468,6 +1469,194 @@ Role: ${currentUser.role}`;
   }
 
   /**
+   * Render debug panel with storage controls
+   */
+  renderDebugPanel(
+    onRefreshStorage?: () => void,
+    onClearStorage?: () => void
+  ): void {
+    const debugPane = this.developerPanelPanes.get('debug');
+    if (!debugPane) {
+      logger.warn('Debug pane not found');
+      return;
+    }
+
+    debugPane.innerHTML = '';
+
+    // Storage Controls Section
+    const storageSection = createDiv('review-debug-section');
+    const storageTitle = document.createElement('h5');
+    storageTitle.textContent = 'Storage Controls';
+    storageTitle.className = 'review-debug-section-title';
+    storageTitle.style.cssText = `
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+      color: var(--review-color-text);
+    `;
+    storageSection.appendChild(storageTitle);
+
+    const buttonContainer = createDiv('review-debug-button-container');
+    buttonContainer.style.cssText = `
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    `;
+
+    // Refresh Storage Button
+    const refreshBtn = createButton('🔄 Refresh Storage', 'review-debug-btn');
+    refreshBtn.title = 'Reload data from browser storage';
+    refreshBtn.style.cssText = `
+      flex: 1;
+      min-width: 140px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid rgba(59, 130, 246, 0.5);
+      background: rgba(59, 130, 246, 0.1);
+      color: rgb(59, 130, 246);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    refreshBtn.onmouseenter = () => {
+      refreshBtn.style.background = 'rgba(59, 130, 246, 0.2)';
+      refreshBtn.style.borderColor = 'rgb(59, 130, 246)';
+    };
+    refreshBtn.onmouseleave = () => {
+      refreshBtn.style.background = 'rgba(59, 130, 246, 0.1)';
+      refreshBtn.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+    };
+    if (onRefreshStorage) {
+      refreshBtn.onclick = () => {
+        onRefreshStorage();
+        this.showDebugMessage('Storage refreshed successfully', 'success');
+      };
+    } else {
+      refreshBtn.disabled = true;
+      refreshBtn.style.opacity = '0.5';
+      refreshBtn.style.cursor = 'not-allowed';
+    }
+    buttonContainer.appendChild(refreshBtn);
+
+    // Clear Storage Button
+    const clearBtn = createButton('🗑️ Clear Storage', 'review-debug-btn');
+    clearBtn.title = 'Clear all stored data (use with caution)';
+    clearBtn.style.cssText = `
+      flex: 1;
+      min-width: 140px;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      background: rgba(239, 68, 68, 0.1);
+      color: rgb(239, 68, 68);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+    clearBtn.onmouseenter = () => {
+      clearBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+      clearBtn.style.borderColor = 'rgb(239, 68, 68)';
+    };
+    clearBtn.onmouseleave = () => {
+      clearBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+      clearBtn.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+    };
+    if (onClearStorage) {
+      clearBtn.onclick = () => {
+        if (
+          confirm(
+            'Are you sure you want to clear all storage? This will remove all saved changes and cannot be undone.'
+          )
+        ) {
+          onClearStorage();
+          this.showDebugMessage('Storage cleared successfully', 'success');
+        }
+      };
+    } else {
+      clearBtn.disabled = true;
+      clearBtn.style.opacity = '0.5';
+      clearBtn.style.cursor = 'not-allowed';
+    }
+    buttonContainer.appendChild(clearBtn);
+
+    storageSection.appendChild(buttonContainer);
+    debugPane.appendChild(storageSection);
+
+    // Build Info Section
+    const buildSection = createDiv('review-debug-section');
+    buildSection.style.cssText = 'margin-top: 16px;';
+    const buildTitle = document.createElement('h5');
+    buildTitle.textContent = 'Build Information';
+    buildTitle.className = 'review-debug-section-title';
+    buildTitle.style.cssText = `
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      color: var(--review-color-text);
+    `;
+    buildSection.appendChild(buildTitle);
+
+    const buildDetails = createDiv('review-debug-info');
+    buildDetails.style.cssText = `
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--review-color-muted);
+      background: rgba(248, 250, 252, 0.5);
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+    `;
+    buildDetails.innerHTML = `
+      <div>Version: ${BUILD_INFO.version}</div>
+      <div>Build: ${BUILD_INFO.buildNumber}</div>
+      <div>Type: ${BUILD_INFO.buildType || 'unknown'}</div>
+      <div>Date: ${new Date(BUILD_INFO.buildDate).toLocaleString()}</div>
+      <div>Branch: ${BUILD_INFO.branch || 'unknown'}</div>
+      <div>Commit: ${BUILD_INFO.commit?.substring(0, 8) || 'unknown'}</div>
+    `;
+    buildSection.appendChild(buildDetails);
+    debugPane.appendChild(buildSection);
+
+    logger.debug('Debug panel rendered with storage controls');
+  }
+
+  /**
+   * Show a temporary message in the debug panel
+   */
+  private showDebugMessage(message: string, type: 'success' | 'error'): void {
+    const debugPane = this.developerPanelPanes.get('debug');
+    if (!debugPane) return;
+
+    const messageEl = createDiv('review-debug-message');
+    messageEl.textContent = message;
+    messageEl.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      background: ${type === 'success' ? 'rgba(34, 197, 94, 0.9)' : 'rgba(239, 68, 68, 0.9)'};
+      color: white;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 10000;
+      animation: slideInRight 0.3s ease;
+    `;
+
+    document.body.appendChild(messageEl);
+
+    setTimeout(() => {
+      messageEl.style.animation = 'slideOutRight 0.3s ease';
+      setTimeout(() => {
+        document.body.removeChild(messageEl);
+      }, 300);
+    }, 2000);
+  }
+
+  /**
    * Set developer panel content for a specific tab
    */
   setDeveloperPanelContent(tabId: string, content: string | HTMLElement): void {
@@ -1490,7 +1679,10 @@ Role: ${currentUser.role}`;
   /**
    * Render changes panel with comprehensive change statistics and list
    */
-  renderChangesPanel(changesModule: ChangesModule): void {
+  renderChangesPanel(
+    changesModule: ChangesModule,
+    markdownModule?: MarkdownModule
+  ): void {
     const operations = changesModule.getOperations();
     const changesPane = this.developerPanelPanes.get('changes');
 
@@ -1525,8 +1717,12 @@ Role: ${currentUser.role}`;
     const statsSection = this.createChangeStatsSection(stats);
     changesPane.appendChild(statsSection);
 
-    // Create changes list
-    const changesList = this.createChangesList(operations.slice().reverse());
+    // Create changes list with detailed diff views
+    const changesList = this.createChangesList(
+      operations.slice().reverse(),
+      changesModule,
+      markdownModule
+    );
     changesPane.appendChild(changesList);
 
     logger.debug('Changes panel rendered', {
@@ -1709,31 +1905,39 @@ Role: ${currentUser.role}`;
   /**
    * Create list of recent changes
    */
-  private createChangesList(operations: ReadonlyArray<Operation>): HTMLElement {
+  private createChangesList(
+    operations: ReadonlyArray<Operation>,
+    changesModule: ChangesModule,
+    markdownModule?: MarkdownModule
+  ): HTMLElement {
     const container = createDiv('review-changes-list-container');
 
     const header = createDiv('review-changes-list-header');
     const title = document.createElement('h5');
-    title.textContent = 'Recent Changes';
+    title.textContent = 'Recent Changes (Detailed View)';
     title.className = 'review-changes-list-title';
     header.appendChild(title);
     container.appendChild(header);
 
     const list = createDiv('review-changes-list');
 
-    // Show up to 20 most recent changes
-    const recentOps = operations.slice(0, 20);
+    // Show up to 10 most recent changes with detailed diff views
+    const recentOps = operations.slice(0, 10);
 
     recentOps.forEach((op) => {
-      const item = this.createChangeListItem(op);
+      const item = this.createDetailedChangeListItem(
+        op,
+        changesModule,
+        markdownModule
+      );
       list.appendChild(item);
     });
 
     container.appendChild(list);
 
-    if (operations.length > 20) {
+    if (operations.length > 10) {
       const more = createDiv('review-changes-list-more');
-      more.textContent = `and ${operations.length - 20} more changes...`;
+      more.textContent = `and ${operations.length - 10} more changes...`;
       container.appendChild(more);
     }
 
@@ -1741,44 +1945,148 @@ Role: ${currentUser.role}`;
   }
 
   /**
-   * Create a single change list item
+   * Create a detailed change list item with diff view
    */
-  private createChangeListItem(operation: Operation): HTMLElement {
-    const item = createDiv('review-change-item');
+  private createDetailedChangeListItem(
+    operation: Operation,
+    changesModule: ChangesModule,
+    markdownModule?: MarkdownModule
+  ): HTMLElement {
+    const item = createDiv('review-change-item-detailed');
     item.classList.add(`review-change-item-${operation.type}`);
     item.dataset.operationId = operation.id;
 
-    // Icon and type
-    const iconTypeContainer = createDiv('review-change-item-icon-type');
+    // Header: Icon, type, and metadata
+    const header = createDiv('review-change-item-header');
 
+    const iconType = createDiv('review-change-item-icon-type');
     const icon = document.createElement('span');
     icon.className = 'review-change-item-icon';
     icon.textContent = this.getOperationIcon(operation.type);
-    iconTypeContainer.appendChild(icon);
+    iconType.appendChild(icon);
 
     const type = document.createElement('span');
     type.className = 'review-change-item-type';
     type.textContent = this.getOperationLabel(operation.type);
-    iconTypeContainer.appendChild(type);
+    iconType.appendChild(type);
+    header.appendChild(iconType);
 
-    item.appendChild(iconTypeContainer);
-
-    // Preview text
-    const preview = createDiv('review-change-item-preview');
-    preview.textContent = this.getOperationPreview(operation);
-    item.appendChild(preview);
-
-    // Metadata
     const meta = createDiv('review-change-item-meta');
     const timestamp = new Date(operation.timestamp);
-    const timeStr = this.formatRelativeTime(timestamp);
-    meta.textContent = timeStr;
+    meta.textContent = this.formatRelativeTime(timestamp);
     if (operation.userId) {
       meta.textContent += ` • ${operation.userId}`;
     }
-    item.appendChild(meta);
+    header.appendChild(meta);
+
+    item.appendChild(header);
+
+    // Content: Show detailed diff views for edit operations
+    if (operation.type === 'edit' && operation.data.type === 'edit') {
+      const elementId = operation.elementId;
+      const oldContent = operation.data.oldContent;
+      const newContent = operation.data.newContent;
+
+      // Create diff container with 4 views
+      const diffContainer = createDiv('review-change-diff-container');
+
+      // Original Markdown
+      const originalSection = this.createDiffSection(
+        'Original Markdown',
+        oldContent,
+        'markdown'
+      );
+      diffContainer.appendChild(originalSection);
+
+      // Updated Markdown
+      const updatedSection = this.createDiffSection(
+        'Updated Markdown',
+        newContent,
+        'markdown'
+      );
+      diffContainer.appendChild(updatedSection);
+
+      // Updated HTML Source (with diff tags)
+      if (markdownModule) {
+        try {
+          const htmlWithDiffs =
+            changesModule.getElementContentWithHtmlDiffs(elementId);
+          const htmlSourceSection = this.createDiffSection(
+            'Updated HTML Source (with diff tags)',
+            htmlWithDiffs,
+            'html'
+          );
+          diffContainer.appendChild(htmlSourceSection);
+
+          // Rendered HTML (visual preview)
+          // Get the actual rendered HTML from the DOM instead of re-rendering markdown
+          // This prevents double-rendering of LaTeX and other processed content
+          const domElement = document.querySelector(
+            `[data-review-id="${elementId}"]`
+          );
+          if (domElement) {
+            const renderedHtml = (domElement as HTMLElement).innerHTML;
+            const renderedSection = this.createDiffSection(
+              'Rendered HTML Preview (from DOM)',
+              renderedHtml,
+              'rendered'
+            );
+            diffContainer.appendChild(renderedSection);
+          }
+        } catch (error) {
+          logger.warn('Failed to generate HTML diff view', {
+            error,
+            elementId,
+          });
+        }
+      }
+
+      item.appendChild(diffContainer);
+    } else {
+      // For non-edit operations, show simple preview
+      const preview = createDiv('review-change-item-preview');
+      preview.textContent = this.getOperationPreview(operation);
+      item.appendChild(preview);
+    }
 
     return item;
+  }
+
+  /**
+   * Create a diff section with label and content
+   */
+  private createDiffSection(
+    label: string,
+    content: string,
+    contentType: 'markdown' | 'html' | 'rendered'
+  ): HTMLElement {
+    const section = createDiv('review-diff-section');
+
+    const labelEl = document.createElement('div');
+    labelEl.className = 'review-diff-label';
+    labelEl.textContent = label;
+    section.appendChild(labelEl);
+
+    const contentEl = createDiv('review-diff-content');
+
+    if (contentType === 'rendered') {
+      // For rendered HTML, show it as actual HTML (visual preview)
+      contentEl.innerHTML = content;
+      contentEl.classList.add('review-diff-rendered');
+    } else {
+      // For source code (markdown or HTML), show it as preformatted text
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      code.textContent = content;
+      code.className =
+        contentType === 'html' ? 'language-html' : 'language-markdown';
+      pre.appendChild(code);
+      contentEl.appendChild(pre);
+      contentEl.classList.add('review-diff-source');
+    }
+
+    section.appendChild(contentEl);
+    return section;
   }
 
   /**

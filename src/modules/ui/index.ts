@@ -27,6 +27,7 @@ import {
   trimLineEnd,
   isSetextUnderline,
   isWhitespaceChar,
+  preloadPrettier,
   type CommentState,
 } from './shared';
 import { normalizeContentForComparison } from './shared/editor-content';
@@ -152,6 +153,9 @@ export class UIModule {
     this.localPersistence = config.persistence;
     this.translationModule = config.translation;
 
+    // Preload Prettier for markdown formatting (fixes Milkdown serialization issues)
+    preloadPrettier();
+
     // Initialize central state store
     this.stateStore = new StateStore();
 
@@ -181,6 +185,7 @@ export class UIModule {
     this.commentBadgesModule = new CommentBadges();
     this.marginCommentsModule = new MarginComments();
     this.segmentActionButtons = new SegmentActionButtons();
+
     this.commentController = new CommentController({
       config: {
         changes: this.config.changes,
@@ -794,6 +799,27 @@ export class UIModule {
     this.bindGlobalShortcuts();
     // Sync action buttons for all segments
     this.syncSegmentActionButtons();
+    // Initialize debug panel with storage controls
+    this.initializeDebugPanel();
+  }
+
+  /**
+   * Initialize debug panel with storage refresh/clear buttons
+   */
+  private initializeDebugPanel(): void {
+    this.bottomDrawer.renderDebugPanel(
+      // Refresh storage callback
+      () => {
+        // Reload from persistence storage
+        void this.persistenceManager.restoreLocalDraft();
+        this.refresh();
+      },
+      // Clear storage callback
+      () => {
+        // Clear all storage
+        void this.persistenceManager.confirmAndClearLocalDrafts();
+      }
+    );
   }
 
   /**
@@ -803,9 +829,9 @@ export class UIModule {
     const allSegmentIds = Array.from(
       document.querySelectorAll('[data-review-id]')
     ).map((el) => el.getAttribute('data-review-id') || '');
-    this.segmentActionButtons?.syncButtons(
-      allSegmentIds.filter((id) => id.length > 0)
-    );
+    const validIds = allSegmentIds.filter((id) => id.length > 0);
+
+    this.segmentActionButtons?.syncButtons(validIds);
   }
 
   private bindEditableElementEvents(elem: HTMLElement): void {
@@ -1544,26 +1570,15 @@ export class UIModule {
     this.syncToolbarState();
 
     // Update developer panel with latest changes
-    this.bottomDrawer.renderChangesPanel(this.config.changes);
+    this.bottomDrawer.renderChangesPanel(
+      this.config.changes,
+      this.config.markdown
+    );
 
     // Re-enable export buttons after changes (they should stay enabled if callbacks exist)
     if (typeof this.bottomDrawer.enableExportButtons === 'function') {
       this.bottomDrawer.enableExportButtons();
     }
-  }
-
-  /**
-   * Clean nested review-editable div fences from markdown content
-   * Removes patterns like: ::: {class="review-editable" ...} content :::
-   */
-  private cleanNestedDivs(content: string): string {
-    // Remove pandoc div fences that represent nested review-editable elements
-    // Pattern: ::: {class="review-editable" ...} ... :::
-    // Also handles data-review-* attributes in any order
-    return content.replace(
-      /:::\s*\{[^}]*review-editable[^}]*\}[\s\S]*?:::/g,
-      ''
-    );
   }
 
   private prepareEditorContent(
@@ -1616,8 +1631,8 @@ export class UIModule {
       ? this.config.changes.getElementContentWithTrackedChanges(elementId)
       : rawPlain;
 
-    const cleanedPlain = this.cleanNestedDivs(rawPlain);
-    const cleanedTracked = this.cleanNestedDivs(rawTracked);
+    const cleanedPlain = rawPlain;
+    const cleanedTracked = rawTracked;
 
     const preparedPlain = this.prepareEditorContent(
       elementId,
@@ -2348,26 +2363,31 @@ export class UIModule {
       domElement.removeAttribute('data-review-level');
     }
 
-    // Get content with tracked changes applied (for newly inserted sections,
-    // this will wrap content with {++...++} to show green line formatting)
+    // Get content with tracked changes as inline HTML diff tags
+    // This includes <ins> and <del> tags directly in the markdown
+    // Only show diffs if tracked changes toggle is enabled
     let cleanContent = elem.content;
-    try {
-      cleanContent = this.config.changes.getElementContentWithTrackedChanges(
-        elem.id
-      );
-    } catch {
-      // If tracked changes aren't available, fall back to plain content
-      logger.debug('Tracked changes unavailable for element', {
-        elementId: elem.id,
-      });
-      cleanContent = elem.content;
+    let hasDiffs = false;
+    const showTrackedChanges =
+      this.stateStore.getEditorState().showTrackedChanges;
+
+    if (showTrackedChanges) {
+      try {
+        cleanContent = this.config.changes.getElementContentWithHtmlDiffs(
+          elem.id
+        );
+        hasDiffs = cleanContent !== elem.content;
+      } catch {
+        // If tracked changes aren't available, fall back to plain content
+        logger.debug('Tracked changes unavailable for element', {
+          elementId: elem.id,
+        });
+        cleanContent = elem.content;
+      }
     }
 
-    // Clean content: remove any nested review-editable fence divs
-    cleanContent = this.cleanNestedDivs(cleanContent);
-
     // For headings, remove persistent Pandoc references for display
-    // and normalize CriticMarkup to a single line to avoid rendering issues
+    // and normalize inline HTML tags to a single line to avoid rendering issues
     if (elem.metadata.type === 'Header') {
       const headingReference = this.ensureHeadingReferenceInfo(
         elem.id,
@@ -2385,11 +2405,12 @@ export class UIModule {
     logger.trace('Updating display for', { elementId: elem.id });
     logger.trace('Content:', cleanContent);
 
-    // Render using Remark with CriticMarkup support
+    // Render with allowRawHtml enabled if there are diffs (to allow <ins>/<del> tags)
     const html = this.config.markdown.renderElement(
       cleanContent,
       elem.metadata.type,
-      elem.metadata.level
+      elem.metadata.level,
+      hasDiffs // Enable allowRawHtml for diff tags when there are changes
     );
 
     logger.trace('Rendered HTML:', html);

@@ -17,6 +17,9 @@ export {
   trimLineStart,
   isSetextUnderline,
   normalizeListMarkers,
+  normalizeListIndentation,
+  formatMarkdownWithPrettier,
+  preloadPrettier,
 } from './utils';
 
 export {

@@ -1,5 +1,5 @@
 import type { ElementMetadata } from '@/types';
-import { normalizeListMarkers } from './utils';
+import { normalizeListMarkers, normalizeListIndentation } from './utils';
 
 export type AppendSectionComments = (
   content: string,
@@ -30,7 +30,9 @@ export function mergeSectionCommentIntoSegments(
 }
 
 export function normalizeContentForComparison(str: string): string {
-  return normalizeListMarkers(str.replace(/\r\n/g, '\n'))
+  return normalizeListIndentation(
+    normalizeListMarkers(str.replace(/\r\n/g, '\n'))
+  )
     .replace(/[ \t]+$/gm, '')
     .trim();
 }
