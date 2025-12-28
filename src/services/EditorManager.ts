@@ -359,7 +359,7 @@ export class EditorManager {
   /**
    * Save the current editor content
    */
-  public saveEditor(): void {
+  public async saveEditor(): Promise<void> {
     const editorState = this.stateStore.getEditorState();
 
     if (!editorState.milkdownEditor || !editorState.currentElementId) {
@@ -374,7 +374,22 @@ export class EditorManager {
     }
 
     try {
-      const newContent = editorState.currentEditorContent;
+      // Get formatted content from Milkdown editor
+      let newContent = editorState.currentEditorContent;
+
+      // Apply Prettier formatting to fix Milkdown serialization issues
+      const milkdownEditorInstance = this.editorLifecycle.getModule();
+      if (milkdownEditorInstance) {
+        try {
+          newContent = await milkdownEditorInstance.getFormattedContent();
+          logger.debug('Applied Prettier formatting to editor content');
+        } catch (error) {
+          logger.warn(
+            'Prettier formatting failed, using unformatted content:',
+            error
+          );
+        }
+      }
 
       // Segment the content and replace element
       const segments = this.callbacks.segmentContentIntoElements(

@@ -28,7 +28,7 @@ website:
 format:
   html:
     theme: cosmo
-    css: styles.css
+    css: _extensions/review/assets/review.css
     toc: true
     code-fold: true
     code-line-numbers: true

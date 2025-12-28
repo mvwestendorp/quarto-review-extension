@@ -279,6 +279,44 @@ View all changes in the **Change Summary Dashboard**:
 - What exactly changed
 - Accept or reject individual changes
 
+### CriticMarkup in Code Blocks
+
+**Important:** CriticMarkup syntax in code blocks is displayed literally without formatting.
+
+#### Behavior
+
+When you edit content inside a fenced code block, any CriticMarkup syntax (`{++`, `++}`, `{--`, `--}`, etc.) will be shown as plain text, not as visual diff formatting.
+
+**Example:**
+````markdown
+```javascript
+function example() {
+  {++console.log("added");++}
+  {--oldCode();--}
+  return true;
+}
+```
+````
+
+**Result:** The CriticMarkup braces appear as literal text in the rendered code block.
+
+#### Why This Happens
+
+This is standard Markdown behavior:
+- Code blocks preserve all content exactly as written
+- No formatting or markup processing occurs inside code blocks
+- Keeps code examples clear and unambiguous
+
+#### Alternative for Formatted Code Diffs
+
+If you need visual diff formatting for code snippets, use **inline code** instead:
+
+```markdown
+The function should use `{++map()++}` instead of `{--forEach()--}`.
+```
+
+This will render with colored additions/deletions around the inline code elements.
+
 ---
 
 ## 🔄 Undo & Redo
