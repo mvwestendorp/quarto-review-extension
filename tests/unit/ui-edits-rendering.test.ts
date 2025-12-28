@@ -20,7 +20,7 @@ describe('UI Module - HTML Rendering & DOM Structure', () => {
   let document: Document;
 
   beforeEach(() => {
-    markdown = new MarkdownModule({ enableCriticMarkup: true });
+    markdown = new MarkdownModule();
     dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
     document = dom.window.document as any;
     global.document = document as any;

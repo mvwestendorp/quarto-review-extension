@@ -44,10 +44,11 @@ describe('MarkdownModule', () => {
       expect(result).not.toContain('<p>');
     });
 
-    it('should render CriticMarkup inline without paragraph wrappers', () => {
+    it('should render CriticMarkup as literal text without paragraph wrappers', () => {
       const result = markdown.renderInline('Start {++add++} end');
-      expect(result).toContain('critic-addition');
-      expect(result.startsWith('<ins')).toBe(false);
+      // CriticMarkup is no longer preprocessed
+      expect(result).toContain('{++add++}');
+      expect(result).not.toContain('critic-addition');
       expect(result).not.toContain('<p>');
     });
 
@@ -163,90 +164,45 @@ describe('MarkdownModule', () => {
     });
   });
 
-  describe('CriticMarkup support', () => {
-    it('should render additions', () => {
+  describe('CriticMarkup NOT preprocessed (architectural change)', () => {
+    it('should render additions as literal text', () => {
       const result = markdown.renderSync('This is {++added text++}');
-      expect(result).toStrictEqual(
-        '<p>This is <ins class=\"critic-addition\" data-critic-type=\"addition\">added text</ins></p>'
-      );
+      // CriticMarkup is no longer preprocessed
+      expect(result).toContain('{++added text++}');
+      expect(result).not.toContain('critic-addition');
     });
 
-    it('should render deletions', () => {
+    it('should render deletions as literal text', () => {
       const result = markdown.renderSync('This is {--deleted text--}');
-      expect(result).toContain('deleted text');
-      expect(result).toContain('critic-deletion');
+      expect(result).toContain('{--deleted text--}');
+      expect(result).not.toContain('critic-deletion');
     });
 
-    it('should render substitutions', () => {
+    it('should NOT preprocess substitutions', () => {
       const result = markdown.renderSync('This is {~~old~>new~~} text');
-      expect(result).toContain('old');
-      expect(result).toContain('new');
-      expect(result).toContain('critic-substitution');
+      expect(result).not.toContain('critic-substitution');
+      expect(result).not.toMatch(/data-critic-type/);
+      // Note: Remark may process ~~ as strikethrough
     });
 
-    it('should render highlights with comments', () => {
+    it('should NOT preprocess highlights with comments', () => {
       const result = markdown.renderSync(
         'This is {==highlighted==}{>>with a comment<<}'
       );
-      expect(result).toContain('highlighted');
-      expect(result).toContain('with a comment');
-      expect(result).toContain('critic-highlight');
-      expect(result).toContain('critic-comment');
+      expect(result).not.toContain('critic-highlight');
+      expect(result).not.toContain('critic-comment');
+      expect(result).not.toMatch(/data-critic-type/);
+      // Note: ==, >>, and << may be processed as markdown/entities
     });
 
-    it('should render standalone comments', () => {
+    it('should NOT preprocess standalone comments', () => {
       const result = markdown.renderSync('Text {>>comment here<<}');
-      expect(result).toContain('comment here');
-      expect(result).toContain('critic-comment');
+      expect(result).not.toContain('critic-comment');
+      expect(result).not.toMatch(/data-critic-type/);
     });
 
-    it('should render added list items without leaking CriticMarkup syntax', () => {
-      const input = '- First item\n{++- Added item++}';
-      const result = markdown.renderSync(input);
-      expect(result).toContain('<ul>');
-      expect(result).toMatch(/<li>\s*First item\s*<\/li>/);
-      expect(result).toMatch(
-        /<li><ins class="critic-addition" data-critic-type="addition">Added item<\/ins><\/li>/
-      );
-      expect(result).not.toContain('{++');
-      expect(result).not.toContain('++}');
-    });
-
-    it('should render deleted list items without leaking CriticMarkup syntax', () => {
-      const input = '- First item\n{-- - Removed item--}';
-      const result = markdown.renderSync(input);
-      expect(result).toContain('<ul>');
-      expect(result).toMatch(/<li>\s*First item\s*<\/li>/);
-      expect(result).toMatch(
-        /<li><del class="critic-deletion" data-critic-type="deletion">Removed item<\/del><\/li>/
-      );
-      expect(result).not.toContain('{--');
-      expect(result).not.toContain('--}');
-    });
-
-    it('should render substituted list items without leaking CriticMarkup syntax', () => {
-      const input = '- First item\n{~~ - Old item~>New item~~}';
-      const result = markdown.renderSync(input);
-      expect(result).toContain('<ul>');
-      expect(result).toMatch(/<li>\s*First item\s*<\/li>/);
-      expect(result).toMatch(
-        /<li><span class="critic-substitution" data-critic-type="substitution">/
-      );
-      expect(result).toContain(
-        '<del class="critic-substitution-old" data-critic-type="deletion">Old item</del>'
-      );
-      expect(result).toContain(
-        '<ins class="critic-substitution-new" data-critic-type="addition">New item</ins>'
-      );
-      expect(result).not.toContain('{~~');
-      expect(result).not.toContain('~~}');
-    });
-
-    it('should allow disabling CriticMarkup', () => {
-      const result = markdown.renderSync('This is {++added++}', false);
-      // When disabled, CriticMarkup syntax should be rendered as-is
-      expect(result).toContain('{++added++}');
-    });
+    // Note: List tests with CriticMarkup removed - not relevant since
+    // CriticMarkup is never preprocessed in UI rendering
   });
 
   describe('Sanitization', () => {
@@ -295,28 +251,22 @@ describe('MarkdownModule', () => {
   });
 
   describe('Custom options', () => {
-    it('should respect enableCriticMarkup option', () => {
-      const mdNoCritic = new MarkdownModule({ enableCriticMarkup: false });
-      const result = mdNoCritic.renderSync('Text {++added++}');
+    it('should NOT preprocess CriticMarkup (architectural change)', () => {
+      // CriticMarkup preprocessing has been removed from UI rendering
+      const md = new MarkdownModule();
+      const result = md.renderSync('Text {++added++}');
+      // CriticMarkup appears as literal text
       expect(result).toContain('{++added++}');
       expect(result).not.toContain('critic-addition');
     });
 
-    it('should enable CriticMarkup by default', () => {
+    it('should render CriticMarkup as literal text by default', () => {
       const md = new MarkdownModule();
-      const result = md.renderSync('Text {++added++}');
-      expect(result).toContain('critic-addition');
-    });
-
-    it('should allow toggling CriticMarkup at runtime', () => {
-      const md = new MarkdownModule();
-      md.setEnableCriticMarkup(false);
-      const disabled = md.renderSync('Text {++added++}');
-      expect(disabled).toContain('{++added++}');
-
-      md.setEnableCriticMarkup(true);
-      const enabled = md.renderSync('Text {++added++}');
-      expect(enabled).toContain('critic-addition');
+      const result = md.renderSync('Text {++added++} and {--removed--}');
+      expect(result).toContain('{++added++}');
+      expect(result).toContain('{--removed--}');
+      expect(result).not.toContain('critic-addition');
+      expect(result).not.toContain('critic-deletion');
     });
 
     it('should allow enabling raw HTML output at runtime', () => {
@@ -347,7 +297,7 @@ describe('MarkdownModule', () => {
     });
   });
 
-  describe('Heading rendering with CriticMarkup', () => {
+  describe.skip('Heading rendering with CriticMarkup (DEPRECATED - CriticMarkup no longer preprocessed)', () => {
     it('should render heading with CriticMarkup addition', () => {
       // New section with addition markup: {++New Heading++}
       const result = markdown.renderElement('{++New Heading++}', 'Header', 2);

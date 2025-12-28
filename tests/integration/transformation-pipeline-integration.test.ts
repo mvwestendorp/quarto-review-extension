@@ -296,15 +296,16 @@ Introduction paragraph.
       expect(rejected).toBe('Old content');
     });
 
-    it('should handle whitespace-only changes', () => {
+    it('should normalize trailing whitespace changes', () => {
+      // generateChanges now normalizes whitespace to prevent spurious diffs
+      // For exact whitespace preservation, use generateChangesForExport
       const original = 'word';
-      const edited = 'word ';
+      const edited = 'word '; // trailing space
 
       const changes = generateChanges(original, edited);
-      const criticMarkup = changesToCriticMarkup(original, changes);
-      const accepted = stripCriticMarkup(criticMarkup, true);
 
-      expect(accepted).toBe(edited);
+      // Since both are normalized (trailing spaces removed), no changes detected
+      expect(changes).toEqual([]);
     });
 
     it('should handle very long content', () => {
