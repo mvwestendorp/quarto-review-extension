@@ -17,6 +17,7 @@ import type {
 import {
   generateChanges,
   changesToCriticMarkup,
+  changesToHtmlDiff,
   stripCriticMarkup,
 } from './converters';
 import {
@@ -600,6 +601,38 @@ Please report this issue with your Quarto document structure.
   }
 
   /**
+   * Get element content with tracked changes as inline HTML diff tags
+   * Returns markdown with inline <ins> and <del> tags for diff formatting
+   * This bypasses CriticMarkup intermediate format for simpler, more reliable rendering
+   */
+  public getElementContentWithHtmlDiffs(id: string): string {
+    const element = this.getElementById(id);
+    if (!element) {
+      throw new Error(`Element ${id} not found`);
+    }
+    const baseline = this.getElementBaseline(id);
+    const targetContent = element.content;
+
+    const relevantOperations = this.operations.filter(
+      (op) => op.elementId === id
+    );
+
+    // If no operations touched this element and baseline matches current, return plain content
+    if (relevantOperations.length === 0 && baseline === targetContent) {
+      return targetContent;
+    }
+
+    const changes = generateChanges(baseline, targetContent);
+    if (changes.length === 0) {
+      return targetContent;
+    }
+
+    // Generate markdown with inline HTML diff tags
+    // This is simpler and more reliable than using CriticMarkup as intermediate format
+    return changesToHtmlDiff(baseline, changes);
+  }
+
+  /**
    * Apply a single operation to element array
    */
   private applyOperation(elements: Element[], operation: Operation): Element[] {
@@ -833,47 +866,169 @@ Please report this issue with your Quarto document structure.
    * These wrappers are only present to keep Lua filter metadata and should not surface in the editor.
    */
   private removeNestedReviewWrappers(markdown: string): string {
-    if (!markdown.includes(':::')) {
+    // Check if there are any review-editable artifacts to clean
+    if (!markdown.includes(':::') && !markdown.includes('review-editable')) {
       return markdown;
     }
 
-    const pattern =
-      /((?:\r?\n)?)([ \t]*):::\s*\{[^}]*review-editable[^}]*\}[ \t]*(?:\r?\n)?([\s\S]*?)(?:\r?\n)?[ \t]*:::[^\S\r\n]*(?:\r?\n)?/g;
-
     let cleaned = markdown;
     let previous: string;
+
+    // Remove valid nested wrapper fences first
     do {
       previous = cleaned;
-      cleaned = cleaned.replace(pattern, (_match, leading, indent, inner) => {
-        const lines = inner.split(/\r?\n/);
-        let minIndent = Number.POSITIVE_INFINITY;
-
-        for (const line of lines) {
-          const match = line.match(/^([ \t]*)(\S)/);
-          if (match) {
-            minIndent = Math.min(minIndent, match[1].length);
-          }
-        }
-
-        if (!Number.isFinite(minIndent)) {
-          minIndent = 0;
-        }
-
-        const reindented = lines
-          .map((line: string) => {
-            if (!line.trim()) {
-              return '';
-            }
-            const stripped = line.slice(minIndent);
-            return `${indent}${stripped}`;
-          })
-          .join('\n');
-
-        return `${leading}${reindented}`;
-      });
+      cleaned = this.removeOneNestedWrapper(cleaned);
     } while (cleaned !== previous);
 
+    // Remove malformed attribute blocks on their own lines
+    // Pattern: lines containing only {data-review-... class="review-editable" ...}
+    cleaned = cleaned.replace(
+      /^[ \t]*\{[^}]*review-editable[^}]*\}[ \t]*$/gm,
+      ''
+    );
+
+    // Remove inline malformed attribute blocks (not on their own line)
+    cleaned = cleaned.replace(/\{[^}]*review-editable[^}]*\}/g, '');
+
+    // Clean up any stray ::: markers that aren't part of valid fences
+    cleaned = cleaned.replace(/^[ \t]*:::[ \t]*$/gm, '');
+
+    // Clean up multiple consecutive blank lines left by removals
+    cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
     return cleaned;
+  }
+
+  /**
+   * Remove one nested review wrapper fence from markdown
+   * Handles complex cases with quoted attributes containing special characters
+   */
+  private removeOneNestedWrapper(markdown: string): string {
+    // Find opening ::: {
+    const openingPattern = /:::\s*\{/;
+    const openingMatch = openingPattern.exec(markdown);
+
+    if (!openingMatch) {
+      return markdown;
+    }
+
+    const startPos = openingMatch.index;
+    const attrsStartPos = openingMatch.index + openingMatch[0].length;
+
+    // Find the closing } of the attributes block, accounting for quoted strings
+    const closingBracePos = this.findClosingBrace(markdown, attrsStartPos);
+    if (closingBracePos === -1) {
+      return markdown;
+    }
+
+    // Extract the attributes block
+    const attrsBlock = markdown.substring(attrsStartPos, closingBracePos);
+
+    // Check if this fence has review-editable class
+    if (!attrsBlock.includes('review-editable')) {
+      return markdown;
+    }
+
+    // Find the closing ::: fence
+    const afterAttrs = closingBracePos + 1;
+    const closingPattern = /(?:\r?\n)?[ \t]*:::[^\S\r\n]*(?:\r?\n)?/;
+    const remainingText = markdown.substring(afterAttrs);
+    const closingMatch = closingPattern.exec(remainingText);
+
+    if (!closingMatch) {
+      return markdown;
+    }
+
+    const closingPos = afterAttrs + closingMatch.index;
+    const closingEndPos =
+      afterAttrs + closingMatch.index + closingMatch[0].length;
+
+    // Extract the content between opening and closing fences
+    const innerContent = markdown.substring(afterAttrs, closingPos);
+
+    // Determine indentation from the line before the fence
+    const beforeFence = markdown.substring(0, startPos);
+    const indentMatch = beforeFence.match(/[ \t]*$/);
+    const indent = indentMatch ? indentMatch[0] : '';
+
+    // Reindent the inner content
+    const lines = innerContent.split(/\r?\n/);
+    let minIndent = Number.POSITIVE_INFINITY;
+
+    for (const line of lines) {
+      const match = line.match(/^([ \t]*)(\S)/);
+      if (match && match[1]) {
+        minIndent = Math.min(minIndent, match[1].length);
+      }
+    }
+
+    if (!Number.isFinite(minIndent)) {
+      minIndent = 0;
+    }
+
+    const reindented = lines
+      .map((line: string) => {
+        if (!line.trim()) {
+          return '';
+        }
+        const stripped = line.slice(minIndent);
+        return `${indent}${stripped}`;
+      })
+      .join('\n');
+
+    // Replace the fence with the reindented content
+    return (
+      markdown.substring(0, startPos) +
+      reindented +
+      markdown.substring(closingEndPos)
+    );
+  }
+
+  /**
+   * Find the closing brace } that matches the opening brace {
+   * Accounts for quoted strings that may contain braces
+   */
+  private findClosingBrace(text: string, startPos: number): number {
+    let depth = 1; // We've already seen the opening {
+    let inQuotes = false;
+    let quoteChar = '';
+    let i = startPos;
+
+    while (i < text.length && depth > 0) {
+      const char = text[i];
+      const prevChar = i > 0 ? text[i - 1] : '';
+
+      // Handle escape sequences
+      if (prevChar === '\\') {
+        i++;
+        continue;
+      }
+
+      // Handle quotes
+      if ((char === '"' || char === "'") && !inQuotes) {
+        inQuotes = true;
+        quoteChar = char;
+      } else if (char === quoteChar && inQuotes) {
+        inQuotes = false;
+        quoteChar = '';
+      }
+
+      // Only count braces outside of quotes
+      if (!inQuotes) {
+        if (char === '{') {
+          depth++;
+        } else if (char === '}') {
+          depth--;
+          if (depth === 0) {
+            return i;
+          }
+        }
+      }
+
+      i++;
+    }
+
+    return -1; // No matching closing brace found
   }
 
   /**

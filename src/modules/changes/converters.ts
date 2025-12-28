@@ -12,10 +12,58 @@ import type { Change } from 'diff';
 import type { TextChange } from '@/types';
 
 /**
- * Generate granular changes from old and new content.
+ * Normalize markdown whitespace to match CommonMark serialization.
+ * This prevents false positives in diffs caused by:
+ * - List marker spacing (e.g., "-   " → "- ")
+ * - Trailing whitespace
+ * - Inconsistent line endings
+ */
+function normalizeMarkdownWhitespace(content: string): string {
+  return content
+    .split(/\r?\n/)
+    .map((line) => {
+      // Normalize list markers: replace multiple spaces after marker with single space
+      const normalized = line.replace(/^(\s*)([-*+]|\d+[.)])\s+/, '$1$2 ');
+      // Remove trailing whitespace from each line
+      return normalized.trimEnd();
+    })
+    .join('\n');
+}
+
+/**
+ * Generate granular changes from old and new content for display purposes.
+ * Normalizes whitespace in both inputs to avoid spurious diff markers.
  * Uses a line-level diff to preserve structural constructs like lists and tables.
+ *
+ * Note: Use `generateChangesForExport` when you need to preserve exact original formatting.
  */
 export function generateChanges(
+  oldContent: string,
+  newContent: string
+): TextChange[] {
+  // Normalize both inputs to prevent whitespace-only differences
+  const normalizedOld = normalizeMarkdownWhitespace(oldContent);
+  const normalizedNew = normalizeMarkdownWhitespace(newContent);
+
+  return generateChangesInternal(normalizedOld, normalizedNew);
+}
+
+/**
+ * Generate granular changes preserving exact original formatting.
+ * Use this for Git exports where original formatting must be maintained.
+ */
+export function generateChangesForExport(
+  oldContent: string,
+  newContent: string
+): TextChange[] {
+  return generateChangesInternal(oldContent, newContent);
+}
+
+/**
+ * Internal implementation of change generation.
+ * Uses a line-level diff to preserve structural constructs like lists and tables.
+ */
+function generateChangesInternal(
   oldContent: string,
   newContent: string
 ): TextChange[] {
@@ -48,7 +96,15 @@ export function generateChanges(
         const wordDiffs = Diff.diffWordsWithSpace(value, nextValue);
         let localPos = position;
 
-        wordDiffs.forEach((diff: Change) => {
+        // Improved character-level diffing within word changes
+        const skipIndexes = new Set<number>();
+
+        wordDiffs.forEach((diff: Change, wordIndex: number) => {
+          // Skip if this was already processed as part of a character-level diff
+          if (skipIndexes.has(wordIndex)) {
+            return;
+          }
+
           if (diff.added) {
             changes.push({
               type: 'addition',
@@ -57,13 +113,52 @@ export function generateChanges(
               text: diff.value,
             });
           } else if (diff.removed) {
-            changes.push({
-              type: 'deletion',
-              position: localPos,
-              length: diff.value.length,
-              text: diff.value,
-            });
-            localPos += diff.value.length;
+            // Check if next chunk is an addition (potential character-level substitution)
+            const nextWordDiff = wordDiffs[wordIndex + 1];
+            if (
+              nextWordDiff &&
+              nextWordDiff.added &&
+              !nextWordDiff.value.startsWith(' ') &&
+              !diff.value.endsWith(' ')
+            ) {
+              // Use character-level diffing for better granularity
+              const charDiffs = Diff.diffChars(diff.value, nextWordDiff.value);
+              let charPos = localPos;
+
+              charDiffs.forEach((charDiff: Change) => {
+                if (charDiff.added) {
+                  changes.push({
+                    type: 'addition',
+                    position: charPos,
+                    length: charDiff.value.length,
+                    text: charDiff.value,
+                  });
+                } else if (charDiff.removed) {
+                  changes.push({
+                    type: 'deletion',
+                    position: charPos,
+                    length: charDiff.value.length,
+                    text: charDiff.value,
+                  });
+                  charPos += charDiff.value.length;
+                } else {
+                  charPos += charDiff.value.length;
+                }
+              });
+
+              localPos += diff.value.length;
+              // Mark the paired addition as processed
+              skipIndexes.add(wordIndex + 1);
+            } else {
+              // Regular word deletion
+              changes.push({
+                type: 'deletion',
+                position: localPos,
+                length: diff.value.length,
+                text: diff.value,
+              });
+              localPos += diff.value.length;
+            }
           } else {
             localPos += diff.value.length;
           }
@@ -700,6 +795,57 @@ function removeMarkupForNormalization(text: string): string {
     .replace(/\{==([^]*?)==\}/g, '$1')
     .replace(/\{>>([^]*?)<<\}/g, '')
     .trim();
+}
+
+/**
+ * Convert TextChange[] directly to HTML with diff tags
+ * This is simpler than CriticMarkup intermediate format
+ * Returns markdown with inline <ins> and <del> tags
+ */
+export function changesToHtmlDiff(
+  oldContent: string,
+  changes: TextChange[]
+): string {
+  if (changes.length === 0) {
+    return oldContent;
+  }
+
+  // Sort changes by position (forward order) to apply them correctly
+  const sortedChanges = [...changes].sort((a, b) => a.position - b.position);
+
+  let result = '';
+  let currentPos = 0;
+
+  for (const change of sortedChanges) {
+    // Add unchanged content before this change
+    if (change.position > currentPos) {
+      result += oldContent.slice(currentPos, change.position);
+    }
+
+    if (change.type === 'addition') {
+      // Insert HTML tag for addition
+      // NOTE: We don't escape the text because it's markdown that needs to be rendered
+      // The markdown renderer will handle the content properly
+      result += `<ins class="review-addition" data-critic-type="addition">${change.text}</ins>`;
+      currentPos = change.position;
+    } else if (change.type === 'deletion') {
+      // Insert HTML tag for deletion
+      const deletedText = oldContent.slice(
+        change.position,
+        change.position + change.length
+      );
+      // NOTE: We don't escape the text because it's markdown that needs to be rendered
+      result += `<del class="review-deletion" data-critic-type="deletion">${deletedText}</del>`;
+      currentPos = change.position + change.length;
+    }
+  }
+
+  // Add any remaining content after the last change
+  if (currentPos < oldContent.length) {
+    result += oldContent.slice(currentPos);
+  }
+
+  return result;
 }
 
 /**
