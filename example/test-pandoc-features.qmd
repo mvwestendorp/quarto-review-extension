@@ -1,0 +1,50 @@
+---
+title: "Test Pandoc Features"
+format:
+  review-html: default
+---
+
+## LaTeX Math
+
+Inline math: The equation is $E = mc^2$ and $\beta = \alpha + 1$.
+
+Display math:
+
+$$
+\sum_{i=1}^{n} x_i = \frac{n(n+1)}{2}
+$$
+
+## Pandoc Attributes
+
+Regular text and [red text]{style="color: red;"} and [highlighted]{.highlight} text.
+
+Multiple attributes: [Important note]{.warning #note1 style="font-weight: bold;"}.
+
+## Footnotes
+
+Here's a footnote reference[^1] and another one[^2].
+
+[^1]: This is the first footnote content.
+[^2]: This is the second footnote content with more details.
+
+## Combined Features
+
+Math with attributes: [$\alpha$ value]{.math-important style="color: blue;"}.
+
+Text with footnote and math: The formula $x^2$[^3] is important.
+
+[^3]: This footnote has math: $y = mx + b$.
+
+## CriticMarkup Tests
+
+Addition: This is {++new text++}.
+
+Deletion: This is {--old text--} removed.
+
+With LaTeX: The equation {++$\gamma$++} was added.
+
+With attributes: The {++[styled text]{style="color: green;"}++} section.
+
+With footnote: New reference{++[^4]++}.
+
+[^4]: Added footnote content.
