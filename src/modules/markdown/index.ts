@@ -12,7 +12,6 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 
 export interface MarkdownOptions {
-  enableCriticMarkup?: boolean;
   allowRawHtml?: boolean;
 }
 
@@ -23,7 +22,6 @@ export class MarkdownModule {
 
   constructor(options: MarkdownOptions = {}) {
     this.options = {
-      enableCriticMarkup: options.enableCriticMarkup ?? true,
       allowRawHtml: options.allowRawHtml ?? false,
     };
     this.renderer = new MarkdownRenderer();
@@ -33,18 +31,12 @@ export class MarkdownModule {
     return { ...this.options };
   }
 
-  public setEnableCriticMarkup(enabled: boolean): void {
-    this.options = { ...this.options, enableCriticMarkup: enabled };
-  }
-
   public setAllowRawHtml(allow: boolean): void {
     this.options = { ...this.options, allowRawHtml: allow };
   }
 
   public updateOptions(update: MarkdownOptions): void {
     this.options = {
-      enableCriticMarkup:
-        update.enableCriticMarkup ?? this.options.enableCriticMarkup,
       allowRawHtml: update.allowRawHtml ?? this.options.allowRawHtml,
     };
   }
@@ -60,55 +52,174 @@ export class MarkdownModule {
     override?: Partial<RendererOptions>
   ): RendererOptions {
     const base: RendererOptions = {
-      enableCriticMarkup: this.options.enableCriticMarkup,
+      enableCriticMarkup: false, // CriticMarkup disabled by default
       allowRawHtml: this.options.allowRawHtml,
     };
     if (!override) {
       return base;
     }
     const resolved = { ...base };
-    if (override.enableCriticMarkup !== undefined) {
-      resolved.enableCriticMarkup = override.enableCriticMarkup;
-    }
     if (override.allowRawHtml !== undefined) {
       resolved.allowRawHtml = override.allowRawHtml;
+    }
+    if (override.enableCriticMarkup !== undefined) {
+      resolved.enableCriticMarkup = override.enableCriticMarkup;
     }
     return resolved;
   }
 
   private prepareMarkdown(markdown: string): string {
-    return this.normalizeCriticMarkupLists(markdown);
+    // Decode HTML entities FIRST (before any processing)
+    // This is needed because markdown from data-review-markdown attributes
+    // is HTML-encoded (e.g., &quot; instead of ")
+    let prepared = this.decodeHtmlEntities(markdown);
+
+    // CriticMarkup preprocessing has been removed from UI rendering
+    // CriticMarkup is now only used for export/git workflows via ChangesModule
+
+    prepared = this.preprocessPandocAttributes(prepared);
+    return prepared;
   }
 
-  private normalizeCriticMarkupLists(markdown: string): string {
-    const pattern =
-      /(^|\n)([ \t]*)\{(\+\+|--|~~)\s*((?:[*+-])|(?:\d+[.)]))\s+([\s\S]*?)\3\}(?=\n|$)/g;
+  /**
+   * Decode HTML entities to actual characters
+   * Needed because data-review-markdown attributes store HTML-encoded text
+   */
+  private decodeHtmlEntities(text: string): string {
+    return text
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&'); // Must be last to avoid double-decoding
+  }
 
-    return markdown.replace(
-      pattern,
-      (
-        _match,
-        lineBreak: string,
-        indent: string,
-        criticToken: string,
-        marker: string,
-        body: string
-      ) => {
-        const cleanedBody = body.replace(/^\s+/, '').replace(/\s+$/, '');
-        const normalizedMarker = marker.trim();
-        return `${lineBreak}${indent}${normalizedMarker} {${criticToken}${cleanedBody}${criticToken}}`;
+  /**
+   * Preprocess Pandoc attribute syntax to HTML before Remark parsing
+   * Converts [text]{.class #id key=value} to <span class="class" id="id" key="value">text</span>
+   * Excludes code blocks to preserve literal syntax
+   * Note: Does NOT exclude math - Pandoc attributes can wrap math expressions like [$\beta$]{.highlight}
+   */
+  private preprocessPandocAttributes(markdown: string): string {
+    // Split by fenced code blocks to exclude them (but NOT math - see note above)
+    const excludePattern = /(^```[\s\S]*?^```|^~~~[\s\S]*?^~~~)/gm;
+    const parts: Array<{ isCode: boolean; content: string }> = [];
+
+    let lastIndex = 0;
+    let match;
+
+    while ((match = excludePattern.exec(markdown)) !== null) {
+      // Add text before excluded region (code block)
+      if (match.index > lastIndex) {
+        parts.push({
+          isCode: false,
+          content: markdown.substring(lastIndex, match.index),
+        });
       }
-    );
+
+      // Add excluded region (preserve as-is)
+      parts.push({
+        isCode: true,
+        content: match[0],
+      });
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text after last excluded region
+    if (lastIndex < markdown.length) {
+      parts.push({
+        isCode: false,
+        content: markdown.substring(lastIndex),
+      });
+    }
+
+    // If no excluded regions found, process all content
+    if (parts.length === 0) {
+      parts.push({ isCode: false, content: markdown });
+    }
+
+    // Process Pandoc attributes only in non-excluded parts (not in code blocks)
+    const processed = parts.map((part) => {
+      if (part.isCode) {
+        return part.content; // Preserve code blocks unchanged
+      }
+
+      let content = part.content;
+
+      // Pattern: [text]{attributes}
+      // Matches: [text]{.class #id key="value" key2=value2}
+      content = content.replace(
+        /\[([^\]]+)\]\{([^}]+)\}/g,
+        (_match, text, attrs) => {
+          // Parse attributes
+          const classes: string[] = [];
+          let id = '';
+          const styles: string[] = [];
+          const otherAttrs: Array<{ key: string; value: string }> = [];
+
+          // Split attributes by whitespace, but preserve quoted values
+          const attrParts = attrs.match(/(?:[^\s"]+|"[^"]*")+/g) || [];
+
+          for (const attr of attrParts) {
+            if (attr.startsWith('.')) {
+              // Class attribute
+              classes.push(attr.substring(1));
+            } else if (attr.startsWith('#')) {
+              // ID attribute
+              id = attr.substring(1);
+            } else if (attr.includes('=')) {
+              // Key=value attribute
+              const [key, ...valueParts] = attr.split('=');
+              let value = valueParts.join('=');
+
+              // Remove quotes if present
+              if (value.startsWith('"') && value.endsWith('"')) {
+                value = value.slice(1, -1);
+              }
+
+              if (key === 'style') {
+                styles.push(value);
+              } else {
+                otherAttrs.push({ key, value });
+              }
+            }
+          }
+
+          // Build HTML span with attributes
+          const htmlAttrs: string[] = [];
+
+          if (classes.length > 0) {
+            htmlAttrs.push(`class="${classes.join(' ')}"`);
+          }
+
+          if (id) {
+            htmlAttrs.push(`id="${id}"`);
+          }
+
+          if (styles.length > 0) {
+            htmlAttrs.push(`style="${styles.join('; ')}"`);
+          }
+
+          for (const { key, value } of otherAttrs) {
+            htmlAttrs.push(`${key}="${value}"`);
+          }
+
+          return `<span ${htmlAttrs.join(' ')}>${text}</span>`;
+        }
+      );
+
+      return content;
+    });
+
+    return processed.join('');
   }
 
   /**
    * Convert markdown to HTML using Remark/Unified pipeline (async)
    */
-  public async render(
-    markdown: string,
-    enableCriticMarkup?: boolean
-  ): Promise<string> {
-    const options = this.resolveRendererOptions({ enableCriticMarkup });
+  public async render(markdown: string): Promise<string> {
+    const options = this.resolveRendererOptions();
     const prepared = this.prepareMarkdown(markdown);
     const html = await this.renderer.renderAsync(prepared, options);
     return this.sanitizeOutput(html, options);
@@ -117,11 +228,14 @@ export class MarkdownModule {
   /**
    * Convert markdown to HTML using Remark/Unified pipeline (synchronous)
    */
-  public renderSync(markdown: string, enableCriticMarkup?: boolean): string {
-    const options = this.resolveRendererOptions({ enableCriticMarkup });
+  public renderSync(
+    markdown: string,
+    options?: Partial<RendererOptions>
+  ): string {
+    const resolvedOptions = this.resolveRendererOptions(options);
     const prepared = this.prepareMarkdown(markdown);
-    const html = this.renderer.render(prepared, options);
-    return this.sanitizeOutput(html, options);
+    const html = this.renderer.render(prepared, resolvedOptions);
+    return this.sanitizeOutput(html, resolvedOptions);
   }
 
   /**
@@ -159,7 +273,16 @@ export class MarkdownModule {
   /**
    * Convert a single element to HTML based on its type
    */
-  public renderElement(content: string, type: string, level?: number): string {
+  public renderElement(
+    content: string,
+    type: string,
+    level?: number,
+    enableCriticMarkup = false
+  ): string {
+    const renderOptions = enableCriticMarkup
+      ? { enableCriticMarkup: true, allowRawHtml: true }
+      : undefined;
+
     if (type === 'FigureCaption' || type === 'TableCaption') {
       return this.renderInline(content);
     }
@@ -170,7 +293,7 @@ export class MarkdownModule {
 
     // For headers, strip existing # and attributes, then render
     if (type === 'Header' && level) {
-      return this.renderHeading(content, level);
+      return this.renderHeading(content, level, enableCriticMarkup);
     }
 
     // For block quotes, ensure proper formatting
@@ -179,20 +302,28 @@ export class MarkdownModule {
       if (!content.trim().startsWith('>')) {
         const lines = content.split('\n');
         const quotedLines = lines.map((line) => `> ${line}`);
-        return this.renderSync(quotedLines.join('\n'));
+        const options = this.resolveRendererOptions(renderOptions);
+        const prepared = this.prepareMarkdown(quotedLines.join('\n'));
+        const html = this.renderer.render(prepared, options);
+        return this.sanitizeOutput(html, options);
       }
     }
 
     if (type === 'CodeBlock') {
-      let html = this.renderSync(content);
+      const options = this.resolveRendererOptions(renderOptions);
+      const prepared = this.prepareMarkdown(content);
+      let html = this.renderer.render(prepared, options);
       if (!html.includes('<code>')) {
         html = html.replace(/<code[^>]*>/, '<code>');
       }
-      return html;
+      return this.sanitizeOutput(html, options);
     }
 
     // For all other types, render as-is
-    return this.renderSync(content);
+    const options = this.resolveRendererOptions(renderOptions);
+    const prepared = this.prepareMarkdown(content);
+    const html = this.renderer.render(prepared, options);
+    return this.sanitizeOutput(html, options);
   }
 
   /**
@@ -230,8 +361,42 @@ export class MarkdownModule {
     return working;
   }
 
-  private renderHeading(content: string, level: number): string {
+  private renderHeading(
+    content: string,
+    level: number,
+    enableCriticMarkup = false
+  ): string {
     const cleaned = this.stripPandocHeadingAttributes(content);
+
+    // Check if content is wrapped in HTML diff tags (<ins>, <del>)
+    // If so, extract the content, render it properly, then wrap the heading with the diff tags
+    const htmlDiffMatch = cleaned.match(/^<(ins|del)([^>]*)>([\s\S]*?)<\/\1>$/);
+    if (htmlDiffMatch && enableCriticMarkup) {
+      const tagName = htmlDiffMatch[1]; // 'ins' or 'del'
+      const tagAttrs = htmlDiffMatch[2] || ''; // attributes
+      const innerContent = htmlDiffMatch[3]?.trim() || ''; // content inside tags
+
+      // Strip heading markers from inner content to get just the text
+      const headingText = this.stripHeadingMarkers(innerContent);
+
+      // Render the heading with just the text (no markers)
+      const headingMarkdown = headingText
+        ? `${'#'.repeat(level)} ${headingText}`
+        : `${'#'.repeat(level)}`;
+
+      const renderOptions = { enableCriticMarkup: false, allowRawHtml: true };
+      const headingHtml = this.renderSync(headingMarkdown, renderOptions);
+
+      // Extract the heading content (everything between <hN> and </hN>)
+      const headingContentMatch = headingHtml.match(
+        /<h\d[^>]*>([\s\S]*?)<\/h\d>/
+      );
+      if (headingContentMatch) {
+        const headingContent = headingContentMatch[1] || '';
+        // Wrap the heading content with the diff tag and put it inside the heading
+        return `<h${level}><${tagName}${tagAttrs}>${headingContent}</${tagName}></h${level}>`;
+      }
+    }
 
     // Try to detect CriticMarkup wrappers using specific patterns
     let criticMarkupPrefix = '';
@@ -283,8 +448,13 @@ export class MarkdownModule {
       ? `${'#'.repeat(level)} ${plainContent}`
       : `${'#'.repeat(level)}`;
 
+    // Prepare render options for CriticMarkup if enabled
+    const renderOptions = enableCriticMarkup
+      ? { enableCriticMarkup: true, allowRawHtml: true }
+      : undefined;
+
     // Render the heading first to get proper HTML
-    const headingHtml = this.renderSync(headingMarkdown);
+    const headingHtml = this.renderSync(headingMarkdown, renderOptions);
 
     // If we detected CriticMarkup, we need to wrap the heading content with it
     // For headings, we wrap just the content inside the heading tags
@@ -293,7 +463,10 @@ export class MarkdownModule {
         // For substitutions, render the CriticMarkup substitution and extract the content
         // Use just the plain text (without heading markers) for the substitution
         const substitutionMarkdown = `${criticMarkupPrefix}${oldText}~>${plainContent}${criticMarkupSuffix}`;
-        const substitutionHtml = this.renderSync(substitutionMarkdown);
+        const substitutionHtml = this.renderSync(
+          substitutionMarkdown,
+          renderOptions
+        );
 
         // Extract the content from the paragraph (which contains the substitution markup)
         const substitutionMatch = substitutionHtml.match(/<p>(.*?)<\/p>/);
@@ -312,7 +485,8 @@ export class MarkdownModule {
 
           // Render the CriticMarkup wrapping
           const wrappedMarkup = this.renderSync(
-            `${criticMarkupPrefix}${headingContent}${criticMarkupSuffix}`
+            `${criticMarkupPrefix}${headingContent}${criticMarkupSuffix}`,
+            renderOptions
           );
 
           // Extract the content from the wrapped markup
