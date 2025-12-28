@@ -19,7 +19,7 @@ interface CriticMarkupOptions {
 const defaultOptions: CriticMarkupOptions = {
   acceptMode: false,
   rejectMode: false,
-  classPrefix: 'critic',
+  classPrefix: 'review',
 };
 
 /**

@@ -1,7 +1,9 @@
 import { unified, type Processor } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import remarkRehype from 'remark-rehype';
+import rehypeKatex from 'rehype-katex';
 import rehypeStringify from 'rehype-stringify';
 
 import { remarkCriticMarkup } from './remark-criticmarkup';
@@ -50,12 +52,17 @@ export class MarkdownRenderer {
     const pipeline = unified() as unknown as MarkdownProcessor;
     pipeline.use(remarkParse).use(remarkGfm);
 
+    // Add math support for LaTeX equations BEFORE CriticMarkup
+    // so that math expressions are parsed into AST nodes first
+    pipeline.use(remarkMath as any);
+
     if (opts.enableCriticMarkup) {
       pipeline.use(remarkCriticMarkup as any);
     }
 
     pipeline
       .use(remarkRehype as any, { allowDangerousHtml: true })
+      .use(rehypeKatex as any)
       .use(rehypeStringify as any, { allowDangerousHtml: true });
 
     this.cache.set(cacheKey, pipeline as MarkdownProcessor);
