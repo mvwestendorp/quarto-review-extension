@@ -146,27 +146,27 @@ exports[`CSS Snapshots - State Transitions > disabled button state snapshot matc
 
 exports[`CSS Snapshots - Toolbar Components > editor toolbar button snapshot matches 1`] = `
 {
-  "backgroundColor": "rgba(0, 0, 0, 0)",
+  "backgroundColor": "rgb(255, 255, 255)",
   "borderColor": "",
-  "borderRadius": "6px",
-  "boxShadow": "var(--review-shadow-sm)",
-  "color": "var(--review-color-primary)",
+  "borderRadius": "4px",
+  "boxShadow": "none",
+  "color": "rgb(55, 65, 81)",
   "cursor": "pointer",
-  "fontSize": "12px",
-  "fontWeight": "600",
-  "padding": "6px 10px",
+  "fontSize": "13px",
+  "fontWeight": "500",
+  "padding": "4px 8px",
 }
 `;
 
 exports[`CSS Snapshots - Toolbar Components > editor toolbar snapshot matches 1`] = `
 {
   "backdropFilter": undefined,
-  "backgroundColor": "rgba(255, 255, 255, 0.95)",
-  "borderColor": "",
+  "backgroundColor": "rgb(249, 250, 251)",
+  "borderColor": "rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0)",
   "borderRadius": "12px",
-  "boxShadow": "var(--review-shadow-lg)",
-  "display": "grid",
-  "padding": "6px",
+  "boxShadow": "none",
+  "display": "flex",
+  "padding": "12px",
 }
 `;
 

@@ -5,6 +5,18 @@
  * edit and comment functionality.
  */
 
+/* Extended hover zone to catch horizontal mouse movement */
+[data-review-id]::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -60px;
+  width: 60px;
+  pointer-events: auto;
+  z-index: 5;
+}
+
 .review-segment-actions {
   position: absolute;
   right: -60px;
@@ -24,6 +36,11 @@
 [data-review-id]:hover .review-segment-actions {
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Show buttons when hovering the extended zone (the ::after pseudo-element area) */
+[data-review-id]:hover::after {
+  /* This ensures the hover state is maintained across the entire height */
 }
 
 /* Keep buttons visible when hovering the button container or extended area */
@@ -74,6 +91,19 @@
   display: none !important;
 }
 
+/* Hide segment action buttons for code output - these should not be editable */
+.cell-output .review-segment-actions,
+.cell-output-display .review-segment-actions,
+.cell-output-table .review-segment-actions {
+  display: none !important;
+}
+
+.cell-output [data-review-id]::after,
+.cell-output-display [data-review-id]::after,
+.cell-output-table [data-review-id]::after {
+  display: none !important;
+}
+
 .review-segment-action-edit {
   /* Edit button styling */
 }
@@ -81,3 +111,4 @@
 .review-segment-action-comment {
   /* Comment button styling */
 }
+

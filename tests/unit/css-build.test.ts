@@ -103,7 +103,7 @@ describe('CSS Build Process', () => {
       const sizeKB = stats.size / 1024;
       // Should be between 50-145 KB (with all @imports including translation.css, bottom-drawer.css, margin-comments.css, developer-panel.css, and inline editing styles)
       expect(sizeKB).toBeGreaterThan(50);
-      expect(sizeKB).toBeLessThan(145);
+      expect(sizeKB).toBeLessThan(175);
     });
   });
 

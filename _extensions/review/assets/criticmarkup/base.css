@@ -6,7 +6,7 @@
 
 /* Basic CriticMarkup comment styling */
 .review-comment {
-  background-color: rgba(var(--review-color-warning-rgb), 0.2);
+  background-color: rgb(var(--review-color-warning-rgb) / 0.2);
   border-left: 3px solid var(--review-color-warning);
   padding: 8px 12px;
   margin: 4px 0;
@@ -20,20 +20,30 @@
 }
 
 /* Additions - green background with underline */
-.critic-addition {
-  background-color: rgba(var(--review-color-success-rgb), 0.2);
+.critic-addition,
+.review-addition {
+  background-color: #22c55e33; /* --review-color-success with 20% opacity */
+  color: var(--review-color-success);
   text-decoration: none;
+  padding: 2px 4px;
+  border-radius: 2px;
+  border-bottom: 2px solid #22c55e80; /* --review-color-success with 50% opacity */
 }
 
 /* Deletions - red background with strikethrough */
-.critic-deletion {
-  background-color: rgba(var(--review-color-danger-rgb), 0.2);
+.critic-deletion,
+.review-deletion {
+  background-color: #ef444433; /* --review-color-danger with 20% opacity */
+  color: var(--review-color-danger);
   text-decoration: line-through;
+  padding: 2px 4px;
+  border-radius: 2px;
+  opacity: 0.8;
 }
 
 /* Substitutions - yellow background */
 .critic-substitution {
-  background-color: rgba(var(--review-color-warning-rgb), 0.2);
+  background-color: rgb(var(--review-color-warning-rgb) / 0.2);
 }
 
 /* Critic comment indicator */
@@ -46,8 +56,8 @@
   height: 1.6em;
   margin: 0 4px;
   border-radius: 999px;
-  background-color: rgba(var(--review-color-primary-rgb), 0.15);
-  border: 1px solid rgba(var(--review-color-primary-rgb), 0.4);
+  background-color: rgb(var(--review-color-primary-rgb) / 0.15);
+  border: 1px solid rgb(var(--review-color-primary-rgb) / 0.4);
   color: transparent;
   cursor: pointer;
 }
@@ -60,7 +70,7 @@
 
 /* Highlights - yellow background */
 .critic-highlight {
-  background-color: rgba(var(--review-color-warning-rgb), 0.3);
+  background-color: rgb(var(--review-color-warning-rgb) / 0.3);
 }
 
 /* Hide standalone comment spans */

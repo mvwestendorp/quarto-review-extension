@@ -31,7 +31,7 @@ const inputFile = path.join(
   projectRoot,
   '_extensions/review/assets/review.css'
 );
-const outputDir = path.join(projectRoot, '_extensions/review/assets/dist');
+const outputDir = path.join(projectRoot, '_extensions/review/assets');
 
 /**
  * PostCSS plugins
