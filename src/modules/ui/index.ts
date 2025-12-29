@@ -51,6 +51,7 @@ import { ChangeSummaryDashboard } from './change-summary';
 import { createModuleLogger } from '@utils/debug';
 import { SecureTokenStorage, SafeStorage } from '@utils/security';
 import { initializeDebugTools } from '@utils/debug-tools';
+import { ensureKatexCssForContent } from '@utils/katex-css-injector';
 import type { ChangesModule } from '@modules/changes';
 import type { MarkdownModule } from '@modules/markdown';
 import type { CommentsModule } from '@modules/comments';
@@ -2411,6 +2412,10 @@ export class UIModule {
     );
 
     logger.trace('Rendered HTML:', html);
+
+    // Lazy-load KaTeX CSS if this HTML contains math
+    // This ensures math renders correctly even if Quarto didn't load the CSS
+    void ensureKatexCssForContent(html);
 
     if (domElement.classList.contains('review-editable-editing')) {
       return;
