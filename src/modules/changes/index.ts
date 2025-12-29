@@ -587,14 +587,29 @@ Please report this issue with your Quarto document structure.
       return targetContent;
     }
 
-    const changes = generateChanges(baseline, targetContent);
+    // Normalize escaped brackets in Pandoc attribute syntax before diffing
+    // This prevents \[text]{attr} and [text]{attr} from being treated as different
+    const normalizedBaseline = this.normalizePandocBrackets(baseline);
+    const normalizedTarget = this.normalizePandocBrackets(targetContent);
+
+    const changes = generateChanges(normalizedBaseline, normalizedTarget);
     if (changes.length === 0) {
       return targetContent;
     }
 
     // Generate markdown with inline HTML diff tags
     // This is simpler and more reliable than using CriticMarkup as intermediate format
-    return changesToHtmlDiff(baseline, changes);
+    return changesToHtmlDiff(normalizedBaseline, changes);
+  }
+
+  /**
+   * Normalize escaped brackets in Pandoc attribute syntax
+   * Converts \[text]{attr} to [text]{attr} for consistent diffing
+   */
+  private normalizePandocBrackets(content: string): string {
+    // Pattern: \[text]{attributes}
+    // Replace escaped opening bracket with regular bracket
+    return content.replace(/\\(\[([^\]]+)\]\{[^}]+\})/g, '$1');
   }
 
   /**
