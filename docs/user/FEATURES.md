@@ -1,382 +1,105 @@
 # Features Guide
 
-Detailed documentation for all features in the Quarto Review Extension.
-
-## 📝 In-Browser Editing
-
-### How to Edit
-
-1. **Click** on any text element in your document
-2. The **editor will open** with that content
-3. **Make your changes** using the WYSIWYG editor
-4. **Click outside** or press `Escape` to save
+## In-Browser Editing
 
-### Editor Features
+**How to Edit:**
+1. Click any text element
+2. Make changes in the editor
+3. Press `Escape` or click outside to save
 
-- **Formatting:** Bold, italic, underline, strikethrough
-- **Lists:** Bullet points and numbered lists
-- **Links:** Add and edit hyperlinks
-- **Code:** Inline and block code formatting
-- **Markdown:** Full markdown support
+**Editor Features:**
+- Formatting: Bold, italic, underline, strikethrough
+- Lists: Bullet and numbered
+- Links and code
+- Full markdown support
 
-### Keyboard Shortcuts in Editor
+**Shortcuts:** `Ctrl/Cmd+B` (bold), `Ctrl/Cmd+I` (italic), `Ctrl/Cmd+Z` (undo)
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl/Cmd+B` | Bold |
-| `Ctrl/Cmd+I` | Italic |
-| `Ctrl/Cmd+U` | Underline |
-| `Escape` | Save and exit editor |
-| `Ctrl/Cmd+Z` | Undo |
-| `Ctrl/Cmd+Shift+Z` | Redo |
+## Change Summary Dashboard
 
----
+Shows comprehensive change statistics:
 
-## 📊 Change Summary Dashboard
+**Statistics:**
+- Total changes and elements modified
+- Comments count
+- Character changes
 
-### What It Shows
+**Change Breakdown:**
+- Additions ➕ - New text (count, percentage, characters)
+- Deletions ➖ - Removed text
+- Substitutions 🔄 - Changed text
 
-The dashboard displays comprehensive statistics about all document changes.
+**Changes by Element:** Distribution across headers, paragraphs, lists, code blocks, etc.
 
-#### Statistics Cards
-- **Total Changes:** All edits, additions, deletions, substitutions
-- **Elements Modified:** How many document elements were edited
-- **Comments:** Total number of annotations in the document
+**Opening:** Click "Change Summary" in toolbar
 
-#### Change Breakdown
-Shows the distribution of change types:
-- **Additions** ➕ - New text added
-- **Deletions** ➖ - Text removed
-- **Substitutions** 🔄 - Text changed
+**Navigation:** Use "First Change" / "Last Change" buttons or click any change in the list
 
-Each shows:
-- Count of changes
-- Percentage of total
-- Character count (for additions/deletions)
+**Export:** Click "Export Summary" to copy markdown to clipboard
 
-#### Changes by Element Type
-Distribution of changes across document elements:
-- Headers (H1, H2, H3, etc.)
-- Paragraphs
-- Lists (bullet and numbered)
-- Code blocks
-- Block quotes
-- And more
+## Search & Find
 
-### Using the Dashboard
+**Open:** `Cmd/Ctrl+F`
+**Close:** `Escape`
 
-#### Opening
-- Click "Change Summary" button in the toolbar
-- Or use menu: View → Change Summary
+**Search Options:**
+- **Case Sensitive (Aa):** Match exact case
+- **Whole Word (Ab|):** Match complete words only
+- **Regex (.*):** Use regular expression patterns
 
-#### Navigation
-- **"First Change"** button - Jump to the first change
-- **"Last Change"** button - Jump to the last change
-- **Click any change** in the list - Navigate to that specific change
+**Common Regex:**
+- `.` = any character
+- `*` = zero or more
+- `^` = start of text
+- `$` = end of text
+- `\d` = digit
+- `[abc]` = any of a, b, c
 
-#### Exporting Summary
-1. Click **"Export Summary"** button
-2. Summary is **copied to clipboard** as markdown
-3. **Paste** into email, document, or notes
+**Navigation:** `Enter` (next), `Shift+Enter` (previous)
 
-Example exported summary:
-```
-# Document Change Summary
+## Comments & Annotations
 
-**Generated:** Oct 16, 2025 3:30 PM
+**Add Comment:**
+1. Select text
+2. Use quick menu or sidebar
+3. Type and save
 
-## Statistics
-- Total Changes: 42
-- Elements Modified: 15
-- Comments: 3
-- Characters Added: 487
-- Characters Removed: 234
-
-## Change Breakdown
-- Additions: 12
-- Deletions: 8
-- Substitutions: 22
+**Manage:**
+- Edit, delete, or resolve comments
+- Reply to create threads
 
-## By Element Type
-- Paragraph: 10
-- Header: 3
-- List: 2
-```
+## Change Tracking
 
----
+**Visual Indicators:**
+- Additions: Green text
+- Deletions: Red strikethrough
+- Substitutions: Red strikethrough (old) + green (new)
 
-## 🔍 Search & Find
+**CriticMarkup in Code:** CriticMarkup syntax appears literally in code blocks (standard markdown behavior). Use inline code for formatted diffs.
 
-### Opening Search
+## Undo & Redo
 
-- **Mac:** `Cmd+F`
-- **Windows/Linux:** `Ctrl+F`
-- **Close:** `Escape`
+**Undo:** `Cmd/Ctrl+Z`
+**Redo:** `Cmd/Ctrl+Shift+Z` or `Cmd/Ctrl+Y`
+**History:** Unlimited undo
 
-### Search Interface
+## Tips
 
-```
-[Search input field]  [X close]
-[Aa toggle]  [Ab| toggle]  [.* toggle]
-[↑ prev]  [3/25]  [↓ next]
-```
+**Organizing Reviews:**
+1. Read document first
+2. Make edits as you read
+3. Add comments for significant changes
+4. Export summary at the end
 
-### Basic Search
+**Efficient Searching:**
+- Use whole word for specific terms
+- Use regex for complex patterns
+- Use case sensitive for proper nouns
 
-Type any text to search:
+**Quality Review:**
+- Check spelling and grammar
+- Ensure consistency
+- Verify facts and citations
+- Check formatting
 
-```
-Search: "important"
-Result: Highlights all instances of "important"
-Counter: "1/5" means 1st match of 5 total
-```
-
-### Search Options
-
-#### Case Sensitive (🔤 toggle)
-
-Default: OFF (finds "test", "TEST", "Test")
-- **Toggle ON:** Only matches exact case ("test" won't match "TEST")
-
-Example:
-```
-Search: "Review"
-OFF: Finds "review", "Review", "REVIEW"
-ON:  Finds only "Review"
-```
-
-#### Whole Word (📝 toggle)
-
-Default: OFF (finds "test" anywhere)
-- **Toggle ON:** Only matches complete words, not parts of words
-
-Example:
-```
-Search: "test"
-OFF: Finds "test", "testing", "tested"
-ON:  Finds only standalone "test"
-```
-
-#### Regular Expressions (.* toggle)
-
-Default: OFF (literal text search)
-- **Toggle ON:** Use powerful regex patterns
-
-### Regex Patterns
-
-Common regex patterns:
-
-| Pattern | Matches |
-|---------|---------|
-| `.` | Any character |
-| `*` | Zero or more of previous |
-| `+` | One or more of previous |
-| `?` | Zero or one of previous |
-| `\|` | OR (either option) |
-| `[]` | Any character in brackets |
-| `^` | Start of text |
-| `$` | End of text |
-| `\d` | Any digit |
-| `\w` | Any word character |
-| `\s` | Any whitespace |
-
-### Regex Examples
-
-```
-Pattern             Matches
-"^Chapter"          Text starting with "Chapter"
-"[0-9]+"            Any sequence of digits (e.g., "123", "8")
-"cat\|dog"          Either "cat" or "dog"
-"\bthe\b"           Word "the" (whole word only)
-"color|colour"      Either spelling
-"\.pdf$"            Files ending in ".pdf"
-"[A-Z]{3}"          Three uppercase letters
-```
-
-### Navigation
-
-- **Next Match:** Press `Enter` or click ▼ button
-- **Previous Match:** Press `Shift+Enter` or click ▲ button
-- **Counter Shows:** Current position and total matches (e.g., "3 of 25")
-
-### Search Results
-
-Each match shows:
-- **Context preview** - Text around the match (30 chars before and after)
-- **Highlight** - Match highlighted in yellow
-- **Smooth scroll** - Document scrolls to show the match
-
----
-
-## 💬 Comments & Annotations
-
-### Adding Comments
-
-1. Select text in the document.
-2. Use the inline quick menu or sidebar action to open the composer.
-3. Type your comment and click **Save**.
-
-### Comment Indicators
-
-Comments appear as:
-- **Highlighted text** with indicator
-- **Comment marker** in the margin
-- **Tooltip** showing the comment when hovered
-
-### Managing Comments
-
-- **Edit:** Open the comment and choose **Edit**
-- **Delete:** Open the comment and choose **Delete**
-- **Resolve:** Mark the thread as resolved once addressed
-- **Reply:** Add a follow-up note within the same thread
-
-### Comment Types
-
-- **Suggestion:** Propose a change
-- **Question:** Ask for clarification
-- **Feedback:** General feedback
-- **Note:** Internal reminder
-
----
-
-## 📋 Change Tracking
-
-### Understanding Tracked Changes
-
-Changes are displayed using visual indicators:
-
-**Additions** ✅
-- Text shown in **green**
-- Indicates new content
-
-**Deletions** ❌
-- Text shown **strikethrough in red**
-- Indicates removed content
-
-**Substitutions** 🔄
-- Old text **strikethrough** (red)
-- New text **highlighted** (green)
-
-### Accepting Changes
-
-Changes can be accepted (keep the new version):
-1. Right-click on tracked change
-2. Click "Accept"
-3. Change is finalized
-
-### Rejecting Changes
-
-Reject a change to revert to original:
-1. Right-click on tracked change
-2. Click "Reject"
-3. Original version is restored
-
-### Change History
-
-View all changes in the **Change Summary Dashboard**:
-- See when each change was made
-- Who made the change
-- What exactly changed
-- Accept or reject individual changes
-
-### CriticMarkup in Code Blocks
-
-**Important:** CriticMarkup syntax in code blocks is displayed literally without formatting.
-
-#### Behavior
-
-When you edit content inside a fenced code block, any CriticMarkup syntax (`{++`, `++}`, `{--`, `--}`, etc.) will be shown as plain text, not as visual diff formatting.
-
-**Example:**
-````markdown
-```javascript
-function example() {
-  {++console.log("added");++}
-  {--oldCode();--}
-  return true;
-}
-```
-````
-
-**Result:** The CriticMarkup braces appear as literal text in the rendered code block.
-
-#### Why This Happens
-
-This is standard Markdown behavior:
-- Code blocks preserve all content exactly as written
-- No formatting or markup processing occurs inside code blocks
-- Keeps code examples clear and unambiguous
-
-#### Alternative for Formatted Code Diffs
-
-If you need visual diff formatting for code snippets, use **inline code** instead:
-
-```markdown
-The function should use `{++map()++}` instead of `{--forEach()--}`.
-```
-
-This will render with colored additions/deletions around the inline code elements.
-
----
-
-## 🔄 Undo & Redo
-
-### Undo
-
-Revert your last action:
-- **Keyboard:** `Cmd+Z` (Mac) or `Ctrl+Z` (Windows/Linux)
-- **Menu:** Edit → Undo
-
-### Redo
-
-Reapply an undone action:
-- **Keyboard:** `Cmd+Shift+Z` (Mac) or `Ctrl+Shift+Z` (Windows/Linux)
-- **Menu:** Edit → Redo
-
-### Undo Limit
-
-- Unlimited undo history
-- Each action is recorded
-- Can undo/redo through entire session
-
----
-
-## 🎯 Tips for Effective Use
-
-### Organizing Your Review
-
-1. **Read through** the entire document first
-2. **Make edits** as you read
-3. **Add comments** for significant changes
-4. **Export summary** at the end
-
-### Efficient Searching
-
-- Use **whole word** when searching for specific terms
-- Use **regex** for complex patterns
-- Use **case sensitive** when looking for proper nouns
-
-### Collaborative Reviewing
-
-- **Use comments** to explain your changes
-- **Export summary** to share with team
-- **Use specific language** in annotations
-- **Reference sections** clearly
-
-### Quality Review
-
-- ✅ Check spelling and grammar
-- ✅ Ensure consistency
-- ✅ Look for clarity issues
-- ✅ Verify facts and citations
-- ✅ Check formatting and structure
-
----
-
-## Keyboard Shortcuts Reference
-
-See [Keyboard Shortcuts](./KEYBOARD_SHORTCUTS.md) for a complete list.
-
-## Troubleshooting
-
-See [Troubleshooting](./TROUBLESHOOTING.md) for help with common issues.
+See [Keyboard Shortcuts](./KEYBOARD_SHORTCUTS.md) for complete shortcut list.
