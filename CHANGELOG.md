@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatically unwraps and processes as raw HTML
   - Maintains compatibility with regular inline code
 
+- **Pandoc Attribute Syntax** - Inline spans with attributes now work correctly after edits
+  - Fixed issue where `[text]{.class}` and `[text]{style="..."}` broke after editing
+  - Handles both normal brackets `[text]` and escaped brackets `\[text]`
+  - Support for all Pandoc attribute types: classes (`.class`), IDs (`#id`), and key-value pairs
+  - Properly processes attributes even when diff markup is present
+
 ### Added
 - **Translation Module (Phase 3-4)** - Comprehensive translation workflow with production-ready features
   - Side-by-side translation view with synchronized scrolling (optimized with throttling)
