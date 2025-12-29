@@ -77,8 +77,28 @@ export class MarkdownModule {
     // CriticMarkup preprocessing has been removed from UI rendering
     // CriticMarkup is now only used for export/git workflows via ChangesModule
 
+    prepared = this.preprocessPandocRawInline(prepared);
     prepared = this.preprocessPandocAttributes(prepared);
     return prepared;
+  }
+
+  /**
+   * Preprocess Pandoc raw inline syntax: `content`{=format}
+   * Converts `<mark>`{=html} to <mark> (unwraps from code and processes as raw HTML)
+   * Supports any format, but only =html is commonly used
+   */
+  private preprocessPandocRawInline(markdown: string): string {
+    // Pattern: `content`{=format}
+    // Example: `<mark>`{=html}highlighted text`</mark>`{=html}
+    // Captures: backtick-wrapped content followed by {=format} attribute
+    return markdown.replace(
+      /`([^`]+)`\{=([^}]+)\}/g,
+      (_match, content, _format) => {
+        // Simply unwrap the content from backticks
+        // The content is raw HTML/LaTeX/etc that should pass through
+        return content;
+      }
+    );
   }
 
   /**
