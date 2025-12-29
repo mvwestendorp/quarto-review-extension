@@ -755,4 +755,82 @@ describe('ChangesModule', () => {
       expect(summary).not.toBe('No changes');
     });
   });
+
+  describe('replaceElementWithSegments - sibling deletion bug', () => {
+    it('should preserve sibling segments when editing one segment to empty', () => {
+      const changes = new ChangesModule();
+
+      // Create initial element
+      const id = changes.insert('Heading Level 6', { type: 'Header', level: 6 }, {});
+
+      // Split into two segments
+      changes.replaceElementWithSegments(id, [
+        { content: 'Heading Level 6', metadata: { type: 'Para' } },
+        { content: 'Test', metadata: { type: 'Para' } }
+      ]);
+
+      const state1 = changes.getCurrentState();
+      expect(state1).toHaveLength(2);
+
+      // Edit first segment to empty (the bug scenario)
+      changes.replaceElementWithSegments(id, [
+        { content: '', metadata: { type: 'Para' } }
+      ]);
+
+      const state2 = changes.getCurrentState();
+
+      // BUG: Currently both segments are deleted
+      // EXPECTED: Both segments should still exist
+      expect(state2).toHaveLength(2);
+      expect(state2[0].content).toBe('');
+      expect(state2[1].content).toBe('Test');
+    });
+
+    it('should preserve sibling segments when editing one segment to new content', () => {
+      const changes = new ChangesModule();
+
+      // Create initial element
+      const id = changes.insert('First', { type: 'Para' }, {});
+
+      // Split into two segments
+      changes.replaceElementWithSegments(id, [
+        { content: 'First', metadata: { type: 'Para' } },
+        { content: 'Second', metadata: { type: 'Para' } }
+      ]);
+
+      const state1 = changes.getCurrentState();
+      expect(state1).toHaveLength(2);
+
+      // Edit first segment only
+      changes.replaceElementWithSegments(id, [
+        { content: 'First Modified', metadata: { type: 'Para' } }
+      ]);
+
+      const state2 = changes.getCurrentState();
+
+      // EXPECTED: Both segments should still exist
+      expect(state2).toHaveLength(2);
+      expect(state2[0].content).toBe('First Modified');
+      expect(state2[1].content).toBe('Second');
+    });
+
+    it('should create new segments when expanding from one to multiple', () => {
+      const changes = new ChangesModule();
+
+      const id = changes.insert('Single', { type: 'Para' }, {});
+
+      // Expand into multiple segments
+      changes.replaceElementWithSegments(id, [
+        { content: 'First', metadata: { type: 'Para' } },
+        { content: 'Second', metadata: { type: 'Para' } },
+        { content: 'Third', metadata: { type: 'Para' } }
+      ]);
+
+      const state = changes.getCurrentState();
+      expect(state).toHaveLength(3);
+      expect(state[0].content).toBe('First');
+      expect(state[1].content).toBe('Second');
+      expect(state[2].content).toBe('Third');
+    });
+  });
 });

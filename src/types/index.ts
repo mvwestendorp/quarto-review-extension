@@ -59,8 +59,6 @@ export interface InsertData {
     before?: string;
     parent?: string;
   };
-  parentId?: string;
-  generated?: boolean;
   source?: string; // Track which extension or component created this operation
 }
 

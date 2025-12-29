@@ -247,8 +247,7 @@ Please report this issue with your Quarto document structure.
     content: string,
     metadata: ElementMetadata,
     position: InsertData['position'],
-    source?: string,
-    options?: { parentId?: string; generated?: boolean }
+    source?: string
   ): string {
     const elementId = `temp-${this.generateOperationId()}`;
     const data: InsertData = {
@@ -256,8 +255,6 @@ Please report this issue with your Quarto document structure.
       content,
       metadata,
       position,
-      parentId: options?.parentId,
-      generated: options?.generated,
       source,
     };
 
@@ -268,7 +265,7 @@ Please report this issue with your Quarto document structure.
   public replaceElementWithSegments(
     elementId: string,
     segments: { content: string; metadata: ElementMetadata }[]
-  ): { elementIds: string[]; removedIds: string[] } {
+  ): { elementIds: string[] } {
     const element = this.findElement(elementId);
     if (!element) {
       throw new Error(`Element ${elementId} not found`);
@@ -284,14 +281,14 @@ Please report this issue with your Quarto document structure.
             },
           ];
 
-    const existingGeneratedIds = this.getGeneratedSegmentIds(elementId);
     const resultIds: string[] = [];
-    const removedIds: string[] = [];
 
     const [firstSegment, ...tailSegments] = normalizedSegments;
     if (!firstSegment) {
-      return { elementIds: resultIds, removedIds };
+      return { elementIds: resultIds };
     }
+
+    // Update the first element
     this.edit(
       elementId,
       firstSegment.content,
@@ -300,51 +297,20 @@ Please report this issue with your Quarto document structure.
     );
     resultIds.push(elementId);
 
+    // Insert remaining segments after the first
     let lastId = elementId;
-
-    const reuseCount = Math.min(
-      tailSegments.length,
-      existingGeneratedIds.length
-    );
-
-    for (let i = 0; i < reuseCount; i++) {
-      const segment = tailSegments[i];
-      if (!segment) {
-        continue;
-      }
-      const existingId = existingGeneratedIds[i];
-      if (!existingId) {
-        continue;
-      }
-      this.edit(existingId, segment.content, undefined, segment.metadata);
-      resultIds.push(existingId);
-      lastId = existingId;
-    }
-
-    for (let i = reuseCount; i < tailSegments.length; i++) {
-      const segment = tailSegments[i];
-      if (!segment) {
-        continue;
-      }
+    for (const segment of tailSegments) {
       const newId = this.insert(
         segment.content,
         segment.metadata,
         { after: lastId },
-        undefined,
-        { parentId: elementId, generated: true }
+        undefined
       );
       resultIds.push(newId);
       lastId = newId;
     }
 
-    for (let i = reuseCount; i < existingGeneratedIds.length; i++) {
-      const id = existingGeneratedIds[i];
-      if (!id) continue;
-      this.delete(id);
-      removedIds.push(id);
-    }
-
-    return { elementIds: resultIds, removedIds };
+    return { elementIds: resultIds };
   }
 
   /**
@@ -538,8 +504,7 @@ Please report this issue with your Quarto document structure.
           change.content,
           change.metadata,
           change.position,
-          change.source,
-          change.options
+          change.source
         );
       case 'delete':
         this.delete(change.elementId, change.source);
@@ -677,81 +642,6 @@ Please report this issue with your Quarto document structure.
     }
 
     return elements;
-  }
-
-  private getGeneratedSegmentIds(parentId: string): string[] {
-    if (!parentId) {
-      return [];
-    }
-
-    const activeIds = new Set<string>();
-    const directChildren = new Map<string, string[]>(); // Track direct children of each segment
-
-    // Build a map of which segments have which direct children
-    for (const op of this.operations) {
-      if (op.type === 'insert') {
-        const insertData = op.data as InsertData;
-        if (insertData.parentId) {
-          if (!directChildren.has(insertData.parentId)) {
-            directChildren.set(insertData.parentId, []);
-          }
-          directChildren.get(insertData.parentId)!.push(op.elementId);
-          // Only include auto-generated segments, not user-inserted sections
-          // User-inserted sections have generated: undefined or false
-          // Auto-generated segments have generated: true
-          if (
-            insertData.parentId === parentId &&
-            insertData.generated === true
-          ) {
-            activeIds.add(op.elementId);
-          }
-        }
-      } else if (op.type === 'delete') {
-        if (activeIds.has(op.elementId)) {
-          activeIds.delete(op.elementId);
-        }
-      }
-    }
-
-    if (activeIds.size === 0) {
-      return [];
-    }
-
-    const state = this.getCurrentState();
-    const parentIndex = state.findIndex((el) => el.id === parentId);
-    if (parentIndex === -1) {
-      return [];
-    }
-
-    // Only collect consecutive segments immediately after the parent,
-    // stopping at the first segment that is NOT a direct child of this parent
-    const orderedIds: string[] = [];
-    for (let i = parentIndex + 1; i < state.length; i++) {
-      const candidate = state[i];
-      if (!candidate) {
-        break;
-      }
-      const candidateId = candidate.id;
-
-      // Only include if this is a direct child of parentId (not a child of another segment)
-      if (!activeIds.has(candidateId)) {
-        break;
-      }
-
-      // Check if this segment has any children - if it does, we stop here
-      // because any new segments after this would be children of this segment, not the parent
-      if (
-        directChildren.has(candidateId) &&
-        directChildren.get(candidateId)!.length > 0
-      ) {
-        orderedIds.push(candidateId);
-        break; // Don't include segments after this one as they belong to this child
-      }
-
-      orderedIds.push(candidateId);
-    }
-
-    return orderedIds;
   }
 
   /**

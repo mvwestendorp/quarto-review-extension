@@ -36,7 +36,7 @@ export interface EditorCallbacks {
   replaceElementWithSegments: (
     elementId: string,
     segments: Array<{ content: string; metadata: ElementMetadata }>
-  ) => { elementIds: string[]; removedIds: string[] };
+  ) => { elementIds: string[] };
   ensureSegmentDom: (
     elementIds: string[],
     segments: Array<{ content: string; metadata: ElementMetadata }>,
@@ -396,9 +396,11 @@ export class EditorManager {
         newContent,
         element.metadata
       );
-      const { elementIds, removedIds } =
-        this.callbacks.replaceElementWithSegments(elementId, segments);
-      this.callbacks.ensureSegmentDom(elementIds, segments, removedIds);
+      const { elementIds } = this.callbacks.replaceElementWithSegments(
+        elementId,
+        segments
+      );
+      this.callbacks.ensureSegmentDom(elementIds, segments, []);
 
       this.callbacks.onEditorSaved();
       this.closeEditor();

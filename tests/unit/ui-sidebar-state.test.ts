@@ -263,7 +263,6 @@ const createStubConfig = (overrides: Partial<UIConfig> = {}): UIConfig => {
       getElementContentWithTrackedChanges: vi.fn().mockReturnValue(''),
       replaceElementWithSegments: vi.fn().mockReturnValue({
         elementIds: ['elem-1'],
-        removedIds: [],
       }),
       getCurrentState: vi.fn().mockReturnValue([]),
       getOperations: vi.fn().mockReturnValue([]),

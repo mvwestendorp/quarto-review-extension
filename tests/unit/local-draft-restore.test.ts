@@ -26,7 +26,6 @@ const createChangesStub = () => ({
   getOperations: vi.fn().mockReturnValue([]),
   replaceElementWithSegments: vi.fn().mockReturnValue({
     elementIds: ['section-1'],
-    removedIds: [],
   }),
   getElementById: vi.fn().mockReturnValue({
     id: 'section-1',

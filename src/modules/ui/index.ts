@@ -261,12 +261,12 @@ export class UIModule {
               (entry.metadata as ElementMetadata | undefined) ??
                 element.metadata
             );
-            const { elementIds, removedIds } =
+            const { elementIds } =
               this.config.changes.replaceElementWithSegments(
                 entry.id,
                 segments
               );
-            this.ensureSegmentDom(elementIds, segments, removedIds);
+            this.ensureSegmentDom(elementIds, segments, []);
           });
         },
         onCommentsImported: () => {
@@ -1062,17 +1062,14 @@ export class UIModule {
     logger.trace('Original normalized:', originalNormalized);
     logger.trace('New normalized:', newNormalized);
 
-    const { elementIds, removedIds } =
-      this.config.changes.replaceElementWithSegments(elementId, segments);
-
-    this.ensureSegmentDom(elementIds, segments, removedIds);
-
-    this.updateHeadingReferencesAfterSave(
+    const { elementIds } = this.config.changes.replaceElementWithSegments(
       elementId,
-      segments,
-      elementIds,
-      removedIds
+      segments
     );
+
+    this.ensureSegmentDom(elementIds, segments, []);
+
+    this.updateHeadingReferencesAfterSave(elementId, segments, elementIds, []);
 
     if (originalNormalized === newNormalized && segments.length === 1) {
       logger.debug('No meaningful content change detected for primary segment');

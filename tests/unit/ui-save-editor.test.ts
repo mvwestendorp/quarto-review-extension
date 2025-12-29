@@ -198,7 +198,6 @@ const createStubConfig = (
   };
   changeMocks.replaceElementWithSegments.mockReturnValue({
     elementIds: [],
-    removedIds: [],
   });
 
   const persistenceMocks = {
@@ -326,7 +325,6 @@ describe('UIModule.saveEditor comment handling', () => {
 
     config.changeMocks.replaceElementWithSegments.mockReturnValue({
       elementIds: ['section-1'],
-      removedIds: [],
     });
 
     (ui as any).stateStore.setEditorState({
@@ -373,7 +371,6 @@ describe('UIModule.saveEditor comment handling', () => {
     config.changeMocks.replaceElementWithSegments.mockClear();
     config.changeMocks.replaceElementWithSegments.mockReturnValue({
       elementIds: ['section-1'],
-      removedIds: [],
     });
 
     (ui as any).saveEditor();
@@ -436,7 +433,6 @@ describe('UIModule.saveEditor comment handling', () => {
     config.changeMocks.replaceElementWithSegments.mockClear();
     config.changeMocks.replaceElementWithSegments.mockReturnValue({
       elementIds: ['section-1', 'temp-1'],
-      removedIds: [],
     });
 
     (ui as any).stateStore.setEditorState({
@@ -472,7 +468,6 @@ describe('UIModule.saveEditor comment handling', () => {
 
     config.changeMocks.replaceElementWithSegments.mockReturnValue({
       elementIds: ['section-1'],
-      removedIds: [],
     });
 
     (ui as any).ensureSegmentDom = vi.fn();

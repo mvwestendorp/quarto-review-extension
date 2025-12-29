@@ -23,7 +23,7 @@ describe('DebugTools helpers', () => {
       }),
       replaceElementWithSegments: vi
         .fn()
-        .mockReturnValue({ elementIds: [], removedIds: [] }),
+        .mockReturnValue({ elementIds: [] }),
       getOperations: vi.fn(() => operations),
       getElementContent: vi.fn(() => 'Example markdown content'),
     } as any;
