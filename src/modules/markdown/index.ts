@@ -167,10 +167,11 @@ export class MarkdownModule {
 
       let content = part.content;
 
-      // Pattern: [text]{attributes}
+      // Pattern: [text]{attributes} or \[text]{attributes} (escaped brackets)
       // Matches: [text]{.class #id key="value" key2=value2}
+      // Also matches: \[text]{style="color: red;"} (with escaped opening bracket)
       content = content.replace(
-        /\[([^\]]+)\]\{([^}]+)\}/g,
+        /\\?\[([^\]]+)\]\{([^}]+)\}/g,
         (_match, text, attrs) => {
           // Parse attributes
           const classes: string[] = [];
