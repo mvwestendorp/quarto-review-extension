@@ -696,7 +696,13 @@ Please report this issue with your Quarto document structure.
             directChildren.set(insertData.parentId, []);
           }
           directChildren.get(insertData.parentId)!.push(op.elementId);
-          if (insertData.parentId === parentId) {
+          // Only include auto-generated segments, not user-inserted sections
+          // User-inserted sections have generated: undefined or false
+          // Auto-generated segments have generated: true
+          if (
+            insertData.parentId === parentId &&
+            insertData.generated === true
+          ) {
             activeIds.add(op.elementId);
           }
         }
