@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Zero performance impact when no math is present
   - Supports inline math (`$...$`) and display math (`$$...$$`)
 
+- **Pandoc Raw Inline Syntax** - Raw HTML elements now render correctly after edits
+  - Support for Pandoc's `` `content`{=html} `` syntax
+  - Fixed issue where `<mark>` and other HTML tags displayed as literal text
+  - Automatically unwraps and processes as raw HTML
+  - Maintains compatibility with regular inline code
+
 ### Added
 - **Translation Module (Phase 3-4)** - Comprehensive translation workflow with production-ready features
   - Side-by-side translation view with synchronized scrolling (optimized with throttling)
