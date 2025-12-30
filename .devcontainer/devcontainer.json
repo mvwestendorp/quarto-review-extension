@@ -13,9 +13,7 @@
         "quarto.quarto",
         "ms-playwright.playwright",
         "vitest.explorer",
-        "streetsidesoftware.code-spell-checker",
-        "Continue.continue",
-        "openai.chatgpt"
+        "streetsidesoftware.code-spell-checker"
       ],
       "settings": {
         "editor.defaultFormatter": "esbenp.prettier-vscode",

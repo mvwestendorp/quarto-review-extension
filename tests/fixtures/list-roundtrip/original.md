@@ -1,0 +1,7 @@
+-   First item
+-   Second item
+    -   Nested item 1
+    -   Nested item 2
+        -   Deeply nested item
+-   Third item with **bold** and *italic* text
+-   Item with [a link](https://quarto.org)

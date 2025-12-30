@@ -12,22 +12,173 @@ import type { Change } from 'diff';
 import type { TextChange } from '@/types';
 
 /**
+ * Detect the indent size used in a list (2 or 4 spaces per level).
+ * Returns the most common indent increment found, defaulting to 2.
+ */
+function detectListIndentSize(lines: string[]): number {
+  const indents: number[] = [];
+
+  for (const line of lines) {
+    const listMatch = line.match(/^(\s*)([-*+]|\d+[.)])\s/);
+    if (listMatch) {
+      const indentLength = listMatch[1]?.length ?? 0;
+      if (indentLength > 0) {
+        indents.push(indentLength);
+      }
+    }
+  }
+
+  if (indents.length === 0) {
+    return 2; // Default to 2-space indent
+  }
+
+  // Find the minimum non-zero indent (this is likely the base indent size)
+  const minIndent = Math.min(...indents);
+
+  // Check if it's closer to 2 or 4
+  if (minIndent >= 3) {
+    return 4; // Likely using 4-space indents
+  }
+  return 2; // Using 2-space indents
+}
+
+/**
+ * Check if content appears to be a list based on how many lines are list items.
+ * Returns true if at least 50% of non-empty lines are list items.
+ */
+function isListContent(lines: string[]): boolean {
+  const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
+  if (nonEmptyLines.length === 0) return false;
+
+  const listItemCount = nonEmptyLines.filter((line) =>
+    /^(\s*)([-*+]|\d+[.)])\s+/.test(line)
+  ).length;
+
+  // If at least 50% of non-empty lines are list items, treat as list
+  return listItemCount >= nonEmptyLines.length * 0.5;
+}
+
+/**
+ * Normalize list indentation to a consistent 2-space indent per level.
+ * This prevents spurious diffs when comparing lists with different indent styles.
+ * For example: "    - item" (4 spaces) vs "  - item" (2 spaces) are semantically identical.
+ *
+ * Also removes blank lines between list items to prevent formatting differences
+ * from appearing as content changes.
+ *
+ * Only normalizes if the content appears to actually be a list.
+ */
+function normalizeListIndentation(lines: string[]): string[] {
+  // First check if this is actually list content
+  if (!isListContent(lines)) {
+    // Not a list, just trim trailing whitespace
+    return lines.map((line) => line.trimEnd());
+  }
+
+  const result: string[] = [];
+
+  // Detect the indent size used in this content
+  const indentSize = detectListIndentSize(lines);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line === undefined) {
+      continue;
+    }
+
+    // Match list items - ONLY at start of line (^)
+    // Captures: (spaces)(marker)(space+)(content)
+    const listMatch = line.match(/^(\s*)([-*+]|\d+[.)])\s+(.*)$/);
+
+    if (listMatch) {
+      const [, indent, marker, content] = listMatch;
+
+      // Calculate indent level based on detected indent size
+      // This converts both 2-space and 4-space indents to consistent 2-space
+      const indentLength = indent?.length ?? 0;
+      const level = Math.round(indentLength / indentSize);
+
+      // Normalize to 2-space indent per level
+      const normalizedIndent = '  '.repeat(level);
+
+      // Trim trailing whitespace from content to normalize spurious spaces
+      const lineContent = (content ?? '').trimEnd();
+
+      // Rebuild line with normalized indent and single space after marker
+      result.push(`${normalizedIndent}${marker} ${lineContent}`);
+    } else if (line.trim() === '') {
+      // Skip blank lines between list items to normalize formatting differences
+      // Only preserve blank lines that separate list from non-list content
+      const prevLine = i > 0 ? lines[i - 1] : null;
+      const nextLine = i < lines.length - 1 ? lines[i + 1] : null;
+
+      const prevIsListItem =
+        prevLine && /^(\s*)([-*+]|\d+[.)])\s+/.test(prevLine);
+      const nextIsListItem =
+        nextLine && /^(\s*)([-*+]|\d+[.)])\s+/.test(nextLine);
+
+      // Skip blank lines between list items (they're formatting noise)
+      if (prevIsListItem && nextIsListItem) {
+        continue;
+      }
+
+      // Preserve blank lines between list and non-list content
+      result.push('');
+    } else {
+      // Not a list item, trim trailing whitespace to normalize
+      result.push(line.trimEnd());
+    }
+  }
+
+  return result;
+}
+
+/**
  * Normalize markdown whitespace to match CommonMark serialization.
  * This prevents false positives in diffs caused by:
  * - List marker spacing (e.g., "-   " → "- ")
+ * - List indentation (e.g., "    -" → "  -" for nested items)
+ * - Blockquote marker inconsistencies (e.g., " > " → "> ")
  * - Trailing whitespace
  * - Inconsistent line endings
  */
 function normalizeMarkdownWhitespace(content: string): string {
-  return content
-    .split(/\r?\n/)
-    .map((line) => {
-      // Normalize list markers: replace multiple spaces after marker with single space
-      const normalized = line.replace(/^(\s*)([-*+]|\d+[.)])\s+/, '$1$2 ');
-      // Remove trailing whitespace from each line
-      return normalized.trimEnd();
-    })
-    .join('\n');
+  const lines = content.split(/\r?\n/);
+
+  // Detect if this is a blockquote by checking if most lines start with >
+  const blockquoteLineCount = lines.filter((line) => /^\s*>/.test(line)).length;
+  const isBlockquote =
+    blockquoteLineCount > 0 && blockquoteLineCount >= lines.length * 0.5;
+
+  if (isBlockquote) {
+    // Normalize blockquote: remove leading whitespace before >, normalize spacing
+    return lines
+      .map((line) => {
+        // Remove leading whitespace before >
+        const withoutLeadingSpace = line.replace(/^\s*>/, '>');
+        // Remove lines that are just > with optional whitespace
+        if (/^>\s*$/.test(withoutLeadingSpace)) {
+          return '';
+        }
+        // Normalize spacing after > marker
+        const normalized = withoutLeadingSpace.replace(/^>\s*/, '> ');
+        // Remove trailing whitespace from blockquote lines
+        return normalized.trimEnd();
+      })
+      .filter((line, index, arr) => {
+        // Remove empty lines, but keep them if they're between content lines
+        if (line === '') {
+          const prevLine = arr[index - 1];
+          const nextLine = arr[index + 1];
+          return prevLine && nextLine && prevLine !== '' && nextLine !== '';
+        }
+        return true;
+      })
+      .join('\n');
+  }
+
+  // For non-blockquote content, normalize list markers, indentation, and trailing whitespace
+  return normalizeListIndentation(lines).join('\n');
 }
 
 /**
@@ -188,6 +339,9 @@ function generateChangesInternal(
 /**
  * Apply changes to CriticMarkup syntax for UI display
  * Returns markdown with {++additions++} and {--deletions--}
+ *
+ * NOTE: Changes generated by `generateChanges()` are based on normalized content.
+ * This function normalizes the oldContent to match before applying changes.
  */
 export function changesToCriticMarkup(
   oldContent: string,
@@ -197,8 +351,10 @@ export function changesToCriticMarkup(
     return oldContent;
   }
 
-  const newContent = applyChanges(oldContent, changes);
-  const oldTokens = tokenizeMarkdown(oldContent);
+  // Normalize oldContent to match the normalized content that changes are based on
+  const normalizedOld = normalizeMarkdownWhitespace(oldContent);
+  const newContent = applyChanges(normalizedOld, changes);
+  const oldTokens = tokenizeMarkdown(normalizedOld);
   const newTokens = tokenizeMarkdown(newContent);
   const parts = Diff.diffArrays(oldTokens, newTokens);
   const result: string[] = [];
@@ -801,6 +957,9 @@ function removeMarkupForNormalization(text: string): string {
  * Convert TextChange[] directly to HTML with diff tags
  * This is simpler than CriticMarkup intermediate format
  * Returns markdown with inline <ins> and <del> tags
+ *
+ * NOTE: Changes must be generated from normalized content (via generateChanges),
+ * and this function will normalize oldContent to match.
  */
 export function changesToHtmlDiff(
   oldContent: string,
@@ -809,6 +968,10 @@ export function changesToHtmlDiff(
   if (changes.length === 0) {
     return oldContent;
   }
+
+  // Normalize the old content to match what was used in generateChanges
+  // This ensures that change positions align correctly
+  const normalizedOld = normalizeMarkdownWhitespace(oldContent);
 
   // Sort changes by position (forward order) to apply them correctly
   const sortedChanges = [...changes].sort((a, b) => a.position - b.position);
@@ -819,30 +982,66 @@ export function changesToHtmlDiff(
   for (const change of sortedChanges) {
     // Add unchanged content before this change
     if (change.position > currentPos) {
-      result += oldContent.slice(currentPos, change.position);
+      result += normalizedOld.slice(currentPos, change.position);
     }
 
     if (change.type === 'addition') {
       // Insert HTML tag for addition
       // NOTE: We don't escape the text because it's markdown that needs to be rendered
       // The markdown renderer will handle the content properly
-      result += `<ins class="review-addition" data-critic-type="addition">${change.text}</ins>`;
+
+      // Move newlines and list markers outside of <ins> tags to prevent list items from merging
+      let text = change.text;
+      let prefix = '';
+      let suffix = '';
+
+      // Move leading newlines outside
+      while (text.startsWith('\n')) {
+        prefix += '\n';
+        text = text.slice(1);
+      }
+
+      // Move trailing newlines outside
+      while (text.endsWith('\n')) {
+        suffix += '\n';
+        text = text.slice(0, -1);
+      }
+
+      // Move list markers outside the tag so markdown parser recognizes them
+      // Match: "- ", "* ", "+ ", or "1. ", "2. ", etc.
+      const listMarkerMatch = text.match(/^(\s*)([-*+]|\d+[.)])\s+/);
+      if (listMarkerMatch) {
+        prefix += listMarkerMatch[0]; // Add the full marker including spaces
+        text = text.slice(listMarkerMatch[0].length);
+      }
+
+      result +=
+        prefix +
+        '<ins class="review-addition" data-critic-type="addition">' +
+        text +
+        '</ins>' +
+        suffix;
       currentPos = change.position;
     } else if (change.type === 'deletion') {
       // Insert HTML tag for deletion
-      const deletedText = oldContent.slice(
+      const deletedText = normalizedOld.slice(
         change.position,
         change.position + change.length
       );
-      // NOTE: We don't escape the text because it's markdown that needs to be rendered
-      result += `<del class="review-deletion" data-critic-type="deletion">${deletedText}</del>`;
+
+      // Skip empty or whitespace-only deletions to avoid breaking document structure
+      // (e.g., empty <del> tags can break list structure when parsed by Pandoc)
+      if (deletedText.trim().length > 0) {
+        // NOTE: We don't escape the text because it's markdown that needs to be rendered
+        result += `<del class="review-deletion" data-critic-type="deletion">${deletedText}</del>`;
+      }
       currentPos = change.position + change.length;
     }
   }
 
   // Add any remaining content after the last change
-  if (currentPos < oldContent.length) {
-    result += oldContent.slice(currentPos);
+  if (currentPos < normalizedOld.length) {
+    result += normalizedOld.slice(currentPos);
   }
 
   return result;

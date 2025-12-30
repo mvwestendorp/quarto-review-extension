@@ -106,6 +106,7 @@ function M.create_filter_functions(config, context)
     if not config.enabled or not config.editable_elements.Para then
       return elem
     end
+
     return M.make_editable(elem, 'Para', nil, config, context)
   end
 
@@ -223,6 +224,41 @@ function M.create_filter_functions(config, context)
     if not config.enabled or not config.editable_elements.BlockQuote then
       return elem
     end
+
+    if config.debug then
+      print("DEBUG: Processing BlockQuote element")
+    end
+
+    -- Strip nested review-editable divs BEFORE wrapping the blockquote
+    -- Para elements inside BlockQuote get wrapped first (bottom-up processing)
+    -- We need to unwrap them so the BlockQuote is a single editable segment
+    elem = elem:walk {
+      Div = function(div)
+        -- Check if this div has the review-editable class
+        -- Note: The class may be stored in either div.classes or div.attr.attributes["class"]
+        local has_review_class = false
+
+        if div.classes and div.classes:includes("review-editable") then
+          has_review_class = true
+        elseif div.attr and div.attr.attributes and div.attr.attributes["class"] then
+          local class_attr = div.attr.attributes["class"]
+          if class_attr:find("review%-editable") then
+            has_review_class = true
+          end
+        end
+
+        if has_review_class then
+          if config.debug then
+            print("DEBUG: Stripping review-editable div from inside BlockQuote element")
+          end
+          -- Return the content without the wrapping div
+          return pandoc.Blocks(div.content)
+        end
+        return div
+      end
+    }
+
+    -- Now wrap the clean blockquote as a single segment
     return M.make_editable(elem, 'BlockQuote', nil, config, context)
   end
 

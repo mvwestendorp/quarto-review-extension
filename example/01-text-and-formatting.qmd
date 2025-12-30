@@ -46,11 +46,8 @@ You can apply various text emphasis styles:
 
 Here's a footnote reference[^1] and another one[^2].
 
-You can also use inline footnotes[^inline] directly in the text.
-
 [^1]: This is the first footnote content.
 [^2]: This is the second footnote content with more details.
-[^inline]: This footnote appears inline without a reference number.
 
 ## Definition Lists
 

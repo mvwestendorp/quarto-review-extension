@@ -26,6 +26,7 @@ import {
   ModuleEventEmitter,
   normalizeListMarkers,
   formatMarkdownWithPrettier,
+  normalizeBlockquoteParagraphs,
 } from '../shared';
 import { $prose } from '@milkdown/utils';
 import { EditorToolbar } from './EditorToolbar';
@@ -86,7 +87,8 @@ export class MilkdownEditor extends ModuleEventEmitter {
         // Milkdown editor has a getMarkdown() method that returns current markdown
         const markdown = (this.instance as any).getMarkdown?.();
         if (typeof markdown === 'string' && markdown.length > 0) {
-          return markdown;
+          // Normalize blockquote paragraphs to fix Milkdown serialization issues
+          return normalizeBlockquoteParagraphs(markdown);
         }
         // If getMarkdown returned empty, try falling back to cached
         if (typeof markdown === 'string') {
@@ -149,8 +151,9 @@ export class MilkdownEditor extends ModuleEventEmitter {
     const { mount, toolbarElement } = this.prepareLayout(editorContainer);
 
     try {
-      // Initialize current content
-      const initialContent = normalizeListMarkers(content);
+      // Initialize current content with normalizations
+      let initialContent = normalizeListMarkers(content);
+      initialContent = normalizeBlockquoteParagraphs(initialContent);
       this.currentContent = initialContent;
 
       const editorBuilder = Editor.make()
@@ -167,7 +170,8 @@ export class MilkdownEditor extends ModuleEventEmitter {
           // Listen for markdown changes
           listenerManager
             .markdownUpdated((_ctx: Ctx, markdown: string) => {
-              const normalized = normalizeListMarkers(markdown);
+              let normalized = normalizeListMarkers(markdown);
+              normalized = normalizeBlockquoteParagraphs(normalized);
               this.currentContent = normalized;
               if (this.contentUpdateCallback) {
                 this.contentUpdateCallback(normalized);

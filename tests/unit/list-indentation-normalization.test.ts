@@ -6,13 +6,13 @@
  * Pandoc markdown.
  *
  * Specifications:
- * - Pandoc: Uses alignment-based indentation (align with first non-space character after list marker)
+ * - Pandoc: Uses 2-space indentation for nested lists (default behavior)
  *   Source: https://pandoc.org/demo/example33/8.7-lists.html
- * - CommonMark/GFM: Uses variable indentation based on marker width
+ * - CommonMark/GFM: Uses 2-space indentation
  *   Source: https://spec.commonmark.org/0.28/
- * - Milkdown: Uses GFM preset, typically outputs 2-3 space indentation
+ * - Milkdown: Uses GFM preset, typically outputs 2-space indentation
  *
- * This test normalizes all variations to Pandoc's 4-space standard for consistency.
+ * This test normalizes all variations to 2-space standard for consistency.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -20,38 +20,38 @@ import { normalizeListIndentation } from '@modules/ui/shared/utils';
 
 describe('List Indentation Normalization', () => {
   describe('Bullet Lists', () => {
-    it('should normalize 2-space indentation to 4-space', () => {
+    it('should preserve already-normalized 2-space indentation', () => {
       const input = `- First item
   - Nested item
   - Another nested`;
 
       const expected = `- First item
-    - Nested item
-    - Another nested`;
+  - Nested item
+  - Another nested`;
 
       expect(normalizeListIndentation(input)).toBe(expected);
     });
 
-    it('should normalize 3-space indentation to 4-space', () => {
+    it('should normalize 3-space indentation to 2-space', () => {
       const input = `- First item
    - Nested item
    - Another nested`;
 
       const expected = `- First item
-    - Nested item
-    - Another nested`;
+  - Nested item
+  - Another nested`;
 
       expect(normalizeListIndentation(input)).toBe(expected);
     });
 
-    it('should preserve already-normalized 4-space indentation', () => {
+    it('should normalize 4-space indentation to 2-space', () => {
       const input = `- First item
-    - Nested item
-    - Another nested`;
+  - Nested item
+  - Another nested`;
 
       const expected = `- First item
-    - Nested item
-    - Another nested`;
+  - Nested item
+  - Another nested`;
 
       expect(normalizeListIndentation(input)).toBe(expected);
     });
@@ -63,9 +63,9 @@ describe('List Indentation Normalization', () => {
       - Level 4`;
 
       const expected = `- Level 1
-    - Level 2
-        - Level 3
-            - Level 4`;
+  - Level 2
+    - Level 3
+      - Level 4`;
 
       expect(normalizeListIndentation(input)).toBe(expected);
     });
@@ -106,8 +106,8 @@ describe('List Indentation Normalization', () => {
 2. Back to ordered item`;
 
       const expected = `1. Ordered item
-    - Unordered sub-item
-    - Another sub-item
+  - Unordered sub-item
+  - Another sub-item
         1. Nested ordered item
         2. Another nested ordered
 2. Back to ordered item`;
@@ -126,8 +126,8 @@ describe('List Indentation Normalization', () => {
 3. Test`;
 
       const expected = `1. Ordered item
-    - Unordered sub-item
-    - Another sub-item
+  - Unordered sub-item
+  - Another sub-item
         1. Nested ordered item
         2. Another nested ordered
 2. Back to ordered item
@@ -199,7 +199,7 @@ Another paragraph`;
 \`\`\`
 
 - Real list
-    - Should be normalized`;
+  - Should be normalized`;
 
       expect(normalizeListIndentation(input)).toBe(expected);
     });
@@ -211,7 +211,7 @@ Another paragraph`;
 
       const expected = `- Item 1
 
-    - Nested with blank line above`;
+  - Nested with blank line above`;
 
       expect(normalizeListIndentation(input)).toBe(expected);
     });
@@ -227,8 +227,8 @@ Another paragraph`;
 
       // Pandoc expects:
       const pandocFormat = `1. First
-    - Sub A
-    - Sub B
+  - Sub A
+  - Sub B
 2. Second`;
 
       expect(normalizeListIndentation(milkdownOutput)).toBe(pandocFormat);
@@ -237,7 +237,7 @@ Another paragraph`;
     it('should prevent spurious diff when only indentation differs', () => {
       // Original content (Pandoc format):
       const original = `1. Item
-    - Nested`;
+  - Nested`;
 
       // After editing in Milkdown (GFM format):
       const afterEdit = `1. Item

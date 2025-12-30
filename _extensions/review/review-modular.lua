@@ -235,60 +235,59 @@ function Meta(meta)
   return meta
 end
 
--- Post-processor to unwrap nested review-editable divs
-function unwrap_nested_editable(elem)
-  -- Skip Quarto cell divs entirely - they need special handling by Quarto's internal filters
-  if elem.t == "Div" and elem.classes then
-    for _, class in ipairs(elem.classes) do
-      if class == 'cell' or class:match('^cell%-') then
-        return elem
-      end
-    end
+-- Create filter functions using the element-wrapping module
+local filters = element_wrapping.create_filter_functions(config, context)
+
+-- Post-processing filter to clean up nested divs in Note (footnote) elements
+-- This runs AFTER all wrapping filters have completed
+local function cleanup_note_filter(elem)
+  if not config.enabled then
+    return elem
   end
 
-  if elem.t == "Div" and elem.classes:includes("review-editable") then
-    local function unwrap_in_blocks(blocks)
-      local result = pandoc.List()
-      for _, block in ipairs(blocks) do
-        if block.t == "Div" and block.classes:includes("review-editable") then
-          -- Unwrap inner div
-          for _, inner_block in ipairs(block.content) do
-            result:insert(inner_block)
-          end
-        else
-          -- Recurse if block has content
-          if block.content and type(block.content) == "table" then
-            block.content = unwrap_in_blocks(block.content)
-          end
-          result:insert(block)
+  if config.debug then
+    print("DEBUG: Processing Note (footnote) element for cleanup")
+  end
+
+  -- Walk the Note content and strip any review-editable divs from nested Paras
+  -- Footnote content should not be separately editable - only the paragraph containing
+  -- the footnote reference should be editable
+  elem = elem:walk {
+    Div = function(div)
+      -- Check if this div has the review-editable class
+      -- Note: The class may be stored in either div.classes or div.attr.attributes["class"]
+      local has_review_class = false
+
+      if div.classes and div.classes:includes("review-editable") then
+        has_review_class = true
+      elseif div.attr and div.attr.attributes and div.attr.attributes["class"] then
+        local class_attr = div.attr.attributes["class"]
+        if class_attr:find("review%-editable") then
+          has_review_class = true
         end
       end
-      return result
-    end
 
-    -- Only apply unwrapping if the content contains nested editable divs
-    local contains_nested_editable = false
-    for _, block in ipairs(elem.content) do
-      if block.t == "Div" and block.classes:includes("review-editable") then
-        contains_nested_editable = true
-        break
+      if has_review_class then
+        if config.debug then
+          print("DEBUG: Stripping review-editable div from inside Note element")
+        end
+        -- Return the content without the wrapping div
+        return pandoc.Blocks(div.content)
       end
+      return div
     end
-
-    if contains_nested_editable then
-      elem.content = unwrap_in_blocks(elem.content)
-    end
-  end
+  }
 
   return elem
 end
 
--- Create filter functions using the element-wrapping module
-local filters = element_wrapping.create_filter_functions(config, context)
-
 -- Return filters in order
+-- Note: Filters run in the order they appear in this array
+-- 1. Meta filter runs first
+-- 2. Main wrapping filters (Para, Header, BlockQuote, etc.)
+-- 3. Note cleanup filter runs last to strip nested Para divs from footnotes
 return {
   {Meta = Meta},
-  filters,
-  {Div = unwrap_nested_editable}
+  filters,  -- Main wrapping filters (includes BlockQuote with walk-based cleanup)
+  {Note = cleanup_note_filter}  -- Post-process to clean up footnote content
 }

@@ -16,6 +16,7 @@ export {
   trimLineEnd,
   trimLineStart,
   isSetextUnderline,
+  normalizeBlockquoteParagraphs,
   normalizeListMarkers,
   normalizeListIndentation,
   formatMarkdownWithPrettier,

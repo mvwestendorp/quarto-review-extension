@@ -75,6 +75,89 @@ export function isSetextUnderline(line: string): boolean {
 }
 
 /**
+ * Fix multi-paragraph blockquotes from Milkdown
+ *
+ * Milkdown sometimes serializes multi-paragraph blockquotes with blank lines
+ * between paragraphs, which causes Pandoc to split them into separate blockquotes.
+ * This function ensures blank lines within blockquotes have the `>` marker.
+ *
+ * Example:
+ * Input:  "> Para 1\n\n> Para 2"  (two separate blockquotes)
+ * Output: "> Para 1\n>\n> Para 2" (one blockquote with two paragraphs)
+ */
+export function normalizeBlockquoteParagraphs(content: string): string {
+  const lines = content.split(/\r?\n/);
+  let fenceDelimiter: string | null = null;
+  const result: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] || '';
+    const trimmed = line.trim();
+
+    // Track fence blocks to skip them
+    const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
+    const delimiter = fenceMatch?.[1] ?? null;
+
+    if (delimiter) {
+      if (!fenceDelimiter) {
+        fenceDelimiter = delimiter;
+      } else if (fenceDelimiter && trimmed.startsWith(fenceDelimiter)) {
+        fenceDelimiter = null;
+      }
+      result.push(line);
+      continue;
+    }
+
+    if (fenceDelimiter) {
+      result.push(line);
+      continue;
+    }
+
+    // Check if this is a blank line between blockquote lines
+    const currentIsBlank = trimmed === '';
+
+    if (currentIsBlank) {
+      // Look backwards to find the last non-blank line
+      let prevBlockquoteIndex = -1;
+      for (let j = i - 1; j >= 0; j--) {
+        const prevLine = lines[j] || '';
+        const prevTrimmed = prevLine.trim();
+        if (prevTrimmed !== '') {
+          if (/^\s*>/.test(prevLine)) {
+            prevBlockquoteIndex = j;
+          }
+          break;
+        }
+      }
+
+      // Look forwards to find the next non-blank line
+      let nextBlockquoteIndex = -1;
+      for (let j = i + 1; j < lines.length; j++) {
+        const nextLine = lines[j] || '';
+        const nextTrimmed = nextLine.trim();
+        if (nextTrimmed !== '') {
+          if (/^\s*>/.test(nextLine)) {
+            nextBlockquoteIndex = j;
+          }
+          break;
+        }
+      }
+
+      // If blank line is between two blockquotes, convert to ">"
+      if (prevBlockquoteIndex !== -1 && nextBlockquoteIndex !== -1) {
+        result.push('>');
+      } else {
+        result.push(line);
+      }
+    } else {
+      result.push(line);
+    }
+  }
+
+  return result.join('\n');
+}
+
+/**
  * Normalize markdown list markers
  *
  * Converts Milkdown output (`*`/`+`) to canonical `-` format.
@@ -164,7 +247,7 @@ export async function formatMarkdownWithPrettier(
       // Prettier options optimized for Pandoc compatibility
       proseWrap: 'preserve', // Don't wrap prose (Pandoc does this differently)
       printWidth: 80,
-      tabWidth: 4, // Match Pandoc's 4-space indentation
+      tabWidth: 2, // Match Pandoc's 2-space list indentation
       useTabs: false,
       singleQuote: false,
       endOfLine: 'lf',
@@ -179,15 +262,14 @@ export async function formatMarkdownWithPrettier(
 }
 
 /**
- * Normalize list indentation to Pandoc's 4-space standard
+ * Normalize list indentation to 2-space standard
  *
- * Milkdown/GFM uses 2-3 space indentation for nested lists,
- * while Pandoc uses 4-space indentation. This function normalizes
- * indentation to match Pandoc's output.
+ * Milkdown/GFM and Pandoc both use 2-space indentation for nested lists.
+ * This function normalizes indentation to match this standard.
  *
  * Algorithm:
  * 1. Detect list items and their indentation level
- * 2. Build indentation hierarchy (top-level = 0, nested = multiples of 4)
+ * 2. Build indentation hierarchy (top-level = 0, nested = multiples of 2)
  * 3. Reindent each line to match the hierarchy
  *
  * Skips fenced code blocks to avoid touching sample snippets.
@@ -233,7 +315,7 @@ export function normalizeListIndentation(content: string): string {
   // Sort indent levels and create mapping
   indentLevels.sort((a, b) => a - b);
   indentLevels.forEach((indent, index) => {
-    indentMap.set(indent, index * 4);
+    indentMap.set(indent, index * 2);
   });
 
   // Reset fence tracking for second pass
@@ -278,7 +360,7 @@ export function normalizeListIndentation(content: string): string {
 
       if (currentIndent > 0 && indentLevels.length > 0) {
         // Find the appropriate list indentation level this content belongs to
-        // Content should be indented 4 spaces from its parent list item
+        // Content should be indented 2 spaces from its parent list item
         let targetListIndent = 0;
         for (let i = indentLevels.length - 1; i >= 0; i--) {
           const level = indentLevels[i];
@@ -288,8 +370,8 @@ export function normalizeListIndentation(content: string): string {
           }
         }
 
-        // Add 4 spaces for list item content continuation
-        const normalizedIndent = targetListIndent + 4;
+        // Add 2 spaces for list item content continuation
+        const normalizedIndent = targetListIndent + 2;
         normalized.push(' '.repeat(normalizedIndent) + trimmed);
       } else {
         // Not list content, preserve as-is
