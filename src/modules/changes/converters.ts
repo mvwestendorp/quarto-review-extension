@@ -662,15 +662,14 @@ function formatLine(line: string, kind: ChangeKind): string {
   const { prefix, body } = splitListPrefix(content);
 
   if (prefix) {
-    // FIXED: When deleting an entire list item, wrap the whole line including marker and newline
-    // This prevents empty list items from remaining after accepting changes
+    // Keep list markers outside CriticMarkup so Markdown still recognizes the list
+    // For deletions, keep marker outside so list structure is preserved
     if (kind === 'deletion') {
-      // Wrap the entire line including newline in a single deletion marker
-      return `${wrapWithMarkup(content + newline, kind)}`;
+      // Marker outside, body inside markup, newline outside
+      return `${prefix}${wrapWithMarkup(body, kind)}${newline}`;
     }
 
-    // Keep list markers outside CriticMarkup so Markdown still recognizes the list
-    // Fall back to wrapping the full line when the body is empty (e.g. placeholder items)
+    // For additions, fall back to wrapping the full line when body is empty
     if (body.trim().length === 0) {
       const fullLine = `${prefix}${body}`;
       return `${wrapWithMarkup(fullLine, kind)}${newline}`;
@@ -1024,7 +1023,7 @@ export function changesToHtmlDiff(
       currentPos = change.position;
     } else if (change.type === 'deletion') {
       // Insert HTML tag for deletion
-      const deletedText = normalizedOld.slice(
+      let deletedText = normalizedOld.slice(
         change.position,
         change.position + change.length
       );
@@ -1032,8 +1031,42 @@ export function changesToHtmlDiff(
       // Skip empty or whitespace-only deletions to avoid breaking document structure
       // (e.g., empty <del> tags can break list structure when parsed by Pandoc)
       if (deletedText.trim().length > 0) {
-        // NOTE: We don't escape the text because it's markdown that needs to be rendered
-        result += `<del class="review-deletion" data-critic-type="deletion">${deletedText}</del>`;
+        // Move newlines and list markers outside of <del> tags to preserve list structure
+        let prefix = '';
+        let suffix = '';
+
+        // Move leading newlines outside
+        while (deletedText.startsWith('\n')) {
+          prefix += '\n';
+          deletedText = deletedText.slice(1);
+        }
+
+        // Move trailing newlines outside
+        while (deletedText.endsWith('\n')) {
+          suffix += '\n';
+          deletedText = deletedText.slice(0, -1);
+        }
+
+        // Move list markers outside the tag so markdown parser recognizes them
+        const listMarkerMatch = deletedText.match(/^(\s*)([-*+]|\d+[.)])\s+/);
+        if (listMarkerMatch) {
+          prefix += listMarkerMatch[0];
+          deletedText = deletedText.slice(listMarkerMatch[0].length);
+        }
+
+        // Only output if there's actual content left after stripping markers/newlines
+        if (deletedText.trim().length > 0) {
+          // NOTE: We don't escape the text because it's markdown that needs to be rendered
+          result +=
+            prefix +
+            '<del class="review-deletion" data-critic-type="deletion">' +
+            deletedText +
+            '</del>' +
+            suffix;
+        } else {
+          // If only markers/newlines, just output them without <del> tags
+          result += prefix + suffix;
+        }
       }
       currentPos = change.position + change.length;
     }
