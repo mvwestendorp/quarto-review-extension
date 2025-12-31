@@ -130,3 +130,23 @@ Create a test that:
 - `src/modules/export/index.ts` - Export logic
 - `_extensions/review/lib/element-wrapping.lua` - Element wrapping in Pandoc
 - Tests: Create `tests/unit/export-duplication.test.ts`
+
+## Additional Testing Needed
+
+### CriticMarkup Rendering with Quarto
+Verify that exported CriticMarkup with list markers outside deletion tags renders correctly:
+
+```markdown
+- {--*Italic text* using `*text*`--}
+- **Bold text** using `**text**`
+```
+
+**Test plan:**
+1. Export a document with list item deletions in CriticMarkup format
+2. Render the exported QMD with Quarto (which has CriticMarkup extension support)
+3. Verify that:
+   - List structure is preserved
+   - Deletion markers are rendered correctly (strikethrough/highlighting)
+   - First item with deletion shows properly in the list
+
+**Note:** Standard Pandoc doesn't process CriticMarkup syntax (it renders as literal `{--text--}`), but Quarto has built-in support for CriticMarkup rendering.
