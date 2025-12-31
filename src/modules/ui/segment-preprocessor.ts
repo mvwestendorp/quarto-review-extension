@@ -12,6 +12,15 @@ interface CaptionContext {
 
 const REVIEW_ID_PREFIX = 'review';
 
+/**
+ * Check if an element is inside a modal, dialog, or other excluded container
+ */
+function isInExcludedContainer(element: HTMLElement): boolean {
+  return !!element.closest(
+    '.modal, .dialog, [role="dialog"], [aria-modal="true"]'
+  );
+}
+
 export function registerSupplementalEditableSegments(): void {
   if (typeof document === 'undefined') {
     return;
@@ -26,6 +35,11 @@ function annotateDocumentTitle(): void {
     '#title-block-header .quarto-title .title'
   );
   if (!titleElement || titleElement.hasAttribute('data-review-id')) {
+    return;
+  }
+
+  // Skip if element is inside a modal or dialog
+  if (isInExcludedContainer(titleElement)) {
     return;
   }
 
@@ -65,6 +79,12 @@ function annotateFloatCaptions(): void {
         '[data-review-type="FigureCaption"], [data-review-type="TableCaption"]'
       )
     ) {
+      caption.setAttribute('data-review-caption-processed', 'true');
+      return;
+    }
+
+    // Skip if caption is inside a modal or dialog
+    if (isInExcludedContainer(caption)) {
       caption.setAttribute('data-review-caption-processed', 'true');
       return;
     }

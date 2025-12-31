@@ -99,10 +99,20 @@ Please report this issue with your Quarto document structure.
    */
   public initializeFromDOM(): void {
     // Select all elements with data-review-id (includes .review-editable divs and header sections)
-    const editableElements = document.querySelectorAll('[data-review-id]');
+    const allElements = document.querySelectorAll('[data-review-id]');
+
+    // Filter out elements inside modals, dialogs, or other excluded containers
+    const editableElements = Array.from(allElements).filter((elem) => {
+      const htmlElem = elem as HTMLElement;
+      return !htmlElem.closest(
+        '.modal, .dialog, [role="dialog"], [aria-modal="true"]'
+      );
+    });
 
     // Verify all IDs are unique before proceeding
-    this.verifyUniqueIds(editableElements);
+    const nodeList =
+      editableElements as unknown as NodeListOf<globalThis.Element>;
+    this.verifyUniqueIds(nodeList);
 
     this.originalElements = Array.from(editableElements).map((elem) => {
       const id = elem.getAttribute('data-review-id') || '';
