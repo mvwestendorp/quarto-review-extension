@@ -2464,7 +2464,14 @@ export class UIModule {
           .split(/\s+/)
           .filter(Boolean)
           .forEach((cls) => combinedClasses.add(cls));
-        contentElem.classList.forEach((cls) => combinedClasses.add(cls));
+        // Only copy classes that are not internal review classes
+        // This prevents review-section-wrapper and other review-* classes
+        // from being incorrectly applied to content elements
+        contentElem.classList.forEach((cls) => {
+          if (!cls.startsWith('review-')) {
+            combinedClasses.add(cls);
+          }
+        });
         firstNewElement.className = Array.from(combinedClasses).join(' ');
 
         Array.from(contentElem.attributes).forEach((attr) => {
