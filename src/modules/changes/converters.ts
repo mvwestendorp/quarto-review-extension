@@ -1157,7 +1157,16 @@ export function stripCriticMarkup(
 
   if (acceptMode) {
     // Accept mode: keep additions/new, remove deletions/old
+    // Remove deletions: {--text--}
     result = result.replace(/\{--[^}]*--\}/g, '');
+
+    // Clean up empty list items left after deleting entire list item content
+    // Pattern: list marker followed by only whitespace until newline
+    result = result.replace(/^(\s*)([-*+]|\d+[.)])\s*$/gm, '');
+
+    // Remove consecutive blank lines that result from deleted list items
+    result = result.replace(/\n\n\n+/g, '\n\n');
+
     // Keep addition content: {++text++} -> text
     result = result.replace(/\{\+\+([^}]*)\+\+\}/g, '$1');
     // Keep new from substitutions: {~~old~>new~~} -> new
