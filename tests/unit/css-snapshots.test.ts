@@ -15,14 +15,14 @@ import { resolve } from 'path';
 
 const loadCSSContent = () => {
   const cssFiles = [
-    '_extensions/review/assets/tokens/colors.css',
-    '_extensions/review/assets/tokens/effects.css',
-    '_extensions/review/assets/tokens/spacing.css',
-    '_extensions/review/assets/components/buttons.css',
-    '_extensions/review/assets/components/editor.css',
-    '_extensions/review/assets/components/toolbar.css',
-    '_extensions/review/assets/base/editable.css',
-    '_extensions/review/assets/base/animations.css',
+    'src/css/tokens/colors.css',
+    'src/css/tokens/effects.css',
+    'src/css/tokens/spacing.css',
+    'src/css/components/buttons.css',
+    'src/css/components/editor.css',
+    'src/css/components/toolbar.css',
+    'src/css/base/editable.css',
+    'src/css/base/animations.css',
   ];
 
   const style = document.createElement('style');

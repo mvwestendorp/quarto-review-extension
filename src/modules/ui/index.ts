@@ -2057,6 +2057,32 @@ export class UIModule {
     elementIds: string[],
     segments: { content: string; metadata: ElementMetadata }[]
   ): void {
+    // Handle first element (index 0) - it should already exist in DOM
+    // We just need to ensure its content is current
+    if (elementIds.length > 0 && segments.length > 0) {
+      const firstId = elementIds[0];
+      const firstElement = document.querySelector(
+        `[data-review-id="${firstId}"]`
+      ) as HTMLElement | null;
+
+      if (firstElement) {
+        // First element exists - ensure it has the updated content
+        // The refresh() call will handle updating its inner content
+        // We just need to ensure it has the right metadata
+        const metadata = segments[0]?.metadata;
+        if (metadata?.level) {
+          firstElement.setAttribute(
+            'data-review-level',
+            String(metadata.level)
+          );
+        }
+      } else {
+        // First element doesn't exist - this shouldn't happen but handle it
+        logger.warn(`First segment element not found: ${firstId}`);
+      }
+    }
+
+    // Handle subsequent elements (index 1+) - ensure they exist and are in correct order
     for (let index = 1; index < elementIds.length; index++) {
       const id = elementIds[index];
       const previousId = elementIds[index - 1];

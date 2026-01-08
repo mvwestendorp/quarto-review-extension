@@ -1,0 +1,55 @@
+/**
+ * Quarto Review Extension - Main CSS Entry Point (SOURCE FILE)
+ *
+ * This file imports all CSS modules in the correct order:
+ * 1. Design Tokens (colors, typography, spacing, effects)
+ * 2. Base Styles (editable elements, animations)
+ * 3. Components (buttons, editor, sidebar, etc.)
+ * 4. CriticMarkup (tracked changes styling)
+ * 5. Responsive (mobile/tablet media queries)
+ *
+ * This file is processed by PostCSS to generate review.css:
+ * - Flatten all @import statements into a single CSS file
+ * - Add vendor prefixes for browser compatibility
+ * - Minify for production builds
+ *
+ * DO NOT EDIT review.css directly - edit this file (review.src.css) instead
+ * and run `npm run build:css:dev` to regenerate review.css
+ */
+
+/* Design Tokens */
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/effects.css';
+
+/* Base Styles */
+@import './base/editable.css';
+@import './base/animations.css';
+
+/* Components */
+@import './components/buttons.css';
+@import './components/editor.css';
+@import './components/toolbar.css';
+@import './components/sidebar.css';
+@import './components/unified-sidebar.css';
+@import './components/comments-sidebar.css';
+@import './components/comment-composer.css';
+@import './components/comment-items.css';
+@import './components/context-menu.css';
+@import './components/command-palette.css';
+@import './components/dashboard.css';
+@import './components/search-panel.css';
+@import './components/notifications.css';
+@import './components/bottom-drawer.css';
+@import './components/margin-comments.css';
+@import './components/translation.css';
+@import './components/developer-panel.css';
+@import './components/segment-actions.css';
+
+/* CriticMarkup Styles */
+@import './criticmarkup/base.css';
+@import './criticmarkup/prosemirror.css';
+
+/* Responsive Styles */
+@import './responsive/mobile.css';

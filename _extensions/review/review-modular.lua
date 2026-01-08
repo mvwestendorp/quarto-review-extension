@@ -238,56 +238,20 @@ end
 -- Create filter functions using the element-wrapping module
 local filters = element_wrapping.create_filter_functions(config, context)
 
--- Post-processing filter to clean up nested divs in Note (footnote) elements
--- This runs AFTER all wrapping filters have completed
-local function cleanup_note_filter(elem)
-  if not config.enabled then
-    return elem
-  end
-
-  if config.debug then
-    print("DEBUG: Processing Note (footnote) element for cleanup")
-  end
-
-  -- Walk the Note content and strip any review-editable divs from nested Paras
-  -- Footnote content should not be separately editable - only the paragraph containing
-  -- the footnote reference should be editable
-  elem = elem:walk {
-    Div = function(div)
-      -- Check if this div has the review-editable class
-      -- Note: The class may be stored in either div.classes or div.attr.attributes["class"]
-      local has_review_class = false
-
-      if div.classes and div.classes:includes("review-editable") then
-        has_review_class = true
-      elseif div.attr and div.attr.attributes and div.attr.attributes["class"] then
-        local class_attr = div.attr.attributes["class"]
-        if class_attr:find("review%-editable") then
-          has_review_class = true
-        end
-      end
-
-      if has_review_class then
-        if config.debug then
-          print("DEBUG: Stripping review-editable div from inside Note element")
-        end
-        -- Return the content without the wrapping div
-        return pandoc.Blocks(div.content)
-      end
-      return div
-    end
-  }
-
-  return elem
-end
+-- Note: The cleanup_note_filter has been removed as of this commit.
+-- Para elements inside Notes (footnotes) are now skipped during Pass 2 (wrapping phase)
+-- instead of being wrapped and then cleaned up. This prevents the div syntax from
+-- appearing in the data-review-markdown attributes of paragraphs containing footnote references.
 
 -- Return filters in order
 -- Note: Filters run in the order they appear in this array
 -- 1. Meta filter runs first
--- 2. Main wrapping filters (Para, Header, BlockQuote, etc.)
--- 3. Note cleanup filter runs last to strip nested Para divs from footnotes
+-- 2. Pass 1: Identify nested lists and elements inside Notes (whole document pass)
+-- 3. Pass 2: Main wrapping filters (Para, Header, BlockQuote, lists, etc.)
+--    - Skips marked nested lists
+--    - Skips Para elements inside Notes (footnotes)
 return {
   {Meta = Meta},
-  filters,  -- Main wrapping filters (includes BlockQuote with walk-based cleanup)
-  {Note = cleanup_note_filter}  -- Post-process to clean up footnote content
+  element_wrapping.create_identify_filter(config),  -- Pass 1: Mark nested lists and Note contents
+  filters  -- Pass 2: Main wrapping filters
 }

@@ -3,10 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('toolbar layout css', () => {
-  const cssPath = resolve(
-    __dirname,
-    '../../_extensions/review/assets/components/toolbar.css'
-  );
+  const cssPath = resolve(__dirname, '../../src/css/components/toolbar.css');
   const css = readFileSync(cssPath, 'utf-8');
 
   it('positions toolbar with grid layout and row auto-flow', () => {

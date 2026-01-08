@@ -96,12 +96,23 @@ async function applyEdit(options: {
   await locator.dblclick();
   await page.waitForSelector('.review-inline-editor-container', { state: 'visible' });
 
-  const textarea = page.locator('.milkdown .ProseMirror').first();
-  const existing = await textarea.inputValue();
-  const updateFn = options.update ?? ((current: string, token: string) => `${current} ${token}`);
-  const newValue = updateFn(existing, marker);
+  const editor = page.locator('.milkdown .ProseMirror').first();
 
-  await textarea.fill(newValue);
+  if (options.update) {
+    // For custom update functions (like code blocks), we need to get/replace the whole content
+    const existing = await editor.textContent();
+    const newValue = options.update(existing ?? '', marker);
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('Control+a');
+    await page.keyboard.type(newValue);
+  } else {
+    // For simple appends, just type at the end
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(` ${marker}`);
+  }
   await page.locator('button:has-text("Save")').first().click();
   await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 

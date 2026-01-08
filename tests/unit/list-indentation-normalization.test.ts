@@ -99,10 +99,10 @@ describe('List Indentation Normalization', () => {
     it('should normalize mixed bullet and ordered lists (Pandoc standard)', () => {
       // This is the exact case from the user's feedback
       const input = `1. Ordered item
-   - Unordered sub-item
-   - Another sub-item
-     1. Nested ordered item
-     2. Another nested ordered
+  - Unordered sub-item
+  - Another sub-item
+    1. Nested ordered item
+    2. Another nested ordered
 2. Back to ordered item`;
 
       const expected = `1. Ordered item

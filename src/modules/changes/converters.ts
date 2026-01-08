@@ -663,10 +663,10 @@ function formatLine(line: string, kind: ChangeKind): string {
 
   if (prefix) {
     // Keep list markers outside CriticMarkup so Markdown still recognizes the list
-    // For deletions, keep marker outside so list structure is preserved
+    // For deletions of entire list items, wrap the marker too
     if (kind === 'deletion') {
-      // Marker outside, body inside markup, newline outside
-      return `${prefix}${wrapWithMarkup(body, kind)}${newline}`;
+      // Wrap the entire line including marker for complete deletions
+      return `${wrapWithMarkup(prefix + body, kind)}${newline}`;
     }
 
     // For additions, fall back to wrapping the full line when body is empty
@@ -1164,8 +1164,17 @@ export function stripCriticMarkup(
     // Pattern: list marker followed by only whitespace until newline
     result = result.replace(/^(\s*)([-*+]|\d+[.)])\s*$/gm, '');
 
-    // Remove consecutive blank lines that result from deleted list items
+    // After removing empty list items, we may have multiple consecutive newlines
+    // Clean these up but be careful to preserve intentional paragraph breaks
+    // First, collapse any runs of 3+ newlines to 2 (preserve paragraph breaks)
     result = result.replace(/\n\n\n+/g, '\n\n');
+
+    // Then remove single blank lines between list items (which were left after deletion)
+    // Match: list item, blank line, list item -> list item, single newline, list item
+    result = result.replace(
+      /(^[-*+].*$|^\d+[.)].*$)\n\n(^[-*+]|^\d+[.)])/gm,
+      '$1\n$2'
+    );
 
     // Keep addition content: {++text++} -> text
     result = result.replace(/\{\+\+([^}]*)\+\+\}/g, '$1');
@@ -1181,6 +1190,8 @@ export function stripCriticMarkup(
     result = result.replace(/\{--([^}]*)--\}/g, '$1');
     // Remove additions: {++text++}
     result = result.replace(/\{\+\+[^}]*\+\+\}/g, '');
+    // Remove trailing spaces at end of lines (normalization)
+    result = result.replace(/ +$/gm, '');
     // Keep old from substitutions: {~~old~>new~~} -> old
     result = result.replace(/\{~~([^~]*)~>[^}]*~~\}/g, '$1');
     // Convert critic comments {>> comment <<}

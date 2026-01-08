@@ -5,14 +5,23 @@ This directory contains the modular CSS architecture for the Quarto Review Exten
 ## Structure Overview
 
 ```
-assets/
-├── review.css          # Main entry point - import all modules
-├── tokens/             # Design system (colors, typography, spacing, effects)
-├── base/               # Base styles (editable elements, animations)
-├── components/         # UI components (buttons, editor, toolbar, sidebar, etc.)
-├── criticmarkup/       # Tracked changes styling
-└── responsive/         # Mobile/tablet responsive styles
+src/css/                         # CSS SOURCE FILES (in git)
+├── review.src.css              # Main entry point with @import statements
+├── tokens/                     # Design system (colors, typography, spacing, effects)
+├── base/                       # Base styles (editable elements, animations)
+├── components/                 # UI components (buttons, editor, toolbar, sidebar, etc.)
+├── criticmarkup/               # Tracked changes styling
+└── responsive/                 # Mobile/tablet responsive styles
+
+_extensions/review/assets/      # GENERATED FILES (gitignored)
+├── review.css                  # Processed/minified output
+└── review.css.map              # Source map (dev builds only)
 ```
+
+**Important:**
+- Source files are in `src/css/` (tracked in git) - edit these files to make changes
+- Generated files are in `_extensions/review/assets/` (gitignored) - never edit directly
+- Run `npm run build:css:dev` to regenerate `review.css` after editing source files
 
 ## Finding Styles
 
@@ -64,19 +73,21 @@ Example: Adding a button variant
 ```
 
 ### Option 2: Create New Component File
-For new features, create a new file in `components/`:
+For new features, create a new file in `src/css/components/`:
 
 ```css
-/* components/new-feature.css */
+/* src/css/components/new-feature.css */
 .review-new-feature {
   /* Your styles here */
 }
 ```
 
-Then import it in `review.css`:
+Then import it in `src/css/review.src.css`:
 ```css
 @import './components/new-feature.css';
 ```
+
+After adding the import, run `npm run build:css:dev` to regenerate `review.css`.
 
 ## Design Tokens
 
@@ -123,7 +134,7 @@ Variables that change in dark mode:
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `review.css` | 62 | Main entry, documentation |
+| `review.src.css` | 57 | Main entry with @import statements |
 | `tokens/colors.css` | 56 | Color palette |
 | `tokens/typography.css` | 10 | Fonts |
 | `tokens/spacing.css` | 15 | Radius |
@@ -173,8 +184,8 @@ npm run build
 
 ### Output
 
-- **Development**: `dist/review.css` + `dist/review.css.map` (77 KB + 88 KB map)
-- **Production**: `dist/review.css` (57 KB minified)
+- **Development**: `review.css` + `review.css.map` (readable, with source maps)
+- **Production**: `review.css` (minified for deployment)
 
 ### What PostCSS Does
 
@@ -186,17 +197,17 @@ npm run build
 ### Workflow
 
 When developing:
-1. Edit CSS files in `_extensions/review/assets/`
+1. Edit CSS source files in `src/css/`
 2. Run `npm run build:css:dev` to rebuild with source maps
 3. Browser DevTools will show original file/line numbers
 4. Changes are ready to test immediately
 
 For deployment:
 1. Run `npm run build` (full build including CSS)
-2. Optimized CSS is automatically generated
-3. Deploy `_extensions/review/assets/dist/review.css`
+2. Optimized CSS is automatically generated in `_extensions/review/assets/`
+3. The generated `review.css` is ready for deployment
 
-See [POSTCSS_GUIDE.md](../../POSTCSS_GUIDE.md) for detailed documentation.
+See the build script at [`scripts/build-css.js`](../../scripts/build-css.js) for implementation details.
 
 ## Future Enhancements
 

@@ -94,9 +94,11 @@ async function applyEdit(options: {
   await locator.dblclick();
   await page.waitForSelector('.review-inline-editor-container', { state: 'visible' });
 
-  const textarea = page.locator('.milkdown .ProseMirror').first();
-  const existing = await textarea.inputValue();
-  await textarea.fill(`${existing} ${marker}`.trim());
+  const editor = page.locator('.milkdown .ProseMirror').first();
+  await editor.click();
+  await editor.focus();
+  await page.keyboard.press('End');
+  await page.keyboard.type(` ${marker}`);
 
   await page.locator('button:has-text("Save")').first().click();
   await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });

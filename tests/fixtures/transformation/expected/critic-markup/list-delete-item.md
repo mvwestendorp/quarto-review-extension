@@ -1,3 +1,3 @@
 - First item
-{--- Second item
---}- Third item
+{--- Second item--}
+- Third item

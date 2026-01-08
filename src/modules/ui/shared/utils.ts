@@ -168,6 +168,8 @@ export function normalizeBlockquoteParagraphs(content: string): string {
 export function normalizeListMarkers(content: string): string {
   const lines = content.split(/\r?\n/);
   let fenceDelimiter: string | null = null;
+  let listCounter = 1; // Track numeric counter for alphabetic markers
+  let lastIndent = -1; // Track indentation level to reset counter
 
   const normalized = lines.map((line) => {
     const trimmed = line.trim();
@@ -187,10 +189,48 @@ export function normalizeListMarkers(content: string): string {
       return line;
     }
 
-    return line.replace(
+    // Normalize bullet list markers (* and + to -)
+    let normalized = line.replace(
       /^(\s*)[*+]\s+/,
       (_match, indent: string) => `${indent}- `
     );
+
+    // Normalize alphabetic ordered list markers (a., b., c., etc. to 1., 2., 3., etc.)
+    // This is needed because Pandoc supports alphabetic markers but CommonMark/GFM only supports numeric
+    const alphaMatch = normalized.match(/^(\s*)([a-z])\.\s+/i);
+    if (alphaMatch) {
+      const indent = alphaMatch[1] ?? '';
+      const currentIndent = indent.length;
+
+      // Reset counter when indentation changes (different nesting level)
+      if (currentIndent !== lastIndent) {
+        listCounter = 1;
+        lastIndent = currentIndent;
+      }
+
+      // Replace alphabetic marker with numeric
+      normalized = normalized.replace(
+        /^(\s*)[a-z]\.\s+/i,
+        `${indent}${listCounter}. `
+      );
+      listCounter++;
+    } else {
+      // Check if this is a numeric list item at a different level
+      const numericMatch = normalized.match(/^(\s*)\d+\.\s+/);
+      if (numericMatch) {
+        const currentIndent = (numericMatch[1] ?? '').length;
+        if (currentIndent !== lastIndent) {
+          listCounter = 1;
+          lastIndent = currentIndent;
+        }
+      } else if (trimmed === '') {
+        // Blank lines reset the list counter
+        listCounter = 1;
+        lastIndent = -1;
+      }
+    }
+
+    return normalized;
   });
 
   return normalized.join('\n');
@@ -279,11 +319,18 @@ export function normalizeListIndentation(content: string): string {
   let fenceDelimiter: string | null = null;
   const normalized: string[] = [];
 
-  // Track indentation levels: map from detected indent to normalized indent
-  const indentMap = new Map<number, number>();
-  const indentLevels: number[] = []; // sorted array of detected indents
+  // Track list hierarchy: map from detected indent to {normalized indent, marker type}
+  interface ListLevel {
+    originalIndent: number;
+    normalizedIndent: number;
+    markerType: 'bullet' | 'ordered';
+    markerWidth: number; // Width of "- " or "1. " etc
+  }
 
-  // First pass: detect all indentation levels
+  const listLevels: ListLevel[] = [];
+  const indentMap = new Map<number, number>();
+
+  // First pass: detect all list levels and build hierarchy
   for (const line of lines) {
     const trimmed = line.trim();
     const fenceMatch = trimmed.match(/^(`{3,}|~{3,})/);
@@ -302,20 +349,68 @@ export function normalizeListIndentation(content: string): string {
       continue;
     }
 
-    // Check if this is a list item line (fixed regex with proper grouping)
+    // Check if this is a list item line
     const listMatch = line.match(/^(\s*)([-*+]|\d+\.)\s/);
     if (listMatch) {
-      const indent = listMatch[1]?.length ?? 0;
-      if (!indentLevels.includes(indent)) {
-        indentLevels.push(indent);
+      const originalIndent = listMatch[1]?.length ?? 0;
+      const marker = listMatch[2] ?? '';
+      const markerType = marker.match(/\d+\./) ? 'ordered' : 'bullet';
+
+      // Don't add duplicate indents
+      if (!listLevels.some((l) => l.originalIndent === originalIndent)) {
+        listLevels.push({
+          originalIndent,
+          normalizedIndent: 0, // Will be calculated next
+          markerType,
+          markerWidth: marker.length, // Width of "- " or "1. " (marker itself)
+        });
       }
     }
   }
 
-  // Sort indent levels and create mapping
-  indentLevels.sort((a, b) => a - b);
-  indentLevels.forEach((indent, index) => {
-    indentMap.set(indent, index * 2);
+  // Sort by original indentation
+  listLevels.sort((a, b) => a.originalIndent - b.originalIndent);
+
+  // Calculate normalized indentation using cumulative parent-based approach
+  // Standard: Use 2 spaces per nesting level
+  // Exception: Ordered parent adds 4 spaces (for Remark compatibility with "1. " markers)
+  // Reference: https://github.com/remarkjs/remark-parse#list-item-indentation
+  //
+  // This creates patterns like:
+  // - Bullet → Bullet: 0 → 2 → 4 → 6 (always +2)
+  // - Ordered → Ordered: 0 → 4 → 8 → 12 (always +4)
+  // - Ordered → Bullet: 0 → 2 (ordered parent adds 2 for bullets)
+  // - Bullet → Ordered: 0 → 2 → 8 (bullet adds 2, then ordered under bullet needs alignment)
+  listLevels.forEach((level, index) => {
+    if (index === 0) {
+      level.normalizedIndent = 0;
+    } else {
+      const parent = listLevels[index - 1];
+      if (parent) {
+        // Parent type and child type both determine increment
+        if (parent.markerType === 'ordered') {
+          if (level.markerType === 'ordered') {
+            // Ordered under ordered: add 4
+            level.normalizedIndent = parent.normalizedIndent + 4;
+          } else {
+            // Bullet under ordered: add 2
+            level.normalizedIndent = parent.normalizedIndent + 2;
+          }
+        } else {
+          // Bullet parent
+          if (level.markerType === 'ordered') {
+            // Ordered under bullet: add 6 for proper alignment
+            level.normalizedIndent = parent.normalizedIndent + 6;
+          } else {
+            // Bullet under bullet: add 2
+            level.normalizedIndent = parent.normalizedIndent + 2;
+          }
+        }
+      } else {
+        level.normalizedIndent = 0;
+      }
+    }
+    indentMap.set(level.originalIndent, level.normalizedIndent);
   });
 
   // Reset fence tracking for second pass
@@ -354,25 +449,32 @@ export function normalizeListIndentation(content: string): string {
       // Preserve blank lines as-is
       normalized.push(line);
     } else {
-      // Continuation line - check if it's indented content within a list
+      // Continuation line - find which list level it belongs to
       const leadingSpaceMatch = line.match(/^(\s+)/);
       const currentIndent = leadingSpaceMatch?.[1]?.length ?? 0;
 
-      if (currentIndent > 0 && indentLevels.length > 0) {
-        // Find the appropriate list indentation level this content belongs to
-        // Content should be indented 2 spaces from its parent list item
-        let targetListIndent = 0;
-        for (let i = indentLevels.length - 1; i >= 0; i--) {
-          const level = indentLevels[i];
-          if (level !== undefined && level < currentIndent) {
-            targetListIndent = indentMap.get(level) ?? 0;
+      if (currentIndent > 0 && listLevels.length > 0) {
+        // Find the deepest list level that this content is nested under
+        let parentLevel: ListLevel | null = null;
+        for (let i = listLevels.length - 1; i >= 0; i--) {
+          const level = listLevels[i];
+          if (level && level.originalIndent < currentIndent) {
+            parentLevel = level;
             break;
           }
         }
 
-        // Add 2 spaces for list item content continuation
-        const normalizedIndent = targetListIndent + 2;
-        normalized.push(' '.repeat(normalizedIndent) + trimmed);
+        if (parentLevel) {
+          // Continuation lines use simple rule: parent indent + 4 spaces
+          // This aligns with Pandoc standard for list continuation
+          // "- Text" at indent 0 → continuation at 4
+          // "1. Text" at indent 0 → continuation at 4
+          const continuationIndent = parentLevel.normalizedIndent + 4;
+          normalized.push(' '.repeat(continuationIndent) + trimmed);
+        } else {
+          // Not under any list, preserve as-is
+          normalized.push(line);
+        }
       } else {
         // Not list content, preserve as-is
         normalized.push(line);

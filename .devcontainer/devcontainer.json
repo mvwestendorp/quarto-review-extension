@@ -13,7 +13,8 @@
         "quarto.quarto",
         "ms-playwright.playwright",
         "vitest.explorer",
-        "streetsidesoftware.code-spell-checker"
+        "streetsidesoftware.code-spell-checker",
+        "Anthropic.claude-code"
       ],
       "settings": {
         "editor.defaultFormatter": "esbenp.prettier-vscode",

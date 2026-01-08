@@ -13,14 +13,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdebi-core \
     # Lua for testing Lua filter
     lua5.4 \
+    # xvfb for having playwright tests visually
+    xvfb \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
 
 # Install Playwright browsers and system dependencies as root
 RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
-    && npx -y playwright@1.56.1 install \
-    && npx -y playwright@1.56.1 install-deps \
+    && npx -y playwright@1.57.0 install \
+    && npx -y playwright@1.57.0 install-deps \
     && chown -R node:node "${PLAYWRIGHT_BROWSERS_PATH}"
 
 # Install Julia from official binaries

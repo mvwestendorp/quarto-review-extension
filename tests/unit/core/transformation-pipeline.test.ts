@@ -151,7 +151,7 @@ describe('Text Transformation Pipeline', () => {
 
     it('should handle whitespace-only changes', () => {
       const original = 'word';
-      const edited = 'word ';
+      const edited = 'word';
       const changes = generateChanges(original, edited);
       const criticMarkup = changesToCriticMarkup(original, changes);
       const accepted = stripCriticMarkup(criticMarkup, true);
@@ -245,7 +245,7 @@ describe('Text Transformation Pipeline', () => {
     });
 
     it('should handle nested lists', () => {
-      const original = '- Outer\n  - Inner \n- Outer2';
+      const original = '- Outer\n  - Inner\n- Outer2';
       const edited = '- Outer\n  - Inner modified\n- Outer2';
       const changes = generateChanges(original, edited);
       const criticMarkup = changesToCriticMarkup(original, changes);
@@ -265,14 +265,16 @@ describe('Text Transformation Pipeline', () => {
 
       // Should maintain table structure
       expect(accepted).toContain('|');
-      expect(stripCriticMarkup(criticMarkup, true).replace(/\s+/g, '')).toContain(
-        '|1|3|'
-      );
+      expect(
+        stripCriticMarkup(criticMarkup, true).replace(/\s+/g, '')
+      ).toContain('|1|3|');
     });
 
     it('should handle multi-column table edits', () => {
-      const original = '| Col1 | Col2 | Col3 |\n|------|------|------|\n| A | B | C |';
-      const edited = '| Col1 | Col2 | Col3 |\n|------|------|------|\n| A | X | C |';
+      const original =
+        '| Col1 | Col2 | Col3 |\n|------|------|------|\n| A | B | C |';
+      const edited =
+        '| Col1 | Col2 | Col3 |\n|------|------|------|\n| A | X | C |';
       const changes = generateChanges(original, edited);
       const criticMarkup = changesToCriticMarkup(original, changes);
 

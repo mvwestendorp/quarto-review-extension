@@ -8,6 +8,126 @@ local markdown_conversion = require('markdown-conversion')
 
 local M = {}
 
+-- Module-level state for two-pass nested list detection
+-- Use a set of list "signatures" instead of element references
+local nested_list_signatures = {}
+local list_counter = 0  -- Global counter for unique IDs
+
+-- Module-level state for tracking elements inside footnotes (Notes)
+-- Para elements inside Notes should not be wrapped
+local elements_in_notes = {}
+
+-- Helper to create a unique signature for a list
+local function get_list_signature(block)
+  -- Create a simple signature based on list type and first item content
+  -- This is a heuristic - in rare cases it might have false positives/negatives
+  local sig = block.t
+  if block.content and #block.content > 0 and block.content[1] and #block.content[1] > 0 then
+    local first_item_first_block = block.content[1][1]
+    if first_item_first_block then
+      sig = sig .. "|" .. tostring(first_item_first_block.t)
+      if first_item_first_block.content then
+        sig = sig .. "|" .. pandoc.utils.stringify(first_item_first_block.content):sub(1, 50)
+      end
+    end
+  end
+  return sig
+end
+
+-- Helper to create a unique signature for an element (Para, etc.)
+local function get_element_signature(block)
+  local sig = block.t
+  if block.content then
+    sig = sig .. "|" .. pandoc.utils.stringify(block.content):sub(1, 50)
+  end
+  return sig
+end
+
+-- Helper function to recursively identify nested lists
+local function identify_nested_in_blocks(blocks, depth, config)
+  for _, block in ipairs(blocks) do
+    if block.t == 'BulletList' or block.t == 'OrderedList' then
+      -- If we're already inside a list (depth > 0), mark as nested
+      if depth > 0 then
+        local sig = get_list_signature(block)
+        nested_list_signatures[sig] = true
+        if config and config.debug then
+          print(string.format("DEBUG: Marking nested %s at depth %d (sig=%s)", block.t, depth, sig))
+        end
+      else
+        if config and config.debug then
+          print(string.format("DEBUG: Found top-level %s", block.t))
+        end
+      end
+
+      -- Recursively process list items
+      for _, item in ipairs(block.content) do
+        identify_nested_in_blocks(item, depth + 1, config)
+      end
+    elseif block.content and type(block.content) == 'table' then
+      -- For other block elements that contain blocks (BlockQuote, Div, etc.)
+      identify_nested_in_blocks(block.content, depth, config)
+    end
+  end
+end
+
+-- Helper function to identify and mark elements inside Notes (footnotes)
+local function identify_elements_in_notes(blocks, config)
+  for _, block in ipairs(blocks) do
+    if block.t == 'Note' then
+      -- Mark all blocks inside this Note
+      if block.content and type(block.content) == 'table' then
+        for _, inner_block in ipairs(block.content) do
+          if inner_block.t == 'Para' or inner_block.t == 'Plain' then
+            local sig = get_element_signature(inner_block)
+            elements_in_notes[sig] = true
+            if config and config.debug then
+              print(string.format("DEBUG: Marking %s inside Note (sig=%s)", inner_block.t, sig))
+            end
+          end
+        end
+      end
+    elseif block.content and type(block.content) == 'table' then
+      -- Recursively process other block elements
+      identify_elements_in_notes(block.content, config)
+    end
+  end
+end
+
+-- Create Pass 1 filter: Identify nested lists and elements inside Notes
+-- This must be called with config to enable debug output
+function M.create_identify_filter(config)
+  return {
+    Pandoc = function(doc)
+      -- Reset state at the start of each document
+      nested_list_signatures = {}
+      elements_in_notes = {}
+      list_counter = 0
+
+      if config and config.debug then
+        print("DEBUG: Pass 1 - Identifying nested lists and elements in Notes")
+      end
+
+      -- Process the entire document body
+      identify_nested_in_blocks(doc.blocks, 0, config)
+      identify_elements_in_notes(doc.blocks, config)
+
+      if config and config.debug then
+        local nested_count = 0
+        for _ in pairs(nested_list_signatures) do nested_count = nested_count + 1 end
+        local note_count = 0
+        for _ in pairs(elements_in_notes) do note_count = note_count + 1 end
+        print(string.format("DEBUG: Pass 1 complete - marked %d nested lists, %d elements in Notes", nested_count, note_count))
+      end
+
+      return doc
+    end
+  }
+end
+
+-- Default filter for backwards compatibility (without debug)
+M.identify_nested_lists = M.create_identify_filter(nil)
+
 -- Wrap element in div with review attributes
 function M.make_editable(elem, elem_type, level, config, context)
   local id = string_utils.generate_id(
@@ -24,39 +144,10 @@ function M.make_editable(elem, elem_type, level, config, context)
   local has_clone = pandoc.utils and pandoc.utils.clone
   local markdown_elem = has_clone and pandoc.utils.clone(elem) or string_utils.deepcopy(elem)
 
-  -- Recursively strip review-editable divs from the markdown clone
-  -- Skip this for leaf elements (CodeBlock, Str, etc.) that can't contain nested divs
-  local clean_elem = markdown_elem
-
-  if elem.content ~= nil then
-    local function strip_review_divs(el)
-      local found_nested = false
-      local result = el:walk {
-        Div = function(div)
-          if div.classes:includes("review-editable") then
-            found_nested = true
-            if config.debug then
-              print(string.format("DEBUG: Found nested review-editable div in %s, stripping it", elem_type))
-            end
-            -- Recursively strip review divs inside this div's content
-            local inner = pandoc.Div(div.content)
-            local cleaned = strip_review_divs(inner)
-            -- Return the cleaned content blocks without wrapping div
-            return pandoc.Blocks(cleaned.content)
-          end
-        end
-      }
-      if not found_nested and config.debug then
-        print(string.format("DEBUG: No nested review-editable divs found in %s", elem_type))
-      end
-      return result
-    end
-
-    clean_elem = strip_review_divs(markdown_elem)
-  end
-
-  -- Convert clean element to markdown
-  local markdown = markdown_conversion.element_to_markdown(clean_elem)
+  -- Convert element to markdown
+  -- Note: With the two-pass filter approach, nested lists are not wrapped,
+  -- so we no longer need to strip review-editable divs from the markdown clone
+  local markdown = markdown_conversion.element_to_markdown(markdown_elem)
 
   local attrs = {
     ['data-review-id'] = id,
@@ -104,6 +195,16 @@ function M.create_filter_functions(config, context)
 
   filters.Para = function(elem)
     if not config.enabled or not config.editable_elements.Para then
+      return elem
+    end
+
+    -- Skip Para elements that are inside Notes (footnotes)
+    -- These were marked in Pass 1
+    local sig = get_element_signature(elem)
+    if elements_in_notes[sig] then
+      if config.debug then
+        print(string.format("DEBUG: Skipping Para inside Note (sig=%s)", sig))
+      end
       return elem
     end
 
@@ -161,31 +262,21 @@ function M.create_filter_functions(config, context)
       return elem
     end
 
-    -- Initialize list nesting depth counter
-    if not context.list_depth then
-      context.list_depth = 0
-    end
-
-    -- Only wrap top-level lists, skip nested lists (that are inside list items)
-    if context.list_depth > 0 then
+    -- Skip nested lists identified in Pass 1 by checking signature
+    local sig = get_list_signature(elem)
+    if nested_list_signatures[sig] then
       if config.debug then
-        print("DEBUG: Skipping nested BulletList (depth=" .. context.list_depth .. ")")
+        print(string.format("DEBUG: Skipping nested BulletList (sig=%s)", sig))
       end
       return elem
     end
 
-    -- Mark that we're processing a list and increment depth
-    context.list_depth = context.list_depth + 1
+    -- Wrap only top-level lists
     if config.debug then
-      print("DEBUG: Wrapping BulletList (depth=" .. context.list_depth .. ")")
+      print(string.format("DEBUG: Wrapping top-level BulletList (sig=%s)", sig))
     end
 
-    local result = M.make_editable(elem, 'BulletList', nil, config, context)
-
-    -- Reset depth after wrapping
-    context.list_depth = context.list_depth - 1
-
-    return result
+    return M.make_editable(elem, 'BulletList', nil, config, context)
   end
 
   filters.OrderedList = function(elem)
@@ -193,31 +284,21 @@ function M.create_filter_functions(config, context)
       return elem
     end
 
-    -- Initialize list nesting depth counter
-    if not context.list_depth then
-      context.list_depth = 0
-    end
-
-    -- Only wrap top-level lists, skip nested lists (that are inside list items)
-    if context.list_depth > 0 then
+    -- Skip nested lists identified in Pass 1 by checking signature
+    local sig = get_list_signature(elem)
+    if nested_list_signatures[sig] then
       if config.debug then
-        print("DEBUG: Skipping nested OrderedList (depth=" .. context.list_depth .. ")")
+        print(string.format("DEBUG: Skipping nested OrderedList (sig=%s)", sig))
       end
       return elem
     end
 
-    -- Mark that we're processing a list and increment depth
-    context.list_depth = context.list_depth + 1
+    -- Wrap only top-level lists
     if config.debug then
-      print("DEBUG: Wrapping OrderedList (depth=" .. context.list_depth .. ")")
+      print(string.format("DEBUG: Wrapping top-level OrderedList (sig=%s)", sig))
     end
 
-    local result = M.make_editable(elem, 'OrderedList', nil, config, context)
-
-    -- Reset depth after wrapping
-    context.list_depth = context.list_depth - 1
-
-    return result
+    return M.make_editable(elem, 'OrderedList', nil, config, context)
   end
 
   filters.BlockQuote = function(elem)

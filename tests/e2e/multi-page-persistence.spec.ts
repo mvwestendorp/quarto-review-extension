@@ -44,13 +44,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     const firstPara = paras.first();
     const firstOriginalText = await firstPara.textContent();
 
-    await firstPara.dblClick();
+    await firstPara.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const textarea = page.locator('.milkdown .ProseMirror').first();
-    const firstContent = await textarea.inputValue();
-    const firstEditedContent = firstContent + ' [PAGE1_EDIT]';
-    await textarea.fill(firstEditedContent);
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [PAGE1_EDIT]');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -64,13 +65,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     const secondPara = paras.nth(1);
     const secondOriginalText = await secondPara.textContent();
 
-    await secondPara.dblClick();
+    await secondPara.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const textarea2 = page.locator('.milkdown .ProseMirror').first();
-    const secondContent = await textarea2.inputValue();
-    const secondEditedContent = secondContent + ' [PAGE2_EDIT]';
-    await textarea2.fill(secondEditedContent);
+    const editor2 = page.locator('.milkdown .ProseMirror').first();
+    await editor2.click();
+    await editor2.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [PAGE2_EDIT]');
 
     const saveBtn2 = page.locator('button:has-text("Save")').first();
     await saveBtn2.click();
@@ -104,13 +106,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     const originalText = await para.textContent();
 
     // Make edit
-    await para.dblClick();
+    await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const textarea = page.locator('.milkdown .ProseMirror').first();
-    const content = await textarea.inputValue();
-    const editedContent = content + ' [RELOAD_TEST]';
-    await textarea.fill(editedContent);
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [RELOAD_TEST]');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -150,12 +153,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     const para = page.locator('[data-review-type="Para"]').first();
 
     // Edit 1: Make actual change
-    await para.dblClick();
+    await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const textarea = page.locator('.milkdown .ProseMirror').first();
-    const content = await textarea.inputValue();
-    await textarea.fill(content + ' [REAL_CHANGE]');
+    const editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [REAL_CHANGE]');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -168,7 +173,7 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     // Edit 2: Open editor and close without making changes
     const originalEditedText = await para.textContent();
 
-    await para.dblClick();
+    await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
     // Don't make changes - just close
@@ -199,12 +204,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     const para = page.locator('[data-review-type="Para"]').first();
 
     // Make actual edit
-    await para.dblClick();
+    await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    let textarea = page.locator('.milkdown .ProseMirror').first();
-    let content = await textarea.inputValue();
-    await textarea.fill(content + ' [METADATA_TEST]');
+    let editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [METADATA_TEST]');
 
     let saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -215,11 +222,8 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
     expect(editedText).toContain('[METADATA_TEST]');
 
     // Open again and close without changes
-    await para.dblClick();
+    await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
-
-    textarea = page.locator('.milkdown .ProseMirror').first();
-    const reopenedContent = await textarea.inputValue();
 
     // Close without changes
     const cancelBtn = page.locator('button:has-text("Cancel")').first();
@@ -251,12 +255,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
 
     // Edit first paragraph
     const firstPara = paras.first();
-    await firstPara.dblClick();
+    await firstPara.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    let textarea = page.locator('.milkdown .ProseMirror').first();
-    let content = await textarea.inputValue();
-    await textarea.fill(content + ' [RAPID_1]');
+    let editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [RAPID_1]');
 
     let saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -264,12 +270,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
 
     // Rapidly edit second paragraph
     const secondPara = paras.nth(1);
-    await secondPara.dblClick();
+    await secondPara.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    textarea = page.locator('.milkdown .ProseMirror').first();
-    content = await textarea.inputValue();
-    await textarea.fill(content + ' [RAPID_2]');
+    editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [RAPID_2]');
 
     saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -306,12 +314,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
 
     // Edit first paragraph
     const firstPara = paras.first();
-    await firstPara.dblClick();
+    await firstPara.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    let textarea = page.locator('.milkdown .ProseMirror').first();
-    let content = await textarea.inputValue();
-    await textarea.fill(content + ' [EXPORT_1]');
+    let editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [EXPORT_1]');
 
     let saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -319,12 +329,14 @@ test.describe('Multi-Page Persistence - Cross-Page Editing', () => {
 
     // Edit second paragraph
     const secondPara = paras.nth(1);
-    await secondPara.dblClick();
+    await secondPara.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    textarea = page.locator('.milkdown .ProseMirror').first();
-    content = await textarea.inputValue();
-    await textarea.fill(content + ' [EXPORT_2]');
+    editor = page.locator('.milkdown .ProseMirror').first();
+    await editor.click();
+    await editor.focus();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' [EXPORT_2]');
 
     saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -393,14 +405,14 @@ test.describe('Multi-Page Persistence - Restoration Verification', () => {
 
     for (const target of editTargets) {
       const para = paras.nth(target.index);
-      await para.dblClick();
+      await para.dblclick();
       await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-      const textarea = page.locator(
-        '.milkdown .ProseMirror'
-      ).first();
-      const content = await textarea.inputValue();
-      await textarea.fill(content + ' ' + target.marker);
+      const editor = page.locator('.milkdown .ProseMirror').first();
+      await editor.click();
+      await editor.focus();
+      await page.keyboard.press('End');
+      await page.keyboard.type(' ' + target.marker);
 
       const saveBtn = page.locator('button:has-text("Save")').first();
       await saveBtn.click();

@@ -276,8 +276,8 @@ export class EditorManager {
 
     inlineEditor
       .querySelector('[data-action="save"]')
-      ?.addEventListener('click', () => {
-        this.saveEditor();
+      ?.addEventListener('click', async () => {
+        await this.saveEditor();
       });
 
     // Initialize Milkdown in the inline editor
@@ -292,8 +292,9 @@ export class EditorManager {
 
   /**
    * Close the current editor
+   * @param restoreOriginalHtml - If true, restore the original HTML (for cancel). If false, keep current state (for save).
    */
-  public closeEditor(): void {
+  public closeEditor(restoreOriginalHtml = true): void {
     const editorState = this.stateStore.getEditorState();
 
     // Save editor history before destroying the editor
@@ -333,7 +334,10 @@ export class EditorManager {
           element.classList.remove('review-editable-editing');
           const cachedHtml = element.getAttribute('data-review-original-html');
           if (cachedHtml !== null) {
-            element.innerHTML = cachedHtml;
+            // Only restore original HTML if we're canceling, not saving
+            if (restoreOriginalHtml) {
+              element.innerHTML = cachedHtml;
+            }
             element.removeAttribute('data-review-original-html');
           }
         }
@@ -362,18 +366,18 @@ export class EditorManager {
   public async saveEditor(): Promise<void> {
     const editorState = this.stateStore.getEditorState();
 
-    if (!editorState.milkdownEditor || !editorState.currentElementId) {
-      return;
-    }
-
-    const elementId = editorState.currentElementId;
-    const element = this.config.changes.getElementById(elementId);
-    if (!element) {
-      logger.error('Element not found for saving:', elementId);
-      return;
-    }
-
     try {
+      if (!editorState.milkdownEditor || !editorState.currentElementId) {
+        logger.warn('Cannot save: editor not fully initialized');
+        return;
+      }
+
+      const elementId = editorState.currentElementId;
+      const element = this.config.changes.getElementById(elementId);
+      if (!element) {
+        logger.error('Element not found for saving:', elementId);
+        return;
+      }
       // Get formatted content from Milkdown editor
       let newContent = editorState.currentEditorContent;
 
@@ -391,23 +395,40 @@ export class EditorManager {
         }
       }
 
-      // Segment the content and replace element
+      // Segment the content and replace element in the changes module
       const segments = this.callbacks.segmentContentIntoElements(
         newContent,
         element.metadata
       );
-      const { elementIds } = this.callbacks.replaceElementWithSegments(
-        elementId,
-        segments
-      );
-      this.callbacks.ensureSegmentDom(elementIds, segments, []);
+      this.callbacks.replaceElementWithSegments(elementId, segments);
 
       this.callbacks.onEditorSaved();
-      this.closeEditor();
-      this.callbacks.refresh();
     } catch (error) {
       logger.error('Failed to save editor content:', error);
       this.config.notificationService.error('Failed to save changes');
+    } finally {
+      // ALWAYS clean up the editor UI, even if save failed
+      if (editorState.currentElementId) {
+        const elem = document.querySelector(
+          `[data-review-id="${editorState.currentElementId}"]`
+        ) as HTMLElement;
+        if (elem) {
+          elem.classList.remove('review-editable-editing');
+          // Restore original HTML structure (removes editor container)
+          const cachedHtml = elem.getAttribute('data-review-original-html');
+          if (cachedHtml !== null) {
+            elem.innerHTML = cachedHtml;
+            elem.removeAttribute('data-review-original-html');
+          }
+        }
+      }
+
+      // Refresh to update display with the saved content from changes module
+      // The refresh() method reads from the changes module state and updates the DOM
+      // No need for ensureSegmentDom - that's only for creating/reordering elements
+      this.callbacks.refresh();
+      // Close editor state (editor DOM already cleaned up above)
+      this.closeEditor(false);
     }
   }
 

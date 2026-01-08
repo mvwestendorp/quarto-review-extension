@@ -3,74 +3,13 @@
 
 - figure captions edits make figure have scroll boxes, which is not good UI
 
-- Output from code should not always be editable: [1] "Some code that is not editable." is a non editable codeblock
+- [ ] Remove old .qmd files
+- [ ] Use example/ project for github demo
 
-For lists, the milkdown editor has the following below, where html is showing in the editor:
-
-First item
-
-Second item
-
-Deeply nested item" data-review-type="BulletList" class="review-editable" data-review-id="workspaces-quarto-review-extension-example-output-01-text-and-formatting.heading-level-1.lists.unordered-lists.bulletlist-6" data-review-origin="source"}
-
-For non-list paragraphs it can also happen that the html tags are shown e.g. </ins>This text has a CSS class wow for [This text has a CSS class]{.highlight} wow
-
-For another paragrpah the editor shows:
-
-First item
-
-Second item
-
-a.  Sub-item A
-b.  Sub-item B3.  Third item
-
-Item with code: use function() here
-
-But the third item is on a separate line. So even without making a change there is a difference after saving.
-
-Adding test to the list gives:
-
-✏️Edited
-Just now
-Original Markdown
-
--   Superscript: E=mc^2^ using `text^2^`
--   Subscript: H~2~O using `text~2~`
--   Combined: x^2^ + y^2^ = z^2^
-
-Updated Markdown
-
-- Superscript: E=mc^2^ using `text^2^`
-
-- Subscript: H~~2~~O using `text~2~`
-
-- Combined: x^2^ + y^2^ = z^2^
-
-- Test
-
-Updated HTML Source (with diff tags)
-
--   Superscript: E=mc^2^ using `text^2^<ins class="review-addition" data-critic-type="addition">
-</ins>`
--   Subscript<ins class="review-addition" data-critic-type="addition">~</ins>: <ins class="review-addition" data-critic-type="addition">~</ins>H~2~O using `text~<ins class="review-addition" data-critic-type="addition">
-</ins>2~`
--   Combined: x^2^ + y^2^ <ins class="review-addition" data-critic-type="addition">
-
-- Test</ins>= z^2^
-
-Rendered HTML Preview (from DOM)
-
-    Superscript: E=mc^2^ using text^2^<ins class="review-addition" data-critic-type="addition"> </ins>
-
-    Subscript: H2O using text~<ins class="review-addition" data-critic-type="addition"> </ins>2~
-
-    Combined: x^2^ + y^2^
-
-    Test= z^2^
-
-
-
-- Adding a header shows the sharp sign: ## Greatest for adding h2 title greatest
+- Filename for export is current file, cleaner is current project name and date
+- feature: add option for adding criticmarkup extension to exported Quarto project
+- bug: criticmarkup for list requires a space -- and the list: {-- - list} to show up correctly in critic-markup Quarto extension
+- styling: comments should be on the same vertical height as the segment they belong to
 
 # TODO Backlog
 

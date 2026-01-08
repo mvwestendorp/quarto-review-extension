@@ -1425,6 +1425,7 @@ export class QmdExportService {
     primaryFilename: string,
     format: ExportFormat
   ): string {
+    // TODO Prefer the project name if applicable
     const baseName = primaryFilename.replace(/\.qmd$/i, '') || 'export';
     const slug = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
     const timestamp = new Date()

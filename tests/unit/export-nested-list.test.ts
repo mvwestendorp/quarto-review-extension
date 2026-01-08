@@ -36,8 +36,10 @@ describe('Export Nested List Issue', () => {
     console.log(criticMarkup);
 
     // The critic markup should show the change inline
-    expect(criticMarkup).toContain('{--Nested item 1--}');
-    expect(criticMarkup).toContain('{++Test++}');
+    // Can be either deletion+addition OR substitution format
+    const hasDeletionAddition = criticMarkup.includes('{--Nested item 1--}') && criticMarkup.includes('{++Test++}');
+    const hasSubstitution = criticMarkup.includes('{~~Nested item 1~>Test~~}');
+    expect(hasDeletionAddition || hasSubstitution).toBe(true);
 
     // Should NOT have duplicate "Nested item 1" appearing later
     const nestedItem1Count = (criticMarkup.match(/Nested item 1/g) || []).length;

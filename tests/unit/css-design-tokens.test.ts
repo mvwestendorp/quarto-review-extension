@@ -11,9 +11,9 @@ import { resolve } from 'path';
 
 const loadCSSContent = () => {
   const cssFiles = [
-    '_extensions/review/assets/tokens/colors.css',
-    '_extensions/review/assets/tokens/effects.css',
-    '_extensions/review/assets/tokens/spacing.css',
+    'src/css/tokens/colors.css',
+    'src/css/tokens/effects.css',
+    'src/css/tokens/spacing.css',
   ];
 
   const style = document.createElement('style');
