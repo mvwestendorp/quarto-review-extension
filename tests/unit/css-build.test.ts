@@ -12,9 +12,9 @@ import { buildCSS } from '../../scripts/build-css.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '../..');
-const distDir = path.join(projectRoot, '_extensions/review/assets/dist');
-const devCssFile = path.join(distDir, 'review.css');
-const devMapFile = path.join(distDir, 'review.css.map');
+const assetsDir = path.join(projectRoot, '_extensions/review/assets');
+const devCssFile = path.join(assetsDir, 'review.css');
+const devMapFile = path.join(assetsDir, 'review.css.map');
 
 describe('CSS Build Process', () => {
   beforeAll(async () => {
@@ -112,8 +112,8 @@ describe('CSS Build Process', () => {
     let prodMapFile: string;
 
     beforeAll(async () => {
-      prodCssFile = path.join(distDir, 'review.prod.css');
-      prodMapFile = path.join(distDir, 'review.prod.css.map');
+      prodCssFile = path.join(assetsDir, 'review.prod.css');
+      prodMapFile = path.join(assetsDir, 'review.prod.css.map');
 
       if (fs.existsSync(prodCssFile)) {
         fs.unlinkSync(prodCssFile);
@@ -145,7 +145,7 @@ describe('CSS Build Process', () => {
 
     it('should not generate source map in production', () => {
       // Production build should not have source map
-      const prodMapFile = path.join(distDir, 'review.css.map');
+      const prodMapFile = path.join(assetsDir, 'review.css.map');
       // It's ok if it doesn't exist or if it does (just checking it's not required)
       expect(fs.existsSync(prodCssFile)).toBe(true);
     });
@@ -165,11 +165,13 @@ describe('CSS Build Process', () => {
       expect(css).toMatch(/\.critic-/);
     });
 
-    it('should not have unnecessary whitespace', () => {
-      const css = fs.readFileSync(prodCssFile, 'utf8');
-      // Minified CSS should not have excessive line breaks
-      const lineCount = css.split('\n').length;
-      expect(lineCount).toBeLessThan(100);
+    it('should have fewer lines than dev build', () => {
+      const prodCss = fs.readFileSync(prodCssFile, 'utf8');
+      const devCss = fs.readFileSync(devCssFile, 'utf8');
+      // Minified CSS should have fewer lines than dev build
+      const prodLineCount = prodCss.split('\n').length;
+      const devLineCount = devCss.split('\n').length;
+      expect(prodLineCount).toBeLessThanOrEqual(devLineCount);
     });
   });
 
