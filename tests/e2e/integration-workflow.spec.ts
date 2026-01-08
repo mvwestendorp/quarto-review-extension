@@ -17,12 +17,13 @@ test.describe('Document Editing Workflow Integration', () => {
   });
 
   test('Complete document edit workflow: open editor → edit → save → verify', async ({ page }) => {
-    // Find first editable paragraph
-    const para = page.locator('[data-review-type="Para"]').first();
-    const originalText = await para.textContent();
+    // Find first editable paragraph wrapper
+    const paraWrapper = page.locator('[data-review-type="Para"]').first();
+    const paraContent = paraWrapper.locator('.review-editable-content').first();
+    const originalText = await paraContent.textContent();
 
     // Double-click to open inline editor
-    await para.dblclick();
+    await paraWrapper.dblclick();
     await page.waitForSelector('.review-inline-editor-container', {
       timeout: 3000,
     });
@@ -42,8 +43,8 @@ test.describe('Document Editing Workflow Integration', () => {
       timeout: 3000,
     });
 
-    // Verify changes persisted in DOM
-    const updatedText = await para.textContent();
+    // Verify changes persisted in editable content (not the button overlay)
+    const updatedText = await paraContent.textContent();
     expect(updatedText).toContain('[INTEGRATION TEST]');
     expect(updatedText).not.toBe(originalText);
   });
@@ -70,9 +71,10 @@ test.describe('Document Editing Workflow Integration', () => {
       });
     }
 
-    // Verify all edits persisted
+    // Verify all edits persisted (check editable content, not button overlay)
     for (let i = 0; i < count; i++) {
-      const text = await paras.nth(i).textContent();
+      const content = paras.nth(i).locator('.review-editable-content').first();
+      const text = await content.textContent();
       expect(text).toContain(`[EDIT-${i + 1}]`);
     }
   });
@@ -122,11 +124,12 @@ test.describe('Document Editing Workflow Integration', () => {
   });
 
   test('Cancel button discards unsaved changes', async ({ page }) => {
-    const para = page.locator('[data-review-type="Para"]').first();
-    const originalText = await para.textContent();
+    const paraWrapper = page.locator('[data-review-type="Para"]').first();
+    const paraContent = paraWrapper.locator('.review-editable-content').first();
+    const originalText = await paraContent.textContent();
 
     // Open editor and make changes
-    await para.dblclick();
+    await paraWrapper.dblclick();
     await page.waitForSelector('.review-inline-editor-container');
 
     const editor = page.locator('.milkdown .ProseMirror').first();
@@ -142,7 +145,7 @@ test.describe('Document Editing Workflow Integration', () => {
     });
 
     // Verify changes were NOT applied
-    const finalText = await para.textContent();
+    const finalText = await paraContent.textContent();
     expect(finalText).toBe(originalText);
   });
 });
@@ -209,7 +212,8 @@ test.describe('Change Tracking and Display Integration', () => {
     });
 
     // Verify both edits are present
-    const finalText = await para.textContent();
+    const paraContent = para.locator('.review-editable-content').first();
+    const finalText = await paraContent.textContent();
     expect(finalText).toContain('FIRST');
     expect(finalText).toContain('SECOND');
   });
@@ -222,11 +226,12 @@ test.describe('Different Element Types Integration', () => {
   });
 
   test('Can edit header element through UI', async ({ page }) => {
-    const header = page.locator('h2').first();
-    const originalText = await header.textContent();
+    const headerWrapper = page.locator('[data-review-type="Header"]').first();
+    const headerContent = headerWrapper.locator('.review-editable-content').first();
+    const originalText = await headerContent.textContent();
 
     // Open and edit header
-    await header.dblclick();
+    await headerWrapper.dblclick();
     await page.waitForSelector('.review-inline-editor-container');
 
     const editor = page.locator('.milkdown .ProseMirror').first();
@@ -242,7 +247,7 @@ test.describe('Different Element Types Integration', () => {
     });
 
     // Verify header changed
-    const newText = await header.textContent();
+    const newText = await headerContent.textContent();
     expect(newText).toContain('[EDITED]');
     expect(newText).not.toBe(originalText);
   });
@@ -252,11 +257,12 @@ test.describe('Different Element Types Integration', () => {
     const count = await lists.count();
 
     if (count > 0) {
-      const list = lists.first();
-      const originalText = await list.textContent();
+      const listWrapper = lists.first();
+      const listContent = listWrapper.locator('.review-editable-content').first();
+      const originalText = await listContent.textContent();
 
       // Open and edit list
-      await list.dblclick();
+      await listWrapper.dblclick();
       await page.waitForSelector('.review-inline-editor-container');
 
       const editor = page.locator('.milkdown .ProseMirror').first();
@@ -272,7 +278,7 @@ test.describe('Different Element Types Integration', () => {
       });
 
       // Verify list changed
-      const newText = await list.textContent();
+      const newText = await listContent.textContent();
       expect(newText).toContain('New list item');
       expect(newText).not.toBe(originalText);
     }
@@ -384,7 +390,8 @@ test.describe('Data Persistence Across Navigation', () => {
     });
 
     // Get the edited text
-    const editedText = await para.textContent();
+    const paraContent = para.locator('.review-editable-content').first();
+    const editedText = await paraContent.textContent();
     expect(editedText).toContain('PERSISTENCE_TEST');
 
     // Reload the page to verify edits persist
@@ -392,7 +399,8 @@ test.describe('Data Persistence Across Navigation', () => {
     await page.waitForSelector('[data-review-id]');
 
     const reloadedPara = page.locator('[data-review-type="Para"]').first();
-    const reloadedText = await reloadedPara.textContent();
+    const reloadedContent = reloadedPara.locator('.review-editable-content').first();
+    const reloadedText = await reloadedContent.textContent();
 
     // Edit should still be there (if using localStorage/session storage)
     expect(reloadedText).toContain('PERSISTENCE_TEST');
