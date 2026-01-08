@@ -7,45 +7,70 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '../../');
 
-const EXPECTED_FILES = [
-  'document.qmd',
-  'debug-example.qmd',
-  'doc-translation.qmd',
-  '_quarto.yml',
+/**
+ * Test configurations for different export formats
+ */
+const EXPORT_CONFIGS = [
+  {
+    format: 'clean',
+    description: 'Clean export parity',
+    testDescription: 'exported files match source when no edits have occurred',
+    url: '/01-text-and-formatting.html',
+    selector: 'button[data-action="export-qmd-clean"]',
+    expectedFiles: [
+      '01-text-and-formatting.qmd',
+      '04-code-execution.qmd',
+      '_quarto.yml',
+    ] as const,
+  },
+  {
+    format: 'critic',
+    description: 'Critic export parity',
+    testDescription: 'exported critic bundle matches source when there are no edits',
+    url: '/example',
+    selector: 'button:has-text("Export with CriticMarkup")',
+    expectedFiles: [
+      'document.qmd',
+      'debug-example.qmd',
+      'doc-translation.qmd',
+      '_quarto.yml',
+    ] as const,
+  },
 ] as const;
 
-test.describe('Critic export parity', () => {
-  test('exported critic bundle matches source when there are no edits', async ({
-    page,
-    browserName,
-  }) => {
-    test.skip(
-      browserName === 'webkit',
-      'Downloads are unreliable in WebKit within CI sandbox'
-    );
-
-    await page.goto('/example');
-    await waitForReviewReady(page);
-
-    const archiveBuffer = await captureDownloadBuffer(
-      page,
-      'button:has-text("Export with CriticMarkup")'
-    );
-    const archiveEntries = parseStoredZip(archiveBuffer);
-    const decoder = new TextDecoder();
-
-    for (const filename of EXPECTED_FILES) {
-      const exportedEntry = archiveEntries.get(filename);
-      expect(exportedEntry, `Export missing ${filename}`).toBeDefined();
-      const exportedText = normalizeNewlines(decoder.decode(exportedEntry));
-      const sourcePath = path.resolve(repoRoot, 'example', filename);
-      const sourceText = normalizeNewlines(
-        await fs.readFile(sourcePath, 'utf8')
+// Run tests for each export format
+for (const config of EXPORT_CONFIGS) {
+  test.describe(config.description, () => {
+    test(config.testDescription, async ({ page, browserName }) => {
+      test.skip(
+        browserName === 'webkit',
+        'Downloads are unreliable in WebKit within CI sandbox'
       );
-      expect(exportedText).toBe(sourceText);
-    }
+
+      await page.goto(config.url);
+      await waitForReviewReady(page);
+
+      const archiveBuffer = await captureDownloadBuffer(page, config.selector);
+      const archiveEntries = parseStoredZip(archiveBuffer);
+      const decoder = new TextDecoder();
+
+      for (const filename of config.expectedFiles) {
+        const exportedEntry = archiveEntries.get(filename);
+        expect(exportedEntry, `Export missing ${filename}`).toBeDefined();
+        const exportedText = normalizeNewlines(decoder.decode(exportedEntry));
+        const sourcePath = path.resolve(repoRoot, 'example', filename);
+        const sourceText = normalizeNewlines(
+          await fs.readFile(sourcePath, 'utf8')
+        );
+        expect(exportedText).toBe(sourceText);
+      }
+    });
   });
-});
+}
+
+/**
+ * Helper Functions
+ */
 
 async function waitForReviewReady(page: Page): Promise<void> {
   await page.waitForSelector('[data-review-id]', { timeout: 10_000 });

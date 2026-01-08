@@ -17,9 +17,6 @@
 import fs from 'fs';
 import path from 'path';
 import postcss from 'postcss';
-import postcssImport from 'postcss-import';
-import autoprefixer from 'autoprefixer';
-import cssnano from 'cssnano';
 import { fileURLToPath, pathToFileURL } from 'url';
 import process from 'process';
 
@@ -27,30 +24,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');
 
 // Configuration
-const inputFile = path.join(
-  projectRoot,
-  '_extensions/review/assets/review.css'
-);
+const inputFile = path.join(projectRoot, 'src/css/review.src.css');
 const outputDir = path.join(projectRoot, '_extensions/review/assets');
 
 /**
- * PostCSS plugins
+ * Load PostCSS configuration
  */
-function createPlugins(isProduction) {
-  const plugins = [
-    postcssImport({
-      path: [path.join(projectRoot, '_extensions/review/assets')],
-    }),
-    autoprefixer({
-      overrideBrowserslist: ['last 2 versions', 'Firefox ESR', '> 1%'],
-    }),
-  ];
-
-  if (isProduction) {
-    plugins.push(cssnano());
-  }
-
-  return plugins;
+async function loadPostCSSConfig() {
+  const configPath = path.join(projectRoot, 'postcss.config.js');
+  const config = await import(pathToFileURL(configPath).href);
+  return config.default;
 }
 
 function resolveOutputPaths(options) {
@@ -72,7 +55,11 @@ export async function buildCSS(options = {}) {
     (process.env.NODE_ENV === 'production' ? 'production' : 'development');
   const isProduction = mode === 'production';
   const isDev = !isProduction;
-  const plugins = createPlugins(isProduction);
+
+  // Load PostCSS config
+  const config = await loadPostCSSConfig();
+  const plugins = config.plugins;
+
   const { cssPath: outputFile, mapPath: outputMapFile } =
     resolveOutputPaths(options);
 
