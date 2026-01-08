@@ -49,8 +49,8 @@ test.describe('Multi-Page Persistence', () => {
     await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
     // Verify both edits persisted
-    const firstContent = firstPara.locator('.review-editable-content').first();
-    const secondContent = secondPara.locator('.review-editable-content').first();
+    const firstContent = firstPara.locator('> *:not(.review-segment-actions)').first();
+    const secondContent = secondPara.locator('> *:not(.review-segment-actions)').first();
     expect(await firstContent.textContent()).toContain('[EDIT1]');
     expect(await secondContent.textContent()).toContain('[EDIT2]');
   });
@@ -76,13 +76,13 @@ test.describe('Multi-Page Persistence', () => {
 
     // Verify edit persisted after reload
     const paraAfterReload = page.locator('[data-review-type="Para"]').first();
-    const contentAfterReload = paraAfterReload.locator('.review-editable-content').first();
+    const contentAfterReload = paraAfterReload.locator('> *:not(.review-segment-actions)').first();
     expect(await contentAfterReload.textContent()).toContain('[RELOAD_TEST]');
   });
 
   test('Sequential edits do not create ghost operations', async ({ page }) => {
     const para = page.locator('[data-review-type="Para"]').first();
-    const paraContent = para.locator('.review-editable-content').first();
+    const paraContent = para.locator('> *:not(.review-segment-actions)').first();
     const originalText = await paraContent.textContent();
 
     // Open editor, don't change anything, just save

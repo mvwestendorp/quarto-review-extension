@@ -19,7 +19,8 @@ test.describe('Document Editing Workflow Integration', () => {
   test('Complete document edit workflow: open editor → edit → save → verify', async ({ page }) => {
     // Find first editable paragraph wrapper
     const paraWrapper = page.locator('[data-review-type="Para"]').first();
-    const paraContent = paraWrapper.locator('.review-editable-content').first();
+    // Get the actual paragraph element, not the button wrapper
+    const paraContent = paraWrapper.locator('> p, > .review-section-wrapper').first();
     const originalText = await paraContent.textContent();
 
     // Double-click to open inline editor
@@ -73,7 +74,7 @@ test.describe('Document Editing Workflow Integration', () => {
 
     // Verify all edits persisted (check editable content, not button overlay)
     for (let i = 0; i < count; i++) {
-      const content = paras.nth(i).locator('.review-editable-content').first();
+      const content = paras.nth(i).locator('> *:not(.review-segment-actions)').first();
       const text = await content.textContent();
       expect(text).toContain(`[EDIT-${i + 1}]`);
     }
@@ -125,7 +126,7 @@ test.describe('Document Editing Workflow Integration', () => {
 
   test('Cancel button discards unsaved changes', async ({ page }) => {
     const paraWrapper = page.locator('[data-review-type="Para"]').first();
-    const paraContent = paraWrapper.locator('.review-editable-content').first();
+    const paraContent = paraWrapper.locator('> *:not(.review-segment-actions)').first();
     const originalText = await paraContent.textContent();
 
     // Open editor and make changes
@@ -212,7 +213,7 @@ test.describe('Change Tracking and Display Integration', () => {
     });
 
     // Verify both edits are present
-    const paraContent = para.locator('.review-editable-content').first();
+    const paraContent = para.locator('> *:not(.review-segment-actions)').first();
     const finalText = await paraContent.textContent();
     expect(finalText).toContain('FIRST');
     expect(finalText).toContain('SECOND');
@@ -227,7 +228,7 @@ test.describe('Different Element Types Integration', () => {
 
   test('Can edit header element through UI', async ({ page }) => {
     const headerWrapper = page.locator('[data-review-type="Header"]').first();
-    const headerContent = headerWrapper.locator('.review-editable-content').first();
+    const headerContent = headerWrapper.locator('> *:not(.review-segment-actions)').first();
     const originalText = await headerContent.textContent();
 
     // Open and edit header
@@ -258,7 +259,7 @@ test.describe('Different Element Types Integration', () => {
 
     if (count > 0) {
       const listWrapper = lists.first();
-      const listContent = listWrapper.locator('.review-editable-content').first();
+      const listContent = listWrapper.locator('> *:not(.review-segment-actions)').first();
       const originalText = await listContent.textContent();
 
       // Open and edit list
@@ -390,7 +391,7 @@ test.describe('Data Persistence Across Navigation', () => {
     });
 
     // Get the edited text
-    const paraContent = para.locator('.review-editable-content').first();
+    const paraContent = para.locator('> *:not(.review-segment-actions)').first();
     const editedText = await paraContent.textContent();
     expect(editedText).toContain('PERSISTENCE_TEST');
 
@@ -399,7 +400,7 @@ test.describe('Data Persistence Across Navigation', () => {
     await page.waitForSelector('[data-review-id]');
 
     const reloadedPara = page.locator('[data-review-type="Para"]').first();
-    const reloadedContent = reloadedPara.locator('.review-editable-content').first();
+    const reloadedContent = reloadedPara.locator('> *:not(.review-segment-actions)').first();
     const reloadedText = await reloadedContent.textContent();
 
     // Edit should still be there (if using localStorage/session storage)

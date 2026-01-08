@@ -103,7 +103,9 @@ async function applyEdit(options: {
   await page.locator('button:has-text("Save")').first().click();
   await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
 
-  await expect(locator).toContainText(marker.replace(/\s+/g, ' ').trim());
+  // Verify edit in the content element (not the button wrapper)
+  const content = locator.locator('> *:not(.review-segment-actions)').first();
+  await expect(content).toContainText(marker.replace(/\s+/g, ' ').trim());
 }
 
 async function expectOperationCount(page: Page, expected: number): Promise<void> {
