@@ -151,8 +151,8 @@ test.describe('Document Editing Workflow Integration', () => {
 
     const editor = page.locator('.milkdown .ProseMirror').first();
     await editor.click();
-    await editor.press('Control+A'); // Select all
-    await page.keyboard.type('COMPLETELY DIFFERENT TEXT');
+    await page.keyboard.press('Control+A'); // Select all
+    await editor.pressSequentially('COMPLETELY DIFFERENT TEXT', { delay: 10 });
 
     // Cancel without saving
     const cancelBtn = page.locator('button:has-text("Cancel")').first();
@@ -180,11 +180,7 @@ test.describe('Change Tracking and Display Integration', () => {
     await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container');
 
-    const editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.focus();
-    await editor.press('End');
-    await page.keyboard.type(' NEW TRACKED CHANGE');
+    await typeInEditor(page, ' NEW TRACKED CHANGE');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -203,11 +199,7 @@ test.describe('Change Tracking and Display Integration', () => {
     // First edit
     await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container');
-    let editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.focus();
-    await editor.press('End');
-    await page.keyboard.type(' FIRST');
+    await typeInEditor(page, ' FIRST');
     let saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
     await page.waitForSelector('.review-inline-editor-container', {
@@ -217,11 +209,7 @@ test.describe('Change Tracking and Display Integration', () => {
     // Second edit to same element
     await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container');
-    editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.focus();
-    await editor.press('End');
-    await page.keyboard.type(' SECOND');
+    await typeInEditor(page, ' SECOND');
     saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
     await page.waitForSelector('.review-inline-editor-container', {
@@ -251,11 +239,7 @@ test.describe('Different Element Types Integration', () => {
     await headerWrapper.dblclick();
     await page.waitForSelector('.review-inline-editor-container');
 
-    const editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.focus();
-    await editor.press('End');
-    await page.keyboard.type(' [EDITED]');
+    await typeInEditor(page, ' [EDITED]');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();
@@ -284,9 +268,9 @@ test.describe('Different Element Types Integration', () => {
 
       const editor = page.locator('.milkdown .ProseMirror').first();
       await editor.click();
-      await editor.press('End');
-      await editor.press('Enter');
-      await page.keyboard.type('- New list item');
+      await page.keyboard.press('Control+End');
+      await page.keyboard.press('Enter');
+      await editor.pressSequentially('- New list item', { delay: 10 });
 
       const saveBtn = page.locator('button:has-text("Save")').first();
       await saveBtn.click();
@@ -327,11 +311,7 @@ test.describe('Performance and Responsiveness', () => {
     await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container');
 
-    const editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.focus();
-    await editor.press('End');
-    await page.keyboard.type(' TEST');
+    await typeInEditor(page, ' TEST');
 
     const startTime = Date.now();
     const saveBtn = page.locator('button:has-text("Save")').first();
@@ -391,11 +371,7 @@ test.describe('Data Persistence Across Navigation', () => {
     await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container');
 
-    const editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.focus();
-    await editor.press('End');
-    await page.keyboard.type(' PERSISTENCE_TEST');
+    await typeInEditor(page, ' PERSISTENCE_TEST');
 
     const saveBtn = page.locator('button:has-text("Save")').first();
     await saveBtn.click();

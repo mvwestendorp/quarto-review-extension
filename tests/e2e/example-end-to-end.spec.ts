@@ -94,11 +94,11 @@ async function applyEdit(options: {
   await locator.dblclick();
   await page.waitForSelector('.review-inline-editor-container', { state: 'visible' });
 
+  // Use pressSequentially to trigger Milkdown's input handlers
   const editor = page.locator('.milkdown .ProseMirror').first();
   await editor.click();
-  await editor.focus();
-  await page.keyboard.press('End');
-  await page.keyboard.type(` ${marker}`);
+  await page.keyboard.press('Control+End');
+  await editor.pressSequentially(` ${marker}`, { delay: 10 });
 
   await page.locator('button:has-text("Save")').first().click();
   await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });

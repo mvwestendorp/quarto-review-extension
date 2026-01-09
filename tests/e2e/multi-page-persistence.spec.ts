@@ -1,10 +1,20 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * Multi-Page Persistence E2E Tests
  *
  * Tests cross-page editing persistence and ghost edit prevention
  */
+
+/**
+ * Helper function to type text into Milkdown editor
+ */
+async function typeInEditor(page: Page, text: string): Promise<void> {
+  const editor = page.locator('.milkdown .ProseMirror').first();
+  await editor.click();
+  await page.keyboard.press('Control+End');
+  await editor.pressSequentially(text, { delay: 10 });
+}
 
 test.describe('Multi-Page Persistence', () => {
   test.beforeEach(async ({ page }) => {
@@ -25,11 +35,7 @@ test.describe('Multi-Page Persistence', () => {
     await firstPara.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.focus();
-    await page.keyboard.press('End');
-    await page.keyboard.type(' [EDIT1]');
+    await typeInEditor(page, ' [EDIT1]');
 
     await page.locator('button:has-text("Save")').first().click();
     await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
@@ -39,11 +45,7 @@ test.describe('Multi-Page Persistence', () => {
     await secondPara.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const editor2 = page.locator('.milkdown .ProseMirror').first();
-    await editor2.click();
-    await editor2.focus();
-    await page.keyboard.press('End');
-    await page.keyboard.type(' [EDIT2]');
+    await typeInEditor(page, ' [EDIT2]');
 
     await page.locator('button:has-text("Save")').first().click();
     await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
@@ -62,10 +64,7 @@ test.describe('Multi-Page Persistence', () => {
     await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.press('End');
-    await page.keyboard.type(' [RELOAD_TEST]');
+    await typeInEditor(page, ' [RELOAD_TEST]');
 
     await page.locator('button:has-text("Save")').first().click();
     await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
@@ -100,10 +99,7 @@ test.describe('Multi-Page Persistence', () => {
     await para.dblclick();
     await page.waitForSelector('.review-inline-editor-container', { timeout: 3000 });
 
-    const editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.press('End');
-    await page.keyboard.type(' [REAL_EDIT]');
+    await typeInEditor(page, ' [REAL_EDIT]');
 
     await page.locator('button:has-text("Save")').first().click();
     await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });
