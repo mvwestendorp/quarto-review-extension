@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 /**
  * Integration E2E Tests - Focus on workflows NOT covered by unit tests
@@ -9,8 +9,31 @@ import { test, expect } from '@playwright/test';
  * These tests are focused and efficient (target <10 seconds for quick feedback)
  */
 
+/**
+ * Helper function to type text into Milkdown editor
+ * Uses pressSequentially to trigger proper input events that Milkdown recognizes
+ */
+async function typeInEditor(page: Page, text: string): Promise<void> {
+  const editor = page.locator('.milkdown .ProseMirror').first();
+  await editor.click();
+  // Move cursor to end
+  await page.keyboard.press('Control+End');
+  // Type with small delay to trigger Milkdown's input handlers
+  await editor.pressSequentially(text, { delay: 10 });
+}
+
 test.describe('Document Editing Workflow Integration', () => {
   test.beforeEach(async ({ page }) => {
+    // Capture console logs and errors for debugging
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        console.log('Browser error:', msg.text());
+      }
+    });
+    page.on('pageerror', (error) => {
+      console.log('Page error:', error.message);
+    });
+
     await page.goto('/example');
     // Wait for the document to fully load
     await page.waitForSelector('[data-review-id]', { timeout: 5000 });
@@ -30,11 +53,7 @@ test.describe('Document Editing Workflow Integration', () => {
     });
 
     // Edit the content in Milkdown editor
-    const editor = page.locator('.milkdown .ProseMirror').first();
-    await editor.click();
-    await editor.focus();
-    await editor.press('End'); // Move to end of content
-    await page.keyboard.type(' [INTEGRATION TEST]');
+    await typeInEditor(page, ' [INTEGRATION TEST]');
 
     // Save changes
     const saveBtn = page.locator('button:has-text("Save")').first();
@@ -60,10 +79,7 @@ test.describe('Document Editing Workflow Integration', () => {
       await para.dblclick();
       await page.waitForSelector('.review-inline-editor-container');
 
-      const editor = page.locator('.milkdown .ProseMirror').first();
-      await editor.click();
-      await editor.press('End');
-      await page.keyboard.type(` [EDIT-${i + 1}]`);
+      await typeInEditor(page, ` [EDIT-${i + 1}]`);
 
       const saveBtn = page.locator('button:has-text("Save")').first();
       await saveBtn.click();
@@ -343,10 +359,7 @@ test.describe('Performance and Responsiveness', () => {
       await para.dblclick();
       await page.waitForSelector('.review-inline-editor-container');
 
-      const editor = page.locator('.milkdown .ProseMirror').first();
-      await editor.click();
-      await editor.press('End');
-      await page.keyboard.type(` [${i}]`);
+      await typeInEditor(page,` [${i}]`);
 
       const saveBtn = page.locator('button:has-text("Save")').first();
       await saveBtn.click();
