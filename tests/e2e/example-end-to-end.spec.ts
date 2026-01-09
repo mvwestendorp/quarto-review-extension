@@ -97,8 +97,22 @@ async function applyEdit(options: {
   // Use pressSequentially to trigger Milkdown's input handlers
   const editor = page.locator('.milkdown .ProseMirror').first();
   await editor.click();
-  await page.keyboard.press('Control+End');
-  await editor.pressSequentially(` ${marker}`, { delay: 10 });
+  await editor.focus(); // Explicit focus for reliability
+
+  // Wait for editor to be ready
+  await page.waitForTimeout(100);
+
+  // Use keyboard shortcuts to position at end more reliably
+  await page.keyboard.press('Control+Home'); // Go to start
+  await page.waitForTimeout(50);
+  await page.keyboard.press('Control+End'); // Then to end
+  await page.waitForTimeout(100); // Longer wait for cursor positioning
+
+  // Type with a longer delay between characters to ensure Milkdown processes each one
+  await editor.pressSequentially(` ${marker}`, { delay: 50 });
+
+  // Wait for content to be fully processed
+  await page.waitForTimeout(200);
 
   await page.locator('button:has-text("Save")').first().click();
   await page.waitForSelector('.review-inline-editor-container', { state: 'hidden' });

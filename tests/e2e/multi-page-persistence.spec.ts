@@ -12,8 +12,22 @@ import { test, expect, type Page } from '@playwright/test';
 async function typeInEditor(page: Page, text: string): Promise<void> {
   const editor = page.locator('.milkdown .ProseMirror').first();
   await editor.click();
-  await page.keyboard.press('Control+End');
-  await editor.pressSequentially(text, { delay: 10 });
+  await editor.focus(); // Explicit focus for reliability
+
+  // Wait for editor to be ready
+  await page.waitForTimeout(100);
+
+  // Use keyboard shortcuts to position at end more reliably
+  await page.keyboard.press('Control+Home'); // Go to start
+  await page.waitForTimeout(50);
+  await page.keyboard.press('Control+End'); // Then to end
+  await page.waitForTimeout(100); // Longer wait for cursor positioning
+
+  // Type with a longer delay between characters to ensure Milkdown processes each one
+  await editor.pressSequentially(text, { delay: 50 });
+
+  // Wait for content to be fully processed
+  await page.waitForTimeout(200);
 }
 
 test.describe('Multi-Page Persistence', () => {

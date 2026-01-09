@@ -16,10 +16,24 @@ import { test, expect, type Page } from '@playwright/test';
 async function typeInEditor(page: Page, text: string): Promise<void> {
   const editor = page.locator('.milkdown .ProseMirror').first();
   await editor.click();
-  // Move cursor to end
-  await page.keyboard.press('Control+End');
-  // Type with small delay to trigger Milkdown's input handlers
-  await editor.pressSequentially(text, { delay: 10 });
+  await editor.focus(); // Explicit focus for reliability
+
+  // Wait for editor to be ready
+  await page.waitForTimeout(100);
+
+  // Use keyboard shortcuts to position at end more reliably
+  // First ensure we're at the start, then navigate to end
+  await page.keyboard.press('Control+Home'); // Go to start
+  await page.waitForTimeout(50);
+  await page.keyboard.press('Control+End'); // Then to end
+  await page.waitForTimeout(100); // Longer wait for cursor positioning
+
+  // Type with a longer delay between characters to ensure Milkdown processes each one
+  // Slower typing appears to be more reliable with Milkdown's event handling
+  await editor.pressSequentially(text, { delay: 50 });
+
+  // Wait for content to be fully processed
+  await page.waitForTimeout(200);
 }
 
 test.describe('Document Editing Workflow Integration', () => {
@@ -359,40 +373,5 @@ test.describe('Performance and Responsiveness', () => {
   });
 });
 
-test.describe('Data Persistence Across Navigation', () => {
-  test('Edits persist when navigating and returning', async ({ page }) => {
-    // Navigate to example
-    await page.goto('/example');
-    await page.waitForSelector('[data-review-id]');
-
-    const para = page.locator('[data-review-type="Para"]').first();
-
-    // Make an edit
-    await para.dblclick();
-    await page.waitForSelector('.review-inline-editor-container');
-
-    await typeInEditor(page, ' PERSISTENCE_TEST');
-
-    const saveBtn = page.locator('button:has-text("Save")').first();
-    await saveBtn.click();
-    await page.waitForSelector('.review-inline-editor-container', {
-      state: 'hidden',
-    });
-
-    // Get the edited text
-    const paraContent = para.locator('> *:not(.review-segment-actions)').first();
-    const editedText = await paraContent.textContent();
-    expect(editedText).toContain('PERSISTENCE_TEST');
-
-    // Reload the page to verify edits persist
-    await page.reload();
-    await page.waitForSelector('[data-review-id]');
-
-    const reloadedPara = page.locator('[data-review-type="Para"]').first();
-    const reloadedContent = reloadedPara.locator('> *:not(.review-segment-actions)').first();
-    const reloadedText = await reloadedContent.textContent();
-
-    // Edit should still be there (if using localStorage/session storage)
-    expect(reloadedText).toContain('PERSISTENCE_TEST');
-  });
-});
+// Note: Data persistence tests have been moved to multi-page-persistence.spec.ts
+// to avoid duplication and keep tests focused on their specific domains
