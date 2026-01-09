@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -50,7 +50,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -70,11 +70,19 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
+
+      - name: Setup Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: '1.4.549'
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate test fixtures
+        run: npm run fixtures:generate
 
       - name: Run unit tests
         run: npm test -- --coverage
@@ -111,7 +119,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -120,12 +128,12 @@ jobs:
       - name: Setup Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
-          version: '1.4.549'
+          version: '1.8.26'
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.13'
           cache: 'pip'
 
       - name: Install Python packages
@@ -136,7 +144,7 @@ jobs:
       - name: Setup Julia
         uses: julia-actions/setup-julia@v1
         with:
-          version: '1.9'
+          version: '1.12'
 
       - name: Install Julia packages
         run: julia -e 'using Pkg; Pkg.add(["Plots", "StatsPlots"])'
@@ -200,7 +208,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
