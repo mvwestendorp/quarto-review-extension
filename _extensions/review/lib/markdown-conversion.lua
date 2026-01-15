@@ -130,10 +130,65 @@ function M.codeblock_to_markdown(elem)
   return table.concat(lines, '\n')
 end
 
+-- Convert div to markdown representation preserving original syntax
+function M.div_to_markdown(elem)
+  local attr = elem.attr or {}
+  local identifier = attr.identifier or ""
+  local classes = attr.classes or {}
+  local attributes = attr.attributes or {}
+
+  -- Build the attribute string parts
+  local attr_parts = {}
+
+  -- Add identifier with # prefix if present
+  if identifier and identifier ~= "" then
+    table.insert(attr_parts, "#" .. identifier)
+  end
+
+  -- Add classes with . prefix
+  for _, class in ipairs(classes) do
+    table.insert(attr_parts, "." .. class)
+  end
+
+  -- Add key-value attributes
+  for key, value in pairs(attributes) do
+    -- Escape quotes in value
+    local escaped_value = value:gsub('"', '\\"')
+    table.insert(attr_parts, key .. '="' .. escaped_value .. '"')
+  end
+
+  -- Build opening fence line
+  local fence = ":::"
+  if #attr_parts > 0 then
+    fence = fence .. " {" .. table.concat(attr_parts, " ") .. "}"
+  end
+
+  -- Convert content blocks to markdown recursively
+  local content_lines = {}
+  if elem.content and #elem.content > 0 then
+    for _, block in ipairs(elem.content) do
+      local block_md = M.element_to_markdown(block)
+      table.insert(content_lines, block_md)
+    end
+  end
+
+  -- Assemble the complete div with fences
+  local lines = {fence}
+  if #content_lines > 0 then
+    table.insert(lines, table.concat(content_lines, "\n\n"))
+  end
+  table.insert(lines, ":::")
+
+  return table.concat(lines, "\n")
+end
+
 -- Convert any element to markdown string
 function M.element_to_markdown(elem)
   if elem.t == 'CodeBlock' then
     return M.codeblock_to_markdown(elem)
+  end
+  if elem.t == 'Div' then
+    return M.div_to_markdown(elem)
   end
   -- Create a temporary Pandoc document with just this element
   local doc = pandoc.Pandoc({elem})

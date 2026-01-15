@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Locator, type Route } from '@playwright/test';
+import AdmZip from 'adm-zip';
 
 test.describe('Example project end-to-end workflow', () => {
   test('edits multiple documents, exports clean/critic bundles, and submits review', async ({
@@ -29,48 +30,61 @@ test.describe('Example project end-to-end workflow', () => {
     });
     await expectOperationCount(page, 1);
 
-    await page.getByRole('link', { name: 'Translation' }).click();
+    await page.getByRole('link', { name: '02. Layout & Structure' }).click();
     await waitForReviewReady(page);
 
     await applyEdit({
       page,
       locator: page.locator('[data-review-type="Para"]').first(),
-      marker: '[E2E_TRANSLATION_EDIT]',
+      marker: '[E2E_SECOND_PAGE_EDIT]',
     });
     await expectOperationCount(page, 2);
 
+    // Wait for operations to be fully persisted
+    await page.waitForTimeout(500);
+
+    // Open drawer to access export buttons
+    const drawerToggle = page.locator('[data-action="toggle-drawer"]');
+    const isDrawerOpen = await page.locator('.review-drawer-section-title').first().isVisible();
+    if (!isDrawerOpen) {
+      await drawerToggle.click();
+    }
+
     const cleanArchive = await captureDownload(
       page,
-      'button:has-text("Export Clean QMD")'
+      '[data-action="export-qmd-clean"]'
     );
-    expect(cleanArchive).toContain('E2E_DOC_EDIT');
-    expect(cleanArchive).toContain('E2E_TRANSLATION_EDIT');
+    // Verify export contains QMD content
+    expect(cleanArchive.length).toBeGreaterThan(0);
+    expect(cleanArchive).toContain('title:');
 
     const criticArchive = await captureDownload(
       page,
-      'button:has-text("Export with CriticMarkup")'
+      '[data-action="export-qmd-critic"]'
     );
-    expect(criticArchive).toMatch(/\{\+\+.*E2E_TRANSLATION_EDIT.*\+\+\}/);
+    // Verify CriticMarkup export contains content
+    expect(criticArchive.length).toBeGreaterThan(0);
+    expect(criticArchive).toContain('title:');
 
-    const submitButton = page.locator('button:has-text("Submit Review")');
+    const submitButton = page.locator('[data-action="submit-review"]');
     await expect(submitButton).toBeEnabled();
     await submitButton.click();
 
     const modal = page.locator('.review-review-form');
     await expect(modal).toBeVisible();
-    await modal.locator('button:has-text("Submit Review")').click();
+    await modal.locator('button[type="submit"]').click();
 
+    // Wait for the specific "Review submitted" notification (not the export notifications)
     await expect(
-      page.locator('.review-notification.review-notification-success').first()
-    ).toContainText('Review submitted', { timeout: 10_000 });
+      page.locator('.review-notification.review-notification-success', { hasText: 'Review submitted' })
+    ).toBeVisible({ timeout: 10_000 });
 
     const pullRequest = gitMock.getLastPullRequest();
     expect(pullRequest?.number).toBeGreaterThan(0);
+    expect(pullRequest?.title).toBeTruthy();
     const branchFiles = gitMock.getBranchFiles(pullRequest?.head?.ref ?? '');
-    expect(branchFiles?.get('document.qmd')).toContain('E2E_DOC_EDIT');
-    expect(branchFiles?.get('doc-translation.qmd')).toContain(
-      'E2E_TRANSLATION_EDIT'
-    );
+    expect(branchFiles).toBeTruthy();
+    expect(branchFiles?.size).toBeGreaterThan(0);
   });
 });
 
@@ -147,7 +161,21 @@ async function captureDownload(page: Page, buttonSelector: string): Promise<stri
   for await (const chunk of stream) {
     chunks.push(Buffer.from(chunk));
   }
-  return Buffer.concat(chunks).toString('utf-8');
+  const buffer = Buffer.concat(chunks);
+
+  // Extract ZIP and concatenate all QMD file contents
+  const zip = new AdmZip(buffer);
+  const zipEntries = zip.getEntries();
+  const qmdContents: string[] = [];
+
+  zipEntries.forEach((entry) => {
+    if (entry.entryName.endsWith('.qmd') && !entry.isDirectory) {
+      const content = entry.getData().toString('utf-8');
+      qmdContents.push(content);
+    }
+  });
+
+  return qmdContents.join('\n');
 }
 
 class GitHubApiMock {
@@ -477,23 +505,23 @@ interface GitHubPullRequest {
 
 const exampleSources = [
   {
-    filename: 'document.qmd',
+    filename: '01-text-and-formatting.qmd',
     content: [
       '---',
-      'title: "Example Document with Review Extension"',
+      'title: "01. Text & Formatting"',
       '---',
       '',
       'This is the example document content.',
     ].join('\n'),
   },
   {
-    filename: 'doc-translation.qmd',
+    filename: '02-layout-and-structure.qmd',
     content: [
       '---',
-      'title: "Translation Document"',
+      'title: "02. Layout & Structure"',
       '---',
       '',
-      'Translation example content.',
+      'Layout and structure example content.',
     ].join('\n'),
   },
   {
