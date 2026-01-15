@@ -147,7 +147,7 @@ exports[`CSS Snapshots - State Transitions > disabled button state snapshot matc
 exports[`CSS Snapshots - Toolbar Components > editor toolbar button snapshot matches 1`] = `
 {
   "backgroundColor": "rgb(255, 255, 255)",
-  "borderColor": "",
+  "borderColor": "rgb(209, 213, 219)",
   "borderRadius": "4px",
   "boxShadow": "none",
   "color": "rgb(55, 65, 81)",
@@ -162,7 +162,7 @@ exports[`CSS Snapshots - Toolbar Components > editor toolbar snapshot matches 1`
 {
   "backdropFilter": undefined,
   "backgroundColor": "rgb(249, 250, 251)",
-  "borderColor": "rgb(0, 0, 0) rgb(0, 0, 0) rgb(0, 0, 0)",
+  "borderColor": "rgb(229, 231, 235) rgb(0, 0, 0) rgb(0, 0, 0)",
   "borderRadius": "12px",
   "boxShadow": "none",
   "display": "flex",
