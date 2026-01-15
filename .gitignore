@@ -56,9 +56,11 @@ Thumbs.db
 *.tmp
 .cache/
 test-*.js
-tests/fixtures/*.sh
-tests/fixtures/*.mjs
-tests/fixtures/*.json
+
+# Generated test fixtures (but keep the scripts that generate them)
+tests/fixtures/pandoc-renders.json
+!tests/fixtures/generate-fixtures.sh
+!tests/fixtures/extract-fixtures.mjs
 
 # Local tooling
 .claude/

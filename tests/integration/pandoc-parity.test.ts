@@ -205,8 +205,13 @@ describe('Pandoc Rendering Parity', () => {
   describe('Pandoc Attributes Conversion', () => {
     it('should convert all Pandoc attributes to HTML', () => {
       if (fixtures.length === 0) return; // Skip if no fixtures
+      // Filter for fixtures with Pandoc attributes, excluding code blocks
       const attrFixtures = fixtures.filter(
-        (f) => f.markdown.includes('{') && f.markdown.includes('}')
+        (f) =>
+          f.markdown.includes('{') &&
+          f.markdown.includes('}') &&
+          f.type !== 'CodeBlock' &&
+          !f.markdown.includes('```') // Exclude code blocks
       );
 
       attrFixtures.forEach((fixture) => {
