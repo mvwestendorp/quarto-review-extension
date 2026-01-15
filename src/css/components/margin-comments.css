@@ -219,10 +219,12 @@ body.quarto-sidebar-open .review-margin-comments-container {
   transform: translateY(10px);
 }
 
-/* Fade out comments that are scrolled out of view */
+/* Fade out and hide comments that are scrolled out of view */
 .review-margin-comment.out-of-view {
-  opacity: 0.3;
+  opacity: 0;
   pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
 /* Editing mode styles */

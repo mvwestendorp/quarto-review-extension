@@ -613,13 +613,12 @@ export class MarginComments {
       element.style.top = `${commentTop}px`;
 
       // Update visibility based on viewport
-      // Comment is out of view if section is far from center of viewport
-      const sectionCenter = sectionViewportTop + sectionHeight / 2;
-      const viewportCenter = viewportHeight / 2;
-      const distanceFromViewport = Math.abs(sectionCenter - viewportCenter);
-      const threshold = viewportHeight * 1.5;
+      // Comment is out of view if its section is completely off screen
+      const sectionBottom = sectionViewportTop + sectionHeight;
+      const isAboveViewport = sectionBottom < 0;
+      const isBelowViewport = sectionViewportTop > viewportHeight;
 
-      if (distanceFromViewport > threshold) {
+      if (isAboveViewport || isBelowViewport) {
         element.classList.add('out-of-view');
       } else {
         element.classList.remove('out-of-view');

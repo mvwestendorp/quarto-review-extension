@@ -30,17 +30,19 @@
 }
 
 .review-comment-composer {
-  background:
-    linear-gradient(
-      130deg,
-      rgba(248, 250, 252, 0.95),
-      rgba(240, 249, 255, 0.85)
+  /* Match the styling of margin comment cards */
+  background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(248, 250, 252, 0.95)
     ),
     #ffffff;
-  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
-  border-radius: 12px;
-  padding: 18px;
-  box-shadow: 0 16px 26px -24px rgba(var(--review-color-primary-rgb), 0.2);
+  border-left: 3px solid var(--review-color-primary);
+  border-radius: 8px;
+  padding: 12px 14px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
   color: var(--review-color-text-on-light);
   animation: review-card-pop 0.35s ease;
   transition:
@@ -51,7 +53,7 @@
   right: 60px;
   top: 50%;
   transform: translateY(-50%);
-  width: 380px;
+  width: 260px;
   max-height: 80vh;
   overflow-y: auto;
   z-index: 10000;
@@ -63,34 +65,37 @@
 }
 
 .review-comment-composer-active {
-  border-color: rgba(var(--review-color-primary-rgb), 0.45);
-  box-shadow: 0 20px 34px -22px rgba(var(--review-color-primary-rgb), 0.45);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.15),
+    0 4px 6px -2px rgba(0, 0, 0, 0.08);
+  border-left-color: var(--review-color-primary-dark);
 }
 
 .review-comment-composer-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
   font-size: 14px;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--review-color-neutral-soft);
+  color: var(--review-color-primary);
 }
 
 .review-comment-composer-input {
   width: 100%;
   border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 14px;
+  border-radius: var(--review-radius-sm);
+  padding: 8px;
+  font-size: 13px;
   font-family: inherit;
   resize: vertical;
-  min-height: 96px;
-  background-color: rgba(248, 250, 252, 0.9);
-  color: var(--review-color-text-on-light);
+  min-height: 100px;
+  background-color: rgba(255, 255, 255, 0.9);
+  color: var(--review-color-neutral-darker);
+  line-height: 1.5;
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
@@ -98,28 +103,56 @@
 
 .review-comment-composer-input:focus {
   outline: none;
-  border-color: rgba(var(--review-color-primary-rgb), 0.55);
-  box-shadow: 0 0 0 3px rgba(var(--review-color-primary-rgb), 0.1);
+  border-color: rgba(var(--review-color-primary-rgb), 0.4);
+  box-shadow: 0 0 0 2px rgba(var(--review-color-primary-rgb), 0.1);
 }
 
 .review-comment-composer-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 14px;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
 }
 
 .review-comment-composer .review-btn-secondary {
-  background: rgba(255, 255, 255, 0.85);
-  color: var(--review-color-neutral-soft);
-  border-color: rgba(var(--review-color-primary-rgb), 0.2);
+  padding: 4px 10px;
+  border-radius: var(--review-radius-sm);
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(248, 250, 252, 0.8);
+  color: var(--review-color-primary-contrast);
+  border: 1px solid rgba(var(--review-color-primary-rgb), 0.2);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.15s ease;
 }
 
 .review-comment-composer .review-btn-secondary:hover {
-  background: rgba(var(--review-color-primary-rgb), 0.08);
-  border-color: var(--review-color-primary);
+  background: rgba(237, 242, 255, 0.95);
+  border-color: rgba(var(--review-color-primary-rgb), 0.4);
+  color: var(--review-color-primary-darker);
+  transform: translateY(-1px);
 }
 
 .review-comment-composer .review-btn-primary {
-  box-shadow: 0 12px 22px -18px rgba(var(--review-color-primary-rgb), 0.45);
+  padding: 4px 10px;
+  border-radius: var(--review-radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--review-color-primary);
+  color: white;
+  border: 1px solid var(--review-color-primary-dark);
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.15s ease;
+}
+
+.review-comment-composer .review-btn-primary:hover {
+  background: var(--review-color-primary-dark);
+  border-color: var(--review-color-primary-darker);
+  color: white;
 }
