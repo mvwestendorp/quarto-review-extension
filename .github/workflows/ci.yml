@@ -180,7 +180,7 @@ jobs:
             ${{ runner.os }}-r-e2e-
 
       - name: Install R packages
-        run: Rscript -e 'install.packages(c("knitr", "rmarkdown", "ggplot2"), repos="https://cloud.r-project.org")'
+        run: Rscript -e 'install.packages(c("knitr", "rmarkdown", "ggplot2", "reticulate"), repos="https://cloud.r-project.org")'
 
       - name: Build extension
         run: npm run build
