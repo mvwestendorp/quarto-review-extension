@@ -131,10 +131,18 @@ jobs:
           version: '1.8.26'
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.13'
           cache: 'pip'
+
+      - name: Cache Python packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements-e2e.txt') }}-e2e
+          restore-keys: |
+            ${{ runner.os }}-pip-e2e-
 
       - name: Install Python packages
         run: |
@@ -142,9 +150,17 @@ jobs:
           pip install matplotlib numpy pandas scipy scikit-learn plotly jupyter
 
       - name: Setup Julia
-        uses: julia-actions/setup-julia@v1
+        uses: julia-actions/setup-julia@v2
         with:
           version: '1.12'
+
+      - name: Cache Julia packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.julia
+          key: ${{ runner.os }}-julia-${{ hashFiles('**/Project.toml') }}-v2
+          restore-keys: |
+            ${{ runner.os }}-julia-v2-
 
       - name: Install Julia packages
         run: julia -e 'using Pkg; Pkg.add(["Plots", "StatsPlots"])'
@@ -153,6 +169,15 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: 'release'
+          use-public-rspm: true
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: ${{ runner.os }}-r-${{ hashFiles('**/DESCRIPTION') }}-e2e
+          restore-keys: |
+            ${{ runner.os }}-r-e2e-
 
       - name: Install R packages
         run: Rscript -e 'install.packages(c("knitr", "rmarkdown", "ggplot2"), repos="https://cloud.r-project.org")'
@@ -166,8 +191,24 @@ jobs:
           quarto render
           cd ..
 
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(npm list @playwright/test --depth=0 --json | jq -r '.dependencies."@playwright/test".version')" >> $GITHUB_OUTPUT
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
       - name: Install Playwright Browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Run Playwright tests
         run: npm run test:e2e
