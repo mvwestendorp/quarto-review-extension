@@ -129,7 +129,13 @@ end
 M.identify_nested_lists = M.create_identify_filter(nil)
 
 -- Wrap element in div with review attributes
-function M.make_editable(elem, elem_type, level, config, context)
+-- If editable is false, the element will have review metadata but won't be editable
+function M.make_editable(elem, elem_type, level, config, context, editable)
+  -- Default to editable if not specified
+  if editable == nil then
+    editable = true
+  end
+
   local id = string_utils.generate_id(
     config.id_prefix,
     config.id_separator,
@@ -153,9 +159,13 @@ function M.make_editable(elem, elem_type, level, config, context)
     ['data-review-id'] = id,
     ['data-review-type'] = elem_type,
     ['data-review-origin'] = 'source',
-    ['data-review-markdown'] = string_utils.escape_html(markdown),
-    class = 'review-editable'
+    ['data-review-markdown'] = string_utils.escape_html(markdown)
   }
+
+  -- Only add review-editable class if element should be editable
+  if editable then
+    attrs.class = 'review-editable'
+  end
 
   if source_pos then
     attrs['data-review-source-line'] = tostring(source_pos.line)
@@ -171,26 +181,53 @@ function M.make_editable(elem, elem_type, level, config, context)
   return pandoc.Div({elem}, pandoc.Attr("", {}, attrs))
 end
 
+-- Helper function to determine if a Div should be wrapped
+local function should_wrap_div(elem)
+  -- Divs without classes are user content, wrap them
+  if not elem.classes or #elem.classes == 0 then
+    return true
+  end
+
+  for _, class in ipairs(elem.classes) do
+    -- Skip computational cells
+    if class == 'cell' or class:match('^cell%-') then
+      return false
+    end
+    -- Skip Quarto internal rendering divs
+    if class:match('^quarto%-') then
+      return false
+    end
+  end
+
+  -- Wrap layout and user Divs
+  return true
+end
+
 -- Create filter functions for each element type
 function M.create_filter_functions(config, context)
   local filters = {}
 
-  -- Handle Div elements - skip Quarto computational cells
+  -- Handle Div elements - wrap layout Divs, skip computational cells
   filters.Div = function(elem)
-    -- Skip Quarto cell divs (code cells, computational output, etc.)
-    -- These need special handling by Quarto's internal filters
-    if elem.classes then
-      for _, class in ipairs(elem.classes) do
-        if class == 'cell' or class:match('^cell%-') then
-          if config.debug then
-            print(string.format("DEBUG: Skipping Div with class '%s' (Quarto computational cell)", class))
-          end
-          return elem
-        end
-      end
+    if not config.enabled or not config.editable_elements.Div then
+      return elem
     end
-    -- Don't wrap other Divs, just pass them through
-    return elem
+
+    -- Check if this Div should be wrapped
+    if not should_wrap_div(elem) then
+      if config.debug then
+        local classes = table.concat(elem.classes or {}, ", ")
+        print(string.format("DEBUG: Skipping Div with classes: %s (Quarto computational)", classes))
+      end
+      return elem
+    end
+
+    if config.debug then
+      local classes = table.concat(elem.classes or {}, ", ")
+      print(string.format("DEBUG: Wrapping Div with classes: %s", classes))
+    end
+
+    return M.make_editable(elem, 'Div', nil, config, context, true)
   end
 
   filters.Para = function(elem)
@@ -240,21 +277,28 @@ function M.create_filter_functions(config, context)
       return elem
     end
 
-    -- Skip code blocks that are part of executable cells or have special Quarto features
-    -- These will be wrapped in cell divs by Quarto and should not be wrapped by us
+    -- Check if this is an executable cell (cell-code class)
+    local is_executable = false
     if elem.classes and #elem.classes > 0 then
       for _, class in ipairs(elem.classes) do
-        -- cell-code indicates this is an executable code cell
         if class == 'cell-code' then
-          if config.debug then
-            print("DEBUG: Skipping CodeBlock with cell-code class (executable cell)")
-          end
-          return elem
+          is_executable = true
+          break
         end
       end
     end
 
-    return M.make_editable(elem, 'CodeBlock', nil, config, context)
+    -- Wrap all code blocks with review metadata
+    -- Executable cells are marked as non-editable (not fully supported yet)
+    -- but still get review IDs for export purposes
+    if is_executable then
+      if config.debug then
+        print("DEBUG: Wrapping executable CodeBlock (non-editable) with cell-code class")
+      end
+      return M.make_editable(elem, 'CodeBlock', nil, config, context, false)
+    else
+      return M.make_editable(elem, 'CodeBlock', nil, config, context, true)
+    end
   end
 
   filters.BulletList = function(elem)

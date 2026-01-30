@@ -1,0 +1,39 @@
+---
+title: "Example Document with Review Extension"
+format: html
+review:
+  debug:
+    enabled: true
+    level: debug
+---
+
+# Example Document
+
+This is a multi-page test document.
+
+## Introduction
+
+This document demonstrates multi-page editing and export functionality.
+
+The review extension allows edits across multiple pages to be tracked and exported together.
+
+## Features List
+
+Here are the key features:
+
+1. Multi-page editing support
+2. Cross-page change tracking
+3. Unified export functionality
+4. Persistent storage across pages
+
+## Code Example
+
+```{python}
+# Example code block
+def example_function():
+    return "test"
+```
+
+## Conclusion
+
+This document provides elements for comprehensive multi-page export testing.

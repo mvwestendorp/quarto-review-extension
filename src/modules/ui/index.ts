@@ -1973,6 +1973,18 @@ export class UIModule {
     switch (node.type) {
       case 'heading': {
         const heading = node as MdHeading;
+        // If fallback exists and has a special type (CodeBlock, Div, etc.),
+        // preserve it instead of assuming this is a Header
+        // (e.g., # inside a CodeBlock shouldn't become a Header)
+        if (
+          fallback &&
+          fallback.type !== 'Header' &&
+          fallback.type !== 'Para'
+        ) {
+          return {
+            ...fallback,
+          };
+        }
         return {
           type: 'Header',
           level: heading.depth,

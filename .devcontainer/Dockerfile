@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim
+FROM node:24-trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
@@ -16,6 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lua5.4 \
     # xvfb for having playwright tests visually
     xvfb \
+    # Build tools for R package compilation
+    build-essential \
+    gcc \
+    g++ \
+    gfortran \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

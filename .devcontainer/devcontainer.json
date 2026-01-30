@@ -39,7 +39,7 @@
   },
   "features": {
     "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.11",
+      "version": "3.14",
       "installJupyterlab": true,
       "installTools": true
     },
@@ -68,7 +68,7 @@
       "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "npm install && bash -c 'julia -e \"using Pkg; Pkg.add([\\\"Suppressor\\\", \\\"RCall\\\", \\\"DataFrames\\\"])\" && R -q -e \"library(reticulate); py_config()\" && /home/node/.cache/R/reticulate/uv/bin/uv pip install --python /home/node/.cache/R/reticulate/uv/cache/archive-v0/*/bin/python matplotlib pandas numpy tabulate || true'",
+  "postCreateCommand": "npm install && bash -c 'julia -e \"using Pkg; Pkg.add([\\\"Suppressor\\\", \\\"RCall\\\", \\\"DataFrames\\\"])\" && R -q -e \"library(reticulate); py_config()\" && /home/node/.cache/R/reticulate/uv/bin/uv pip install --python /home/node/.cache/R/reticulate/uv/cache/archive-v0/*/bin/python matplotlib pandas numpy tabulate || true' && npx playwright install",
   "remoteEnv": {
     "LC_ALL": "C.UTF-8",
     "LANG": "C.UTF-8"

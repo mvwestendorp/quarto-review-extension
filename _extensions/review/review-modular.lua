@@ -38,7 +38,8 @@ local config = {
     BulletList = true,
     OrderedList = true,
     BlockQuote = true,
-    Table = true
+    Table = true,
+    Div = true
   }
 }
 

@@ -7,13 +7,13 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: 1, // Single worker to avoid multiple server startups
   reporter: 'html',
-  timeout: 45000, // 45 seconds per test
-  expect: { timeout: 10000 }, // 10 seconds for expect assertions
+  timeout: 30000, // 30 seconds per test (reduced for faster feedback)
+  expect: { timeout: 5000 }, // 5 seconds for expect assertions (reduced for faster feedback)
   use: {
     baseURL: 'http://127.0.0.1:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    navigationTimeout: 30000,
+    navigationTimeout: 15000, // 15 seconds (reduced for faster feedback)
     headless: true,
   },
   projects: [
