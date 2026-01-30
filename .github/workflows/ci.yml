@@ -248,12 +248,14 @@ jobs:
 
       - name: Download coverage report
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: coverage-report
           path: public/coverage
 
       - name: Download API documentation
         uses: actions/download-artifact@v4
+        continue-on-error: true
         with:
           name: api-docs
           path: public/api
@@ -270,8 +272,17 @@ jobs:
           cp docs/BUNDLE_OPTIMIZATION.md public/
           cp docs/DOCUMENTATION_INDEX.md public/
 
+      - name: Verify coverage report
+        run: |
+          if [ -f public/coverage/index.html ]; then
+            echo "✓ Coverage report found"
+            ls -lh public/coverage/index.html
+          else
+            echo "✗ Coverage report missing"
+          fi
+
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
