@@ -13,7 +13,8 @@ async function parseMarkdownContentWithPandoc(
   content: string
 ): Promise<any> {
   return new Promise((resolve, reject) => {
-    const pandoc = spawn('pandoc', [
+    const pandoc = spawn('quarto', [
+      'pandoc',
       '--to=json',
       '--from=markdown+yaml_metadata_block'
     ]);
@@ -56,7 +57,8 @@ async function parseMarkdownContentWithPandoc(
  */
 async function convertAstToMarkdown(ast: any, format: 'markdown' | 'gfm' = 'gfm'): Promise<string> {
   return new Promise((resolve, reject) => {
-    const pandoc = spawn('pandoc', [
+    const pandoc = spawn('quarto', [
+      'pandoc',
       '--from=json',
       `--to=${format}`
     ]);
