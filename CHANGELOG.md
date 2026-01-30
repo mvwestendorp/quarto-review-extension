@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Blockquote Segmentation** - Multi-paragraph blockquotes now remain as single segments
+  - Fixed issue where Milkdown serialized multi-paragraph blockquotes with blank lines instead of `>` lines
+  - Added `normalizeBlockquoteParagraphs()` to convert blank lines between blockquotes to `>` lines
+  - Updated BlockQuote filter to use `walk` method to strip nested Para segments
+  - Prevents phantom changes when editing multi-paragraph blockquotes
+  - Ensures multi-paragraph blockquotes stay as one blockquote element, not split into multiple
+
+- **Footnote Segmentation** - Footnote content no longer creates phantom changes
+  - Fixed issue where footnote Para elements were wrapped with `data-review-id` attributes
+  - Added Note cleanup filter to strip nested review-editable divs from footnote content
+  - Footnote content now appears only in footnotes section, not as separate editable segments
+  - Prevents phantom deletions/insertions when opening documents with footnotes
+  - Both BlockQuote and Note filters now check both `div.classes` and `div.attr.attributes["class"]` for review-editable class
+
+- **Math/LaTeX Rendering** - LaTeX expressions now render correctly after edits
+  - Lazy-load KaTeX CSS from CDN when math content is detected
+  - Fixed issue where math displayed as plain text after editing paragraphs
+  - Automatic CSS injection with SRI integrity verification
+  - Zero performance impact when no math is present
+  - Supports inline math (`$...$`) and display math (`$$...$$`)
+
+- **Pandoc Raw Inline Syntax** - Raw HTML elements now render correctly after edits
+  - Support for Pandoc's `` `content`{=html} `` syntax
+  - Fixed issue where `<mark>` and other HTML tags displayed as literal text
+  - Automatically unwraps and processes as raw HTML
+  - Maintains compatibility with regular inline code
+
+- **Pandoc Attribute Syntax** - Inline spans with attributes now work correctly after edits
+  - Fixed issue where `[text]{.class}` and `[text]{style="..."}` broke after editing
+  - Handles both normal brackets `[text]` and escaped brackets `\[text]`
+  - Support for all Pandoc attribute types: classes (`.class`), IDs (`#id`), and key-value pairs
+  - Properly processes attributes even when diff markup is present
+  - Normalizes escaped brackets before computing diffs to prevent malformed HTML in change tracking
+
 ### Added
 - **Translation Module (Phase 3-4)** - Comprehensive translation workflow with production-ready features
   - Side-by-side translation view with synchronized scrolling (optimized with throttling)

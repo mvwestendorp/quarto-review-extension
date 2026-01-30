@@ -164,23 +164,47 @@ Changes → .qmd → Git Commit → (Optional) Push to Remote
 
 ### 6. UI Module (`src/modules/ui/`)
 
-**Purpose**: Stateless rendering and interaction
+**Purpose**: Stateless rendering and interaction orchestration
 
-**Key Design**: UI is a **view layer only** - no state
+**Key Design**: UI is a **view layer only** - no state (state managed by StateStore)
 
-**Components**:
+**Architecture** (Refactored 2025):
+The UI Module has been refactored from a monolithic class into a modular orchestration layer with specialized components:
+
+**Core Components**:
+- **UIStateManager** ([UIStateManager.ts](../../src/modules/ui/UIStateManager.ts))
+  - Subscribes to StateStore changes (editor, UI, comment states)
+  - Propagates state updates to UI components (BottomDrawer, toolbar, body classes)
+  - Manages subscription lifecycle with proper cleanup
+
+- **UIPluginManager** ([UIPluginManager.ts](../../src/modules/ui/UIPluginManager.ts))
+  - Registers and tracks ReviewUIPlugin instances
+  - Manages plugin lifecycle (mount/unmount)
+  - Isolates plugin failures to prevent cascading errors
+
+- **UIModule** (index.ts) - Orchestrator
+  - Initializes all UI components in correct order
+  - Delegates operations to specialized components
+  - Maintains public API surface (unchanged for backwards compatibility)
+
+**UI Features**:
 - Click-to-edit interface
 - Modal editor with live preview
+- Bottom drawer (comments, tracked changes, translation)
 - Floating toolbar (undo/redo)
-- Notifications
-- Loading indicators
+- Notifications & loading indicators
 
 **Event Flow**:
 ```
-User Click → UI.openEditor() → Show Modal
+User Click → UI.openEditor() → EditorManager → Show Modal/Drawer
 User Edit → No State Change (just display)
-User Save → Changes.edit() → UI.refresh()
+User Save → EditorManager.save() → Changes.edit() → StateStore.emit() → UIStateManager → UI.refresh()
 ```
+
+**Testing**:
+- UIStateManager: 11 unit tests covering state propagation and lifecycle
+- UIPluginManager: 16 unit tests covering plugin management and isolation
+- Integration tests verify component coordination
 
 ### 7. Lua Filter (`_extensions/review/review.lua`)
 

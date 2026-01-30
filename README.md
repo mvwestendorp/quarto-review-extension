@@ -143,7 +143,7 @@ Our documentation is organized into three main categories for easy navigation:
   - [Features Guide](./docs/user/FEATURES.md) - Detailed feature explanations
   - [Keyboard Shortcuts](./docs/user/KEYBOARD_SHORTCUTS.md) - Quick reference
   - [FAQ](./docs/user/FAQ.md) - Frequently asked questions
-  - [Troubleshooting](./docs/user/TROUBLESHOOTING.md) - Common issues
+  - [Debug & Troubleshooting](./docs/user/DEBUG_AND_TROUBLESHOOTING.md) - Debug mode and common issues
 
 - **[Roadmap & Planning](./docs/todo/)** - Future features and project planning
   - [Roadmap](./docs/todo/README.md) - Upcoming features and release schedule
@@ -153,15 +153,9 @@ Our documentation is organized into three main categories for easy navigation:
 
 The API documentation is auto-generated from JSDoc comments in the source code using TypeDoc.
 
-**In Dev Container (Recommended):**
+**In Dev Container:**
 
-Option A: Quick start (one command)
-```bash
-npm run docs:open
-```
-This generates the docs and opens them on `http://localhost:8080`
-
-Option B: Use VS Code Tasks (GUI)
+Use VS Code Tasks (GUI):
 1. Open Command Palette: `Cmd+Shift+P` / `Ctrl+Shift+P`
 2. Type "Run Task"
 3. Select one of:
@@ -169,13 +163,10 @@ Option B: Use VS Code Tasks (GUI)
    - **"Serve Existing Docs"** - Serves pre-generated docs
    - **"Watch Docs (Live Rebuild)"** - Auto-regenerates on source changes
 
-Option C: Manual commands
+Or use npm scripts:
 ```bash
-# Generate docs only
+# Generate docs
 npm run docs
-
-# Serve existing docs
-npm run docs:serve
 
 # Watch and rebuild docs on changes
 npm run docs:watch
