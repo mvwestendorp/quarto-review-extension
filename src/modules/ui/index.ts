@@ -2008,6 +2008,14 @@ export class UIModule {
         };
       }
       case 'paragraph': {
+        // If fallback exists and has a special type (DocumentTitle, Div, etc.),
+        // preserve it instead of defaulting to Para
+        if (fallback && fallback.type !== 'Para') {
+          return {
+            ...fallback,
+          };
+        }
+        // Otherwise return Para metadata
         return {
           type: 'Para',
           attributes:
