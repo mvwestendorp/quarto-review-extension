@@ -197,9 +197,13 @@ local function should_wrap_div(elem)
     if class:match('^quarto%-') then
       return false
     end
+    -- Skip layout container Divs (column-*, etc.)
+    if class:match('^column%-') then
+      return false
+    end
   end
 
-  -- Wrap layout and user Divs
+  -- Wrap content Divs (callouts, asides, custom divs, etc.)
   return true
 end
 
