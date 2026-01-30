@@ -3,6 +3,7 @@ FROM node:22-bookworm-slim
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ENV JULIA_VERSION=1.12.2
+ENV PLAYWRIGHT_VERSION=1.58.0
 
 # Install essential packages in a single layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -21,8 +22,8 @@ WORKDIR /workspace
 
 # Install Playwright browsers and system dependencies as root
 RUN mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}" \
-    && npx -y playwright@1.57.0 install \
-    && npx -y playwright@1.57.0 install-deps \
+    && npx -y playwright@${PLAYWRIGHT_VERSION} install \
+    && npx -y playwright@${PLAYWRIGHT_VERSION} install-deps \
     && chown -R node:node "${PLAYWRIGHT_BROWSERS_PATH}"
 
 # Install Julia from official binaries
