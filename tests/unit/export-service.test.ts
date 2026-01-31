@@ -156,8 +156,14 @@ describe('QmdExportService', () => {
       },
       {
         filename: '_quarto.yml',
-        content: 'project: website',
-        originalContent: 'project: website',
+        content: [
+          'project:',
+          '  type: website',
+          'chapters:',
+          '  - article.qmd',
+          '  - notes.qmd',
+        ].join('\n'),
+        originalContent: '',
         lastModified: new Date().toISOString(),
         version: '1',
       },
@@ -780,6 +786,109 @@ describe('QmdExportService', () => {
     expect(snapshots[0]?.content).toContain('format: html');
     expect(snapshots[0]?.content).toContain('Body after edit');
     expect(snapshots[1]?.content).toContain('Body after insert');
+  });
+
+  // ---------------------------------------------------------------------------
+  // P1.3 – stray .md/.qmd files must not leak into bundles when they are not
+  // referenced by _quarto.yml.
+  // ---------------------------------------------------------------------------
+
+  it('excludes stray .md files not referenced in _quarto.yml chapters', async () => {
+    const changes = createChangesStub({ clean: 'Index content' });
+    const git = createGitStub('index.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'index.qmd',
+        content: 'Index content',
+        originalContent: 'Index content',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+      {
+        filename: 'guide.qmd',
+        content: 'Guide content',
+        originalContent: 'Guide content',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+      {
+        filename: 'stray.md',
+        content: 'Stray file that was opened in the browser',
+        originalContent: 'Stray file',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+      {
+        filename: '_quarto.yml',
+        content: [
+          'project:',
+          '  type: website',
+          'chapters:',
+          '  - index.qmd',
+          '  - guide.qmd',
+        ].join('\n'),
+        originalContent: '',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+
+    const service = new QmdExportService(changes as any, { git: git as any });
+    const bundle = await service.createBundle();
+
+    const filenames = bundle.files.map((f) => f.filename);
+    expect(filenames).toContain('index.qmd');
+    expect(filenames).toContain('guide.qmd');
+    expect(filenames).not.toContain('stray.md');
+  });
+
+  it('excludes stray files when _quarto.yml has an explicit render list (regression)', async () => {
+    const changes = createChangesStub({ clean: 'Primary content' });
+    const git = createGitStub('index.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'index.qmd',
+        content: 'Primary content',
+        originalContent: 'Primary content',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+      {
+        filename: 'about.qmd',
+        content: 'About content',
+        originalContent: 'About content',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+      {
+        filename: 'stray.md',
+        content: 'Should not appear',
+        originalContent: 'Should not appear',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+      {
+        filename: '_quarto.yml',
+        content: [
+          'project:',
+          '  type: website',
+          'render:',
+          '  - index.qmd',
+          '  - about.qmd',
+        ].join('\n'),
+        originalContent: '',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+
+    const service = new QmdExportService(changes as any, { git: git as any });
+    const bundle = await service.createBundle();
+
+    const filenames = bundle.files.map((f) => f.filename);
+    expect(filenames).toContain('index.qmd');
+    expect(filenames).toContain('about.qmd');
+    expect(filenames).not.toContain('stray.md');
   });
 
   it('patchSourceWithTrackedChanges replaces only the edited element', () => {

@@ -1783,8 +1783,19 @@ export class QmdExportService {
         /^[ \t]*render:\s*\n((?:[ \t]+-.+\n?)+)/m
       );
       if (!renderMatch) {
-        // No render config means all .qmd and .md files should be rendered
-        return undefined;
+        // No explicit render: list.  Fall back to scanning for .qmd / .md
+        // file references anywhere in the config (chapters, sidebar, nav, etc.).
+        // If none are found, return an empty array so that only the primary
+        // document is included – returning undefined here would let every file
+        // the user has opened in the browser leak into the bundle.
+        const fileEntryRegex =
+          /^[ \t]+-[ \t]+["']?([^\n"']*\.(?:qmd|md))["']?/gm;
+        const implicitFiles: string[] = [];
+        for (const match of configContent.matchAll(fileEntryRegex)) {
+          const name = match[1]?.trim();
+          if (name) implicitFiles.push(name);
+        }
+        return implicitFiles;
       }
 
       const renderSection = renderMatch[1];
