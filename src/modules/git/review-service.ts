@@ -95,22 +95,35 @@ export class GitReviewService {
     );
 
     const format = options.format ?? 'clean';
-    const bundle = await this.exporter.createBundle({
-      format,
-      includeCommentsInOutput: false,
-    });
     const operationSnapshots =
       await this.exporter.getOperationSnapshots(format);
+    const hasComments = (options.comments?.length ?? 0) > 0;
+    const commentOnly = !operationSnapshots?.length;
 
-    if (!operationSnapshots?.length) {
+    if (commentOnly && !hasComments) {
       throw new Error(GitReviewService.NO_CHANGES_ERROR);
     }
 
-    const { files: changedFiles, snapshots: filteredSnapshots } =
-      this.selectFilesForSubmission(bundle.files, operationSnapshots);
+    // When submitting comments only (no text edits), embed the comment
+    // annotations directly in the exported content so they appear in the diff.
+    const bundle = await this.exporter.createBundle({
+      format,
+      includeCommentsInOutput: commentOnly,
+    });
 
-    if (!changedFiles.length) {
-      throw new Error(GitReviewService.NO_CHANGES_ERROR);
+    let changedFiles: Array<{ filename: string; content: string }>;
+    let filteredSnapshots: OperationSnapshot[];
+
+    if (commentOnly) {
+      // All files carry embedded comments – submit the full bundle.
+      changedFiles = bundle.files;
+      filteredSnapshots = [];
+    } else {
+      ({ files: changedFiles, snapshots: filteredSnapshots } =
+        this.selectFilesForSubmission(bundle.files, operationSnapshots));
+      if (!changedFiles.length) {
+        throw new Error(GitReviewService.NO_CHANGES_ERROR);
+      }
     }
 
     // Patch each file's original source in-place so that only the spans the

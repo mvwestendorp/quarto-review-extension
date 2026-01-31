@@ -437,6 +437,58 @@ describe('GitReviewService', () => {
       },
     ]);
   });
+
+  // ---------------------------------------------------------------------------
+  // P0.2 – comment-only reviews should be submittable even when there are no
+  // tracked text-edit operations.
+  // ---------------------------------------------------------------------------
+
+  it('allows comment-only submissions when no text edits exist', async () => {
+    getOperationSnapshotsMock.mockResolvedValue([]);
+
+    const options: SubmitReviewOptions = {
+      reviewer: 'alice',
+      pullRequest: { title: 'Comments only' },
+      comments: [
+        {
+          path: 'document.qmd',
+          body: 'Please clarify this paragraph.',
+          line: 5,
+        },
+      ],
+    };
+
+    // Must not throw NO_CHANGES_ERROR even though operations are empty.
+    await expect(service.submitReview(options)).resolves.toBeTruthy();
+
+    const payload = submitReviewMock.mock.calls[0]?.[0] as ReviewSubmissionPayload;
+    expect(payload?.comments).toEqual(options.comments);
+
+    getOperationSnapshotsMock.mockResolvedValue([buildOperationSnapshot()]);
+  });
+
+  it('requests bundle with comments embedded for comment-only review', async () => {
+    getOperationSnapshotsMock.mockResolvedValue([]);
+
+    await service.submitReview({
+      reviewer: 'bob',
+      pullRequest: { title: 'Comments only' },
+      comments: [
+        {
+          path: 'document.qmd',
+          body: 'This needs a citation.',
+          line: 3,
+        },
+      ],
+    });
+
+    expect(createBundleMock).toHaveBeenCalledWith({
+      format: 'clean',
+      includeCommentsInOutput: true,
+    });
+
+    getOperationSnapshotsMock.mockResolvedValue([buildOperationSnapshot()]);
+  });
 });
 const buildOperationSnapshot = (
   overrides: Partial<OperationSnapshot> = {}
