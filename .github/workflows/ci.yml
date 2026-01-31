@@ -136,14 +136,6 @@ jobs:
           python-version: '3.13'
           cache: 'pip'
 
-      - name: Cache Python packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements-e2e.txt') }}-e2e
-          restore-keys: |
-            ${{ runner.os }}-pip-e2e-
-
       - name: Install Python packages
         run: |
           pip install --upgrade pip
@@ -153,14 +145,6 @@ jobs:
         uses: julia-actions/setup-julia@v2
         with:
           version: '1.12'
-
-      - name: Cache Julia packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.julia
-          key: ${{ runner.os }}-julia-${{ hashFiles('**/Project.toml') }}-v2
-          restore-keys: |
-            ${{ runner.os }}-julia-v2-
 
       - name: Install Julia packages
         run: julia -e 'using Pkg; Pkg.add(["Plots", "StatsPlots"])'
@@ -185,6 +169,7 @@ jobs:
 
       - name: Render example for e2e tests
         run: |
+          export RETICULATE_PYTHON=$(which python3)
           cd example
           quarto render
           cd ..
