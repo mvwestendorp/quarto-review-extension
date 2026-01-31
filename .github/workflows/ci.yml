@@ -139,7 +139,7 @@ jobs:
       - name: Install Python packages
         run: |
           pip install --upgrade pip
-          pip install matplotlib numpy pandas scipy scikit-learn plotly jupyter
+          pip install matplotlib numpy pandas scipy scikit-learn plotly jupyter tabulate
 
       - name: Setup Julia
         uses: julia-actions/setup-julia@v2
@@ -169,7 +169,7 @@ jobs:
 
       - name: Render example for e2e tests
         env:
-          RETICULATE_USE_MANAGED_VENV: "no"
+          RETICULATE_USE_MANAGED_VENV: 'no'
         run: |
           cd example
           quarto render
