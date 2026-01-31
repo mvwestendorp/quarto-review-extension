@@ -591,6 +591,52 @@ suite:add("CodeBlock filter wraps regular code blocks without cell-code class", 
   s:assertTrue(make_editable_called, "Should call make_editable for regular code blocks")
 end)
 
+suite:add("CodeBlock filter marks non-executable code blocks as non-editable", function(s)
+  -- Non-executable code blocks (no cell-code class) must be wrapped with
+  -- editable=false because Milkdown cannot round-trip code blocks; any
+  -- save – even without user changes – corrupts formatting.
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {
+      CodeBlock = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  -- Mock make_editable to capture the editable flag
+  local captured_editable = nil
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx, editable)
+    captured_editable = editable
+    return {t = "Div", content = {elem}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Plain code block – no cell-code class, not executable
+  local elem = {
+    t = "CodeBlock",
+    classes = {"javascript"},
+    text = "console.log('hello')",
+    attr = {
+      classes = {"javascript"}
+    }
+  }
+
+  filters.CodeBlock(elem)
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertFalse(captured_editable, "non-executable CodeBlock should be wrapped with editable=false")
+end)
+
 suite:add("CodeBlock filter respects CodeBlock disabled in config", function(s)
   local config = {
     enabled = true,

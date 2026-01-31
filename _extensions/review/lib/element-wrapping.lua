@@ -366,17 +366,18 @@ function M.create_filter_functions(config, context)
       end
     end
 
-    -- Wrap all code blocks with review metadata
-    -- Executable cells are marked as non-editable (not fully supported yet)
-    -- but still get review IDs for export purposes
-    if is_executable then
-      if config.debug then
+    -- Wrap all code blocks with review metadata but mark them non-editable.
+    -- Milkdown cannot round-trip code blocks, so opening an editor on one
+    -- corrupts formatting even without user changes.  Both executable and
+    -- plain code blocks get review IDs (needed for export) but editable=false.
+    if config.debug then
+      if is_executable then
         print("DEBUG: Wrapping executable CodeBlock (non-editable) with cell-code class")
+      else
+        print("DEBUG: Wrapping plain CodeBlock (non-editable)")
       end
-      return M.make_editable(elem, 'CodeBlock', nil, config, context, false)
-    else
-      return M.make_editable(elem, 'CodeBlock', nil, config, context, true)
     end
+    return M.make_editable(elem, 'CodeBlock', nil, config, context, false)
   end
 
   filters.BulletList = function(elem)
