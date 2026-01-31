@@ -168,8 +168,9 @@ jobs:
         run: npm run build
 
       - name: Render example for e2e tests
+        env:
+          RETICULATE_USE_MANAGED_VENV: "no"
         run: |
-          export RETICULATE_PYTHON=$(which python3)
           cd example
           quarto render
           cd ..
