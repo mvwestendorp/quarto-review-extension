@@ -62,6 +62,16 @@ end
 package.path = package.path .. ";./_extensions/review/lib/?.lua"
 local config_module = require('config')
 
+-- Mock pandoc.utils.stringify for load_config paths that call it on meta values
+pandoc = {
+  utils = {
+    stringify = function(v)
+      if type(v) == 'string' then return v end
+      return tostring(v)
+    end
+  }
+}
+
 -- Tests
 local suite = TestSuite
 
@@ -175,47 +185,37 @@ suite:add("Loads custom id-separator", function(s)
 end)
 
 -- detect_document_identifier tests
-suite:add("Uses title if available", function(s)
-  local meta = {
-    title = "My Test Document"
-  }
-  local id = config_module.detect_document_identifier(meta)
-  s:assertNotNil(id, "Should return an identifier")
-  s:assertTrue(#id > 0, "Should be non-empty")
+suite:add("Returns input file from PANDOC_STATE", function(s)
+  PANDOC_STATE = { input_files = { "my-document.qmd" } }
+  local id = config_module.detect_document_identifier({})
+  s:assertEqual(id, "my-document.qmd", "Should return input file")
+  PANDOC_STATE = nil
 end)
 
-suite:add("Falls back to filename if no title", function(s)
-  local meta = {}
-  local id = config_module.detect_document_identifier(meta)
-  s:assertNotNil(id, "Should return an identifier")
-  s:assertTrue(#id > 0, "Should be non-empty")
+suite:add("Returns nil when no file sources available", function(s)
+  PANDOC_STATE = nil
+  local id = config_module.detect_document_identifier({})
+  s:assertEqual(id, nil, "Should return nil without file sources")
 end)
 
-suite:add("Sanitizes document identifier", function(s)
-  local meta = {
-    title = "Test! @#$ Document"
-  }
-  local id = config_module.detect_document_identifier(meta)
-  -- Should not contain special characters
-  s:assertFalse(string.find(id, "!"), "Should not contain !")
-  s:assertFalse(string.find(id, "@"), "Should not contain @")
-  s:assertFalse(string.find(id, "#"), "Should not contain #")
-  s:assertFalse(string.find(id, "%$"), "Should not contain $")
+suite:add("Sanitizes path-based identifier in load_config", function(s)
+  PANDOC_STATE = { input_files = { "path/to/my document!.qmd" } }
+  local config = { enabled = true, id_prefix = "", document_prefix_applied = false }
+  config_module.load_config({}, config)
+  s:assertFalse(string.find(config.id_prefix, "!"), "Should not contain !")
+  s:assertFalse(string.find(config.id_prefix, " "), "Should not contain space")
+  PANDOC_STATE = nil
 end)
 
-suite:add("Handles empty title", function(s)
-  local meta = {
-    title = ""
-  }
-  local id = config_module.detect_document_identifier(meta)
-  s:assertNotNil(id, "Should return an identifier")
-  s:assertTrue(#id > 0, "Should be non-empty")
+suite:add("Returns nil without file sources regardless of title", function(s)
+  PANDOC_STATE = nil
+  local id = config_module.detect_document_identifier({ title = "" })
+  s:assertEqual(id, nil, "Should return nil when no file sources")
 end)
 
 suite:add("Handles nil meta in detect_document_identifier", function(s)
   local id = config_module.detect_document_identifier(nil)
-  s:assertNotNil(id, "Should return an identifier")
-  s:assertTrue(#id > 0, "Should be non-empty")
+  s:assertEqual(id, nil, "Should return nil for nil meta")
 end)
 
 suite:add("Returns consistent identifier", function(s)
@@ -353,20 +353,18 @@ suite:add("Handles malformed meta structure", function(s)
   s:assertTrue(success, "Should handle malformed meta")
 end)
 
-suite:add("Handles very long title", function(s)
-  local meta = {
-    title = string.rep("a", 500)
-  }
-  local id = config_module.detect_document_identifier(meta)
-  s:assertNotNil(id, "Should handle long title")
+suite:add("Handles long file path", function(s)
+  PANDOC_STATE = { input_files = { string.rep("a", 500) .. ".qmd" } }
+  local id = config_module.detect_document_identifier({})
+  s:assertNotNil(id, "Should handle long path")
+  PANDOC_STATE = nil
 end)
 
-suite:add("Handles special characters in title", function(s)
-  local meta = {
-    title = "Test & Document <html> [brackets]"
-  }
-  local id = config_module.detect_document_identifier(meta)
+suite:add("Handles special characters in file path", function(s)
+  PANDOC_STATE = { input_files = { "Test & Document <html>.qmd" } }
+  local id = config_module.detect_document_identifier({})
   s:assertNotNil(id, "Should handle special chars")
+  PANDOC_STATE = nil
 end)
 
 -- Run the test suite

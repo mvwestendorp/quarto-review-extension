@@ -10,6 +10,8 @@ local M = {}
 
 -- Detect document identifier from metadata and various sources
 function M.detect_document_identifier(meta)
+  if not meta then return nil end
+
   -- Priority 1: User-specified document ID in review metadata
   if meta.review and meta.review['document-id'] then
     return pandoc.utils.stringify(meta.review['document-id'])
@@ -37,7 +39,7 @@ end
 -- Debug print function (only prints if debug mode is enabled)
 function M.debug_print(message, debug_enabled)
   if debug_enabled then
-    print("DEBUG: " .. message)
+    print("DEBUG: " .. tostring(message))
   end
 end
 
@@ -124,6 +126,8 @@ end
 
 -- Load configuration from document metadata
 function M.load_config(meta, config)
+  if not meta then meta = {} end
+
   -- Store custom prefix if provided
   local custom_prefix = nil
   if meta.review then

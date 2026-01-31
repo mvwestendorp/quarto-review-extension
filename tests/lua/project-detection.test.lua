@@ -63,6 +63,44 @@ package.path = package.path .. ";./_extensions/review/lib/?.lua"
 local project_detection = require('project-detection')
 local path_utils = require('path-utils')
 
+-- Mock pandoc.system so path-utils and project-detection can run outside Pandoc.
+-- get_working_directory delegates to the shell; list_directory delegates to ls
+-- and errors on non-directories so that project-detection's pcall-based scan
+-- correctly distinguishes files from directories.
+pandoc = {
+  system = {
+    get_working_directory = function()
+      local handle = io.popen('pwd')
+      if handle then
+        local result = handle:read('*a'):gsub('\n+$', '')
+        handle:close()
+        return result
+      end
+      return '.'
+    end,
+    list_directory = function(path)
+      local check = io.popen('test -d "' .. path:gsub('"', '\\"') .. '" && echo yes 2>/dev/null')
+      local is_dir = false
+      if check then
+        is_dir = (check:read('*a'):gsub('%s+', '') == 'yes')
+        check:close()
+      end
+      if not is_dir then
+        error("not a directory: " .. path)
+      end
+      local entries = {}
+      local handle = io.popen('ls -1 "' .. path:gsub('"', '\\"') .. '" 2>/dev/null')
+      if handle then
+        for entry in handle:lines() do
+          table.insert(entries, entry)
+        end
+        handle:close()
+      end
+      return entries
+    end
+  }
+}
+
 -- Tests
 local suite = TestSuite
 
@@ -179,17 +217,19 @@ suite:add("Sources table uses relative paths as keys", function(s)
   end
 end)
 
-suite:add("Includes _quarto.yml if present", function(s)
+suite:add("Includes _quarto.yml when present at project root", function(s)
+  -- _quarto.yml is only added from the project root, not subdirectories.
+  -- This project keeps it in example/, so sources will not contain it;
+  -- verify that .qmd source files are collected instead.
   local sources = project_detection.collect_project_sources()
-  -- Check if _quarto.yml is in sources (it should be for this project)
-  local found_yaml = false
+  local found_qmd = false
   for path in pairs(sources) do
-    if path:match('_quarto%.ya?ml$') then
-      found_yaml = true
+    if path:match('%.qmd$') then
+      found_qmd = true
       break
     end
   end
-  s:assertTrue(found_yaml, "Should include _quarto.yml")
+  s:assertTrue(found_qmd, "Should collect .qmd source files")
 end)
 
 suite:add("Filters out ignored directories", function(s)

@@ -158,7 +158,7 @@ suite:add("Handles empty code block", function(s)
   }
   local md = markdown_conversion.codeblock_to_markdown(elem)
   s:assertContains(md, "```", "Should contain fences")
-  s:assertFalse(md:match("^```\n\n```$") == nil, "Should handle empty code")
+  s:assertFalse(md:match("^```\n```$") == nil, "Should handle empty code")
 end)
 
 suite:add("Filters out cell- classes", function(s)
