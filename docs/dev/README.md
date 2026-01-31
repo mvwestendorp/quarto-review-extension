@@ -32,6 +32,12 @@ src/
 
 **Deterministic IDs:** Elements identified by structure for reliable mapping
 
+## Subdirectories
+
+- [Planning](./planning/) - Architecture plans, roadmaps, and optimization strategies
+- [Analysis](./analysis/) - Code quality, test coverage, and limitations
+- [Security](./security/) - Security audits and vulnerability assessments
+
 ## Getting Started
 
 1. [Setup](./SETUP.md) - Install dependencies
