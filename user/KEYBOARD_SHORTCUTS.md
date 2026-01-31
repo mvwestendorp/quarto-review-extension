@@ -221,5 +221,5 @@ Check the application menu:
 ## Additional Resources
 
 - [Features Guide](./FEATURES.md) - Detailed feature documentation
-- [Troubleshooting](./TROUBLESHOOTING.md) - Common issues
+- [Debug & Troubleshooting](./DEBUG_AND_TROUBLESHOOTING.md) - Common issues
 - [FAQ](./FAQ.md) - Frequently asked questions

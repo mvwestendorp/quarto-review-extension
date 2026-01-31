@@ -9,6 +9,7 @@
 
 ## Documentation
 
+- [Quick Start](./QUICK_START.md) - Get started in 5 minutes
 - [Features Guide](./FEATURES.md) - Feature overview
 - [Keyboard Shortcuts](./KEYBOARD_SHORTCUTS.md) - Command reference
 - [FAQ](./FAQ.md) - Common questions
