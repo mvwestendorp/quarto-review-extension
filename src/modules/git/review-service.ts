@@ -113,8 +113,26 @@ export class GitReviewService {
       throw new Error(GitReviewService.NO_CHANGES_ERROR);
     }
 
+    // Patch each file's original source in-place so that only the spans the
+    // user actually changed are different from the seeded original.  This
+    // avoids the whitespace/list-marker/table-alignment noise that appears
+    // when the full document is reconstructed from pandoc.write() output.
+    // Fall back to the reconstructed bundle content when patching is not
+    // possible (e.g. chained inserts or missing source positions).
+    const patchedFiles = changedFiles.map((file) => {
+      const originalSource = projectSources.find(
+        (s) => s.filename === file.filename
+      )?.content;
+      if (originalSource) {
+        const patched =
+          this.exporter.patchSourceWithTrackedChanges(originalSource);
+        if (patched != null) return { ...file, content: patched };
+      }
+      return file;
+    });
+
     const files = this.toReviewFiles(
-      changedFiles,
+      patchedFiles,
       options.commitMessage,
       filteredSnapshots
     );

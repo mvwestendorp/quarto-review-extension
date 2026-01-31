@@ -6,7 +6,13 @@ import type GitModule from '@modules/git';
 import type LocalDraftPersistence from '@modules/storage/LocalDraftPersistence';
 import type { DraftElementPayload } from '@modules/storage/LocalDraftPersistence';
 import type { EmbeddedSourceRecord } from '@modules/git/fallback';
-import type { Comment, Element, Operation, EditData } from '@/types';
+import type {
+  Comment,
+  Element,
+  Operation,
+  EditData,
+  InsertData,
+} from '@/types';
 import {
   generateChanges,
   changesToCriticMarkup,
@@ -295,6 +301,241 @@ export class QmdExportService {
       downloadedAs: bundle.suggestedArchiveName,
       filenames: bundle.files.map((file) => file.filename),
     };
+  }
+
+  /**
+   * Produce a version of the original source with only tracked user changes
+   * applied, preserving the original formatting for everything else.
+   *
+   * This avoids the whitespace/formatting noise that appears when the full
+   * document is reconstructed from elements that passed through pandoc.write().
+   *
+   * Returns null when patching is not possible and the caller should fall back
+   * to the reconstructed content from createBundle().
+   */
+  public patchSourceWithTrackedChanges(originalSource: string): string | null {
+    const operations = Array.from(this.changes.getOperations?.() ?? []);
+    if (operations.length === 0) return null;
+
+    if (
+      typeof this.changes.getStateAfterOperations !== 'function' ||
+      typeof this.changes.getCurrentState !== 'function'
+    ) {
+      return null;
+    }
+
+    const originalElements = this.changes.getStateAfterOperations(0);
+    const currentElements = this.changes.getCurrentState();
+    if (!originalElements?.length || !currentElements) return null;
+
+    // Classify operations.  Later operations on the same element supersede
+    // earlier ones – a delete after an edit means the element is deleted.
+    const editedIds = new Set<string>();
+    const deletedIds = new Set<string>();
+    const insertedIds = new Set<string>();
+    const insertOps: Array<{
+      elementId: string;
+      position: { after?: string; before?: string };
+    }> = [];
+
+    for (const op of operations) {
+      switch (op.type) {
+        case 'edit':
+          editedIds.add(op.elementId);
+          break;
+        case 'delete':
+          deletedIds.add(op.elementId);
+          editedIds.delete(op.elementId);
+          break;
+        case 'insert':
+          insertedIds.add(op.elementId);
+          insertOps.push({
+            elementId: op.elementId,
+            position: (op.data as InsertData).position,
+          });
+          break;
+      }
+    }
+
+    // Fall back for chained inserts (insert after another insert) – the
+    // anchor has no source position so we cannot locate it.
+    for (const ins of insertOps) {
+      const anchor = ins.position.after ?? ins.position.before;
+      if (anchor && insertedIds.has(anchor)) return null;
+    }
+
+    // Fall back when multiple inserts target the same anchor – ordering
+    // them relative to each other requires the full reconstruction path.
+    const anchorCounts = new Map<string, number>();
+    for (const ins of insertOps) {
+      const key = ins.position.after ?? ins.position.before ?? '__append__';
+      anchorCounts.set(key, (anchorCounts.get(key) ?? 0) + 1);
+    }
+    for (const count of anchorCounts.values()) {
+      if (count > 1) return null;
+    }
+
+    // Current content keyed by element ID.
+    const currentContentMap = new Map<string, string>(
+      currentElements.map((e) => [e.id, e.content])
+    );
+
+    // Body elements with source positions, sorted ascending by line.
+    // Title/DocumentTitle elements live inside the YAML front matter and
+    // are handled separately by mergeFrontMatterWithTitle.
+    const bodyOriginals = originalElements
+      .filter((e) => {
+        if (!e.sourcePosition?.line) return false;
+        const type = e.metadata?.type;
+        return type !== 'DocumentTitle' && type !== 'Title';
+      })
+      .sort(
+        (a, b) => (a.sourcePosition?.line ?? 0) - (b.sourcePosition?.line ?? 0)
+      );
+
+    if (bodyOriginals.length === 0) return null;
+
+    const lines = originalSource.split('\n');
+    const ranges = this.computeElementLineRanges(bodyOriginals, lines);
+
+    // --- Build patches -----------------------------------------------
+    interface Patch {
+      startLine: number;
+      /** endLine < startLine signals an insertion point */
+      endLine: number;
+      /** null = delete the element */
+      replacement: string[] | null;
+    }
+
+    const patches: Patch[] = [];
+
+    // Edits and deletes
+    for (const elem of bodyOriginals) {
+      const range = ranges.get(elem.id);
+      if (!range) continue;
+
+      if (deletedIds.has(elem.id)) {
+        patches.push({
+          startLine: range.start,
+          endLine: range.end,
+          replacement: null,
+        });
+      } else if (editedIds.has(elem.id)) {
+        const newContent = currentContentMap.get(elem.id);
+        if (newContent != null) {
+          patches.push({
+            startLine: range.start,
+            endLine: range.end,
+            replacement: newContent.split('\n'),
+          });
+        }
+      }
+    }
+
+    // Inserts
+    for (const ins of insertOps) {
+      const newContent = currentContentMap.get(ins.elementId);
+      if (!newContent) continue;
+
+      if (ins.position.after) {
+        const anchorRange = ranges.get(ins.position.after);
+        if (!anchorRange) return null;
+        // startLine > endLine signals an insertion point
+        patches.push({
+          startLine: anchorRange.end + 1,
+          endLine: anchorRange.end,
+          replacement: ['', ...newContent.split('\n')],
+        });
+      } else if (ins.position.before) {
+        const anchorRange = ranges.get(ins.position.before);
+        if (!anchorRange) return null;
+        patches.push({
+          startLine: anchorRange.start,
+          endLine: anchorRange.start - 1,
+          replacement: [...newContent.split('\n'), ''],
+        });
+      } else {
+        // Append at end of document
+        patches.push({
+          startLine: lines.length,
+          endLine: lines.length - 1,
+          replacement: ['', ...newContent.split('\n')],
+        });
+      }
+    }
+
+    if (patches.length === 0) return null;
+
+    // Apply patches bottom-to-top so earlier line numbers stay valid.
+    patches.sort((a, b) => b.startLine - a.startLine);
+
+    for (const patch of patches) {
+      const isInsert = patch.endLine < patch.startLine;
+
+      if (isInsert) {
+        lines.splice(patch.startLine, 0, ...(patch.replacement ?? []));
+      } else if (patch.replacement === null) {
+        // Delete: also consume one trailing blank separator line if present.
+        let deleteCount = patch.endLine - patch.startLine + 1;
+        if (
+          patch.endLine + 1 < lines.length &&
+          (lines[patch.endLine + 1]?.trim() ?? '') === ''
+        ) {
+          deleteCount++;
+        }
+        lines.splice(patch.startLine, deleteCount);
+      } else {
+        // Edit: replace element lines with new content.
+        lines.splice(
+          patch.startLine,
+          patch.endLine - patch.startLine + 1,
+          ...patch.replacement
+        );
+      }
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Compute the line range (0-indexed, inclusive) of each element in the
+   * original source.  An element starts at its recorded source line and
+   * extends to the last non-blank line before the next element (or EOF).
+   */
+  private computeElementLineRanges(
+    sortedElements: Array<{ id: string; sourcePosition?: { line: number } }>,
+    lines: string[]
+  ): Map<string, { start: number; end: number }> {
+    const ranges = new Map<string, { start: number; end: number }>();
+
+    for (let i = 0; i < sortedElements.length; i++) {
+      const elem = sortedElements[i];
+      if (!elem?.sourcePosition) continue;
+
+      const startLine = elem.sourcePosition.line - 1; // convert to 0-indexed
+      let endLine: number;
+
+      if (i < sortedElements.length - 1) {
+        const nextElem = sortedElements[i + 1];
+        if (!nextElem?.sourcePosition) continue;
+        const nextStart = nextElem.sourcePosition.line - 1;
+        // Walk backward from the line before the next element, skipping blanks.
+        endLine = nextStart - 1;
+        while (endLine > startLine && (lines[endLine]?.trim() ?? '') === '') {
+          endLine--;
+        }
+      } else {
+        // Last element: extend to the last non-blank line of the file.
+        endLine = lines.length - 1;
+        while (endLine > startLine && (lines[endLine]?.trim() ?? '') === '') {
+          endLine--;
+        }
+      }
+
+      ranges.set(elem.id, { start: startLine, end: endLine });
+    }
+
+    return ranges;
   }
 
   private async collectFiles(

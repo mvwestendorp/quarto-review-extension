@@ -781,4 +781,93 @@ describe('QmdExportService', () => {
     expect(snapshots[0]?.content).toContain('Body after edit');
     expect(snapshots[1]?.content).toContain('Body after insert');
   });
+
+  it('patchSourceWithTrackedChanges replaces only the edited element', () => {
+    // Original .qmd source — three body paragraphs separated by blank lines.
+    // Line numbers (1-indexed) that sourcePosition references:
+    //   line 5 → "First paragraph here."
+    //   line 7 → "Second paragraph here."   ← the only edit
+    //   line 9 → "Third paragraph here."
+    const originalSource = [
+      '---',
+      'title: "My Doc"',
+      '---',
+      '',
+      'First paragraph here.',
+      '',
+      'Second paragraph here.',
+      '',
+      'Third paragraph here.',
+    ].join('\n');
+
+    const operations: Operation[] = [
+      {
+        id: 'op-1',
+        type: 'edit',
+        elementId: 'p-2',
+        timestamp: 1,
+        data: {
+          type: 'edit',
+          oldContent: 'Second paragraph here.',
+          newContent: 'Second paragraph EDITED.',
+          changes: [],
+        },
+      },
+    ];
+
+    const originalElements = [
+      {
+        id: 'p-1',
+        content: 'First paragraph here.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 5, column: 1 },
+      },
+      {
+        id: 'p-2',
+        content: 'Second paragraph here.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 7, column: 1 },
+      },
+      {
+        id: 'p-3',
+        content: 'Third paragraph here.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 9, column: 1 },
+      },
+    ];
+
+    const currentElements = [
+      { id: 'p-1', content: 'First paragraph here.', metadata: { type: 'Para' } },
+      { id: 'p-2', content: 'Second paragraph EDITED.', metadata: { type: 'Para' } },
+      { id: 'p-3', content: 'Third paragraph here.', metadata: { type: 'Para' } },
+    ];
+
+    const changes = {
+      getOperations: vi.fn().mockReturnValue(operations),
+      getStateAfterOperations: vi
+        .fn()
+        .mockImplementation((count?: number) =>
+          count === 0 ? originalElements : currentElements
+        ),
+      getCurrentState: vi.fn().mockReturnValue(currentElements),
+    };
+
+    const service = new QmdExportService(changes as any);
+    const result = service.patchSourceWithTrackedChanges(originalSource);
+
+    // Expected output is identical to the original in every way except line 7.
+    const expected = [
+      '---',
+      'title: "My Doc"',
+      '---',
+      '',
+      'First paragraph here.',
+      '',
+      'Second paragraph EDITED.',
+      '',
+      'Third paragraph here.',
+    ].join('\n');
+
+    expect(result).toBe(expected);
+  });
 });
