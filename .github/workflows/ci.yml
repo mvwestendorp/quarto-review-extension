@@ -294,7 +294,6 @@ jobs:
           cp README.md public/
           cp CHANGELOG.md public/
           cp SECURITY.md public/
-          cp docs/BUNDLE_OPTIMIZATION.md public/
           cp docs/DOCUMENTATION_INDEX.md public/
 
       - name: Verify coverage report
