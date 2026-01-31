@@ -17,6 +17,11 @@ local list_counter = 0  -- Global counter for unique IDs
 -- Para elements inside Notes should not be wrapped
 local elements_in_notes = {}
 
+-- Module-level state for tracking elements inside Quarto-internal divs
+-- (e.g. #quarto-navigation-envelope, #quarto-meta-markdown).
+-- These contain generated navigation/metadata and must never be made editable.
+local elements_in_quarto_internals = {}
+
 -- Helper to create a unique signature for a list
 local function get_list_signature(block)
   -- Create a simple signature based on list type and first item content
@@ -94,6 +99,47 @@ local function identify_elements_in_notes(blocks, config)
   end
 end
 
+-- Recursively mark every block descendant so the per-type filters skip them.
+-- Guards against non-block items: Para.content is a list of Inlines (or raw
+-- strings in test mocks), not Blocks, so we only process entries that are
+-- tables with a .t field (i.e. actual Pandoc AST elements).
+local function mark_all_descendants(blocks)
+  for _, block in ipairs(blocks) do
+    if type(block) == 'table' and block.t then
+      local sig = get_element_signature(block)
+      elements_in_quarto_internals[sig] = true
+      if block.content and type(block.content) == 'table' then
+        mark_all_descendants(block.content)
+      end
+    end
+  end
+end
+
+-- Walk the document looking for Divs whose identifier starts with "quarto-".
+-- All child blocks are marked so that element filters (Para, Header, etc.)
+-- skip them unconditionally.
+local function identify_elements_in_quarto_internals(blocks, config)
+  for _, block in ipairs(blocks) do
+    if block.t == 'Div' then
+      if block.identifier and block.identifier:match('^quarto%-') then
+        if config and config.debug then
+          print(string.format("DEBUG: Found Quarto-internal div #%s, marking children as non-editable", block.identifier))
+        end
+        if block.content and type(block.content) == 'table' then
+          mark_all_descendants(block.content)
+        end
+      else
+        -- Recurse into non-internal divs
+        if block.content and type(block.content) == 'table' then
+          identify_elements_in_quarto_internals(block.content, config)
+        end
+      end
+    elseif block.content and type(block.content) == 'table' then
+      identify_elements_in_quarto_internals(block.content, config)
+    end
+  end
+end
+
 -- Create Pass 1 filter: Identify nested lists and elements inside Notes
 -- This must be called with config to enable debug output
 function M.create_identify_filter(config)
@@ -102,22 +148,26 @@ function M.create_identify_filter(config)
       -- Reset state at the start of each document
       nested_list_signatures = {}
       elements_in_notes = {}
+      elements_in_quarto_internals = {}
       list_counter = 0
 
       if config and config.debug then
-        print("DEBUG: Pass 1 - Identifying nested lists and elements in Notes")
+        print("DEBUG: Pass 1 - Identifying nested lists, elements in Notes, and Quarto-internal elements")
       end
 
       -- Process the entire document body
       identify_nested_in_blocks(doc.blocks, 0, config)
       identify_elements_in_notes(doc.blocks, config)
+      identify_elements_in_quarto_internals(doc.blocks, config)
 
       if config and config.debug then
         local nested_count = 0
         for _ in pairs(nested_list_signatures) do nested_count = nested_count + 1 end
         local note_count = 0
         for _ in pairs(elements_in_notes) do note_count = note_count + 1 end
-        print(string.format("DEBUG: Pass 1 complete - marked %d nested lists, %d elements in Notes", nested_count, note_count))
+        local quarto_internal_count = 0
+        for _ in pairs(elements_in_quarto_internals) do quarto_internal_count = quarto_internal_count + 1 end
+        print(string.format("DEBUG: Pass 1 complete - marked %d nested lists, %d elements in Notes, %d elements in Quarto-internal divs", nested_count, note_count, quarto_internal_count))
       end
 
       return doc
@@ -183,6 +233,14 @@ end
 
 -- Helper function to determine if a Div should be wrapped
 local function should_wrap_div(elem)
+  -- Skip Quarto-internal divs identified by ID (e.g. #quarto-navigation-envelope,
+  -- #quarto-meta-markdown).  The class-based quarto-* check below only catches
+  -- divs whose *class* starts with quarto-; these internal divs carry the prefix
+  -- in their *identifier* instead, with an unrelated class like "hidden".
+  if elem.identifier and elem.identifier:match('^quarto%-') then
+    return false
+  end
+
   -- Divs without classes are user content, wrap them
   if not elem.classes or #elem.classes == 0 then
     return true
@@ -199,6 +257,13 @@ local function should_wrap_div(elem)
     end
     -- Skip layout container Divs (column-*, etc.)
     if class:match('^column%-') then
+      return false
+    end
+    -- Skip Quarto translation content containers.
+    -- In translation mode Quarto wraps each language variant in a
+    -- .content-language div.  Wrapping it as an editable Div interferes
+    -- with the translation pipeline and causes content duplication.
+    if class == 'content-language' then
       return false
     end
   end
@@ -245,6 +310,15 @@ function M.create_filter_functions(config, context)
     if elements_in_notes[sig] then
       if config.debug then
         print(string.format("DEBUG: Skipping Para inside Note (sig=%s)", sig))
+      end
+      return elem
+    end
+
+    -- Skip Para elements inside Quarto-internal divs (navigation envelope,
+    -- meta-markdown, etc.) — these were marked in Pass 1
+    if elements_in_quarto_internals[sig] then
+      if config.debug then
+        print(string.format("DEBUG: Skipping Para inside Quarto-internal div (sig=%s)", sig))
       end
       return elem
     end

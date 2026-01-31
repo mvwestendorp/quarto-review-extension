@@ -62,6 +62,28 @@ end
 package.path = package.path .. ";./_extensions/review/lib/?.lua"
 local element_wrapping = require('element-wrapping')
 
+-- Helper: set up / tear down a minimal pandoc mock.
+-- Only pandoc.utils.stringify is needed — it is called by
+-- get_element_signature inside the Para filter before make_editable
+-- is reached.  Returns a restore function that puts pandoc back
+-- to whatever it was before the call.
+local function setup_pandoc_mock()
+  local saved = pandoc          -- nil in plain lua5.4 test runner
+  pandoc = pandoc or {}
+  pandoc.utils = pandoc.utils or {}
+  pandoc.utils.stringify = function(content)
+    if type(content) == 'table' then
+      local parts = {}
+      for _, v in ipairs(content) do
+        parts[#parts + 1] = tostring(v)
+      end
+      return table.concat(parts, " ")
+    end
+    return tostring(content or "")
+  end
+  return function() pandoc = saved end
+end
+
 -- Tests
 local suite = TestSuite
 
@@ -478,7 +500,7 @@ suite:add("Handles config with missing editable_elements fields", function(s)
 end)
 
 -- Code-annotations and Quarto cell tests
-suite:add("CodeBlock filter skips cells with cell-code class", function(s)
+suite:add("CodeBlock filter wraps cell-code blocks as non-editable", function(s)
   local config = {
     enabled = true,
     debug = false,
@@ -493,6 +515,15 @@ suite:add("CodeBlock filter skips cells with cell-code class", function(s)
     element_counters = {},
     processing_list = false
   }
+
+  -- Mock make_editable to capture the editable flag
+  local captured_editable = nil
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx, editable)
+    captured_editable = editable
+    return {t = "Div", content = {elem}}
+  end
+
   local filters = element_wrapping.create_filter_functions(config, context)
 
   -- Create a mock CodeBlock with cell-code class (executable cell)
@@ -505,10 +536,13 @@ suite:add("CodeBlock filter skips cells with cell-code class", function(s)
     }
   }
 
-  -- The filter should return the element unchanged (not wrapped)
-  local result = filters.CodeBlock(elem)
-  s:assertEqual(result.t, "CodeBlock", "Should return CodeBlock unchanged")
-  s:assertEqual(result.text, "print('hello')", "Should not modify text")
+  -- cell-code blocks are wrapped but marked non-editable so they
+  -- still receive review IDs for export without being user-editable
+  filters.CodeBlock(elem)
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertFalse(captured_editable, "cell-code CodeBlock should be wrapped with editable=false")
 end)
 
 suite:add("CodeBlock filter wraps regular code blocks without cell-code class", function(s)
@@ -782,6 +816,8 @@ end)
 
 -- make_editable behavior tests (using mocks due to pandoc dependency)
 suite:add("make_editable generates unique IDs for elements", function(s)
+  local restore_pandoc = setup_pandoc_mock()
+
   local config = {
     enabled = true,
     debug = false,
@@ -820,6 +856,7 @@ suite:add("make_editable generates unique IDs for elements", function(s)
   filters.Para({t = "Para", content = {}})
 
   element_wrapping.make_editable = original_make_editable
+  restore_pandoc()
 
   s:assertEqual(#generated_ids, 3, "Should generate 3 IDs")
   s:assertEqual(generated_ids[1], "doc.para-1", "First ID should be doc.para-1")
@@ -828,6 +865,8 @@ suite:add("make_editable generates unique IDs for elements", function(s)
 end)
 
 suite:add("make_editable includes element type in wrapper", function(s)
+  local restore_pandoc = setup_pandoc_mock()
+
   local config = {
     enabled = true,
     debug = false,
@@ -853,6 +892,7 @@ suite:add("make_editable includes element type in wrapper", function(s)
   filters.Header({t = "Header", level = 1, content = {}, identifier = "sec-1"})
 
   element_wrapping.make_editable = original_make_editable
+  restore_pandoc()
 
   s:assertEqual(captured_types[1], "Para", "First call should be for Para")
   s:assertEqual(captured_types[2], "Header", "Second call should be for Header")
@@ -892,6 +932,8 @@ suite:add("make_editable includes level for headers", function(s)
 end)
 
 suite:add("make_editable uses section stack for nested IDs", function(s)
+  local restore_pandoc = setup_pandoc_mock()
+
   local config = {
     enabled = true,
     debug = false,
@@ -929,12 +971,15 @@ suite:add("make_editable uses section stack for nested IDs", function(s)
   filters.Para({t = "Para", content = {}})
 
   element_wrapping.make_editable = original_make_editable
+  restore_pandoc()
 
   s:assertEqual(generated_ids[1], "doc.intro.header-1", "Header ID should include its own identifier: doc.intro.header-1")
   s:assertEqual(generated_ids[2], "doc.intro.para-1", "Para ID should include section: doc.intro.para-1")
 end)
 
 suite:add("make_editable passes config to ID generation", function(s)
+  local restore_pandoc = setup_pandoc_mock()
+
   local config = {
     enabled = true,
     debug = false,
@@ -967,8 +1012,211 @@ suite:add("make_editable passes config to ID generation", function(s)
   filters.Para({t = "Para", content = {}})
 
   element_wrapping.make_editable = original_make_editable
+  restore_pandoc()
 
   s:assertEqual(generated_id, "custom-prefix-para-1", "Should use custom prefix and separator")
+end)
+
+-- ---------------------------------------------------------------
+-- Bug regression: content-language and quarto-internal Div / Para
+-- ---------------------------------------------------------------
+
+-- Helper: creates a Div mock whose .classes table also has the
+-- .includes() method that the BlockQuote walker expects (some
+-- Pandoc Lua versions expose it, some don't — mirror what the
+-- existing Div-skip tests do).
+local function make_div(classes, identifier, content)
+  local t = {
+    t = "Div",
+    classes = classes or {},
+    identifier = identifier or "",
+    content = content or {}
+  }
+  -- Attach includes() so code paths that call elem.classes:includes() work
+  t.classes.includes = function(self, class)
+    for _, c in ipairs(self) do
+      if c == class then return true end
+    end
+    return false
+  end
+  return t
+end
+
+-- Helper: standard config with Div enabled, plus a mocked
+-- make_editable so we can verify whether wrapping was attempted.
+local function div_config_and_filters()
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = { Div = true }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  local wrap_called = false
+  local original = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx, editable)
+    wrap_called = true
+    return { t = "Div", content = {elem} }  -- minimal mock
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+  return filters, function() return wrap_called end, function() element_wrapping.make_editable = original end
+end
+
+-- Bug 1a: Div filter must skip .content-language divs
+suite:add("Div filter skips content-language divs (translation containers)", function(s)
+  local filters, was_wrapped, restore = div_config_and_filters()
+
+  local elem = make_div({"content-language"}, "", {})
+  elem.attributes = { language = "en" }
+
+  local result = filters.Div(elem)
+  restore()
+
+  -- must return the element unchanged — not wrapped
+  s:assertFalse(was_wrapped(), "should NOT call make_editable for content-language div")
+  s:assertEqual(result.t, "Div", "returned element type should still be Div")
+  -- identity check: same object returned
+  s:assertTrue(result == elem, "should return the original element, not a wrapper")
+end)
+
+-- Bug 1b: Div filter must skip divs whose ID starts with quarto-
+suite:add("Div filter skips divs with quarto-* identifier (navigation envelope)", function(s)
+  local filters, was_wrapped, restore = div_config_and_filters()
+
+  local elem = make_div({"hidden"}, "quarto-navigation-envelope", {})
+
+  local result = filters.Div(elem)
+  restore()
+
+  s:assertFalse(was_wrapped(), "should NOT call make_editable for #quarto-navigation-envelope")
+  s:assertTrue(result == elem, "should return the original element unchanged")
+end)
+
+-- Bug 1c: same as 1b but for quarto-meta-markdown
+suite:add("Div filter skips divs with quarto-* identifier (meta markdown)", function(s)
+  local filters, was_wrapped, restore = div_config_and_filters()
+
+  local elem = make_div({"hidden"}, "quarto-meta-markdown", {})
+
+  local result = filters.Div(elem)
+  restore()
+
+  s:assertFalse(was_wrapped(), "should NOT call make_editable for #quarto-meta-markdown")
+  s:assertTrue(result == elem, "should return the original element unchanged")
+end)
+
+-- Positive: a normal div with no special class/id still gets wrapped
+suite:add("Div filter still wraps ordinary user divs when Div is enabled", function(s)
+  local filters, was_wrapped, restore = div_config_and_filters()
+
+  local elem = make_div({"my-custom-aside"}, "user-section", {})
+
+  filters.Div(elem)
+  restore()
+
+  s:assertTrue(was_wrapped(), "should call make_editable for a normal user div")
+end)
+
+-- Bug 2: Para filter must skip Paras inside quarto-internal divs.
+-- This requires Pass 1 to have run and marked those elements.
+suite:add("Para filter skips paragraphs inside quarto-internal divs after Pass 1", function(s)
+  local restore_pandoc = setup_pandoc_mock()
+
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = { Para = true }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  -- Build a mock document that contains a quarto-internal div with a Para
+  local inner_para = { t = "Para", content = {"nav-link-text"} }
+  local quarto_div = {
+    t = "Div",
+    identifier = "quarto-navigation-envelope",
+    classes = {"hidden"},
+    content = { inner_para }
+  }
+
+  local mock_doc = { blocks = { quarto_div } }
+
+  -- Run Pass 1 to populate the skip-set
+  local identify_filter = element_wrapping.create_identify_filter(config)
+  identify_filter.Pandoc(mock_doc)
+
+  -- Mock make_editable so we can detect if it's called
+  local wrap_called = false
+  local orig_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(...)
+    wrap_called = true
+    return { t = "Div" }
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Feed the same inner_para to the Para filter
+  local result = filters.Para(inner_para)
+
+  -- Restore
+  element_wrapping.make_editable = orig_make_editable
+  restore_pandoc()
+
+  -- The Para should have been returned unchanged (skipped), not wrapped
+  s:assertFalse(wrap_called, "make_editable should NOT be called for Para inside quarto-internal div")
+  s:assertTrue(result == inner_para, "should return the original Para unchanged")
+end)
+
+-- Negative: a normal Para (not inside a quarto-internal div) still gets wrapped
+suite:add("Para filter still wraps normal paragraphs not inside quarto-internal divs", function(s)
+  local restore_pandoc = setup_pandoc_mock()
+
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = { Para = true }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  -- Run Pass 1 with an EMPTY document (no quarto-internal divs)
+  local identify_filter = element_wrapping.create_identify_filter(config)
+  identify_filter.Pandoc({ blocks = {} })
+
+  -- Mock make_editable
+  local wrap_called = false
+  local orig_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(...)
+    wrap_called = true
+    return { t = "Div" }
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  local normal_para = { t = "Para", content = {"just a normal paragraph"} }
+  filters.Para(normal_para)
+
+  element_wrapping.make_editable = orig_make_editable
+  restore_pandoc()
+
+  s:assertTrue(wrap_called, "make_editable SHOULD be called for a normal Para")
 end)
 
 -- Run the test suite
