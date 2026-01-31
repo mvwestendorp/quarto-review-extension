@@ -264,7 +264,7 @@ To debug test failures, examine:
 - [review.lua](../../_extensions/review/review.lua) - Original monolithic filter (reference)
 - [lib/](../../_extensions/review/lib/) - Modular Lua library
 - [ARCHITECTURE.md](../../docs/dev/ARCHITECTURE.md) - System design and ID generation
-- [REFACTORING_ROADMAP.md](../../docs/REFACTORING_ROADMAP.md) - Refactoring progress
+- [REFACTORING_ROADMAP.md](../../docs/dev/planning/REFACTORING_ROADMAP.md) - Refactoring progress
 
 ## Contributing
 
