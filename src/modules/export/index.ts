@@ -357,28 +357,46 @@ export class QmdExportService {
       }
     }
 
-    // Fall back for chained inserts (insert after another insert) – the
-    // anchor has no source position so we cannot locate it.
-    for (const ins of insertOps) {
-      const anchor = ins.position.after ?? ins.position.before;
-      if (anchor && insertedIds.has(anchor)) return null;
-    }
-
-    // Fall back when multiple inserts target the same anchor – ordering
-    // them relative to each other requires the full reconstruction path.
-    const anchorCounts = new Map<string, number>();
-    for (const ins of insertOps) {
-      const key = ins.position.after ?? ins.position.before ?? '__append__';
-      anchorCounts.set(key, (anchorCounts.get(key) ?? 0) + 1);
-    }
-    for (const count of anchorCounts.values()) {
-      if (count > 1) return null;
-    }
-
     // Current content keyed by element ID.
     const currentContentMap = new Map<string, string>(
       currentElements.map((e) => [e.id, e.content])
     );
+
+    const lines = originalSource.split('\n');
+
+    // Content-search fallback: for elements that are edited or deleted
+    // but lack a sourcePosition, locate them by scanning for their
+    // original content text in the source lines.
+    const neededIds = new Set<string>([...editedIds, ...deletedIds]);
+    const claimedLines = new Set<number>();
+    for (const e of originalElements) {
+      if (e.sourcePosition?.line) claimedLines.add(e.sourcePosition.line);
+    }
+    for (const elem of originalElements) {
+      if (elem.sourcePosition?.line) continue;
+      if (!neededIds.has(elem.id)) continue;
+      const type = elem.metadata?.type;
+      if (type === 'DocumentTitle' || type === 'Title') continue;
+
+      const firstLine = elem.content.split('\n')[0];
+      if (!firstLine) continue;
+      const target = firstLine.trimEnd();
+      for (let i = 0; i < lines.length; i++) {
+        if (
+          !claimedLines.has(i + 1) &&
+          (lines[i]?.trimEnd() ?? '') === target
+        ) {
+          (
+            elem as { sourcePosition?: { line: number; column: number } }
+          ).sourcePosition = {
+            line: i + 1,
+            column: 1,
+          };
+          claimedLines.add(i + 1);
+          break;
+        }
+      }
+    }
 
     // Body elements with source positions, sorted ascending by line.
     // Title/DocumentTitle elements live inside the YAML front matter and
@@ -394,8 +412,6 @@ export class QmdExportService {
       );
 
     if (bodyOriginals.length === 0) return null;
-
-    const lines = originalSource.split('\n');
     const ranges = this.computeElementLineRanges(bodyOriginals, lines);
 
     // --- Build patches -----------------------------------------------
@@ -405,6 +421,8 @@ export class QmdExportService {
       endLine: number;
       /** null = delete the element */
       replacement: string[] | null;
+      /** tiebreaker for inserts at the same line; higher = later in output */
+      insertOrder?: number;
     }
 
     const patches: Patch[] = [];
@@ -432,42 +450,103 @@ export class QmdExportService {
       }
     }
 
-    // Inserts
-    for (const ins of insertOps) {
-      const newContent = currentContentMap.get(ins.elementId);
-      if (!newContent) continue;
+    // --- Inserts: resolve chained anchors and order siblings ----------
+    // Walk up the anchor chain past other inserts to the nearest original
+    // element that has a source range.
+    const resolveAnchor = (ins: {
+      position: { after?: string; before?: string };
+    }): { anchor: string | undefined; isAfter: boolean } => {
+      const visited = new Set<string>();
+      let current = ins.position.after ?? ins.position.before;
+      let isAfter = !!ins.position.after;
 
-      if (ins.position.after) {
-        const anchorRange = ranges.get(ins.position.after);
-        if (!anchorRange) return null;
-        // startLine > endLine signals an insertion point
-        patches.push({
-          startLine: anchorRange.end + 1,
-          endLine: anchorRange.end,
-          replacement: ['', ...newContent.split('\n')],
-        });
-      } else if (ins.position.before) {
-        const anchorRange = ranges.get(ins.position.before);
-        if (!anchorRange) return null;
-        patches.push({
-          startLine: anchorRange.start,
-          endLine: anchorRange.start - 1,
-          replacement: [...newContent.split('\n'), ''],
-        });
-      } else {
-        // Append at end of document
-        patches.push({
-          startLine: lines.length,
-          endLine: lines.length - 1,
-          replacement: ['', ...newContent.split('\n')],
-        });
+      while (current && insertedIds.has(current)) {
+        if (visited.has(current)) return { anchor: undefined, isAfter };
+        visited.add(current);
+        const parent = insertOps.find((o) => o.elementId === current);
+        if (!parent) break;
+        isAfter = !!parent.position.after;
+        current = parent.position.after ?? parent.position.before;
+      }
+
+      return { anchor: current, isAfter };
+    };
+
+    // Index each element by its current document order so sibling inserts
+    // targeting the same resolved anchor can be sorted correctly.
+    const currentOrderMap = new Map<string, number>(
+      currentElements.map((e, i) => [e.id, i])
+    );
+
+    // Group inserts by resolved anchor; each group is sorted by document
+    // order and assigned an insertOrder for stable bottom-to-top patching.
+    type ResolvedInsert = {
+      ins: (typeof insertOps)[0];
+      resolvedAnchor: string | undefined;
+      isAfter: boolean;
+    };
+    const insertGroups = new Map<string, ResolvedInsert[]>();
+    for (const ins of insertOps) {
+      const { anchor, isAfter } = resolveAnchor(ins);
+      const key = anchor ? `${isAfter ? 'a' : 'b'}:${anchor}` : 'append';
+      if (!insertGroups.has(key)) insertGroups.set(key, []);
+      insertGroups.get(key)!.push({ ins, resolvedAnchor: anchor, isAfter });
+    }
+    for (const group of insertGroups.values()) {
+      group.sort(
+        (a, b) =>
+          (currentOrderMap.get(a.ins.elementId) ?? 0) -
+          (currentOrderMap.get(b.ins.elementId) ?? 0)
+      );
+    }
+
+    for (const group of insertGroups.values()) {
+      for (let idx = 0; idx < group.length; idx++) {
+        const entry = group[idx];
+        if (!entry) continue;
+        const { ins, resolvedAnchor, isAfter } = entry;
+        const newContent = currentContentMap.get(ins.elementId);
+        if (!newContent) continue;
+
+        if (resolvedAnchor && isAfter) {
+          const anchorRange = ranges.get(resolvedAnchor);
+          if (!anchorRange) continue;
+          patches.push({
+            startLine: anchorRange.end + 1,
+            endLine: anchorRange.end,
+            replacement: ['', ...newContent.split('\n')],
+            insertOrder: idx,
+          });
+        } else if (resolvedAnchor && !isAfter) {
+          const anchorRange = ranges.get(resolvedAnchor);
+          if (!anchorRange) continue;
+          patches.push({
+            startLine: anchorRange.start,
+            endLine: anchorRange.start - 1,
+            replacement: [...newContent.split('\n'), ''],
+            insertOrder: idx,
+          });
+        } else {
+          // Append at end of document
+          patches.push({
+            startLine: lines.length,
+            endLine: lines.length - 1,
+            replacement: ['', ...newContent.split('\n')],
+            insertOrder: idx,
+          });
+        }
       }
     }
 
     if (patches.length === 0) return null;
 
     // Apply patches bottom-to-top so earlier line numbers stay valid.
-    patches.sort((a, b) => b.startLine - a.startLine);
+    // insertOrder breaks ties: higher values are spliced first, so they
+    // end up after lower values in the final output.
+    patches.sort((a, b) => {
+      if (b.startLine !== a.startLine) return b.startLine - a.startLine;
+      return (b.insertOrder ?? 0) - (a.insertOrder ?? 0);
+    });
 
     for (const patch of patches) {
       const isInsert = patch.endLine < patch.startLine;

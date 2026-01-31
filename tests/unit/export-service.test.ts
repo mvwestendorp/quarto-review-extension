@@ -870,4 +870,269 @@ describe('QmdExportService', () => {
 
     expect(result).toBe(expected);
   });
+
+  // ---------------------------------------------------------------------------
+  // P0.1 regression tests – these exercise the three bailout paths that cause
+  // patchSourceWithTrackedChanges to return null and fall back to full-document
+  // reconstruction (which rewrites every list marker, re-wraps paragraphs, etc.)
+  // ---------------------------------------------------------------------------
+
+  it('patchSourceWithTrackedChanges handles chained inserts (insert after another insert)', () => {
+    // Chained insert: D is inserted after A, then E is inserted after D.
+    // The anchor for E (element D) is itself an insert with no sourcePosition,
+    // so the current code bails with `return null`.  The fix should resolve the
+    // chain and place both inserts in operation order after A.
+    const originalSource = [
+      '---',
+      'title: "Test"',
+      '---',
+      '',
+      'Paragraph A.',
+      '',
+      'Paragraph B.',
+    ].join('\n');
+
+    const operations: Operation[] = [
+      {
+        id: 'op-insert-d',
+        type: 'insert',
+        elementId: 'p-d',
+        timestamp: 1,
+        data: {
+          type: 'insert',
+          content: 'Paragraph D.',
+          position: { after: 'p-a' },
+        },
+      },
+      {
+        id: 'op-insert-e',
+        type: 'insert',
+        elementId: 'p-e',
+        timestamp: 2,
+        data: {
+          type: 'insert',
+          content: 'Paragraph E.',
+          position: { after: 'p-d' }, // anchor is itself an insert
+        },
+      },
+    ];
+
+    const originalElements = [
+      {
+        id: 'p-a',
+        content: 'Paragraph A.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 5, column: 1 },
+      },
+      {
+        id: 'p-b',
+        content: 'Paragraph B.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 7, column: 1 },
+      },
+    ];
+
+    const currentElements = [
+      { id: 'p-a', content: 'Paragraph A.', metadata: { type: 'Para' } },
+      { id: 'p-d', content: 'Paragraph D.', metadata: { type: 'Para' } },
+      { id: 'p-e', content: 'Paragraph E.', metadata: { type: 'Para' } },
+      { id: 'p-b', content: 'Paragraph B.', metadata: { type: 'Para' } },
+    ];
+
+    const changes = {
+      getOperations: vi.fn().mockReturnValue(operations),
+      getStateAfterOperations: vi
+        .fn()
+        .mockImplementation((count?: number) =>
+          count === 0 ? originalElements : currentElements
+        ),
+      getCurrentState: vi.fn().mockReturnValue(currentElements),
+    };
+
+    const service = new QmdExportService(changes as any);
+    const result = service.patchSourceWithTrackedChanges(originalSource);
+
+    // Must not fall back to null — both inserts should appear after A.
+    expect(result).not.toBeNull();
+    expect(result).toContain('Paragraph D.');
+    expect(result).toContain('Paragraph E.');
+    // Original lines must be untouched.
+    expect(result).toContain('Paragraph A.');
+    expect(result).toContain('Paragraph B.');
+    // Order: A, D, E, B
+    const lines = result!.split('\n').filter((l) => l.trim());
+    const aIdx = lines.findIndex((l) => l.includes('Paragraph A.'));
+    const dIdx = lines.findIndex((l) => l.includes('Paragraph D.'));
+    const eIdx = lines.findIndex((l) => l.includes('Paragraph E.'));
+    const bIdx = lines.findIndex((l) => l.includes('Paragraph B.'));
+    expect(dIdx).toBeGreaterThan(aIdx);
+    expect(eIdx).toBeGreaterThan(dIdx);
+    expect(bIdx).toBeGreaterThan(eIdx);
+  });
+
+  it('patchSourceWithTrackedChanges handles multiple inserts on the same anchor', () => {
+    // Two inserts both targeting the same anchor (p-a).  Current code bails
+    // because anchorCounts > 1.  The fix should place them in operation order.
+    const originalSource = [
+      '---',
+      'title: "Test"',
+      '---',
+      '',
+      'Paragraph A.',
+      '',
+      'Paragraph B.',
+    ].join('\n');
+
+    const operations: Operation[] = [
+      {
+        id: 'op-insert-c',
+        type: 'insert',
+        elementId: 'p-c',
+        timestamp: 1,
+        data: {
+          type: 'insert',
+          content: 'Paragraph C.',
+          position: { after: 'p-a' },
+        },
+      },
+      {
+        id: 'op-insert-d',
+        type: 'insert',
+        elementId: 'p-d',
+        timestamp: 2,
+        data: {
+          type: 'insert',
+          content: 'Paragraph D.',
+          position: { after: 'p-a' }, // same anchor as C
+        },
+      },
+    ];
+
+    const originalElements = [
+      {
+        id: 'p-a',
+        content: 'Paragraph A.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 5, column: 1 },
+      },
+      {
+        id: 'p-b',
+        content: 'Paragraph B.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 7, column: 1 },
+      },
+    ];
+
+    const currentElements = [
+      { id: 'p-a', content: 'Paragraph A.', metadata: { type: 'Para' } },
+      { id: 'p-c', content: 'Paragraph C.', metadata: { type: 'Para' } },
+      { id: 'p-d', content: 'Paragraph D.', metadata: { type: 'Para' } },
+      { id: 'p-b', content: 'Paragraph B.', metadata: { type: 'Para' } },
+    ];
+
+    const changes = {
+      getOperations: vi.fn().mockReturnValue(operations),
+      getStateAfterOperations: vi
+        .fn()
+        .mockImplementation((count?: number) =>
+          count === 0 ? originalElements : currentElements
+        ),
+      getCurrentState: vi.fn().mockReturnValue(currentElements),
+    };
+
+    const service = new QmdExportService(changes as any);
+    const result = service.patchSourceWithTrackedChanges(originalSource);
+
+    expect(result).not.toBeNull();
+    expect(result).toContain('Paragraph C.');
+    expect(result).toContain('Paragraph D.');
+    // Order preserved: A, C, D, B (operation order)
+    const lines = result!.split('\n').filter((l) => l.trim());
+    const aIdx = lines.findIndex((l) => l.includes('Paragraph A.'));
+    const cIdx = lines.findIndex((l) => l.includes('Paragraph C.'));
+    const dIdx = lines.findIndex((l) => l.includes('Paragraph D.'));
+    const bIdx = lines.findIndex((l) => l.includes('Paragraph B.'));
+    expect(cIdx).toBeGreaterThan(aIdx);
+    expect(dIdx).toBeGreaterThan(cIdx);
+    expect(bIdx).toBeGreaterThan(dIdx);
+  });
+
+  it('patchSourceWithTrackedChanges handles edit on element without sourcePosition via content search', () => {
+    // Element p-2 has no sourcePosition.  The current code filters it out of
+    // bodyOriginals, produces zero patches, and returns null.  The fix should
+    // locate the element by searching for its original content in the source.
+    const originalSource = [
+      '---',
+      'title: "Test"',
+      '---',
+      '',
+      'First paragraph here.',
+      '',
+      'Second paragraph here.',
+      '',
+      'Third paragraph here.',
+    ].join('\n');
+
+    const operations: Operation[] = [
+      {
+        id: 'op-1',
+        type: 'edit',
+        elementId: 'p-2',
+        timestamp: 1,
+        data: {
+          type: 'edit',
+          oldContent: 'Second paragraph here.',
+          newContent: 'Second paragraph EDITED.',
+          changes: [],
+        },
+      },
+    ];
+
+    const originalElements = [
+      {
+        id: 'p-1',
+        content: 'First paragraph here.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 5, column: 1 },
+      },
+      {
+        id: 'p-2',
+        content: 'Second paragraph here.',
+        metadata: { type: 'Para' },
+        // No sourcePosition — simulates a missing data-review-source-line
+      },
+      {
+        id: 'p-3',
+        content: 'Third paragraph here.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 9, column: 1 },
+      },
+    ];
+
+    const currentElements = [
+      { id: 'p-1', content: 'First paragraph here.', metadata: { type: 'Para' } },
+      { id: 'p-2', content: 'Second paragraph EDITED.', metadata: { type: 'Para' } },
+      { id: 'p-3', content: 'Third paragraph here.', metadata: { type: 'Para' } },
+    ];
+
+    const changes = {
+      getOperations: vi.fn().mockReturnValue(operations),
+      getStateAfterOperations: vi
+        .fn()
+        .mockImplementation((count?: number) =>
+          count === 0 ? originalElements : currentElements
+        ),
+      getCurrentState: vi.fn().mockReturnValue(currentElements),
+    };
+
+    const service = new QmdExportService(changes as any);
+    const result = service.patchSourceWithTrackedChanges(originalSource);
+
+    // Must not fall back to null — content-search should locate the element.
+    expect(result).not.toBeNull();
+    // Only the edited line should change.
+    expect(result).toContain('Second paragraph EDITED.');
+    expect(result).toContain('First paragraph here.');
+    expect(result).toContain('Third paragraph here.');
+  });
 });
