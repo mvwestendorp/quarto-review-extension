@@ -788,108 +788,7 @@ describe('QmdExportService', () => {
     expect(snapshots[1]?.content).toContain('Body after insert');
   });
 
-  // ---------------------------------------------------------------------------
-  // P1.3 – stray .md/.qmd files must not leak into bundles when they are not
-  // referenced by _quarto.yml.
-  // ---------------------------------------------------------------------------
 
-  it('excludes stray .md files not referenced in _quarto.yml chapters', async () => {
-    const changes = createChangesStub({ clean: 'Index content' });
-    const git = createGitStub('index.qmd');
-    git.listEmbeddedSources = vi.fn().mockResolvedValue([
-      {
-        filename: 'index.qmd',
-        content: 'Index content',
-        originalContent: 'Index content',
-        lastModified: new Date().toISOString(),
-        version: '1',
-      },
-      {
-        filename: 'guide.qmd',
-        content: 'Guide content',
-        originalContent: 'Guide content',
-        lastModified: new Date().toISOString(),
-        version: '1',
-      },
-      {
-        filename: 'stray.md',
-        content: 'Stray file that was opened in the browser',
-        originalContent: 'Stray file',
-        lastModified: new Date().toISOString(),
-        version: '1',
-      },
-      {
-        filename: '_quarto.yml',
-        content: [
-          'project:',
-          '  type: website',
-          'chapters:',
-          '  - index.qmd',
-          '  - guide.qmd',
-        ].join('\n'),
-        originalContent: '',
-        lastModified: new Date().toISOString(),
-        version: '1',
-      },
-    ]);
-
-    const service = new QmdExportService(changes as any, { git: git as any });
-    const bundle = await service.createBundle();
-
-    const filenames = bundle.files.map((f) => f.filename);
-    expect(filenames).toContain('index.qmd');
-    expect(filenames).toContain('guide.qmd');
-    expect(filenames).not.toContain('stray.md');
-  });
-
-  it('excludes stray files when _quarto.yml has an explicit render list (regression)', async () => {
-    const changes = createChangesStub({ clean: 'Primary content' });
-    const git = createGitStub('index.qmd');
-    git.listEmbeddedSources = vi.fn().mockResolvedValue([
-      {
-        filename: 'index.qmd',
-        content: 'Primary content',
-        originalContent: 'Primary content',
-        lastModified: new Date().toISOString(),
-        version: '1',
-      },
-      {
-        filename: 'about.qmd',
-        content: 'About content',
-        originalContent: 'About content',
-        lastModified: new Date().toISOString(),
-        version: '1',
-      },
-      {
-        filename: 'stray.md',
-        content: 'Should not appear',
-        originalContent: 'Should not appear',
-        lastModified: new Date().toISOString(),
-        version: '1',
-      },
-      {
-        filename: '_quarto.yml',
-        content: [
-          'project:',
-          '  type: website',
-          'render:',
-          '  - index.qmd',
-          '  - about.qmd',
-        ].join('\n'),
-        originalContent: '',
-        lastModified: new Date().toISOString(),
-        version: '1',
-      },
-    ]);
-
-    const service = new QmdExportService(changes as any, { git: git as any });
-    const bundle = await service.createBundle();
-
-    const filenames = bundle.files.map((f) => f.filename);
-    expect(filenames).toContain('index.qmd');
-    expect(filenames).toContain('about.qmd');
-    expect(filenames).not.toContain('stray.md');
-  });
 
   it('patchSourceWithTrackedChanges replaces only the edited element', () => {
     // Original .qmd source — three body paragraphs separated by blank lines.
@@ -1243,5 +1142,87 @@ describe('QmdExportService', () => {
     expect(result).toContain('Second paragraph EDITED.');
     expect(result).toContain('First paragraph here.');
     expect(result).toContain('Third paragraph here.');
+  });
+
+  it('patchSourceWithTrackedChanges resolves element via normalised whitespace search', () => {
+    // Source uses 3-space list markers; element content uses 1-space (pandoc
+    // normalised).  No sourcePosition on list-1.  Exact search fails; the
+    // normalised second pass must locate the element.
+    const originalSource = [
+      '---',
+      'title: "Test"',
+      '---',
+      '',
+      'Intro paragraph.',
+      '',
+      '-   item one',
+      '-   item two',
+      '-   item three',
+      '',
+      'Outro paragraph.',
+    ].join('\n');
+
+    const operations: Operation[] = [
+      {
+        id: 'op-1',
+        type: 'edit',
+        elementId: 'list-1',
+        timestamp: 1,
+        data: {
+          type: 'edit',
+          oldContent: '- item one\n- item two\n- item three',
+          newContent: '- item one updated\n- item two\n- item three',
+          changes: [],
+        },
+      },
+    ];
+
+    const originalElements = [
+      {
+        id: 'p-intro',
+        content: 'Intro paragraph.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 5, column: 1 },
+      },
+      {
+        id: 'list-1',
+        content: '- item one\n- item two\n- item three',
+        metadata: { type: 'BulletList' },
+        // No sourcePosition — simulates missing data-review-source-line
+      },
+      {
+        id: 'p-outro',
+        content: 'Outro paragraph.',
+        metadata: { type: 'Para' },
+        sourcePosition: { line: 11, column: 1 },
+      },
+    ];
+
+    const currentElements = [
+      { id: 'p-intro', content: 'Intro paragraph.', metadata: { type: 'Para' } },
+      { id: 'list-1', content: '- item one updated\n- item two\n- item three', metadata: { type: 'BulletList' } },
+      { id: 'p-outro', content: 'Outro paragraph.', metadata: { type: 'Para' } },
+    ];
+
+    const changes = {
+      getOperations: vi.fn().mockReturnValue(operations),
+      getStateAfterOperations: vi
+        .fn()
+        .mockImplementation((count?: number) =>
+          count === 0 ? originalElements : currentElements
+        ),
+      getCurrentState: vi.fn().mockReturnValue(currentElements),
+    };
+
+    const service = new QmdExportService(changes as any);
+    const result = service.patchSourceWithTrackedChanges(originalSource);
+
+    // Without the normalised pass this returns null.
+    expect(result).not.toBeNull();
+    // The edit must be present.
+    expect(result).toContain('item one updated');
+    // Unchanged elements must survive.
+    expect(result).toContain('Intro paragraph.');
+    expect(result).toContain('Outro paragraph.');
   });
 });

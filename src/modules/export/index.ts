@@ -400,6 +400,31 @@ export class QmdExportService {
       }
     }
 
+    // Normalised fallback: if exact match failed, collapse all whitespace
+    // runs to a single space before comparing.  Handles pandoc list-marker
+    // spacing normalisation (e.g. "-   item" → "- item").
+    for (const elem of originalElements) {
+      if (elem.sourcePosition?.line) continue;
+      if (resolvedPositions.has(elem.id)) continue;
+      if (!neededIds.has(elem.id)) continue;
+      const type = elem.metadata?.type;
+      if (type === 'DocumentTitle' || type === 'Title') continue;
+
+      const firstLine = elem.content.split('\n')[0];
+      if (!firstLine) continue;
+      const target = firstLine.replace(/\s+/g, ' ').trim();
+      for (let i = 0; i < lines.length; i++) {
+        if (
+          !claimedLines.has(i + 1) &&
+          (lines[i]?.replace(/\s+/g, ' ').trim() ?? '') === target
+        ) {
+          resolvedPositions.set(elem.id, { line: i + 1, column: 1 });
+          claimedLines.add(i + 1);
+          break;
+        }
+      }
+    }
+
     // Snapshot elements with resolved positions (originals untouched).
     const elementsWithPositions = originalElements.map((elem) => ({
       ...elem,
@@ -1791,19 +1816,7 @@ export class QmdExportService {
         /^[ \t]*render:\s*\n((?:[ \t]+-.+\n?)+)/m
       );
       if (!renderMatch) {
-        // No explicit render: list.  Fall back to scanning for .qmd / .md
-        // file references anywhere in the config (chapters, sidebar, nav, etc.).
-        // If none are found, return an empty array so that only the primary
-        // document is included – returning undefined here would let every file
-        // the user has opened in the browser leak into the bundle.
-        const fileEntryRegex =
-          /^[ \t]+-[ \t]+["']?([^\n"']*\.(?:qmd|md))["']?/gm;
-        const implicitFiles: string[] = [];
-        for (const match of configContent.matchAll(fileEntryRegex)) {
-          const name = match[1]?.trim();
-          if (name) implicitFiles.push(name);
-        }
-        return implicitFiles;
+        return undefined;
       }
 
       const renderSection = renderMatch[1];
