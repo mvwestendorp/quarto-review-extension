@@ -503,6 +503,54 @@ function M.create_filter_functions(config, context)
     return M.make_editable(elem, 'Table', nil, config, context)
   end
 
+  filters.Figure = function(elem)
+    if not config.enabled or not config.editable_elements.Figure then
+      return elem
+    end
+
+    -- Caption blocks live in elem.caption.content.  By the time this filter
+    -- runs, the Para filter has already wrapped any Para inside the caption
+    -- with a review-editable Div.  Strip that wrapper first so we can
+    -- re-wrap with the correct FigureCaption type.
+    local caption_content = elem.caption and elem.caption.content
+    if not caption_content or #caption_content == 0 then
+      return elem
+    end
+
+    local new_blocks = {}
+    for _, block in ipairs(caption_content) do
+      local inner = block
+
+      -- Unwrap a review-editable Div that the Para filter may have added
+      if block.t == "Div" then
+        local has_review_class = false
+        if block.classes and block.classes:includes("review-editable") then
+          has_review_class = true
+        elseif block.attr and block.attr.attributes and block.attr.attributes["class"] then
+          if block.attr.attributes["class"]:find("review%-editable") then
+            has_review_class = true
+          end
+        end
+        if has_review_class and block.content and #block.content == 1 then
+          inner = block.content[1]
+        end
+      end
+
+      -- Wrap Para or Plain caption blocks as FigureCaption
+      if inner.t == "Para" or inner.t == "Plain" then
+        if config.debug then
+          print("DEBUG: Wrapping figure caption block as FigureCaption")
+        end
+        new_blocks[#new_blocks + 1] = M.make_editable(inner, 'FigureCaption', nil, config, context)
+      else
+        new_blocks[#new_blocks + 1] = block
+      end
+    end
+
+    elem.caption.content = new_blocks
+    return elem
+  end
+
   return filters
 end
 

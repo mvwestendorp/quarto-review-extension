@@ -39,6 +39,7 @@ local config = {
     OrderedList = true,
     BlockQuote = true,
     Table = true,
+    Figure = true,
     Div = true
   }
 }

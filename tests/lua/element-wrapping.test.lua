@@ -1265,6 +1265,116 @@ suite:add("Para filter still wraps normal paragraphs not inside quarto-internal 
   s:assertTrue(wrap_called, "make_editable SHOULD be called for a normal Para")
 end)
 
+suite:add("Figure filter wraps caption Para as FigureCaption", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {
+      Figure = true,
+      Para = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  -- Mock make_editable to capture the element type it is called with
+  local captured_type = nil
+  local captured_editable = nil
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx, editable)
+    captured_type = elem_type
+    if editable == nil then editable = true end
+    captured_editable = editable
+    return {t = "Div", content = {elem}, classes = {"review-editable"}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Mock Figure element with a Para caption block (not yet wrapped by Para filter)
+  local caption_para = {t = "Para", content = {"Figure caption text"}}
+  local elem = {
+    t = "Figure",
+    caption = {
+      short_caption = nil,
+      content = {caption_para}
+    },
+    content = {}
+  }
+
+  local result = filters.Figure(elem)
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertEqual(captured_type, "FigureCaption", "Figure filter should wrap caption as FigureCaption")
+  s:assertTrue(captured_editable, "FigureCaption should be editable")
+  s:assertNotNil(result.caption, "Returned Figure should still have caption")
+  s:assertEqual(#result.caption.content, 1, "Caption should have one wrapped block")
+end)
+
+suite:add("Figure filter unwraps Para wrapper before re-wrapping as FigureCaption", function(s)
+  local config = {
+    enabled = true,
+    debug = false,
+    id_prefix = "test",
+    id_separator = ".",
+    editable_elements = {
+      Figure = true,
+      Para = true
+    }
+  }
+  local context = {
+    section_stack = {},
+    element_counters = {},
+    processing_list = false
+  }
+
+  local captured_type = nil
+  local captured_inner_type = nil
+  local original_make_editable = element_wrapping.make_editable
+  element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx, editable)
+    captured_type = elem_type
+    captured_inner_type = elem.t
+    return {t = "Div", content = {elem}, classes = {"review-editable"}}
+  end
+
+  local filters = element_wrapping.create_filter_functions(config, context)
+
+  -- Simulate caption Para already wrapped by the Para filter (bottom-up order)
+  local inner_para = {t = "Para", content = {"Caption text"}}
+  local wrapped_para = {
+    t = "Div",
+    content = {inner_para},
+    classes = {"review-editable"},
+    attr = {attributes = {["class"] = "review-editable"}}
+  }
+  -- Make classes:includes work
+  wrapped_para.classes.includes = function(self, val)
+    for _, v in ipairs(self) do if v == val then return true end end
+    return false
+  end
+
+  local elem = {
+    t = "Figure",
+    caption = {
+      short_caption = nil,
+      content = {wrapped_para}
+    },
+    content = {}
+  }
+
+  local result = filters.Figure(elem)
+
+  element_wrapping.make_editable = original_make_editable
+
+  s:assertEqual(captured_type, "FigureCaption", "Should re-wrap as FigureCaption")
+  s:assertEqual(captured_inner_type, "Para", "Should pass the unwrapped Para to make_editable")
+end)
+
 -- Run the test suite
 local success = suite:run()
 os.exit(success and 0 or 1)
