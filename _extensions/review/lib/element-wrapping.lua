@@ -366,16 +366,22 @@ function M.create_filter_functions(config, context)
       end
     end
 
-    -- Wrap all code blocks with review metadata but mark them non-editable.
-    -- Milkdown cannot round-trip code blocks, so opening an editor on one
-    -- corrupts formatting even without user changes.  Both executable and
-    -- plain code blocks get review IDs (needed for export) but editable=false.
-    if config.debug then
-      if is_executable then
-        print("DEBUG: Wrapping executable CodeBlock (non-editable) with cell-code class")
-      else
-        print("DEBUG: Wrapping plain CodeBlock (non-editable)")
+    -- Executable code blocks (cell-code) live inside div.cell containers that
+    -- Quarto's own filters walk to resolve cell annotations.  Wrapping them in
+    -- an extra Div breaks that walk (nil index in resolveCellAnnotes).  Leave
+    -- them completely untouched; they are non-editable computational content.
+    if is_executable then
+      if config.debug then
+        print("DEBUG: Skipping executable CodeBlock (cell-code) — left for Quarto")
       end
+      return elem
+    end
+
+    -- Plain (non-executable) code blocks are wrapped with review metadata but
+    -- marked non-editable.  Milkdown cannot round-trip code blocks, so opening
+    -- an editor on one corrupts formatting even without user changes.
+    if config.debug then
+      print("DEBUG: Wrapping plain CodeBlock (non-editable)")
     end
     return M.make_editable(elem, 'CodeBlock', nil, config, context, false)
   end

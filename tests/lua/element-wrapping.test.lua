@@ -500,7 +500,7 @@ suite:add("Handles config with missing editable_elements fields", function(s)
 end)
 
 -- Code-annotations and Quarto cell tests
-suite:add("CodeBlock filter wraps cell-code blocks as non-editable", function(s)
+suite:add("CodeBlock filter skips cell-code blocks entirely", function(s)
   local config = {
     enabled = true,
     debug = false,
@@ -516,11 +516,11 @@ suite:add("CodeBlock filter wraps cell-code blocks as non-editable", function(s)
     processing_list = false
   }
 
-  -- Mock make_editable to capture the editable flag
-  local captured_editable = nil
+  -- Mock make_editable to detect if it is ever called
+  local make_editable_called = false
   local original_make_editable = element_wrapping.make_editable
   element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx, editable)
-    captured_editable = editable
+    make_editable_called = true
     return {t = "Div", content = {elem}}
   end
 
@@ -536,13 +536,14 @@ suite:add("CodeBlock filter wraps cell-code blocks as non-editable", function(s)
     }
   }
 
-  -- cell-code blocks are wrapped but marked non-editable so they
-  -- still receive review IDs for export without being user-editable
-  filters.CodeBlock(elem)
+  -- Executable cell-code blocks must be returned untouched so that Quarto's
+  -- own processCodeCell / resolveCellAnnotes filters can walk them correctly.
+  local result = filters.CodeBlock(elem)
 
   element_wrapping.make_editable = original_make_editable
 
-  s:assertFalse(captured_editable, "cell-code CodeBlock should be wrapped with editable=false")
+  s:assertFalse(make_editable_called, "cell-code CodeBlock should not be wrapped")
+  s:assertEqual(result.t, "CodeBlock", "cell-code CodeBlock should be returned unchanged")
 end)
 
 suite:add("CodeBlock filter wraps regular code blocks without cell-code class", function(s)
