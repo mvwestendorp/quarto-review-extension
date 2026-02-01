@@ -367,7 +367,14 @@ export class QmdExportService {
     // Content-search fallback: for elements that are edited or deleted
     // but lack a sourcePosition, locate them by scanning for their
     // original content text in the source lines.
+    // Use a local map so we never mutate the shared element objects —
+    // this method may be called once per file in a multi-document project
+    // and stale mutations would contaminate later calls.
     const neededIds = new Set<string>([...editedIds, ...deletedIds]);
+    const resolvedPositions = new Map<
+      string,
+      { line: number; column: number }
+    >();
     const claimedLines = new Set<number>();
     for (const e of originalElements) {
       if (e.sourcePosition?.line) claimedLines.add(e.sourcePosition.line);
@@ -386,22 +393,23 @@ export class QmdExportService {
           !claimedLines.has(i + 1) &&
           (lines[i]?.trimEnd() ?? '') === target
         ) {
-          (
-            elem as { sourcePosition?: { line: number; column: number } }
-          ).sourcePosition = {
-            line: i + 1,
-            column: 1,
-          };
+          resolvedPositions.set(elem.id, { line: i + 1, column: 1 });
           claimedLines.add(i + 1);
           break;
         }
       }
     }
 
+    // Snapshot elements with resolved positions (originals untouched).
+    const elementsWithPositions = originalElements.map((elem) => ({
+      ...elem,
+      sourcePosition: resolvedPositions.get(elem.id) ?? elem.sourcePosition,
+    }));
+
     // Body elements with source positions, sorted ascending by line.
     // Title/DocumentTitle elements live inside the YAML front matter and
     // are handled separately by mergeFrontMatterWithTitle.
-    const bodyOriginals = originalElements
+    const bodyOriginals = elementsWithPositions
       .filter((e) => {
         if (!e.sourcePosition?.line) return false;
         const type = e.metadata?.type;
