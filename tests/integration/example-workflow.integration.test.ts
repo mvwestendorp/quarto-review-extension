@@ -61,8 +61,14 @@ const exampleSources: EmbeddedSourceRecord[] = [
   },
   {
     filename: '_quarto.yml',
-    content: 'project:\n  type: website\n',
-    originalContent: 'project:\n  type: website\n',
+    content: [
+      'project:',
+      '  type: website',
+      'chapters:',
+      '  - document.qmd',
+      '  - doc-translation.qmd',
+    ].join('\n'),
+    originalContent: '',
     lastModified: new Date().toISOString(),
     version: '1',
   },

@@ -406,7 +406,14 @@ Another section`;
           return `# Translation\n\nTranslation content`;
         }
         if (path === '_quarto.yml') {
-          return 'project:\n  type: book';
+          return [
+            'project:',
+            '  type: book',
+            'chapters:',
+            '  - document.qmd',
+            '  - debug-example.qmd',
+            '  - doc-translation.qmd',
+          ].join('\n');
         }
         return '';
       }),
@@ -426,7 +433,14 @@ Another section`;
         },
         {
           filename: '_quarto.yml',
-          content: 'project:\n  type: book',
+          content: [
+            'project:',
+            '  type: book',
+            'chapters:',
+            '  - document.qmd',
+            '  - debug-example.qmd',
+            '  - doc-translation.qmd',
+          ].join('\n'),
         },
       ]),
     } as unknown as GitModule;

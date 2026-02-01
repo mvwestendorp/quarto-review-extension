@@ -386,6 +386,22 @@ export class UIModule {
         : undefined
     );
     this.bottomDrawer.setSubmitReviewEnabled(enableReviewSubmit);
+
+    // Populate the Git Info tab in the developer panel when a repository
+    // config is available.  Without this the tab shows only the empty-state
+    // placeholder after connecting to a git remote.
+    if (this.reviewService) {
+      const repoConfig = this.reviewService.getRepositoryConfig();
+      if (repoConfig) {
+        const gitHtml = `
+          <div style="padding: 12px; font-size: 12px; font-family: monospace;">
+            <div><strong>Repository:</strong> ${repoConfig.owner}/${repoConfig.name}</div>
+            <div><strong>Base branch:</strong> ${repoConfig.baseBranch}</div>
+          </div>`;
+        this.bottomDrawer.updateGitPanel(gitHtml);
+      }
+    }
+
     this.bottomDrawer.onTrackedChangesToggle((enabled) => {
       this.toggleTrackedChanges(enabled);
     });
