@@ -354,53 +354,6 @@ describe('UIModule sidebar state handling', () => {
     expect((ui as any).stateStore.getUIState().isSidebarCollapsed).toBe(true);
   });
 
-  it('clears local drafts when confirmation is accepted', async () => {
-    vi.useFakeTimers();
-    const config = createStubConfig();
-    const ui = new UIModule(config);
-    const bottomDrawer = getBottomDrawerInstances()[0];
-    expect(bottomDrawer).toBeDefined();
-
-    const clearCallback = bottomDrawer?.onClearDrafts.mock.calls[0]?.[0];
-    expect(clearCallback).toBeInstanceOf(Function);
-
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
-
-    const clearPromise = clearCallback();
-    await clearPromise;
-
-    // Advance timers to trigger the setTimeout for reload
-    vi.advanceTimersByTime(150);
-
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(config.persistence.clearAll).toHaveBeenCalled();
-    const historyInstance = getHistoryStorageInstances()[0];
-    expect(historyInstance.clearAll).toHaveBeenCalled();
-    expect(reloadSpy).toHaveBeenCalled();
-    confirmSpy.mockRestore();
-    vi.useRealTimers();
-  });
-
-  it('does not clear local drafts when confirmation is declined', async () => {
-    const config = createStubConfig();
-    const ui = new UIModule(config);
-    const bottomDrawer = getBottomDrawerInstances()[0];
-    expect(bottomDrawer).toBeDefined();
-
-    const clearCallback = bottomDrawer?.onClearDrafts.mock.calls[0]?.[0];
-    expect(clearCallback).toBeInstanceOf(Function);
-
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
-
-    await clearCallback();
-
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(config.persistence.clearAll).not.toHaveBeenCalled();
-    const historyInstance = getHistoryStorageInstances()[0];
-    expect(historyInstance.clearAll).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
-  });
-
   it('registers export handlers when exporter is provided', async () => {
     const exporter = {
       exportToQmd: vi.fn().mockResolvedValue({

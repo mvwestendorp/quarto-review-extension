@@ -109,7 +109,6 @@ export class BottomDrawer {
   private onTranslationRedoCallback: (() => void) | null = null;
   private onTrackedChangesCallback: ((enabled: boolean) => void) | null = null;
   private onToggleDrawerCallback: (() => void) | null = null;
-  private onClearDraftsCallback: (() => void) | null = null;
   private onExportCleanCallback: (() => void) | null = null;
   private onExportCriticCallback: (() => void) | null = null;
   private onSubmitReviewCallback: (() => void) | null = null;
@@ -2421,10 +2420,6 @@ Role: ${currentUser.role}`;
     this.onToggleDrawerCallback = callback;
   }
 
-  onClearDrafts(callback: () => void): void {
-    this.onClearDraftsCallback = callback;
-  }
-
   onExportClean(callback?: () => void): void {
     this.onExportCleanCallback = callback ?? null;
     this.updateExportButtonStates();
@@ -2689,7 +2684,6 @@ Role: ${currentUser.role}`;
     this.onTranslationRedoCallback = null;
     this.onTrackedChangesCallback = null;
     this.onToggleDrawerCallback = null;
-    this.onClearDraftsCallback = null;
     this.onExportCleanCallback = null;
     this.onExportCriticCallback = null;
     this.onSubmitReviewCallback = null;

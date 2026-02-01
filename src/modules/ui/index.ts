@@ -408,16 +408,6 @@ export class UIModule {
     this.bottomDrawer.onToggleSidebar(() => {
       this.toggleSidebarCollapsed();
     });
-    this.bottomDrawer.onClearDrafts(() => {
-      void this.persistenceManager
-        .confirmAndClearLocalDrafts()
-        .then(() => {
-          void this.clearGitSession();
-        })
-        .catch((error) => {
-          logger.warn('Failed to clear local drafts', error);
-        });
-    });
 
     this.cacheInitialHeadingReferences();
     // Initialize sidebar immediately so it's always visible
