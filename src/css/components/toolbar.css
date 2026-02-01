@@ -276,7 +276,8 @@
   background: rgba(var(--review-color-primary-rgb), 0.2);
 }
 
-/* Toolbar expand/collapse button */
+/* Toolbar expand/collapse button – order: 999 pins it at the end
+   regardless of where new button groups are inserted in the DOM. */
 .review-editor-toolbar-toggle {
   display: flex;
   align-items: center;
@@ -294,6 +295,7 @@
     color 0.18s ease,
     border-color 0.18s ease;
   white-space: nowrap;
+  order: 999;
 }
 
 .review-editor-toolbar-toggle:hover {

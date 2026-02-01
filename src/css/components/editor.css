@@ -98,6 +98,141 @@
   min-height: 100px;
 }
 
+/* ReviewSubmissionModal form layout */
+.review-review-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Repository info summary (label/value rows) */
+.review-form-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+  background-color: var(--review-color-surface-alt);
+  border-radius: var(--review-radius-sm);
+  margin-bottom: 20px;
+  font-family: var(--review-font-family-sans);
+  font-size: 13px;
+}
+
+.review-form-summary > div {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.review-form-summary span {
+  color: var(--review-color-text-muted);
+  font-weight: 500;
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+.review-form-summary strong,
+.review-form-summary em {
+  color: var(--review-color-text-on-light);
+  font-style: normal;
+}
+
+.review-form-summary a {
+  color: var(--review-color-primary);
+  text-decoration: none;
+}
+
+.review-form-summary a:hover {
+  text-decoration: underline;
+}
+
+/* Form field labels (stacked: label span above input) */
+.review-form-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.review-form-label > span {
+  font-family: var(--review-font-family-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--review-color-neutral-strong);
+}
+
+.review-form-label input,
+.review-form-label textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--review-color-border);
+  border-radius: var(--review-radius-xs);
+  font-family: var(--review-font-family-sans);
+  font-size: 14px;
+  color: var(--review-color-text-on-light);
+  background-color: var(--review-color-surface);
+  box-sizing: border-box;
+}
+
+.review-form-label input:focus,
+.review-form-label textarea:focus {
+  outline: none;
+  border-color: var(--review-color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--review-color-primary-rgb), 0.1);
+}
+
+.review-form-label input::placeholder,
+.review-form-label textarea::placeholder {
+  color: var(--review-color-neutral-soft);
+}
+
+.review-form-label textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* Checkbox with inline label */
+.review-form-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.review-form-checkbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--review-color-primary);
+  cursor: pointer;
+}
+
+.review-form-checkbox span {
+  font-family: var(--review-font-family-sans);
+  font-size: 14px;
+  color: var(--review-color-neutral-strong);
+}
+
+/* Validation error banner */
+.review-form-error {
+  padding: 10px 12px;
+  background-color: var(--review-color-danger-muted);
+  color: var(--review-color-danger);
+  border-radius: var(--review-radius-sm);
+  font-family: var(--review-font-family-sans);
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+/* Help / hint text beneath inputs */
+.review-form-help {
+  font-family: var(--review-font-family-sans);
+  font-size: 12px;
+  color: var(--review-color-text-muted);
+  line-height: 1.4;
+}
+
 /* Unsaved changes indicator */
 .review-unsaved-indicator {
   width: 8px;

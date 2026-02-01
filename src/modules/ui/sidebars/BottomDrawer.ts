@@ -12,7 +12,6 @@ import {
   setAttributes,
   toggleClass,
 } from '@utils/dom-helpers';
-import { SafeStorage } from '@utils/security';
 import type {
   CommentsSidebarCallbacks,
   TranslationDrawerProgress,
@@ -28,7 +27,6 @@ const logger = createModuleLogger('BottomDrawer');
 export class BottomDrawer {
   private element: HTMLElement | null = null;
   private translationMode = false;
-  private debugMode = false; // Controls visibility of debug tools
   private userModule?: UserModule;
 
   // Header elements
@@ -100,9 +98,6 @@ export class BottomDrawer {
   private translationExportSeparatedBtn: HTMLButtonElement | null = null;
   private exitTranslationBtn: HTMLButtonElement | null = null;
   private clearModelCacheBtn: HTMLButtonElement | null = null;
-
-  // Storage/Debug section
-  private debugSection: HTMLElement | null = null;
 
   // Unsaved changes indicator
   private unsavedIndicator: HTMLElement | null = null;
@@ -202,9 +197,6 @@ export class BottomDrawer {
     rightColumn.appendChild(translationExportSection);
     this.translationExportSection = translationExportSection;
 
-    this.debugSection = this.createDebugSection();
-    rightColumn.appendChild(this.debugSection);
-
     // Build info at bottom of right column
     const buildInfo = this.createBuildInfo();
     rightColumn.appendChild(buildInfo);
@@ -218,10 +210,6 @@ export class BottomDrawer {
 
     this.element = container;
     document.body.appendChild(container);
-
-    // Check debug mode from localStorage or URL
-    this.debugMode = this.checkDebugMode();
-    this.updateDebugVisibility();
 
     logger.debug('Bottom drawer created');
     return container;
@@ -301,40 +289,6 @@ Role: ${currentUser.role}`;
   }
 
   /**
-   * Check if debug mode should be enabled
-   */
-  private checkDebugMode(): boolean {
-    // Check SafeStorage
-    const stored = SafeStorage.getItem('quarto-review-debug-mode');
-    if (stored === true) return true;
-
-    // Check URL parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('debug-ui') === 'true') return true;
-
-    return false;
-  }
-
-  /**
-   * Toggle debug mode
-   */
-  toggleDebugMode(): void {
-    this.debugMode = !this.debugMode;
-    SafeStorage.setItem('quarto-review-debug-mode', this.debugMode);
-    this.updateDebugVisibility();
-    logger.debug('Debug mode toggled', { debugMode: this.debugMode });
-  }
-
-  /**
-   * Update visibility of debug tools
-   */
-  private updateDebugVisibility(): void {
-    if (this.debugSection) {
-      this.debugSection.style.display = this.debugMode ? '' : 'none';
-    }
-  }
-
-  /**
    * Create header with title and toggle button
    */
   private createHeader(): HTMLElement {
@@ -351,25 +305,6 @@ Role: ${currentUser.role}`;
     header.appendChild(this.drawerTitle);
 
     const headerActions = createDiv('review-drawer-header-actions');
-
-    // Debug mode toggle (small icon button)
-    const debugToggleBtn = createButton(
-      '',
-      'review-btn review-btn-icon review-btn-sm'
-    );
-    setAttributes(debugToggleBtn, {
-      'data-action': 'toggle-debug',
-      title: 'Toggle developer tools (debug mode)',
-      'aria-label': 'Toggle developer tools',
-    });
-    const debugIcon = createIcon('⚙️');
-    debugIcon.style.fontSize = '12px';
-    debugToggleBtn.appendChild(debugIcon);
-    debugToggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.toggleDebugMode();
-    });
-    headerActions.appendChild(debugToggleBtn);
 
     this.toggleBtn = createButton('', 'review-btn review-btn-icon');
     setAttributes(this.toggleBtn, {
@@ -940,46 +875,6 @@ Role: ${currentUser.role}`;
   /**
    * Create Debug section (only visible when debug mode is enabled)
    */
-  private createDebugSection(): HTMLElement {
-    const section = createDiv('review-drawer-section review-debug-section');
-    section.setAttribute('data-section', 'debug');
-
-    const title = document.createElement('h4');
-    title.textContent = 'Developer Tools';
-    title.className = 'review-drawer-section-title';
-    section.appendChild(title);
-
-    const description = document.createElement('p');
-    description.style.cssText = `
-      font-size: 11px;
-      color: var(--review-color-muted);
-      margin: 0 0 8px 0;
-      line-height: 1.4;
-    `;
-    description.textContent = 'Advanced tools for debugging and development';
-    section.appendChild(description);
-
-    const buttonGroup = createDiv('review-drawer-button-group');
-
-    const clearBtn = createButton(
-      '🗑 Clear Drafts',
-      'review-btn review-btn-danger review-btn-sm'
-    );
-    setAttributes(clearBtn, {
-      'data-action': 'clear-local-drafts',
-      title: 'Clear all local draft data from browser storage',
-      'aria-label': 'Clear local drafts',
-    });
-    clearBtn.addEventListener('click', () => {
-      this.onClearDraftsCallback?.();
-    });
-    buttonGroup.appendChild(clearBtn);
-
-    section.appendChild(buttonGroup);
-
-    return section;
-  }
-
   /**
    * Create Translation Buttons section (left column)
    * Contains: Translate Document, Translate Selected, Provider, Languages, Settings
@@ -2386,6 +2281,7 @@ Role: ${currentUser.role}`;
   setTranslationEnabled(enabled: boolean): void {
     this.translationEnabled = enabled;
     if (this.translationBtn) {
+      this.translationBtn.style.display = enabled ? '' : 'none';
       this.translationBtn.disabled = !enabled;
       toggleClass(this.translationBtn, 'review-btn-disabled', !enabled);
     }
@@ -2780,7 +2676,6 @@ Role: ${currentUser.role}`;
     this.developerPanelPanes.clear();
     this.translationSection = null;
     this.translationBtn = null;
-    this.debugSection = null;
     this.translationToolsSection = null;
     this.translationExportSection = null;
     this.translationExportUnifiedBtn = null;
