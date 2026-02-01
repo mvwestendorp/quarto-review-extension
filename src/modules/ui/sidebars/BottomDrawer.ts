@@ -2215,7 +2215,32 @@ Role: ${currentUser.role}`;
       });
     }
 
+    // Compensate main content so the drawer does not obscure the bottom of
+    // the document when expanded.  Measure the full drawer height (header +
+    // body) and apply it as padding-bottom on the main content container.
+    this.updateContentPadding(expanded);
+
     logger.debug('Drawer expanded state changed', { expanded });
+  }
+
+  /**
+   * Add or remove padding-bottom on the main content container so that the
+   * fixed-position drawer does not overlap document content at the bottom.
+   */
+  private updateContentPadding(expanded: boolean): void {
+    const main = document.querySelector('main') as HTMLElement | null;
+    if (!main) return;
+
+    if (expanded && this.element) {
+      // Use requestAnimationFrame so the drawer's display change has been
+      // painted and getBoundingClientRect returns the expanded height.
+      requestAnimationFrame(() => {
+        const drawerHeight = this.element?.getBoundingClientRect().height ?? 0;
+        main.style.paddingBottom = drawerHeight > 0 ? `${drawerHeight}px` : '';
+      });
+    } else {
+      main.style.paddingBottom = '';
+    }
   }
 
   // Backward compatibility method (maps to setExpanded)
