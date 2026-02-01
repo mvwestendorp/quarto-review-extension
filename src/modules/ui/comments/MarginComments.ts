@@ -7,6 +7,15 @@ import { throttle, debounce } from '@utils/performance';
 
 const logger = createModuleLogger('MarginComments');
 
+/**
+ * Maximum vertical distance (in px) a margin comment may be positioned
+ * below its associated section's viewport top.  When collision resolution
+ * would push a comment past this limit the card receives the
+ * 'review-margin-comment-drifted' class so CSS can fall back to a compact
+ * or popover style.
+ */
+export const MAX_COMMENT_DRIFT = 60;
+
 export interface MarginCommentsCallbacks {
   onNavigate: (elementId: string, commentKey: string) => void;
   onRemove: (elementId: string, comment: Comment) => void;
@@ -310,10 +319,15 @@ export class MarginComments {
         window.pageYOffset || document.documentElement.scrollTop;
       const absoluteTop = rect.top + scrollTop;
 
-      // Stack multiple comments vertically for the same section
+      // Stack multiple comments vertically for the same section, but cap
+      // the drift so later comments do not slide arbitrarily far from their
+      // section.  Comments that exceed MAX_COMMENT_DRIFT receive a class in
+      // updateCommentVisibility so CSS can apply a compact fallback.
       snapshot.comments.forEach((comment, index) => {
+        const desired = absoluteTop + index * 140;
+        const capped = Math.min(desired, absoluteTop + MAX_COMMENT_DRIFT);
         positions.push({
-          top: absoluteTop + index * 140, // 140px spacing between comments
+          top: capped,
           elementId: snapshot.element.id,
           commentId: comment.id,
         });
@@ -606,11 +620,20 @@ export class MarginComments {
 
       // Calculate comment position relative to viewport
       // Since container is fixed with top: 0, we need viewport-relative positioning
-      const commentTop = Math.max(
-        containerTop, // Don't go above header
-        sectionViewportTop + commentIndexInSection * 140
+      const desiredTop = sectionViewportTop + commentIndexInSection * 140;
+      const cappedTop = Math.min(
+        desiredTop,
+        sectionViewportTop + MAX_COMMENT_DRIFT
       );
+      const commentTop = Math.max(containerTop, cappedTop);
       element.style.top = `${commentTop}px`;
+
+      // Mark cards that hit the drift cap so CSS can apply compact/popover style
+      if (desiredTop > sectionViewportTop + MAX_COMMENT_DRIFT) {
+        element.classList.add('review-margin-comment-drifted');
+      } else {
+        element.classList.remove('review-margin-comment-drifted');
+      }
 
       // Update visibility based on viewport
       // Comment is out of view if its section is completely off screen
