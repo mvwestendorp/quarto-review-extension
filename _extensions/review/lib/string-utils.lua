@@ -5,6 +5,15 @@ Handles string manipulation, sanitization, and JSON conversion
 
 local M = {}
 
+-- Global occurrence counter to ensure every element gets a unique ID
+-- even if the same content appears in multiple locations (main content, sidebars, navigation)
+local global_occurrence_counter = 0
+
+-- Reset the global occurrence counter (called at document start)
+function M.reset_global_counter()
+  global_occurrence_counter = 0
+end
+
 -- Sanitize a value to create a valid HTML/CSS identifier
 function M.sanitize_identifier(value)
   if not value or value == '' then
@@ -13,6 +22,9 @@ function M.sanitize_identifier(value)
 
   -- Step 1: Normalize path separators (backslash to forward slash) for cross-platform support
   local normalized = value:gsub('\\', '/')
+
+  -- Step 1b: Remove Windows drive letters (C:/, D:/, etc.) for consistency
+  normalized = normalized:gsub('^%a:/', '')
 
   -- Step 2: Strip Quarto temporary directories
   normalized = normalized:gsub('^.*/quarto%-input[^/]+/', '')
@@ -159,7 +171,7 @@ function M.meta_to_json(value)
 end
 
 -- Generate deterministic ID based on document structure
-function M.generate_id(id_prefix, id_separator, section_stack, element_counters, element_type, level)
+function M.generate_id(id_prefix, id_separator, section_stack, element_counters, element_type, level, processing_pass)
   local parts = {id_prefix}
 
   -- Add section hierarchy
@@ -176,9 +188,24 @@ function M.generate_id(id_prefix, id_separator, section_stack, element_counters,
   element_counters[key] = (element_counters[key] or 0) + 1
   local counter = element_counters[key]
 
-  table.insert(parts, element_type:lower() .. "-" .. counter)
+  -- Increment global occurrence counter to ensure uniqueness
+  -- This prevents duplicate IDs when the same content appears in multiple locations
+  -- (e.g., main content + sidebar + navigation preview)
+  global_occurrence_counter = global_occurrence_counter + 1
 
-  return table.concat(parts, id_separator)
+  -- Include processing pass to distinguish between multiple document processing passes
+  -- (Quarto may process the document multiple times for sidebars, navigation, etc.)
+  local element_id = element_type:lower() .. "-" .. counter
+  if processing_pass and processing_pass > 0 then
+    element_id = element_id .. "-pass" .. processing_pass
+  end
+  element_id = element_id .. "-occ" .. global_occurrence_counter
+
+  table.insert(parts, element_id)
+
+  local generated_id = table.concat(parts, id_separator)
+
+  return generated_id
 end
 
 -- Get source position from element

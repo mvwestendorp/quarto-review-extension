@@ -54,44 +54,55 @@ export class ChangesModule {
   }
 
   /**
-   * Verify all data-review-id values are unique
-   * Throws an error if duplicates are found
+   * Verify all data-review-id values are unique and deduplicate if necessary
+   * Returns a deduplicated NodeList
    */
-  private verifyUniqueIds(elements: NodeListOf<globalThis.Element>): void {
-    const idMap = new Map<string, number>();
+  private verifyUniqueIds(
+    elements: NodeListOf<globalThis.Element>
+  ): globalThis.Element[] {
+    const idMap = new Map<string, globalThis.Element>();
     const duplicates: string[] = [];
+    const seenIds = new Set<string>();
 
     elements.forEach((elem) => {
       const id = elem.getAttribute('data-review-id');
       if (id) {
-        const count = (idMap.get(id) || 0) + 1;
-        idMap.set(id, count);
-        if (count > 1 && !duplicates.includes(id)) {
-          duplicates.push(id);
+        if (seenIds.has(id)) {
+          if (!duplicates.includes(id)) {
+            duplicates.push(id);
+          }
+        } else {
+          seenIds.add(id);
+          idMap.set(id, elem);
         }
       }
     });
 
     if (duplicates.length > 0) {
-      const errorMessage = `
-Found duplicate data-review-id values in document:
-${duplicates.map((id) => `  - "${id}" (appears ${idMap.get(id)} times)`).join('\n')}
+      const warningMessage = `
+Found duplicate data-review-id values in document (keeping first occurrence only):
+${duplicates.map((id) => `  - "${id}"`).join('\n')}
 
-This indicates a problem with the Quarto review extension filter.
-Each element must have a unique ID across the entire document.
+This indicates the document was rendered multiple times or has structural issues.
+The extension will continue using the first occurrence of each ID.
 
-Possible causes:
-- The review extension filter is resetting element counters incorrectly
-- Multiple elements were assigned the same ID during document processing
-
-Please report this issue with your Quarto document structure.
+Consider checking:
+- Quarto project structure (includes, navigation)
+- Document rendering configuration
+- Filter application order
       `.trim();
 
-      logger.error('Duplicate data-review-id values detected', { duplicates });
-      throw new Error(errorMessage);
+      logger.warn('Duplicate data-review-id values detected, deduplicating', {
+        duplicates,
+        totalElements: elements.length,
+        uniqueElements: idMap.size,
+      });
+      console.warn(warningMessage);
+    } else {
+      logger.debug(`Verified ${idMap.size} unique data-review-id values`);
     }
 
-    logger.debug(`Verified ${idMap.size} unique data-review-id values`);
+    return Array.from(idMap.values());
   }
 
   /**
@@ -101,20 +112,39 @@ Please report this issue with your Quarto document structure.
     // Select all elements with data-review-id (includes .review-editable divs and header sections)
     const allElements = document.querySelectorAll('[data-review-id]');
 
-    // Filter out elements inside modals, dialogs, or other excluded containers
+    // Filter to include ONLY elements in the main page content
+    // Exclude elements in sidebars, navigation, modals, dialogs, etc.
     const editableElements = Array.from(allElements).filter((elem) => {
       const htmlElem = elem as HTMLElement;
-      return !htmlElem.closest(
-        '.modal, .dialog, [role="dialog"], [aria-modal="true"]'
+
+      // Exclude elements in non-content containers
+      if (
+        htmlElem.closest(
+          '.modal, .dialog, [role="dialog"], [aria-modal="true"], ' +
+            '.sidebar, .quarto-sidebar, #quarto-sidebar, ' +
+            '.navbar, .quarto-navbar, #quarto-header, ' +
+            '.quarto-navigation, #quarto-navigation, ' +
+            '.page-navigation, #TOC, .toc-actions, ' +
+            'nav, header:not(#quarto-content header)'
+        )
+      ) {
+        return false;
+      }
+
+      // Include only elements that are within the main content area
+      // Quarto typically uses #quarto-content or main.content for the main page content
+      const mainContent = htmlElem.closest(
+        '#quarto-content, main.content, main, .page-content, #content, article'
       );
+      return !!mainContent;
     });
 
-    // Verify all IDs are unique before proceeding
+    // Verify all IDs are unique and deduplicate if necessary
     const nodeList =
       editableElements as unknown as NodeListOf<globalThis.Element>;
-    this.verifyUniqueIds(nodeList);
+    const deduplicatedElements = this.verifyUniqueIds(nodeList);
 
-    this.originalElements = Array.from(editableElements).map((elem) => {
+    this.originalElements = deduplicatedElements.map((elem) => {
       const id = elem.getAttribute('data-review-id') || '';
       const type = elem.getAttribute('data-review-type') || 'Para';
       const level = elem.getAttribute('data-review-level');

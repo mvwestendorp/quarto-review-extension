@@ -236,8 +236,11 @@ export function normalizeListMarkers(content: string): string {
   return normalized.join('\n');
 }
 
-// Lazy-loaded Prettier instance
-let prettierPromise: Promise<typeof import('prettier')> | null = null;
+// Lazy-loaded Prettier instance and plugins
+let prettierPromise: Promise<{
+  prettier: typeof import('prettier');
+  parserMarkdown: any;
+} | null> | null = null;
 
 /**
  * Preload Prettier for faster formatting later
@@ -245,10 +248,18 @@ let prettierPromise: Promise<typeof import('prettier')> | null = null;
  */
 export function preloadPrettier(): void {
   if (!prettierPromise) {
-    prettierPromise = import('prettier').catch((error) => {
-      console.warn('Failed to preload Prettier:', error);
-      return null;
-    }) as Promise<typeof import('prettier')>;
+    prettierPromise = Promise.all([
+      import('prettier'),
+      import('prettier/plugins/markdown'),
+    ])
+      .then(([prettier, parserMarkdown]) => ({
+        prettier,
+        parserMarkdown,
+      }))
+      .catch((error) => {
+        console.warn('Failed to preload Prettier:', error);
+        return null;
+      });
   }
 }
 
@@ -276,14 +287,17 @@ export async function formatMarkdownWithPrettier(
       preloadPrettier();
     }
 
-    const prettier = await prettierPromise;
-    if (!prettier) {
+    const result = await prettierPromise;
+    if (!result) {
       // Prettier failed to load, return original
       return content;
     }
 
+    const { prettier, parserMarkdown } = result;
+
     const formatted = await prettier.format(content, {
       parser: 'markdown',
+      plugins: [parserMarkdown],
       // Prettier options optimized for Pandoc compatibility
       proseWrap: 'preserve', // Don't wrap prose (Pandoc does this differently)
       printWidth: 80,

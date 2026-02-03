@@ -49,7 +49,8 @@ local context = {
   section_stack = {},
   section_counters = {},
   element_counters = {},
-  list_depth = 0
+  list_depth = 0,
+  processing_pass = 0
 }
 
 -- Calculate the correct relative path to the extension assets from the output file
@@ -128,6 +129,7 @@ function Meta(meta)
   context.section_counters = {}
   context.element_counters = {}
   context.list_depth = 0
+  processing_count = 0  -- Reset processing count for new document
 
   config_module.load_config(meta, config)
 
@@ -237,6 +239,34 @@ function Meta(meta)
   return meta
 end
 
+-- Track document processing to detect multiple invocations
+local processing_count = 0
+
+-- Create a filter that resets context at the start of document processing
+-- This ensures counters are fresh even if Meta filter doesn't run
+local reset_context_filter = {
+  Pandoc = function(doc)
+    processing_count = processing_count + 1
+
+    -- Reset context counters for this processing pass
+    context.section_stack = {}
+    context.section_counters = {}
+    context.element_counters = {}
+    context.list_depth = 0
+    context.processing_pass = processing_count
+
+    -- DO NOT reset global occurrence counter - it must persist across passes
+    -- to ensure unique IDs when Quarto processes the document multiple times
+
+    if config.debug then
+      print(string.format("DEBUG: Context reset at start of document processing (invocation #%d)", processing_count))
+      print(string.format("DEBUG: Document has %d top-level blocks", #doc.blocks))
+    end
+
+    return doc
+  end
+}
+
 -- Create filter functions using the element-wrapping module
 local filters = element_wrapping.create_filter_functions(config, context)
 
@@ -248,12 +278,14 @@ local filters = element_wrapping.create_filter_functions(config, context)
 -- Return filters in order
 -- Note: Filters run in the order they appear in this array
 -- 1. Meta filter runs first
--- 2. Pass 1: Identify nested lists and elements inside Notes (whole document pass)
--- 3. Pass 2: Main wrapping filters (Para, Header, BlockQuote, lists, etc.)
+-- 2. Context reset filter ensures clean state
+-- 3. Pass 1: Identify nested lists and elements inside Notes (whole document pass)
+-- 4. Pass 2: Main wrapping filters (Para, Header, BlockQuote, lists, etc.)
 --    - Skips marked nested lists
 --    - Skips Para elements inside Notes (footnotes)
 return {
   {Meta = Meta},
+  reset_context_filter,  -- Ensure context is reset before processing
   element_wrapping.create_identify_filter(config),  -- Pass 1: Mark nested lists and Note contents
   filters  -- Pass 2: Main wrapping filters
 }
