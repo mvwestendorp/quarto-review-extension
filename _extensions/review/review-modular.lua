@@ -49,7 +49,8 @@ local context = {
   section_stack = {},
   section_counters = {},
   element_counters = {},
-  list_depth = 0
+  list_depth = 0,
+  processing_pass = 0
 }
 
 -- Calculate the correct relative path to the extension assets from the output file
@@ -247,11 +248,15 @@ local reset_context_filter = {
   Pandoc = function(doc)
     processing_count = processing_count + 1
 
-    -- Reset context counters to ensure unique IDs across document processing
+    -- Reset context counters for this processing pass
     context.section_stack = {}
     context.section_counters = {}
     context.element_counters = {}
     context.list_depth = 0
+    context.processing_pass = processing_count
+
+    -- DO NOT reset global occurrence counter - it must persist across passes
+    -- to ensure unique IDs when Quarto processes the document multiple times
 
     if config.debug then
       print(string.format("DEBUG: Context reset at start of document processing (invocation #%d)", processing_count))

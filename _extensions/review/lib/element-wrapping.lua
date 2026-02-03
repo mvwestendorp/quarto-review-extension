@@ -193,7 +193,8 @@ function M.make_editable(elem, elem_type, level, config, context, editable)
     context.section_stack,
     context.element_counters,
     elem_type,
-    level
+    level,
+    context.processing_pass
   )
   local source_pos = string_utils.get_source_position(elem)
 
