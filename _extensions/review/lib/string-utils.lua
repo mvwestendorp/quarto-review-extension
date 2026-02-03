@@ -14,6 +14,9 @@ function M.sanitize_identifier(value)
   -- Step 1: Normalize path separators (backslash to forward slash) for cross-platform support
   local normalized = value:gsub('\\', '/')
 
+  -- Step 1b: Remove Windows drive letters (C:/, D:/, etc.) for consistency
+  normalized = normalized:gsub('^%a:/', '')
+
   -- Step 2: Strip Quarto temporary directories
   normalized = normalized:gsub('^.*/quarto%-input[^/]+/', '')
   normalized = normalized:gsub('^.*/quarto%-session[^/]+/', '')
@@ -178,7 +181,9 @@ function M.generate_id(id_prefix, id_separator, section_stack, element_counters,
 
   table.insert(parts, element_type:lower() .. "-" .. counter)
 
-  return table.concat(parts, id_separator)
+  local generated_id = table.concat(parts, id_separator)
+
+  return generated_id
 end
 
 -- Get source position from element

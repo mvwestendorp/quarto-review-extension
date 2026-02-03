@@ -153,6 +153,7 @@ function M.create_identify_filter(config)
 
       if config and config.debug then
         print("DEBUG: Pass 1 - Identifying nested lists, elements in Notes, and Quarto-internal elements")
+        print(string.format("DEBUG: Processing document with %d top-level blocks", #doc.blocks))
       end
 
       -- Process the entire document body
@@ -436,12 +437,13 @@ function M.create_filter_functions(config, context)
     end
 
     if config.debug then
-      print("DEBUG: Processing BlockQuote element")
+      print("DEBUG: Processing BlockQuote element with " .. #elem.content .. " content blocks")
     end
 
     -- Strip nested review-editable divs BEFORE wrapping the blockquote
-    -- Para elements inside BlockQuote get wrapped first (bottom-up processing)
+    -- Para elements and Lists inside BlockQuote get wrapped first (bottom-up processing)
     -- We need to unwrap them so the BlockQuote is a single editable segment
+    local unwrapped_count = 0
     elem = elem:walk {
       Div = function(div)
         -- Check if this div has the review-editable class
@@ -458,8 +460,10 @@ function M.create_filter_functions(config, context)
         end
 
         if has_review_class then
+          unwrapped_count = unwrapped_count + 1
           if config.debug then
-            print("DEBUG: Stripping review-editable div from inside BlockQuote element")
+            local data_id = div.attr and div.attr.attributes and div.attr.attributes["data-review-id"]
+            print(string.format("DEBUG: Stripping review-editable div from inside BlockQuote (id=%s)", tostring(data_id)))
           end
           -- Return the content without the wrapping div
           return pandoc.Blocks(div.content)
@@ -467,6 +471,10 @@ function M.create_filter_functions(config, context)
         return div
       end
     }
+
+    if config.debug and unwrapped_count > 0 then
+      print(string.format("DEBUG: Unwrapped %d review-editable divs from BlockQuote", unwrapped_count))
+    end
 
     -- Now wrap the clean blockquote as a single segment
     return M.make_editable(elem, 'BlockQuote', nil, config, context)
