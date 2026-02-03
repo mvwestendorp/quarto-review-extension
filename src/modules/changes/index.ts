@@ -112,31 +112,12 @@ Consider checking:
     // Select all elements with data-review-id (includes .review-editable divs and header sections)
     const allElements = document.querySelectorAll('[data-review-id]');
 
-    // Filter to include ONLY elements in the main page content
-    // Exclude elements in sidebars, navigation, modals, dialogs, etc.
+    // Filter out elements inside modals, dialogs, or other excluded containers
     const editableElements = Array.from(allElements).filter((elem) => {
       const htmlElem = elem as HTMLElement;
-
-      // Exclude elements in non-content containers
-      if (
-        htmlElem.closest(
-          '.modal, .dialog, [role="dialog"], [aria-modal="true"], ' +
-            '.sidebar, .quarto-sidebar, #quarto-sidebar, ' +
-            '.navbar, .quarto-navbar, #quarto-header, ' +
-            '.quarto-navigation, #quarto-navigation, ' +
-            '.page-navigation, #TOC, .toc-actions, ' +
-            'nav, header:not(#quarto-content header)'
-        )
-      ) {
-        return false;
-      }
-
-      // Include only elements that are within the main content area
-      // Quarto typically uses #quarto-content or main.content for the main page content
-      const mainContent = htmlElem.closest(
-        '#quarto-content, main.content, main, .page-content, #content, article'
+      return !htmlElem.closest(
+        '.modal, .dialog, [role="dialog"], [aria-modal="true"]'
       );
-      return !!mainContent;
     });
 
     // Verify all IDs are unique and deduplicate if necessary
