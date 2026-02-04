@@ -1225,4 +1225,50 @@ describe('QmdExportService', () => {
     expect(result).toContain('Intro paragraph.');
     expect(result).toContain('Outro paragraph.');
   });
+
+  it('exports Div elements (callouts) with proper fence syntax', async () => {
+    const changes = createChangesStub({
+      elements: [
+        {
+          id: 'callout-1',
+          content: '## Important\n\nThis is an important callout with some content.',
+          metadata: {
+            type: 'Div',
+            classes: ['callout-important'],
+          },
+        },
+        {
+          id: 'callout-2',
+          content: '## Note\n\nThis is a note callout.',
+          metadata: {
+            type: 'Div',
+            classes: ['callout-note'],
+            attributes: {
+              collapse: 'true',
+            },
+          },
+        },
+      ],
+    });
+
+    const git = createGitStub('document.qmd');
+    const service = new QmdExportService(changes as any, { git: git as any });
+    const bundle = await service.createBundle();
+    const exported = bundle.files[0]?.content ?? '';
+
+    // Verify the callout-important block has proper fence syntax
+    expect(exported).toContain('::: {.callout-important}');
+    expect(exported).toContain('## Important');
+    expect(exported).toContain('This is an important callout with some content.');
+    expect(exported).toMatch(/::: \{\.callout-important\}\n## Important/);
+
+    // Verify the callout-note block with attributes
+    expect(exported).toContain('::: {.callout-note collapse="true"}');
+    expect(exported).toContain('## Note');
+    expect(exported).toContain('This is a note callout.');
+
+    // Verify closing fences are present (at least 2 closing fences for 2 callouts)
+    const closingFenceCount = (exported.match(/^:::$/gm) || []).length;
+    expect(closingFenceCount).toBeGreaterThanOrEqual(2);
+  });
 });

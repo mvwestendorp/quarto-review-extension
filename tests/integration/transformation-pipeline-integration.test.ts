@@ -10,6 +10,14 @@ import { ChangesModule } from '../../src/modules/changes';
 import { fixtureLoader } from '../utils/fixture-loader';
 
 /**
+ * Normalize line endings to LF for cross-platform testing
+ * Windows uses CRLF (\r\n), Linux/Mac use LF (\n)
+ */
+function normalizeLF(str: string): string {
+  return str.replace(/\r\n/g, '\n');
+}
+
+/**
  * Integration tests for the full transformation pipeline
  *
  * These tests verify the integration of multiple modules:
@@ -356,13 +364,13 @@ Introduction paragraph.
         expect(changes).toBeDefined();
         expect(criticMarkup).toBeDefined();
         expect(html).toBeDefined();
-        expect(accepted.trim()).toBe(testCase.edit.trim());
-        expect(rejected.trim()).toBe(testCase.input.trim());
+        expect(normalizeLF(accepted.trim())).toBe(normalizeLF(testCase.edit.trim()));
+        expect(normalizeLF(rejected.trim())).toBe(normalizeLF(testCase.input.trim()));
 
         // If we have expected outputs, verify them
         if (testCase.expected.criticMarkup) {
-          expect(criticMarkup.trim()).toBe(
-            testCase.expected.criticMarkup.trim()
+          expect(normalizeLF(criticMarkup.trim())).toBe(
+            normalizeLF(testCase.expected.criticMarkup.trim())
           );
         }
       });

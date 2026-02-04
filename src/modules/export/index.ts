@@ -1349,6 +1349,10 @@ export class QmdExportService {
       }
       content = this.injectChunkMetadata(content, element.id);
     }
+    // Reconstruct Div wrapper syntax for elements with Div type (e.g., callouts)
+    if (element.metadata?.type === 'Div') {
+      content = this.wrapDivContent(content, element.metadata);
+    }
     if (format === 'critic') {
       let tracked = false;
       try {
@@ -1387,6 +1391,54 @@ export class QmdExportService {
     const trimmed = content.replace(/\s+$/u, '');
     const separator = trimmed.length > 0 ? '\n\n' : '';
     return `${trimmed}${separator}${markup}`;
+  }
+
+  /**
+   * Wrap content with Div fence syntax (:::) and attributes.
+   * Reconstructs the original Div syntax from metadata.
+   */
+  private wrapDivContent(
+    content: string,
+    metadata: Element['metadata']
+  ): string {
+    if (!metadata) {
+      return content;
+    }
+
+    const attrParts: string[] = [];
+
+    // Add identifier with # prefix if present in attributes
+    if (metadata.attributes?.id) {
+      attrParts.push(`#${metadata.attributes.id}`);
+    }
+
+    // Add classes with . prefix
+    if (metadata.classes && Array.isArray(metadata.classes)) {
+      for (const className of metadata.classes) {
+        attrParts.push(`.${className}`);
+      }
+    }
+
+    // Add key-value attributes (excluding 'id' which is handled separately)
+    if (metadata.attributes && typeof metadata.attributes === 'object') {
+      for (const [key, value] of Object.entries(metadata.attributes)) {
+        if (key !== 'id') {
+          // Escape quotes in value
+          const escapedValue = String(value).replace(/"/g, '\\"');
+          attrParts.push(`${key}="${escapedValue}"`);
+        }
+      }
+    }
+
+    // Build the fence line
+    let fence = ':::';
+    if (attrParts.length > 0) {
+      fence = `${fence} {${attrParts.join(' ')}}`;
+    }
+
+    // Assemble the complete Div with fences
+    const trimmedContent = content.trim();
+    return `${fence}\n${trimmedContent}\n:::`;
   }
 
   private injectChunkMetadata(content: string, elementId: string): string {

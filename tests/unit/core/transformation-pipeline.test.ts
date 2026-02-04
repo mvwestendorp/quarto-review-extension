@@ -7,6 +7,14 @@ import {
 import { fixtureLoader } from '../../utils/fixture-loader';
 
 /**
+ * Normalize line endings to LF for cross-platform testing
+ * Windows uses CRLF (\r\n), Linux/Mac use LF (\n)
+ */
+function normalizeLF(str: string): string {
+  return str.replace(/\r\n/g, '\n');
+}
+
+/**
  * Comprehensive transformation pipeline tests
  *
  * Tests the full text transformation pipeline:
@@ -71,8 +79,8 @@ describe('Text Transformation Pipeline', () => {
 
           // If we have expected CriticMarkup in fixture, verify it
           if (testCase.expected.criticMarkup) {
-            expect(criticMarkup.trim()).toBe(
-              testCase.expected.criticMarkup.trim()
+            expect(normalizeLF(criticMarkup.trim())).toBe(
+              normalizeLF(testCase.expected.criticMarkup.trim())
             );
           }
         });
@@ -92,7 +100,7 @@ describe('Text Transformation Pipeline', () => {
           // Check against expected or edit content
           const expectedAccepted =
             testCase.expected.accepted?.trim() || testCase.edit.trim();
-          expect(accepted.trim()).toBe(expectedAccepted);
+          expect(normalizeLF(accepted.trim())).toBe(normalizeLF(expectedAccepted));
         });
 
         it('should reject changes correctly', () => {
@@ -110,7 +118,7 @@ describe('Text Transformation Pipeline', () => {
           // Check against expected or original content
           const expectedRejected =
             testCase.expected.rejected?.trim() || testCase.input.trim();
-          expect(rejected.trim()).toBe(expectedRejected);
+          expect(normalizeLF(rejected.trim())).toBe(normalizeLF(expectedRejected));
         });
 
         it('should be reversible (roundtrip test)', () => {
@@ -121,10 +129,10 @@ describe('Text Transformation Pipeline', () => {
           const rejected = stripCriticMarkup(criticMarkup, false);
 
           // Accepting should give us the edited content
-          expect(accepted.trim()).toBe(testCase.edit.trim());
+          expect(normalizeLF(accepted.trim())).toBe(normalizeLF(testCase.edit.trim()));
 
           // Rejecting should give us the original content
-          expect(rejected.trim()).toBe(testCase.input.trim());
+          expect(normalizeLF(rejected.trim())).toBe(normalizeLF(testCase.input.trim()));
         });
       });
     });
