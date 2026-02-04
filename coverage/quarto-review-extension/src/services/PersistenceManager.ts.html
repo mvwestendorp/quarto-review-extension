@@ -23,30 +23,30 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">70.94% </span>
+                <span class="strong">70.58% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>105/148</span>
+                <span class='fraction'>108/153</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">63.63% </span>
+                <span class="strong">63.41% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>77/121</span>
+                <span class='fraction'>78/123</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">66.66% </span>
+                <span class="strong">65.21% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>14/21</span>
+                <span class='fraction'>15/23</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">72.53% </span>
+                <span class="strong">72.1% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>103/142</span>
+                <span class='fraction'>106/147</span>
             </div>
         
             
@@ -548,7 +548,22 @@
 <a name='L483'></a><a href='#L483'>483</a>
 <a name='L484'></a><a href='#L484'>484</a>
 <a name='L485'></a><a href='#L485'>485</a>
-<a name='L486'></a><a href='#L486'>486</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L486'></a><a href='#L486'>486</a>
+<a name='L487'></a><a href='#L487'>487</a>
+<a name='L488'></a><a href='#L488'>488</a>
+<a name='L489'></a><a href='#L489'>489</a>
+<a name='L490'></a><a href='#L490'>490</a>
+<a name='L491'></a><a href='#L491'>491</a>
+<a name='L492'></a><a href='#L492'>492</a>
+<a name='L493'></a><a href='#L493'>493</a>
+<a name='L494'></a><a href='#L494'>494</a>
+<a name='L495'></a><a href='#L495'>495</a>
+<a name='L496'></a><a href='#L496'>496</a>
+<a name='L497'></a><a href='#L497'>497</a>
+<a name='L498'></a><a href='#L498'>498</a>
+<a name='L499'></a><a href='#L499'>499</a>
+<a name='L500'></a><a href='#L500'>500</a>
+<a name='L501'></a><a href='#L501'>501</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -654,6 +669,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -687,8 +703,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1007,6 +1024,19 @@
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-yes">14x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1136,6 +1166,7 @@ export class PersistenceManager {
           id: elem.id,
           content: cleanContent,
           metadata: elem.metadata,
+          sourcePosition: elem.sourcePosition,
         };
       });
 &nbsp;
@@ -1172,10 +1203,11 @@ export class PersistenceManager {
         commentsSnapshot,
         currentPagePrefixes
       );
-      const mergedOperations =
-        operationsSnapshot &amp;&amp; operationsSnapshot.length &gt; 0
-          ? operationsSnapshot
-          : existingDraft?.operations;
+      const mergedOperations = this.mergeOperationsByPage(
+        existingDraft?.operations,
+        operationsSnapshot,
+        currentPagePrefixes
+      );
 &nbsp;
       logger.debug('Preparing to persist document', {
         elementCount: mergedElements.length,
@@ -1495,6 +1527,19 @@ export class PersistenceManager {
     return merged.size &gt; 0 ? Array.from(merged.values()) : undefined;
   }
 &nbsp;
+  private mergeOperationsByPage(
+    existing: Operation[] | undefined,
+    updates: Operation[] | undefined,
+    updatedPrefixes: Set&lt;string&gt;
+  ): Operation[] | undefined {
+    const filteredExisting = (existing ?? []).filter(<span class="fstat-no" title="function not covered" >(o</span>p) =&gt; {
+      const <span class="cstat-no" title="statement not covered" >prefix = getPagePrefixFromElementId(op.elementId);</span>
+<span class="cstat-no" title="statement not covered" >      return !updatedPrefixes.has(prefix);</span>
+    });
+    const merged = [...filteredExisting, ...(updates ?? <span class="branch-1 cbranch-no" title="branch not covered" >[])]</span>;
+    return merged.length &gt; 0 ? merged : undefined;
+  }
+&nbsp;
   /**
    * Summarize operations by page for logging
    * Helps with debugging multi-page persistence
@@ -1525,7 +1570,7 @@ export class PersistenceManager {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-03T14:37:25.819Z
+                at 2026-02-04T08:03:41.706Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
