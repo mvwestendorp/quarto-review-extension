@@ -656,6 +656,163 @@ describe('Segment Preprocessor', () => {
     });
   });
 
+  describe('Executable Code Block Annotation', () => {
+    it('should annotate a single executable code block', () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div class="sourceCode cell-code" id="cb1">
+            <pre class="sourceCode python"><code class="sourceCode python">print("hello")</code></pre>
+          </div>
+        </div>
+      `;
+
+      registerSupplementalEditableSegments();
+
+      const block = document.querySelector('[data-review-id]');
+      expect(block).not.toBeNull();
+      expect(block?.getAttribute('data-review-type')).toBe('CodeBlock');
+      expect(block?.getAttribute('data-review-origin')).toBe('source');
+      expect(block?.getAttribute('data-review-markdown')).toBe(
+        '```{python}\nprint("hello")\n```'
+      );
+      expect(block?.getAttribute('data-review-id')).toBe(
+        'review.cell.codeblock-1'
+      );
+      // Non-editable — no review-editable class
+      expect(block?.classList.contains('review-editable')).toBe(false);
+    });
+
+    it('should annotate multiple executable code blocks with sequential IDs', () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div class="sourceCode cell-code" id="cb1">
+            <pre><code class="sourceCode python">x = 1</code></pre>
+          </div>
+        </div>
+        <div class="cell">
+          <div class="sourceCode cell-code" id="cb2">
+            <pre><code class="sourceCode r">y <- 2</code></pre>
+          </div>
+        </div>
+      `;
+
+      registerSupplementalEditableSegments();
+
+      const blocks = document.querySelectorAll('[data-review-type="CodeBlock"]');
+      expect(blocks).toHaveLength(2);
+      expect(blocks[0]?.getAttribute('data-review-id')).toBe(
+        'review.cell.codeblock-1'
+      );
+      expect(blocks[0]?.getAttribute('data-review-markdown')).toBe(
+        '```{python}\nx = 1\n```'
+      );
+      expect(blocks[1]?.getAttribute('data-review-id')).toBe(
+        'review.cell.codeblock-2'
+      );
+      expect(blocks[1]?.getAttribute('data-review-markdown')).toBe(
+        '```{r}\ny <- 2\n```'
+      );
+    });
+
+    it('should skip blocks that already have data-review-id', () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div class="sourceCode cell-code" id="cb1" data-review-id="existing.id" data-review-type="CodeBlock">
+            <pre><code class="sourceCode python">x = 1</code></pre>
+          </div>
+        </div>
+      `;
+
+      registerSupplementalEditableSegments();
+
+      const block = document.querySelector('[data-review-id]');
+      expect(block?.getAttribute('data-review-id')).toBe('existing.id');
+    });
+
+    it('should not annotate plain code blocks without cell-code class', () => {
+      document.body.innerHTML = `
+        <div class="sourceCode" id="cb1">
+          <pre><code class="sourceCode python">x = 1</code></pre>
+        </div>
+      `;
+
+      registerSupplementalEditableSegments();
+
+      const block = document.querySelector('[data-review-type="CodeBlock"]');
+      expect(block).toBeNull();
+    });
+
+    it('should skip blocks without a language class on code element', () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div class="sourceCode cell-code" id="cb1">
+            <pre><code class="sourceCode">no language here</code></pre>
+          </div>
+        </div>
+      `;
+
+      registerSupplementalEditableSegments();
+
+      const block = document.querySelector('[data-review-type="CodeBlock"]');
+      expect(block).toBeNull();
+    });
+
+    it('should skip blocks with empty code content', () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div class="sourceCode cell-code" id="cb1">
+            <pre><code class="sourceCode python"></code></pre>
+          </div>
+        </div>
+      `;
+
+      registerSupplementalEditableSegments();
+
+      const block = document.querySelector('[data-review-type="CodeBlock"]');
+      expect(block).toBeNull();
+    });
+
+    it('should handle code blocks inside code-fold details', () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <details class="code-fold">
+            <summary>Code</summary>
+            <div class="sourceCode cell-code" id="cb1">
+              <pre><code class="sourceCode python">import numpy</code></pre>
+            </div>
+          </details>
+        </div>
+      `;
+
+      registerSupplementalEditableSegments();
+
+      const block = document.querySelector('[data-review-type="CodeBlock"]');
+      expect(block).not.toBeNull();
+      expect(block?.getAttribute('data-review-markdown')).toBe(
+        '```{python}\nimport numpy\n```'
+      );
+    });
+
+    it('should be idempotent when run multiple times', () => {
+      document.body.innerHTML = `
+        <div class="cell">
+          <div class="sourceCode cell-code" id="cb1">
+            <pre><code class="sourceCode python">x = 1</code></pre>
+          </div>
+        </div>
+      `;
+
+      registerSupplementalEditableSegments();
+      registerSupplementalEditableSegments();
+
+      const blocks = document.querySelectorAll('[data-review-type="CodeBlock"]');
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]?.getAttribute('data-review-id')).toBe(
+        'review.cell.codeblock-1'
+      );
+    });
+  });
+
   describe('ID Sanitization', () => {
     it('should replace spaces with hyphens in base ID', () => {
       document.body.innerHTML = `

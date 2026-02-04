@@ -184,46 +184,52 @@ end)
 
 -- generate_id tests
 suite:add("Generates ID with all components", function(s)
+  string_utils.reset_global_counter()
   local counters = {}
   local id = string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
-  s:assertEqual(id, "doc.para-1", "Should generate ID with prefix and counter")
+  s:assertEqual(id, "doc.para-1-occ1", "Should generate ID with prefix and counter")
   s:assertEqual(counters["Para"], 1, "Should increment counter")
 end)
 
 suite:add("Generates IDs with section stack", function(s)
+  string_utils.reset_global_counter()
   local counters = {}
   local id = string_utils.generate_id("doc", ".", {"intro", "background"}, counters, "Para", nil)
-  s:assertEqual(id, "doc.intro.background.para-1", "Should include section hierarchy")
+  s:assertEqual(id, "doc.intro.background.para-1-occ1", "Should include section hierarchy")
 end)
 
 suite:add("Generates IDs with level", function(s)
+  string_utils.reset_global_counter()
   local counters = {}
   local id = string_utils.generate_id("doc", ".", {}, counters, "Header", 2)
-  s:assertEqual(id, "doc.header-1", "Should generate header ID")
+  s:assertEqual(id, "doc.header-1-occ1", "Should generate header ID")
   s:assertEqual(counters["Header-2"], 1, "Should use level in counter key")
 end)
 
 suite:add("Increments counters correctly", function(s)
+  string_utils.reset_global_counter()
   local counters = {}
   local id1 = string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
   local id2 = string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
   local id3 = string_utils.generate_id("doc", ".", {}, counters, "Para", nil)
-  s:assertEqual(id1, "doc.para-1", "First para should be para-1")
-  s:assertEqual(id2, "doc.para-2", "Second para should be para-2")
-  s:assertEqual(id3, "doc.para-3", "Third para should be para-3")
+  s:assertEqual(id1, "doc.para-1-occ1", "First para should be para-1-occ1")
+  s:assertEqual(id2, "doc.para-2-occ2", "Second para should be para-2-occ2")
+  s:assertEqual(id3, "doc.para-3-occ3", "Third para should be para-3-occ3")
   s:assertEqual(counters["Para"], 3, "Counter should be 3")
 end)
 
 suite:add("Uses custom separator", function(s)
+  string_utils.reset_global_counter()
   local counters = {}
   local id = string_utils.generate_id("doc", "-", {"section"}, counters, "Para", nil)
-  s:assertEqual(id, "doc-section-para-1", "Should use custom separator")
+  s:assertEqual(id, "doc-section-para-1-occ1", "Should use custom separator")
 end)
 
 suite:add("Handles empty prefix", function(s)
+  string_utils.reset_global_counter()
   local counters = {}
   local id = string_utils.generate_id("", ".", {}, counters, "Para", nil)
-  s:assertEqual(id, ".para-1", "Should work with empty prefix")
+  s:assertEqual(id, ".para-1-occ1", "Should work with empty prefix")
 end)
 
 suite:add("Different element types have separate counters", function(s)

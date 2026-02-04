@@ -28,6 +28,7 @@ export function registerSupplementalEditableSegments(): void {
 
   annotateDocumentTitle();
   annotateFloatCaptions();
+  annotateExecutableCodeBlocks();
 }
 
 function annotateDocumentTitle(): void {
@@ -113,6 +114,75 @@ function annotateFloatCaptions(): void {
 
     caption.setAttribute('data-review-caption-processed', 'true');
   });
+}
+
+/**
+ * Annotate executable code blocks (cell-code) with review segment attributes.
+ *
+ * The Lua filter deliberately leaves these untouched so that Quarto's own
+ * processCodeCell / resolveCellAnnotes filters can walk the CodeBlock nodes
+ * without hitting a wrapper Div.  We pick them up here, after Quarto has
+ * finished rendering, and stamp the same data-review-* attributes that a
+ * plain code block would have received from the Lua filter.  No
+ * review-editable class is added — these segments are non-editable.
+ */
+function annotateExecutableCodeBlocks(): void {
+  const cellCodeBlocks = document.querySelectorAll<HTMLElement>(
+    'div.sourceCode.cell-code'
+  );
+  if (!cellCodeBlocks.length) {
+    return;
+  }
+
+  let counter = 0;
+  cellCodeBlocks.forEach((block) => {
+    if (block.hasAttribute('data-review-id')) {
+      return;
+    }
+    if (isInExcludedContainer(block)) {
+      return;
+    }
+
+    const codeEl = block.querySelector<HTMLElement>('code');
+    if (!codeEl) {
+      return;
+    }
+
+    const language = extractLanguageFromCode(codeEl);
+    if (!language) {
+      return;
+    }
+
+    const code = codeEl.textContent?.trim() ?? '';
+    if (!code) {
+      return;
+    }
+
+    counter += 1;
+    const markdown = '```{' + language + '}\n' + code + '\n```';
+
+    applySegmentAttributes(block, {
+      id: `${REVIEW_ID_PREFIX}.cell.codeblock-${counter}`,
+      type: 'CodeBlock',
+      markdown,
+      origin: 'source',
+      // Intentionally no classes — executable code blocks are non-editable
+    });
+  });
+}
+
+/**
+ * Extract the language identifier from a <code> element inside a cell-code
+ * block.  Quarto places classes like "sourceCode python" on the element;
+ * the language is the first class that is not "sourceCode".
+ */
+function extractLanguageFromCode(codeEl: HTMLElement): string | null {
+  for (const cls of codeEl.classList) {
+    if (cls !== 'sourceCode') {
+      return cls;
+    }
+  }
+  return null;
 }
 
 function resolveCaptionContext(

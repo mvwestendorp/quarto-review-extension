@@ -13,6 +13,7 @@ export interface DraftElementPayload {
   id: string;
   content: string;
   metadata?: unknown;
+  sourcePosition?: { line: number; column: number };
 }
 
 export type DraftCommentPayload = Comment;

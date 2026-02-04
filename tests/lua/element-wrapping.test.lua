@@ -864,6 +864,8 @@ end)
 -- make_editable behavior tests (using mocks due to pandoc dependency)
 suite:add("make_editable generates unique IDs for elements", function(s)
   local restore_pandoc = setup_pandoc_mock()
+  local string_utils = require('string-utils')
+  string_utils.reset_global_counter()
 
   local config = {
     enabled = true,
@@ -882,7 +884,6 @@ suite:add("make_editable generates unique IDs for elements", function(s)
   local generated_ids = {}
   local original_make_editable = element_wrapping.make_editable
   element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
-    local string_utils = require('string-utils')
     local id = string_utils.generate_id(
       cfg.id_prefix,
       cfg.id_separator,
@@ -906,9 +907,9 @@ suite:add("make_editable generates unique IDs for elements", function(s)
   restore_pandoc()
 
   s:assertEqual(#generated_ids, 3, "Should generate 3 IDs")
-  s:assertEqual(generated_ids[1], "doc.para-1", "First ID should be doc.para-1")
-  s:assertEqual(generated_ids[2], "doc.para-2", "Second ID should be doc.para-2")
-  s:assertEqual(generated_ids[3], "doc.para-3", "Third ID should be doc.para-3")
+  s:assertEqual(generated_ids[1], "doc.para-1-occ1", "First ID should be doc.para-1-occ1")
+  s:assertEqual(generated_ids[2], "doc.para-2-occ2", "Second ID should be doc.para-2-occ2")
+  s:assertEqual(generated_ids[3], "doc.para-3-occ3", "Third ID should be doc.para-3-occ3")
 end)
 
 suite:add("make_editable includes element type in wrapper", function(s)
@@ -980,6 +981,8 @@ end)
 
 suite:add("make_editable uses section stack for nested IDs", function(s)
   local restore_pandoc = setup_pandoc_mock()
+  local string_utils = require('string-utils')
+  string_utils.reset_global_counter()
 
   local config = {
     enabled = true,
@@ -997,7 +1000,6 @@ suite:add("make_editable uses section stack for nested IDs", function(s)
   local generated_ids = {}
   local original_make_editable = element_wrapping.make_editable
   element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
-    local string_utils = require('string-utils')
     local id = string_utils.generate_id(
       cfg.id_prefix,
       cfg.id_separator,
@@ -1020,12 +1022,14 @@ suite:add("make_editable uses section stack for nested IDs", function(s)
   element_wrapping.make_editable = original_make_editable
   restore_pandoc()
 
-  s:assertEqual(generated_ids[1], "doc.intro.header-1", "Header ID should include its own identifier: doc.intro.header-1")
-  s:assertEqual(generated_ids[2], "doc.intro.para-1", "Para ID should include section: doc.intro.para-1")
+  s:assertEqual(generated_ids[1], "doc.intro.header-1-occ1", "Header ID should include its own identifier: doc.intro.header-1-occ1")
+  s:assertEqual(generated_ids[2], "doc.intro.para-1-occ2", "Para ID should include section: doc.intro.para-1-occ2")
 end)
 
 suite:add("make_editable passes config to ID generation", function(s)
   local restore_pandoc = setup_pandoc_mock()
+  local string_utils = require('string-utils')
+  string_utils.reset_global_counter()
 
   local config = {
     enabled = true,
@@ -1043,7 +1047,6 @@ suite:add("make_editable passes config to ID generation", function(s)
   local generated_id = nil
   local original_make_editable = element_wrapping.make_editable
   element_wrapping.make_editable = function(elem, elem_type, level, cfg, ctx)
-    local string_utils = require('string-utils')
     generated_id = string_utils.generate_id(
       cfg.id_prefix,
       cfg.id_separator,
@@ -1061,7 +1064,7 @@ suite:add("make_editable passes config to ID generation", function(s)
   element_wrapping.make_editable = original_make_editable
   restore_pandoc()
 
-  s:assertEqual(generated_id, "custom-prefix-para-1", "Should use custom prefix and separator")
+  s:assertEqual(generated_id, "custom-prefix-para-1-occ1", "Should use custom prefix and separator")
 end)
 
 -- ---------------------------------------------------------------

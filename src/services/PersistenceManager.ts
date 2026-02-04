@@ -101,6 +101,7 @@ export class PersistenceManager {
           id: elem.id,
           content: cleanContent,
           metadata: elem.metadata,
+          sourcePosition: elem.sourcePosition,
         };
       });
 
@@ -137,10 +138,11 @@ export class PersistenceManager {
         commentsSnapshot,
         currentPagePrefixes
       );
-      const mergedOperations =
-        operationsSnapshot && operationsSnapshot.length > 0
-          ? operationsSnapshot
-          : existingDraft?.operations;
+      const mergedOperations = this.mergeOperationsByPage(
+        existingDraft?.operations,
+        operationsSnapshot,
+        currentPagePrefixes
+      );
 
       logger.debug('Preparing to persist document', {
         elementCount: mergedElements.length,
@@ -458,6 +460,19 @@ export class PersistenceManager {
     (updates ?? []).forEach((comment) => merged.set(comment.id, comment));
 
     return merged.size > 0 ? Array.from(merged.values()) : undefined;
+  }
+
+  private mergeOperationsByPage(
+    existing: Operation[] | undefined,
+    updates: Operation[] | undefined,
+    updatedPrefixes: Set<string>
+  ): Operation[] | undefined {
+    const filteredExisting = (existing ?? []).filter((op) => {
+      const prefix = getPagePrefixFromElementId(op.elementId);
+      return !updatedPrefixes.has(prefix);
+    });
+    const merged = [...filteredExisting, ...(updates ?? [])];
+    return merged.length > 0 ? merged : undefined;
   }
 
   /**

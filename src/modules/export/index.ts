@@ -11,6 +11,7 @@ import type {
   Element,
   Operation,
   EditData,
+  DeleteData,
   InsertData,
 } from '@/types';
 import {
@@ -93,6 +94,7 @@ type ElementSnapshot = {
   id: string;
   content: string;
   metadata?: Element['metadata'];
+  sourcePosition?: { line: number; column: number };
 };
 
 type CommentMarkupBlock = {
@@ -128,8 +130,15 @@ export class QmdExportService {
       options.includeCommentsInOutput === undefined
         ? true
         : Boolean(options.includeCommentsInOutput);
-    const primaryFilename = this.resolvePrimaryFilename();
     const projectContext = await this.resolveProjectContext();
+    // Normalize the URL-derived primary filename against the embedded sources.
+    // resolvePrimaryFilename may include output-dir or server-path prefixes
+    // (e.g. "_site/processes/page.qmd") that are not present in the
+    // project-relative source records (e.g. "processes/page.qmd").
+    const primaryFilename = this.normalizePrimaryFilename(
+      this.resolvePrimaryFilename(),
+      projectContext.sources
+    );
     const files = await this.collectFiles(
       primaryFilename,
       format,
@@ -139,7 +148,8 @@ export class QmdExportService {
     const deduped = this.deduplicateFiles(files);
     const suggestedArchiveName = this.suggestArchiveName(
       primaryFilename,
-      format
+      format,
+      projectContext
     );
     const forceArchive = projectContext.hasProjectConfig || deduped.length > 1;
     return {
@@ -179,10 +189,11 @@ export class QmdExportService {
         continue;
       }
       for (const pagePrefix of pagePrefixes) {
-        const inferredFilename = inferQmdFilenameFromPagePrefix(pagePrefix);
+        const fileWithoutExt = source.filename.replace(/\.[^.]+$/, '');
+        const sanitizedPath = fileWithoutExt.replace(/\//g, '-');
         if (
-          source.filename === inferredFilename ||
-          source.filename.includes(pagePrefix)
+          pagePrefix.endsWith(fileWithoutExt) ||
+          pagePrefix.endsWith(sanitizedPath)
         ) {
           pageToSourceFile.set(pagePrefix, source.filename);
           break;
@@ -328,6 +339,26 @@ export class QmdExportService {
     const currentElements = this.changes.getCurrentState();
     if (!originalElements?.length || !currentElements) return null;
 
+    return this.patchSourceWithOps(
+      originalSource,
+      operations,
+      originalElements,
+      currentElements
+    );
+  }
+
+  /**
+   * Patch an original source file using a provided set of operations and
+   * element snapshots.  Used both by patchSourceWithTrackedChanges (current
+   * page, live state) and by the multi-page export path (persisted pages,
+   * reconstructed state).
+   */
+  private patchSourceWithOps(
+    originalSource: string,
+    operations: Operation[],
+    originalElements: ElementSnapshot[],
+    currentElements: ElementSnapshot[]
+  ): string | null {
     // Classify operations.  Later operations on the same element supersede
     // earlier ones – a delete after an edit means the element is deleted.
     const editedIds = new Set<string>();
@@ -434,11 +465,26 @@ export class QmdExportService {
     // Body elements with source positions, sorted ascending by line.
     // Title/DocumentTitle elements live inside the YAML front matter and
     // are handled separately by mergeFrontMatterWithTitle.
+    // Verify that the first content line actually matches the source at the
+    // claimed position — when elements from multiple pages are passed in
+    // simultaneously (e.g. live state covers the whole session), an element's
+    // sourcePosition is valid for its own file but may collide with a
+    // different line in the file we are currently patching.
     const bodyOriginals = elementsWithPositions
       .filter((e) => {
         if (!e.sourcePosition?.line) return false;
         const type = e.metadata?.type;
-        return type !== 'DocumentTitle' && type !== 'Title';
+        if (type === 'DocumentTitle' || type === 'Title') return false;
+        // Position-verification: the first line of the element's original
+        // content must match the source line at the claimed position.
+        const sourceLine = lines[e.sourcePosition.line - 1];
+        const firstLine = e.content.split('\n')[0];
+        if (sourceLine == null || firstLine == null) return false;
+        return (
+          sourceLine.trimEnd() === firstLine.trimEnd() ||
+          sourceLine.replace(/\s+/g, ' ').trim() ===
+            firstLine.replace(/\s+/g, ' ').trim()
+        );
       })
       .sort(
         (a, b) => (a.sourcePosition?.line ?? 0) - (b.sourcePosition?.line ?? 0)
@@ -610,6 +656,78 @@ export class QmdExportService {
   }
 
   /**
+   * Patch a source file for a persisted (non-current) page.  Reconstructs
+   * original and current element snapshots from the persisted elements and
+   * operation history, then delegates to patchSourceWithOps.
+   */
+  private patchSourceForPage(
+    originalSource: string,
+    pagePrefix: string,
+    persistedElements: DraftElementPayload[],
+    pageOperations: Operation[]
+  ): string | null {
+    if (pageOperations.length === 0) return null;
+
+    const pageElements = persistedElements.filter(
+      (e) => e.id && getPagePrefixFromElementId(e.id) === pagePrefix
+    );
+    if (pageElements.length === 0) return null;
+
+    // Index operations by element ID and type for fast lookup
+    const editMap = new Map<string, EditData>();
+    const deleteMap = new Map<string, DeleteData>();
+    const insertSet = new Set<string>();
+    for (const op of pageOperations) {
+      switch (op.type) {
+        case 'edit':
+          editMap.set(op.elementId, op.data as EditData);
+          break;
+        case 'delete':
+          deleteMap.set(op.elementId, op.data as DeleteData);
+          break;
+        case 'insert':
+          insertSet.add(op.elementId);
+          break;
+      }
+    }
+
+    // Original elements: persisted elements with their content rewound to
+    // the pre-edit state, plus deleted elements recovered from delete ops.
+    // Inserted elements are excluded (they did not exist in the original).
+    const originalElements: ElementSnapshot[] = pageElements
+      .filter((e) => !insertSet.has(e.id))
+      .map((e) => ({
+        id: e.id,
+        content: editMap.has(e.id) ? editMap.get(e.id)!.oldContent : e.content,
+        metadata: e.metadata as Element['metadata'] | undefined,
+        sourcePosition: e.sourcePosition,
+      }));
+
+    for (const [id, data] of deleteMap) {
+      originalElements.push({
+        id,
+        content: data.originalContent,
+        metadata: data.originalMetadata as Element['metadata'] | undefined,
+      });
+    }
+
+    // Current elements: persisted elements as-is (they carry post-edit content).
+    const currentElements: ElementSnapshot[] = pageElements.map((e) => ({
+      id: e.id,
+      content: e.content,
+      metadata: e.metadata as Element['metadata'] | undefined,
+      sourcePosition: e.sourcePosition,
+    }));
+
+    return this.patchSourceWithOps(
+      originalSource,
+      pageOperations,
+      originalElements,
+      currentElements
+    );
+  }
+
+  /**
    * Compute the line range (0-indexed, inclusive) of each element in the
    * original source.  An element starts at its recorded source line and
    * extends to the last non-blank line before the next element (or EOF).
@@ -656,12 +774,27 @@ export class QmdExportService {
     context: ProjectContext,
     includeComments: boolean
   ): Promise<ExportedFile[]> {
-    const operations = this.changes.getOperations?.();
-    const operationsByElement = this.groupOperationsByElement(
-      Array.isArray(operations) ? operations : []
-    );
+    const liveOperations = this.changes.getOperations?.();
     const currentElements = this.changes.getCurrentState?.() ?? [];
     const persistedDraft = await this.loadPersistedDraftSnapshot();
+
+    // Merge live + persisted operations so that changes made on other pages
+    // (persisted when the user navigated away) are included in multi-page
+    // detection and export.  Live operations take priority: if an element has
+    // both a live and a persisted operation, only the live one is kept.
+    const liveElementIds = new Set(
+      (Array.isArray(liveOperations) ? liveOperations : []).map(
+        (op) => op.elementId
+      )
+    );
+    const allOperations: Operation[] = [
+      ...(Array.isArray(liveOperations) ? liveOperations : []),
+      ...(persistedDraft?.operations ?? []).filter(
+        (op) => !liveElementIds.has(op.elementId)
+      ),
+    ];
+
+    const operationsByElement = this.groupOperationsByElement(allOperations);
     const commentMap: Map<string, CommentMarkupBlock> = includeComments
       ? this.buildCommentMarkupMap(persistedDraft?.comments)
       : new Map();
@@ -669,25 +802,21 @@ export class QmdExportService {
     // Check if we have proper multi-page IDs (format: page.something)
     // Not multi-page if IDs are just simple IDs without dots (like p-1, p-2)
     const hasProperPagePrefixedIds =
-      operations && operations.length > 0
-        ? operations.some((op) => op.elementId && op.elementId.includes('.'))
+      allOperations.length > 0
+        ? allOperations.some((op) => op.elementId && op.elementId.includes('.'))
         : false;
 
     let hasMultiPageChanges = false;
     if (hasProperPagePrefixedIds) {
-      const pagePrefixes = getPagePrefixesFromOperations(
-        Array.from(operations)
-      );
+      const pagePrefixes = getPagePrefixesFromOperations(allOperations);
       // Multi-page if we have proper page-prefixed IDs and multiple different prefixes
       hasMultiPageChanges = pagePrefixes.length > 1;
     }
 
-    const pagePrefixes = operations
-      ? getPagePrefixesFromOperations(Array.from(operations))
-      : [];
+    const pagePrefixes = getPagePrefixesFromOperations(allOperations);
 
     logger.debug('Export file collection', {
-      operationCount: operations?.length ?? 0,
+      operationCount: allOperations.length,
       pagePrefixes,
       hasProperPagePrefixedIds,
       isMultiPage: hasMultiPageChanges,
@@ -704,7 +833,8 @@ export class QmdExportService {
         persistedDraft?.elements ?? [],
         commentMap,
         operationsByElement,
-        primaryFilename
+        primaryFilename,
+        allOperations
       );
     }
 
@@ -727,14 +857,32 @@ export class QmdExportService {
     commentMap: Map<string, CommentMarkupBlock>,
     operationsByElement: Map<string, Operation[]>
   ): ExportedFile[] {
-    const primaryContent = this.buildPrimaryDocument(
-      primaryFilename,
-      format,
-      context.sources,
-      currentElements,
-      commentMap,
-      operationsByElement
-    );
+    // For 'clean' format, patch the original source in-place so that only
+    // actual user changes differ from the original.  This avoids the
+    // whitespace/formatting noise from full document reconstruction.
+    let primaryContent: string | null = null;
+    if (format !== 'critic') {
+      const sourceRecord = context.sources.find(
+        (r) => r.filename === primaryFilename
+      );
+      if (sourceRecord?.content) {
+        primaryContent = this.patchSourceWithTrackedChanges(
+          sourceRecord.content
+        );
+      }
+    }
+
+    // Fall back to element-based reconstruction (always used for critic format)
+    if (primaryContent == null) {
+      primaryContent = this.buildPrimaryDocument(
+        primaryFilename,
+        format,
+        context.sources,
+        currentElements,
+        commentMap,
+        operationsByElement
+      );
+    }
     const files: ExportedFile[] = [
       {
         filename: primaryFilename,
@@ -792,9 +940,9 @@ export class QmdExportService {
     persistedElements: DraftElementPayload[],
     commentMap: Map<string, CommentMarkupBlock>,
     operationsByElement: Map<string, Operation[]>,
-    primaryFilename: string
+    primaryFilename: string,
+    operations: Operation[]
   ): ExportedFile[] {
-    const operations = Array.from(this.changes.getOperations?.() || []);
     const files: ExportedFile[] = [];
     const elementsByPage = this.buildElementsByPageMap(
       persistedElements,
@@ -850,7 +998,13 @@ export class QmdExportService {
           for (const sourceFile of context.sources) {
             if (!sourceFile.filename) continue;
             const fileWithoutExt = sourceFile.filename.replace(/\.[^.]+$/, '');
-            if (pagePrefix.endsWith(fileWithoutExt)) {
+            // Page prefixes sanitize path separators to hyphens, so also
+            // compare a hyphenated version of the source path.
+            const sanitizedPath = fileWithoutExt.replace(/\//g, '-');
+            if (
+              pagePrefix.endsWith(fileWithoutExt) ||
+              pagePrefix.endsWith(sanitizedPath)
+            ) {
               pageBaseName = fileWithoutExt;
               break;
             }
@@ -919,27 +1073,59 @@ export class QmdExportService {
       sourceFilename = resolvedFilename;
       pageToSourceFile.set(pagePrefix, sourceFilename);
 
-      const pageElements: ElementSnapshot[] =
-        elementsByPage.get(pagePrefix) ??
-        this.filterElementsByPrefix(currentElements, pagePrefix);
-      if (!pageElements || pageElements.length === 0) {
-        logger.warn('No element snapshots available for page export', {
-          pagePrefix,
-        });
-        continue;
+      // Try patching the original source first (clean format only).
+      // patchSourceWithTrackedChanges handles the current page (live ops);
+      // patchSourceForPage handles persisted pages (reconstructed from ops).
+      let pageContent: string | null = null;
+      if (format !== 'critic') {
+        const sourceRecord = context.sources.find(
+          (r) => r.filename === sourceFilename
+        );
+        if (sourceRecord?.content) {
+          // Try live-ops patch first (works for the currently-viewed page)
+          pageContent = this.patchSourceWithTrackedChanges(
+            sourceRecord.content
+          );
+          // Fall back to persisted-ops patch for other pages
+          if (pageContent == null) {
+            const pageOps = operations.filter(
+              (op) => getPagePrefixFromElementId(op.elementId) === pagePrefix
+            );
+            pageContent = this.patchSourceForPage(
+              sourceRecord.content,
+              pagePrefix,
+              persistedElements,
+              pageOps
+            );
+          }
+        }
       }
 
-      const pageContent = this.buildPageDocument(
-        pagePrefix,
-        format,
-        context.sources,
-        sourceFilename,
-        pageElements,
-        commentMap,
-        operationsByElement
-      );
-      if (!pageContent) {
-        continue;
+      // Fall back to element-based reconstruction when patching is not
+      // possible (critic format, missing source, or patching returned null).
+      if (pageContent == null) {
+        const pageElements: ElementSnapshot[] =
+          elementsByPage.get(pagePrefix) ??
+          this.filterElementsByPrefix(currentElements, pagePrefix);
+        if (!pageElements || pageElements.length === 0) {
+          logger.warn('No element snapshots available for page export', {
+            pagePrefix,
+          });
+          continue;
+        }
+
+        pageContent = this.buildPageDocument(
+          pagePrefix,
+          format,
+          context.sources,
+          sourceFilename,
+          pageElements,
+          commentMap,
+          operationsByElement
+        );
+        if (!pageContent) {
+          continue;
+        }
       }
 
       files.push({
@@ -1366,6 +1552,7 @@ export class QmdExportService {
         id: element.id,
         content: element.content,
         metadata: element.metadata,
+        sourcePosition: element.sourcePosition,
       });
     });
 
@@ -1386,6 +1573,7 @@ export class QmdExportService {
         id: element.id,
         content: element.content,
         metadata: element.metadata,
+        sourcePosition: element.sourcePosition,
       }));
   }
 
@@ -1394,6 +1582,7 @@ export class QmdExportService {
       id: element.id,
       content: element.content,
       metadata: element.metadata as Element['metadata'] | undefined,
+      sourcePosition: element.sourcePosition,
     };
   }
 
@@ -1757,7 +1946,9 @@ export class QmdExportService {
         if (/\.html?$/i.test(last)) {
           const base = last.replace(/\.(html?|htm)$/i, '');
           if (base) {
-            return `${base}.qmd`;
+            // Reconstruct the full relative path from all URL segments
+            const parentPath = segments.join('/');
+            return parentPath ? `${parentPath}/${base}.qmd` : `${base}.qmd`;
           }
         }
         // If last segment exists but doesn't look like HTML, it might be a folder
@@ -1774,19 +1965,107 @@ export class QmdExportService {
     return 'document.qmd';
   }
 
+  /**
+   * If the URL-derived candidate contains extra prefix segments (output-dir,
+   * server mount-path, etc.) that are absent from the embedded sources, strip
+   * them so the exported file lands at the correct project-relative path.
+   *
+   * Example: candidate = "_site/processes/page.qmd"
+   *          source   = "processes/page.qmd"   → returns "processes/page.qmd"
+   */
+  private normalizePrimaryFilename(
+    candidate: string,
+    sources: EmbeddedSourceRecord[]
+  ): string {
+    // Exact match – nothing to do.
+    if (sources.some((s) => s.filename === candidate)) {
+      return candidate;
+    }
+
+    // Find the longest source filename that the candidate ends with.
+    // This handles prefixes like "_site/", "_output/", or arbitrary server
+    // mount paths that quarto preview may prepend to the URL.
+    let best: string | null = null;
+    for (const s of sources) {
+      if (!s.filename) continue;
+      if (
+        candidate.endsWith(`/${s.filename}`) &&
+        (best == null || s.filename.length > best.length)
+      ) {
+        best = s.filename;
+      }
+    }
+    return best ?? candidate;
+  }
+
   private suggestArchiveName(
     primaryFilename: string,
-    format: ExportFormat
+    format: ExportFormat,
+    context: ProjectContext
   ): string {
-    // TODO Prefer the project name if applicable
-    const baseName = primaryFilename.replace(/\.qmd$/i, '') || 'export';
-    const slug = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[-:]/g, '')
-      .replace(/\.\d{3}Z$/, 'Z');
+    const title =
+      this.extractTitleFromQuartoConfig(context) ||
+      this.extractTitleFromIndexQmd(context) ||
+      primaryFilename.replace(/\.qmd$/i, '') ||
+      'export';
+
+    const slug = title
+      .replace(/[^a-zA-Z0-9 ._-]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+
     const formatSuffix = format === 'critic' ? '-critic' : '';
-    return `${slug}${formatSuffix}-${timestamp}.zip`;
+    return `${slug || 'export'}${formatSuffix}-${timestamp}.zip`;
+  }
+
+  /**
+   * Extract the project title from _quarto.yml.
+   * Prefers website.title; falls back to a top-level title field.
+   */
+  private extractTitleFromQuartoConfig(context: ProjectContext): string | null {
+    const configRecord = context.sources.find((s) =>
+      this.isQuartoConfig(s.filename)
+    );
+    if (!configRecord?.content) return null;
+
+    // website:\n  title: "..."  (indented under website block)
+    const websiteTitleMatch = configRecord.content.match(
+      /^website:\s*\n(?:[ \t]+[^\n]*\n)*?[ \t]+title:\s*['"]?([^'"\n#]+?)['"]?\s*$/m
+    );
+    if (websiteTitleMatch?.[1]?.trim()) {
+      return websiteTitleMatch[1].trim();
+    }
+
+    // Top-level title: "..."
+    const topTitleMatch = configRecord.content.match(
+      /^title:\s*['"]?([^'"\n#]+?)['"]?\s*$/m
+    );
+    return topTitleMatch?.[1]?.trim() ?? null;
+  }
+
+  /**
+   * Extract the title from index.qmd YAML front matter as a last resort.
+   */
+  private extractTitleFromIndexQmd(context: ProjectContext): string | null {
+    const indexRecord = context.sources.find(
+      (s) => s.filename === 'index.qmd' || s.filename === 'index.md'
+    );
+    if (!indexRecord?.content) return null;
+
+    // Match title inside --- front matter ---
+    const fmMatch = indexRecord.content.match(/^---\s*\n([\s\S]*?)\n---/);
+    if (!fmMatch?.[1]) return null;
+
+    const titleMatch = fmMatch[1].match(
+      /^title:\s*['"]?([^'"\n#]+?)['"]?\s*$/m
+    );
+    return titleMatch?.[1]?.trim() ?? null;
   }
 
   private isQmdFile(filename: string | undefined): boolean {

@@ -298,6 +298,48 @@ function M.create_filter_functions(config, context)
       print(string.format("DEBUG: Wrapping Div with classes: %s", classes))
     end
 
+    -- Strip nested review-editable divs BEFORE wrapping the Div.
+    -- Inner elements (Para, Div, …) are processed first by the walker;
+    -- by the time we reach the outer Div their review-wrapper Divs are
+    -- already in elem.content.  element_to_markdown / div_to_markdown
+    -- would serialise those wrappers into data-review-markdown, causing
+    -- the exported QMD to contain the inner content twice — once inside
+    -- the outer Div's markdown (with review attributes) and once from
+    -- the inner elements themselves.  Stripping them here is the same
+    -- approach the BlockQuote filter uses.
+    if elem.content and #elem.content > 0 and elem.walk then
+      local unwrapped_count = 0
+      elem = elem:walk {
+        Div = function(div)
+          local has_review_class = false
+
+          if div.classes and div.classes:includes("review-editable") then
+            has_review_class = true
+          elseif div.attr and div.attr.attributes and div.attr.attributes["class"] then
+            local class_attr = div.attr.attributes["class"]
+            if class_attr:find("review%-editable") then
+              has_review_class = true
+            end
+          end
+
+          if has_review_class then
+            unwrapped_count = unwrapped_count + 1
+            if config.debug then
+              local data_id = div.attr and div.attr.attributes and div.attr.attributes["data-review-id"]
+              print(string.format("DEBUG: Stripping review-editable div from inside Div (id=%s)", tostring(data_id)))
+            end
+            -- Return the content without the wrapping div
+            return pandoc.Blocks(div.content)
+          end
+          return div
+        end
+      }
+
+      if config.debug and unwrapped_count > 0 then
+        print(string.format("DEBUG: Unwrapped %d review-editable divs from Div", unwrapped_count))
+      end
+    end
+
     return M.make_editable(elem, 'Div', nil, config, context, true)
   end
 
