@@ -69,7 +69,7 @@ describe('QmdExportService', () => {
         .mockImplementation((elementId: string) => {
           const element = elements.find((el) => el.id === elementId);
           if (!element) {
-            return '';
+            throw new Error(`Element ${elementId} not found`);
           }
           if (elementId === 'body-1') {
             return options.critic ?? element.content;
@@ -77,6 +77,7 @@ describe('QmdExportService', () => {
           return element.content;
         }),
       getOperations: vi.fn().mockReturnValue(options.operations ?? []),
+      getStateAfterOperations: vi.fn().mockReturnValue([]),
       toCleanMarkdownSnapshot: vi
         .fn()
         .mockImplementation(
@@ -192,6 +193,20 @@ describe('QmdExportService', () => {
     const changes = createChangesStub({
       clean: '# Body Content',
       title: 'Edited Title',
+      operations: [
+        {
+          id: 'op-title',
+          type: 'edit',
+          elementId: 'doc-title',
+          timestamp: 1,
+          data: {
+            type: 'edit',
+            oldContent: 'Debug Mode Example',
+            newContent: 'Edited Title',
+            changes: [],
+          },
+        },
+      ],
     });
     const git = createGitStub('debug-example.qmd');
     git.listEmbeddedSources = vi.fn().mockResolvedValue([
@@ -533,6 +548,20 @@ describe('QmdExportService', () => {
     const changes = createChangesStub({
       clean: '# Body Content',
       title: 'Front Matter Title',
+      operations: [
+        {
+          id: 'op-title',
+          type: 'edit',
+          elementId: 'doc-title',
+          timestamp: 1,
+          data: {
+            type: 'edit',
+            oldContent: 'Original',
+            newContent: 'Front Matter Title',
+            changes: [],
+          },
+        },
+      ],
     });
     const git = createGitStub('doc.qmd');
     git.listEmbeddedSources = vi.fn().mockResolvedValue([
@@ -1270,5 +1299,56 @@ describe('QmdExportService', () => {
     // Verify closing fences are present (at least 2 closing fences for 2 callouts)
     const closingFenceCount = (exported.match(/^:::$/gm) || []).length;
     expect(closingFenceCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('rejects createBundle when listEmbeddedSources rejects', async () => {
+    const changes = createChangesStub();
+    const git = createGitStub();
+    git.listEmbeddedSources = vi
+      .fn()
+      .mockRejectedValue(new Error('network error'));
+    const service = new QmdExportService(changes as any, { git: git as any });
+
+    await expect(service.createBundle()).rejects.toThrow('network error');
+  });
+
+  it('rejects critic export when element is missing from ChangesModule', async () => {
+    const changes = createChangesStub({
+      critic: 'tracked',
+      operations: [
+        {
+          id: 'op-1',
+          type: 'edit',
+          elementId: 'body-1',
+          timestamp: 1,
+          data: {
+            type: 'edit',
+            oldContent: 'original content',
+            newContent: 'tracked',
+            changes: [],
+          },
+        },
+      ],
+    });
+    changes.getElementContentWithTrackedChanges = vi
+      .fn()
+      .mockImplementation(() => {
+        throw new Error('Element body-1 not found');
+      });
+    const git = createGitStub('article.qmd');
+    git.listEmbeddedSources = vi.fn().mockResolvedValue([
+      {
+        filename: 'article.qmd',
+        content: 'original content',
+        originalContent: 'original content',
+        lastModified: new Date().toISOString(),
+        version: '1',
+      },
+    ]);
+    const service = new QmdExportService(changes as any, { git: git as any });
+
+    await expect(
+      service.createBundle({ format: 'critic' })
+    ).rejects.toThrow('not found');
   });
 });

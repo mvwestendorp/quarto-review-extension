@@ -22,6 +22,9 @@ _site/
 _book/
 example/_extensions/
 
+# Local test projects
+real-project-test/
+
 # Generated extension assets
 _extensions/review/assets/review.js
 _extensions/review/assets/review.js.map

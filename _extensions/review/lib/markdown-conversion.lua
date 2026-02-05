@@ -202,6 +202,15 @@ function M.element_to_markdown(elem)
 
   -- Convert to markdown
   local markdown = pandoc.write(doc, format)
+
+  -- pandoc.write wraps long paragraphs at 72 cols by default.  Rejoin
+  -- the wrapped lines for Para elements so that content-search in the
+  -- export service can match them against the single-line original source.
+  -- (Other block types such as BulletList are intentionally multi-line.)
+  if elem.t == 'Para' then
+    markdown = markdown:gsub('\n', ' '):gsub('%s+$', '')
+  end
+
   -- Remove trailing newlines
   markdown = markdown:gsub('\n+$', '')
   return markdown

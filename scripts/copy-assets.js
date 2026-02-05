@@ -4,7 +4,14 @@
  * Cross-platform script to automate the build → extension copy step
  */
 
-import { copyFileSync, mkdirSync, existsSync, readdirSync, statSync, rmSync } from 'fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  existsSync,
+  readdirSync,
+  statSync,
+  rmSync,
+} from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -57,7 +64,11 @@ console.log('');
 console.log('📦 Installing extension to example directory...');
 
 const extensionSrc = join(rootDir, '_extensions/review');
-const extensionDest = join(rootDir, 'example/_extensions/review');
+const extensionDestExampleProject = join(rootDir, 'example/_extensions/review');
+const extensionDestRealProject = join(
+  rootDir,
+  'real-project-test/_extensions/review'
+);
 
 /**
  * Recursively copy directory
@@ -83,14 +94,20 @@ function copyDir(src, dest) {
 }
 
 // Remove old installation if exists
-if (existsSync(extensionDest)) {
-  rmSync(extensionDest, { recursive: true, force: true });
+if (existsSync(extensionDestExampleProject)) {
+  rmSync(extensionDestExampleProject, { recursive: true, force: true });
+}
+// Remove old installation if exists
+if (existsSync(extensionDestRealProject)) {
+  rmSync(extensionDestRealProject, { recursive: true, force: true });
 }
 
 // Copy extension
 try {
-  copyDir(extensionSrc, extensionDest);
+  copyDir(extensionSrc, extensionDestExampleProject);
   console.log(`✓ Installed extension to example/_extensions/review/`);
+  copyDir(extensionSrc, extensionDestRealProject);
+  console.log(`✓ Installed extension to real-project-test/_extensions/review/`);
   console.log('✅ Extension installation complete!');
 } catch (error) {
   console.error(`✗ Failed to install extension:`, error.message);

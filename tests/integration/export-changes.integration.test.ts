@@ -46,6 +46,7 @@ describe('Export + Changes Integration', () => {
         return '';
       }),
       writeFile: vi.fn().mockResolvedValue(undefined),
+      listEmbeddedSources: vi.fn().mockResolvedValue([]),
     } as unknown as GitModule;
 
     // Initialize changes

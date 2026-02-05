@@ -119,11 +119,9 @@ async function applyEdit(options: {
     timeout: 3_000,
   });
 
-  // Escape opening brackets and underscores for markdown (they're escaped in the export)
-  // Note: Closing brackets are NOT escaped by the export
-  const exportText = marker
-    .replace(/\[/g, '\\[')
-    .replace(/_/g, '\\_');
+  // Escape opening brackets for markdown; closing brackets and
+  // underscores are left unescaped by the export.
+  const exportText = marker.replace(/\[/g, '\\[');
 
   return {
     elementId: elementId!,

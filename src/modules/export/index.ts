@@ -15,10 +15,6 @@ import type {
   InsertData,
 } from '@/types';
 import {
-  generateChanges,
-  changesToCriticMarkup,
-} from '@modules/changes/converters';
-import {
   groupOperationsByPage,
   inferQmdFilenameFromPagePrefix,
   getPagePrefixesFromOperations,
@@ -164,9 +160,6 @@ export class QmdExportService {
   public async getOperationSnapshots(
     format: ExportFormat
   ): Promise<OperationSnapshot[]> {
-    if (typeof this.changes.getOperations !== 'function') {
-      return [];
-    }
     const operations = this.changes.getOperations();
     if (!operations?.length) {
       return [];
@@ -221,9 +214,8 @@ export class QmdExportService {
 
       const body =
         format === 'critic'
-          ? (this.changes.toMarkdownSnapshot?.(i + 1) ??
-            this.changes.toCleanMarkdownSnapshot?.(i + 1))
-          : this.changes.toCleanMarkdownSnapshot?.(i + 1);
+          ? this.changes.toMarkdownSnapshot(i + 1)
+          : this.changes.toCleanMarkdownSnapshot(i + 1);
       if (!body) {
         continue;
       }
@@ -274,10 +266,7 @@ export class QmdExportService {
     const shouldArchive = bundle.forceArchive || bundle.files.length > 1;
 
     if (!shouldArchive) {
-      const [file] = bundle.files;
-      if (!file) {
-        throw new Error('Export bundle missing file data');
-      }
+      const file = bundle.files[0]!;
       const blob = new Blob([file.content], { type: 'text/markdown' });
       this.triggerDownload(blob, file.filename);
       logger.info('Exported single QMD file', {
@@ -325,15 +314,8 @@ export class QmdExportService {
    * to the reconstructed content from createBundle().
    */
   public patchSourceWithTrackedChanges(originalSource: string): string | null {
-    const operations = Array.from(this.changes.getOperations?.() ?? []);
+    const operations = Array.from(this.changes.getOperations());
     if (operations.length === 0) return null;
-
-    if (
-      typeof this.changes.getStateAfterOperations !== 'function' ||
-      typeof this.changes.getCurrentState !== 'function'
-    ) {
-      return null;
-    }
 
     const originalElements = this.changes.getStateAfterOperations(0);
     const currentElements = this.changes.getCurrentState();
@@ -456,6 +438,35 @@ export class QmdExportService {
       }
     }
 
+    // Prefix-match fallback: Pandoc may wrap long paragraphs at 72 columns,
+    // making the element's first line a prefix of the source line (or
+    // vice-versa).  Accept when the shorter side is ≥ 20 chars — the same
+    // threshold used in the position-verification filter below.
+    for (const elem of originalElements) {
+      if (elem.sourcePosition?.line) continue;
+      if (resolvedPositions.has(elem.id)) continue;
+      if (!neededIds.has(elem.id)) continue;
+      const type = elem.metadata?.type;
+      if (type === 'DocumentTitle' || type === 'Title') continue;
+
+      const firstLine = elem.content.split('\n')[0];
+      if (!firstLine) continue;
+      const target = firstLine.replace(/\s+/g, ' ').trim();
+      if (target.length < 20) continue;
+      for (let i = 0; i < lines.length; i++) {
+        if (claimedLines.has(i + 1)) continue;
+        const srcNorm = (lines[i] ?? '').replace(/\s+/g, ' ').trim();
+        if (
+          srcNorm.length >= 20 &&
+          (srcNorm.startsWith(target) || target.startsWith(srcNorm))
+        ) {
+          resolvedPositions.set(elem.id, { line: i + 1, column: 1 });
+          claimedLines.add(i + 1);
+          break;
+        }
+      }
+    }
+
     // Snapshot elements with resolved positions (originals untouched).
     const elementsWithPositions = originalElements.map((elem) => ({
       ...elem,
@@ -480,15 +491,20 @@ export class QmdExportService {
         const sourceLine = lines[e.sourcePosition.line - 1];
         const firstLine = e.content.split('\n')[0];
         if (sourceLine == null || firstLine == null) return false;
+        const srcTrimmed = sourceLine.trimEnd();
+        const fstTrimmed = firstLine.trimEnd();
         return (
-          sourceLine.trimEnd() === firstLine.trimEnd() ||
+          srcTrimmed === fstTrimmed ||
           sourceLine.replace(/\s+/g, ' ').trim() ===
-            firstLine.replace(/\s+/g, ' ').trim()
+            firstLine.replace(/\s+/g, ' ').trim() ||
+          // Pandoc may wrap long paragraphs (default 72 cols), making the
+          // stored first line a prefix of the original source line.  Accept
+          // when the shorter side is long enough to be unambiguous.
+          (fstTrimmed.length >= 20 && srcTrimmed.startsWith(fstTrimmed)) ||
+          (srcTrimmed.length >= 20 && fstTrimmed.startsWith(srcTrimmed))
         );
       })
-      .sort(
-        (a, b) => (a.sourcePosition?.line ?? 0) - (b.sourcePosition?.line ?? 0)
-      );
+      .sort((a, b) => a.sourcePosition!.line - b.sourcePosition!.line);
 
     if (bodyOriginals.length === 0) return null;
     const ranges = this.computeElementLineRanges(bodyOriginals, lines);
@@ -774,8 +790,8 @@ export class QmdExportService {
     context: ProjectContext,
     includeComments: boolean
   ): Promise<ExportedFile[]> {
-    const liveOperations = this.changes.getOperations?.();
-    const currentElements = this.changes.getCurrentState?.() ?? [];
+    const liveOperations = this.changes.getOperations();
+    const currentElements = this.changes.getCurrentState();
     const persistedDraft = await this.loadPersistedDraftSnapshot();
 
     // Merge live + persisted operations so that changes made on other pages
@@ -832,7 +848,6 @@ export class QmdExportService {
         currentElements,
         persistedDraft?.elements ?? [],
         commentMap,
-        operationsByElement,
         primaryFilename,
         allOperations
       );
@@ -857,30 +872,37 @@ export class QmdExportService {
     commentMap: Map<string, CommentMarkupBlock>,
     operationsByElement: Map<string, Operation[]>
   ): ExportedFile[] {
-    // For 'clean' format, patch the original source in-place so that only
-    // actual user changes differ from the original.  This avoids the
-    // whitespace/formatting noise from full document reconstruction.
     let primaryContent: string | null = null;
-    if (format !== 'critic') {
-      const sourceRecord = context.sources.find(
-        (r) => r.filename === primaryFilename
-      );
-      if (sourceRecord?.content) {
-        primaryContent = this.patchSourceWithTrackedChanges(
-          sourceRecord.content
-        );
-      }
+    const sourceRecord = context.sources.find(
+      (r) => r.filename === primaryFilename
+    );
+
+    // When there are no edits and no comments the source is unchanged.
+    // Return it directly to avoid lossy element-based reconstruction,
+    // which silently drops elements the Lua filter intentionally skips
+    // (e.g. executable code cells inside div.cell containers).
+    if (
+      operationsByElement.size === 0 &&
+      commentMap.size === 0 &&
+      sourceRecord?.content
+    ) {
+      primaryContent = sourceRecord.content;
+    } else if (format !== 'critic' && sourceRecord?.content) {
+      // For 'clean' format, patch the original source in-place so that only
+      // actual user changes differ from the original.  This avoids the
+      // whitespace/formatting noise from full document reconstruction.
+      primaryContent = this.patchSourceWithTrackedChanges(sourceRecord.content);
     }
 
-    // Fall back to element-based reconstruction (always used for critic format)
+    // Fall back to element-based reconstruction (always used for critic format,
+    // or when source-based patching is not possible).
     if (primaryContent == null) {
       primaryContent = this.buildPrimaryDocument(
         primaryFilename,
         format,
         context.sources,
         currentElements,
-        commentMap,
-        operationsByElement
+        commentMap
       );
     }
     const files: ExportedFile[] = [
@@ -939,7 +961,6 @@ export class QmdExportService {
     currentElements: Element[],
     persistedElements: DraftElementPayload[],
     commentMap: Map<string, CommentMarkupBlock>,
-    operationsByElement: Map<string, Operation[]>,
     primaryFilename: string,
     operations: Operation[]
   ): ExportedFile[] {
@@ -1120,8 +1141,7 @@ export class QmdExportService {
           context.sources,
           sourceFilename,
           pageElements,
-          commentMap,
-          operationsByElement
+          commentMap
         );
         if (!pageContent) {
           continue;
@@ -1206,7 +1226,7 @@ export class QmdExportService {
     primaryFilename: string
   ): string {
     if (!candidate) {
-      return this.findFirstContentSource(context)?.filename ?? primaryFilename;
+      return primaryFilename;
     }
 
     const matchingSource = context.sources.find((source) =>
@@ -1214,11 +1234,6 @@ export class QmdExportService {
     );
     if (matchingSource?.filename) {
       return matchingSource.filename;
-    }
-
-    const fallback = this.findFirstContentSource(context);
-    if (fallback?.filename) {
-      return fallback.filename;
     }
 
     return primaryFilename;
@@ -1237,28 +1252,17 @@ export class QmdExportService {
     return sourceFilename.endsWith(`/${candidate}`);
   }
 
-  private findFirstContentSource(
-    context: ProjectContext
-  ): EmbeddedSourceRecord | undefined {
-    return context.sources.find(
-      (record) =>
-        this.isQmdFile(record.filename) || this.isMdFile(record.filename)
-    );
-  }
-
   private buildPrimaryDocument(
     primaryFilename: string,
     format: ExportFormat,
     sources: EmbeddedSourceRecord[],
     currentElements: Element[],
-    commentMap: Map<string, CommentMarkupBlock>,
-    operationsByElement: Map<string, Operation[]>
+    commentMap: Map<string, CommentMarkupBlock>
   ): string {
     const body = this.buildBodyFromElements(
       currentElements,
       format,
-      commentMap,
-      operationsByElement
+      commentMap
     );
     const pageTitle = this.extractTitleFromElements(currentElements);
     const sourceRecord = sources.find(
@@ -1281,15 +1285,9 @@ export class QmdExportService {
     sources: EmbeddedSourceRecord[],
     resolvedFilename: string,
     pageElements: ElementSnapshot[],
-    commentMap: Map<string, CommentMarkupBlock>,
-    operationsByElement: Map<string, Operation[]>
+    commentMap: Map<string, CommentMarkupBlock>
   ): string | null {
-    const body = this.buildBodyFromElements(
-      pageElements,
-      format,
-      commentMap,
-      operationsByElement
-    );
+    const body = this.buildBodyFromElements(pageElements, format, commentMap);
     if (!body.trim()) {
       logger.debug('Skipping page with no changes', { pagePrefix });
       return null;
@@ -1311,8 +1309,7 @@ export class QmdExportService {
   private buildBodyFromElements(
     elements: ElementSnapshot[],
     format: ExportFormat,
-    commentMap: Map<string, CommentMarkupBlock>,
-    operationsByElement: Map<string, Operation[]>
+    commentMap: Map<string, CommentMarkupBlock>
   ): string {
     if (!elements.length) {
       return '';
@@ -1323,14 +1320,7 @@ export class QmdExportService {
         const type = element.metadata?.type;
         return type !== 'DocumentTitle' && type !== 'Title';
       })
-      .map((element) =>
-        this.renderElementContent(
-          element,
-          format,
-          commentMap,
-          operationsByElement
-        )
-      )
+      .map((element) => this.renderElementContent(element, format, commentMap))
       .filter((segment) => segment && segment.trim().length > 0);
 
     return sections.join('\n\n');
@@ -1339,8 +1329,7 @@ export class QmdExportService {
   private renderElementContent(
     element: ElementSnapshot,
     format: ExportFormat,
-    commentMap: Map<string, CommentMarkupBlock>,
-    operationsByElement: Map<string, Operation[]>
+    commentMap: Map<string, CommentMarkupBlock>
   ): string {
     let content = element.content;
     if (element.metadata?.type === 'CodeBlock') {
@@ -1354,25 +1343,7 @@ export class QmdExportService {
       content = this.wrapDivContent(content, element.metadata);
     }
     if (format === 'critic') {
-      let tracked = false;
-      try {
-        content = this.changes.getElementContentWithTrackedChanges(element.id);
-        tracked = true;
-      } catch (error) {
-        logger.debug(
-          'Tracked changes unavailable from ChangesModule; using fallback',
-          { elementId: element.id, error }
-        );
-      }
-      if (!tracked) {
-        const fallback = this.buildCriticContentFromOperations(
-          element,
-          operationsByElement.get(element.id)
-        );
-        if (fallback) {
-          content = fallback;
-        }
-      }
+      content = this.changes.getElementContentWithTrackedChanges(element.id);
     }
 
     const commentMarkup = commentMap.get(element.id);
@@ -1481,37 +1452,6 @@ export class QmdExportService {
 
     lines.splice(fenceIndex + 1, 0, ...insertLines);
     return lines.join('\n');
-  }
-
-  private buildCriticContentFromOperations(
-    element: ElementSnapshot,
-    operations: Operation[] | undefined
-  ): string | null {
-    if (!operations || !operations.length) {
-      return null;
-    }
-
-    const firstEdit = operations.find((op) => op.type === 'edit');
-    let baseline: string | undefined;
-
-    if (firstEdit) {
-      baseline = (firstEdit.data as EditData)?.oldContent;
-    } else {
-      const firstInsert = operations.find((op) => op.type === 'insert');
-      if (firstInsert) {
-        baseline = '';
-      }
-    }
-
-    if (baseline === undefined) {
-      return element.content;
-    }
-
-    const diffs = generateChanges(baseline, element.content);
-    if (!diffs.length) {
-      return element.content;
-    }
-    return changesToCriticMarkup(baseline, diffs);
   }
 
   private formatChunkOptionValue(value: string): string {
@@ -1690,17 +1630,14 @@ export class QmdExportService {
       return null;
     }
     try {
-      const draft =
-        (await this.localPersistence.loadDraft()) as PersistedDraftSnapshot | null;
+      const draft = await this.localPersistence.loadDraft();
       if (!draft) {
         return null;
       }
       return {
-        elements: Array.isArray(draft.elements) ? draft.elements : [],
-        comments: Array.isArray(draft.comments) ? draft.comments : undefined,
-        operations: Array.isArray(draft.operations)
-          ? draft.operations
-          : undefined,
+        elements: draft.elements,
+        comments: draft.comments,
+        operations: draft.operations,
       };
     } catch (error) {
       logger.warn('Failed to load persisted draft for export', error);
@@ -1948,40 +1885,33 @@ export class QmdExportService {
       return { sources: [], hasProjectConfig: false };
     }
 
-    try {
-      const sources = await this.git.listEmbeddedSources();
+    const sources = await this.git.listEmbeddedSources();
 
-      logger.info('Resolved project sources', {
-        totalSources: sources.length,
-        sourceFilenames: sources.map((s) => s.filename),
-        qmdFiles: sources
-          .filter(
-            (s) => this.isQmdFile(s.filename) || this.isMdFile(s.filename)
-          )
-          .map((s) => s.filename),
-        configFiles: sources
-          .filter((s) => this.isQuartoConfig(s.filename))
-          .map((s) => s.filename),
-      });
+    logger.info('Resolved project sources', {
+      totalSources: sources.length,
+      sourceFilenames: sources.map((s) => s.filename),
+      qmdFiles: sources
+        .filter((s) => this.isQmdFile(s.filename) || this.isMdFile(s.filename))
+        .map((s) => s.filename),
+      configFiles: sources
+        .filter((s) => this.isQuartoConfig(s.filename))
+        .map((s) => s.filename),
+    });
 
-      const hasProjectConfig = sources.some((record) =>
-        this.isQuartoConfig(record.filename)
-      );
+    const hasProjectConfig = sources.some((record) =>
+      this.isQuartoConfig(record.filename)
+    );
 
-      // Parse render patterns from _quarto.yml if it exists
-      let renderPatterns: string[] | undefined;
-      const quartoConfig = sources.find((record) =>
-        this.isQuartoConfig(record.filename)
-      );
-      if (quartoConfig) {
-        renderPatterns = this.parseRenderPatterns(quartoConfig.content);
-      }
-
-      return { sources, hasProjectConfig, renderPatterns };
-    } catch (error) {
-      logger.warn('Failed to read embedded sources for export', error);
-      return { sources: [], hasProjectConfig: false };
+    // Parse render patterns from _quarto.yml if it exists
+    let renderPatterns: string[] | undefined;
+    const quartoConfig = sources.find((record) =>
+      this.isQuartoConfig(record.filename)
+    );
+    if (quartoConfig) {
+      renderPatterns = this.parseRenderPatterns(quartoConfig.content);
     }
+
+    return { sources, hasProjectConfig, renderPatterns };
   }
 
   private resolvePrimaryFilename(): string {
@@ -2140,41 +2070,36 @@ export class QmdExportService {
    * Returns array of patterns, or undefined if no render config found.
    */
   private parseRenderPatterns(configContent: string): string[] | undefined {
-    try {
-      // Simple YAML parsing for render list
-      // Look for "render:" followed by a list of patterns
-      const renderMatch = configContent.match(
-        /^[ \t]*render:\s*\n((?:[ \t]+-.+\n?)+)/m
-      );
-      if (!renderMatch) {
-        return undefined;
-      }
-
-      const renderSection = renderMatch[1];
-      if (!renderSection) {
-        return undefined;
-      }
-      const patterns: string[] = [];
-
-      // Extract each pattern from the list
-      const patternMatches = renderSection.matchAll(/^[ \t]+-[ \t]+(.+)$/gm);
-      for (const match of patternMatches) {
-        const capturedPattern = match[1];
-        if (!capturedPattern) continue;
-        let pattern = capturedPattern.trim();
-        // Remove quotes if present
-        pattern = pattern.replace(/^["']|["']$/g, '');
-        if (pattern) {
-          patterns.push(pattern);
-        }
-      }
-
-      logger.debug('Parsed render patterns from _quarto.yml', { patterns });
-      return patterns.length > 0 ? patterns : undefined;
-    } catch (error) {
-      logger.warn('Failed to parse render patterns from _quarto.yml', error);
+    // Simple YAML parsing for render list
+    // Look for "render:" followed by a list of patterns
+    const renderMatch = configContent.match(
+      /^[ \t]*render:\s*\n((?:[ \t]+-.+\n?)+)/m
+    );
+    if (!renderMatch) {
       return undefined;
     }
+
+    const renderSection = renderMatch[1];
+    if (!renderSection) {
+      return undefined;
+    }
+    const patterns: string[] = [];
+
+    // Extract each pattern from the list
+    const patternMatches = renderSection.matchAll(/^[ \t]+-[ \t]+(.+)$/gm);
+    for (const match of patternMatches) {
+      const capturedPattern = match[1];
+      if (!capturedPattern) continue;
+      let pattern = capturedPattern.trim();
+      // Remove quotes if present
+      pattern = pattern.replace(/^["']|["']$/g, '');
+      if (pattern) {
+        patterns.push(pattern);
+      }
+    }
+
+    logger.debug('Parsed render patterns from _quarto.yml', { patterns });
+    return patterns.length > 0 ? patterns : undefined;
   }
 
   /**
