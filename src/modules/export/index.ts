@@ -1343,7 +1343,19 @@ export class QmdExportService {
       content = this.wrapDivContent(content, element.metadata);
     }
     if (format === 'critic') {
-      content = this.changes.getElementContentWithTrackedChanges(element.id);
+      try {
+        content = this.changes.getElementContentWithTrackedChanges(element.id);
+      } catch (error) {
+        // Element may have been removed or not exist in current state
+        // Fall back to the snapshot content
+        logger.warn(
+          'Failed to get tracked changes for element, using snapshot content',
+          {
+            elementId: element.id,
+            error: error instanceof Error ? error.message : String(error),
+          }
+        );
+      }
     }
 
     const commentMarkup = commentMap.get(element.id);

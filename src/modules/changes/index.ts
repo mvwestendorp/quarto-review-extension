@@ -564,7 +564,11 @@ Consider checking:
   public getElementContentWithTrackedChanges(id: string): string {
     const element = this.getElementById(id);
     if (!element) {
-      throw new Error(`Element ${id} not found`);
+      // Element may not exist in current state (removed, or from a different page in multi-page export)
+      logger.warn('Element not found when getting tracked changes, skipping', {
+        id,
+      });
+      return '';
     }
     const baseline = this.getElementBaseline(id);
     const targetContent = element.content;

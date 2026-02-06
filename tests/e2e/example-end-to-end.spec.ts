@@ -5,8 +5,14 @@ test.describe('Example project end-to-end workflow', () => {
   test('edits multiple documents, exports clean/critic bundles, and submits review', async ({
     page,
     browserName,
+    context,
   }) => {
     test.skip(browserName === 'webkit', 'Downloads are unreliable in WebKit within CI sandbox');
+
+    // Disable cache to ensure fresh assets
+    await context.route('**/*', (route) => {
+      route.continue({ headers: { ...route.request().headers(), 'Cache-Control': 'no-cache' } });
+    });
 
     const gitMock = new GitHubApiMock();
     await gitMock.intercept(page);
@@ -22,6 +28,16 @@ test.describe('Example project end-to-end workflow', () => {
 
     await page.goto('/example');
     await waitForReviewReady(page);
+
+    // Capture console errors for debugging
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        console.error('Browser console error:', msg.text());
+      }
+    });
+    page.on('pageerror', (error) => {
+      console.error('Page error:', error);
+    });
 
     await applyEdit({
       page,
